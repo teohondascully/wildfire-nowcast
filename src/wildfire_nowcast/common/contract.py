@@ -522,6 +522,24 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "per-fire reports — a train mean outside a C1.7 definitional range is the measured "
         "CZU case (-492% canopy). The 'necessary but not sufficient' half is a working rule.",
     ),
+    # [v2.14] Maintainer edit, declared (ADR-044). SECOND clause-authoring
+    # crossing in one session: A14's auto-discovery covers metrics and
+    # playthroughs but NOT clause classification, so writing a clause still
+    # compels an edit to this file. Assigned to infra as a mechanism fix.
+    "C6.5": ClauseImpl(
+        CLAUSE_EXTERNAL,
+        where=(
+            "wildfire_nowcast.common.dispersion.g3_conditions",
+            "wildfire_nowcast.common.dispersion.first_moment_condition_from_blocks",
+            "wildfire_nowcast.eval.baseline_run.g3_summary",
+        ),
+        note="the geometric bar plus the reference-defined first-moment condition. Ratified at "
+        "v2.14 and NOT at v2.13, because at v2.13 the code existed in `common/dispersion.py` and "
+        "NOTHING CALLED IT — the only importer was `common/pooling.py`. A clause is ratified when "
+        "the GATE PATH runs it. Verified before the bump: `eval/baseline_run.py` imports "
+        "`common.dispersion as g3`, calls `g3.first_moment_condition_from_blocks`, and emits "
+        "`g3_conditions`. UNDEFINED is a third outcome and is never a pass.",
+    ),
     # [v2.13] Classified by the ORCHESTRATOR, not infra — a declared
     # boundary crossing (ADR-040). I authored C3.5, the registry correctly went
     # red because it was unclassified, and no lead was live to fix it. The
