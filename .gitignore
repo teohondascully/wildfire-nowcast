@@ -19,9 +19,24 @@ env/
 .ipynb_checkpoints/
 
 # Project outputs (anchored to root — does NOT match src/wildfire_nowcast/data)
-/data/
+# NOTE the `/*` form on /data: git cannot re-include a file whose PARENT DIR is
+# excluded, so `/data/` + `!/data/norm_stats.json` would silently not work.
+/data/*
+!/data/norm_stats.json
 /outputs/
+/runs/
 *.mp4
+
+# Generated figures and the review page (32.8 MB, rebuilt by sim/review.py).
+# WARNING: these are only regenerable together with /runs/, which is ALSO
+# ignored — so a fresh clone cannot reproduce them. See STATE.md "PROVENANCE
+# GAP": run records are the evidence behind every gate verdict and are
+# currently unversioned. Needs a decision (git-lfs or an external archive).
+/reports/
 
 # OS
 .DS_Store
+
+# Vendored third-party baseline (ELMFIRE) — upstream git repo, re-clonable.
+# Was staging as a BROKEN empty gitlink. Make it a submodule if it must be pinned.
+/vendor/
