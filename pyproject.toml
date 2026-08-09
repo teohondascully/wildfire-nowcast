@@ -11,6 +11,7 @@ dependencies = [
     "numpy",
     "xarray",
     "zarr",
+    "pyyaml",
     "torch",
     "earthengine-api",
     "geopandas",
@@ -40,3 +41,11 @@ select = ["E", "F", "I", "B", "UP", "W"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
+# `slow` is DESELECTED by `make test` and RUN by `make playthrough` / `make check`.
+# It exists for exactly one case today: the ELMFIRE non-degeneracy playthrough,
+# which runs a real Fortran simulator six times (33 s). Bare `pytest` still runs
+# everything -- the deselection lives in the Makefile, so nothing is hidden in a
+# default that a reader of this file would not see.
+markers = [
+    "slow: runs an external simulator or a large scenario; see tests/test_playthrough_registry.py",
+]
