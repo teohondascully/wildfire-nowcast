@@ -1,0 +1,17 @@
+# Smallest end-to-end config: one synthetic fire (C4), no network, no credentials.
+# Intended as the first thing any new pipeline is pointed at.
+
+defaults: [base]
+
+seed: 0
+
+data:
+  source: synthetic
+  synthetic:
+    seed: 0
+    n_hours: 24
+    # Written next to each other so the result is a valid C1/C2/C3 triple.
+    out: outputs/synthetic_fire/tensor.zarr
+
+run:
+  prefix: synth-smoke

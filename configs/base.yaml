@@ -1,0 +1,63 @@
+# Shared settings every experiment inherits (C7). Compose with `defaults: [base]`.
+#
+# Scope note: this file holds only infrastructure-level settings — grid, paths,
+# seeding, run bookkeeping. Model, training and evaluation sections are owned by
+# modelling and simulation/figure sections by sim; they add their own
+# blocks in their own experiment configs rather than editing this one.
+
+seed: 0
+
+# NOTE [A14]: `interfaces_version` is deliberately NOT written here any more.
+# It is STAMPED into every resolved config by `common.config.load_config` from
+# `contract.CONTRACT_VERSION`, which is itself derived from INTERFACES.md line 1.
+# It used to be a literal, which made this the third place one fact was recorded
+# and the third place it could go stale — and because a test pinned them equal, a
+# contract bump by the maintainer turned the build red until infra edited
+# this file. Two sources of truth for one fact force a boundary crossing
+# (ADR-033 (1)); the fix is to delete the copy, not to keep it correct.
+# A config that declares this key with a DIFFERENT value is now an error.
+
+grid:
+  # Frozen scientific ground truth (CLAUDE.md); mirrored here so runs record it.
+  crs: EPSG:5070
+  cell_size_m: 1000
+  timestep_hours: 1
+  # C1.2: cell edges land on integer multiples of cell_size_m from the EPSG:5070
+  # origin, so cell (i, j) means the same ground in every fire.
+  lattice_origin_m: [0, 0]
+  # C1.3: GOFER tUTC labels the hour ENDING at t; RTMA is lagged 1 h to match.
+  # Getting this wrong trains every fire an hour out of phase with its weather.
+  time_convention: end_of_hour
+
+paths:
+  # Relative to the repository root; overridable via WILDFIRE_* env vars.
+  data: data
+  fires: data/fires
+  interim: data/interim
+  norm_stats: data/norm_stats.json
+  runs: runs
+  outputs: outputs
+
+data:
+  # "synthetic" uses common.synthetic (C4); "fires" reads data/fires/{fire_id}.
+  source: fires
+  fire_ids: []
+  cv:
+    # C3.1 / ADR-006 P4: buffered domains overlap, so folds are blocked on the
+    # connected components of that overlap graph, NOT on individual fires.
+    # Leave-one-fire-out across an overlapping pair is landscape leakage.
+    scheme: spatial_block
+    fold: 0
+    # 28 fires form 11 connected blocks. Effective n is 11: do not quote CV
+    # spread as if it were 28 (that overstates precision by ~sqrt(28/11)).
+    n_blocks: 11
+    n_folds: 5
+  norm_stats:
+    # C3.3: any REPORTED number must come from stats spanning >= 2 blocks.
+    # `make contract-reporting` enforces it; this is the value it enforces.
+    min_train_blocks_for_reporting: 2
+
+run:
+  prefix: run
+  # Record the resolved config + git SHA into runs/{run_id}/config.yaml.
+  log_provenance: true
