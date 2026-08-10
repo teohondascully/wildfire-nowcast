@@ -40,5 +40,3 @@ env/
 # Vendored third-party baseline (ELMFIRE) — upstream git repo, re-clonable.
 # Was staging as a BROKEN empty gitlink. Make it a submodule if it must be pinned.
 /vendor/
-
-/docs/
