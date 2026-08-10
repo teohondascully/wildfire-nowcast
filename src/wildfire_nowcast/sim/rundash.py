@@ -350,7 +350,7 @@ def render_run_dashboard(
             "WITHOUT its own gate criterion — the exact defect infra\n"
             "caught for C6.4 one gate ago (ADR-020 (6)).\n\n"
             "Verified by CALLING _headline, not by reading it.\n"
-            "BLOCKER filed @model. Nothing here is a G3 verdict.",
+            "BLOCKER filed modelling. Nothing here is a G3 verdict.",
             ha="center", va="center", fontsize=8.0, color=COL_WARN, fontweight="bold",
             bbox={"facecolor": "white", "edgecolor": COL_WARN, "lw": 1.4,
                   "boxstyle": "round,pad=0.5"},

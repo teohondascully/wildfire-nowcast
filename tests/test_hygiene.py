@@ -263,8 +263,8 @@ def test_the_contract_version_is_DERIVED_and_has_NO_literal_fallback() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         fake = Path(tmp)
-        (fake / "coordination").mkdir()
-        (fake / "coordination" / "INTERFACES.md").write_text("# a header with no version\n")
+        (fake / "docs").mkdir()
+        (fake / "docs" / "interfaces.md").write_text("# a header with no version\n")
         try:
             C.repo_root = lambda: fake
             with pytest.raises(RuntimeError, match="cannot parse a contract version"):
