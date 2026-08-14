@@ -14,8 +14,11 @@ NO conclusion is drawn from it — not "no difference". Three-valued, exactly as
 C6.5 made the G3 conditions three-valued.
 
 C1 needs no code: :meth:`ContagionKernel.with_sampler` already produces the
-shared-parameter ablation (same fit, same seed, ``z`` at its prior mean), which
-is the controlled construction CLAUDE.md admits *only* as an ablation.
+shared-parameter ablation (same fit, same seed, ``z`` at its prior mean). The
+project's scientific ground truth (see README.md) admits an
+independent-per-pixel-noise-only sampler *only* as an ablation, never as a
+candidate, because it is known to collapse the ensemble; this arm is that
+ablation and nothing else.
 
 C2 is here. It is applied at PREDICTION TIME rather than by retraining, and that
 choice is the point: the control has to isolate the CHANNEL, and a retrained
