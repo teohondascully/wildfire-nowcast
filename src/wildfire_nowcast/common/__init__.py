@@ -1,17 +1,33 @@
 """Shared infrastructure: contracts, grid, io, config, run directories.
 
-Anything two leads both need lives here, once. The submodules are:
+Anything two leads both need lives here, once. Every submodule, grouped by what
+it is FOR — the list was three modules stale at A15, which is how a reader
+learns to stop trusting it:
 
-``contract``  the executable form of INTERFACES.md C1/C2/C3 (constants + checks)
-``states``    C1.1 ``fireline_v2`` — the ONE implementation of the state rule
-``grid``      the EPSG:5070 1 km grid and its coordinate conventions
-``zarr_io``   building, writing and reading C1/C2/C3 artifacts
-``derive``    documented formulas for the derived channels (6-8, 11)
-``splits``    C8 split fingerprint + C3.1 cross-fire fold checks
-``synthetic`` C4, the synthetic fire generator
-``config``    yaml config loading and composition (C7)
-``runs``      ``runs/{run_id}/`` with resolved config + git SHA (C7)
-``paths``     repository path resolution; no hardcoded paths in src/
+*the artifacts*
+    ``contract``    executable form of the INTERFACES C1/C2/C3 clauses
+    ``zarr_io``     building, writing and reading C1/C2/C3 artifacts
+    ``grid``        the EPSG:5070 1 km grid and its coordinate conventions
+    ``states``      C1.1 ``fireline_v2`` — the ONE implementation of the state rule
+    ``derive``      documented formulas for the derived channels (6-8, 11)
+    ``components``  C0 — the ONE implementation of 8-connected labelling
+    ``synthetic``   C4, the synthetic fire generator: the parallelism unlock
+
+*the split, and provenance*
+    ``splits``      C8 fingerprint + the C3.1/C3.5 clauses no per-tensor check sees
+    ``runs``        ``runs/{run_id}/`` with resolved config + git SHA (C7)
+    ``config``      yaml config loading and composition (C7)
+    ``paths``       repository path resolution; no hardcoded paths in src/
+    ``environment`` C-4.3 — the interpreter environment, stamped per run
+
+*the instruments a gate is decided with*
+    ``iou_terms``   C6.4 — the ``best_member_iou`` shape / silence decomposition
+    ``calibration`` G3's calibration criterion: stratified calibration error
+    ``dispersion``  C6.5 — G3's geometric bar and its first-moment condition
+    ``pooling``     C6.3 — equal-block pooling; a dropped block is a HARD failure
+    ``separation``  G3's calibration criterion as a separation test (ADR-032)
+    ``null_check``  C6.0 — every metric must beat a do-nothing null (a package)
+    ``playthrough`` ADR-030 — a playthrough must detect its own planted defects
 
 Per C0 (ADR-007) anything the contract adjudicates has exactly one
 implementation and it lives here. In particular the perimeter -> ``fire_state``
