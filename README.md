@@ -115,3 +115,11 @@ are not finished.
 docs/interfaces.md is the data and api contract, and is load-bearing: the
 package parses its version from line 1. docs/decisions.md records why the
 thresholds and splits are where they are, including the ones that were retracted.
+
+the adr-nnn citations throughout the source refer to a decision log kept outside
+this repo, one numbered entry per ruling, written before the result it governs
+wherever the ruling was a threshold or a prediction. docs/decisions.md is the
+readable summary of the ones that still bind. the citations are left in the code
+because knowing that a constant was argued about, and roughly when, is worth more
+than a clean comment — but they will not resolve to anything you can open, and
+that is a limitation of this repo rather than a hint that you missed a file.
