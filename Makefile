@@ -11,13 +11,29 @@ UV     ?= $(shell command -v uv 2>/dev/null || echo $(HOME)/.local/bin/uv)
 
 PY_VERSION ?= 3.12
 
+# mypy is PINNED and run ISOLATED, not installed into .venv. Pinned because an
+# unpinned type checker adds rules on its own schedule and turns CI red on a day
+# nobody changed anything. Isolated because C-4.3 puts the interpreter
+# environment in the frozen set: a developer tool must not be able to move
+# site-packages under another lead's running experiment. `--python-executable`
+# below still points mypy at .venv, so it checks against the real numpy/xarray/
+# torch rather than against stubs it guessed at.
+# `--python $(PY_VERSION)` pins the interpreter mypy ITSELF runs on, which is a
+# different thing from the version it type-checks FOR. It is not cosmetic:
+# uv defaults to the newest interpreter it can find (3.11.2 on this machine),
+# and mypy parses .pyi files with its host's ast, so numpy 2.x's stubs fail to
+# parse with "Invalid syntax" and mypy exits 2 with only nine errors reported.
+# A checker that stops early looks exactly like a clean tree from the outside.
+MYPY_VERSION ?= 2.3.0
+MYPY         := $(UV) tool run --python $(PY_VERSION) --from mypy==$(MYPY_VERSION) mypy
+
 # A fire is a directory: tensor.zarr + manifest.json + norm_stats.json together,
 # so that C1/C2/C3 can be checked as a unit.
 OUT    ?= outputs/synthetic_fire/tensor.zarr
 TENSOR ?= outputs/synthetic_fire/tensor.zarr
 MOVIE  ?= outputs/fire.mp4
 
-.PHONY: help venv install test test-all lint format-check format synth contract contract-reporting \
+.PHONY: help venv install test test-all lint typecheck format-check format synth contract contract-reporting \
         contract-real contract-split contract-all-fires null-check check ci movie clean-outputs \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
@@ -50,17 +66,26 @@ test: | $(PY)
 test-all: | $(PY)
 	$(PYTEST)
 
-## lint: lint src and tests (the CI gate)
+## lint: lint src, tests and tools (the CI gate)
 lint: | $(PY)
-	$(RUFF) check src tests
+	$(RUFF) check src tests tools
+
+## typecheck: mypy --strict over src, PLUS an audit of the burn-down list that
+##         lets it pass. The audit is the half that cannot rot: it re-runs mypy
+##         with every exemption removed and fails if a listed module has become
+##         clean without being retired. Config and the list live in
+##         pyproject.toml under [tool.mypy]; the list is pinned by
+##         tests/test_typecheck_config.py, so adding to it is a visible edit.
+typecheck: | $(PY)
+	MYPY="$(MYPY)" $(PY) tools/typecheck.py --python-executable $(PY)
 
 ## format-check: also verify formatting (advisory; pre-commit fixes it per-file)
 format-check: | $(PY)
-	$(RUFF) format --check src tests
+	$(RUFF) format --check src tests tools
 
 ## format: autofix lint + formatting. Scope this to YOUR directory, e.g.
 ##         make format DIRS="src/wildfire_nowcast/data" — never reformat another lead's code.
-DIRS ?= src tests
+DIRS ?= src tests tools
 format: | $(PY)
 	$(RUFF) check --fix $(DIRS)
 	$(RUFF) format $(DIRS)
@@ -153,15 +178,15 @@ playthrough-coarsening: | $(PY)
 playthrough-baseline: | $(PY)
 	$(PY) -m wildfire_nowcast.sim.playthrough
 
-## check: lint + the full suite + every playthrough. The developer gate.
-check: lint test-all playthrough
+## check: lint + types + the full suite + every playthrough. The developer gate.
+check: lint typecheck test-all playthrough
 
 ## ci: exactly what .github/workflows/ci.yml runs, in one command, so the gate
 ##         can be reproduced locally instead of read off a log. `check` plus the
 ##         two artifact-level checks that need no data: the synthetic fire judged
 ##         by the real C1-C3 checker, and C6.0's do-nothing null.
 ##         tests/test_ci_matches_makefile.py fails the build if the two drift.
-ci: lint test-all playthrough synth contract null-check
+ci: lint typecheck test-all playthrough synth contract null-check
 
 ## movie: render a fire movie from a tensor path -> $(MOVIE)
 movie: | $(PY)

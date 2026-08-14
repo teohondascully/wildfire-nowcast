@@ -90,6 +90,46 @@ def test_every_target_ci_runs_exists_in_the_makefile() -> None:
     assert not missing, f"{WORKFLOW} calls make targets that do not exist: {missing}"
 
 
+def test_the_gate_still_contains_the_checks_that_define_it() -> None:
+    """Equality is not enough: deleting a step from BOTH files keeps them equal.
+
+    [A17] ``test_make_ci_runs_exactly_what_the_workflow_runs`` compares two sets,
+    so dropping ``typecheck`` from the Makefile and the workflow in one commit
+    passes it. This names the gate's load-bearing steps so that removing one is
+    an argument someone has to make in a diff, not a two-line deletion that
+    stays green.
+    """
+    required = {"lint", "typecheck", "test-all"}
+    in_both = workflow_targets() & set(ci_target_prerequisites())
+    missing = sorted(required - in_both)
+    assert not missing, (
+        f"the CI gate no longer runs {missing}. These are the checks a clean checkout can run "
+        "with no data and no credentials; a gate without them is a green light for a tree "
+        "nobody has checked."
+    )
+
+
+def test_the_type_checker_is_pinned_and_runs_on_a_supported_interpreter() -> None:
+    """An unpinned type checker turns CI red on a day nobody changed anything.
+
+    Also pins the interpreter mypy ITSELF runs on. That is a different thing
+    from the version it checks FOR, and getting it wrong is silent: uv picks
+    the newest interpreter it can find, numpy's stubs then fail to parse, and
+    mypy exits early having reported nine errors out of a tree of 109 files.
+    """
+    makefile = _makefile_text()
+    version = re.search(r"^MYPY_VERSION \?= ([0-9][0-9a-z.]*)$", makefile, flags=re.MULTILINE)
+    assert version, "MYPY_VERSION is no longer pinned in the Makefile"
+    assert "mypy==$(MYPY_VERSION)" in makefile, (
+        "MYPY_VERSION is declared but the invocation does not resolve it with `==`, so the "
+        f"pin ({version.group(1)}) is decoration"
+    )
+    assert "--python $(PY_VERSION)" in makefile, (
+        "the mypy invocation no longer pins the interpreter mypy runs on; on the default "
+        "interpreter it stops early on numpy's stubs and a truncated run looks like a clean one"
+    )
+
+
 def test_the_workflow_pins_an_interpreter_the_project_supports() -> None:
     """ADR-001 pins CPython 3.12; the Makefile is where that pin lives.
 

@@ -40,9 +40,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The tools that ENFORCE rules are pinned; the tools that merely run our own
+# rules are not. An unpinned linter adds checks on its own release schedule and
+# turns CI red on a day nobody changed anything, which is how a gate loses its
+# authority. `ruff==0.16.2` is the version in `requirements.lock` and the rev
+# `.pre-commit-config.yaml` pins, so the hook, `make lint` and CI are now
+# demonstrably the same check rather than three checks that usually agree.
+# mypy is deliberately NOT here: it runs from an isolated pinned environment
+# (Makefile `MYPY_VERSION`) so that a type checker cannot move `.venv` under a
+# running experiment (C-4.3).
 dev = [
     "pytest",
-    "ruff",
+    "ruff==0.16.2",
     "pre-commit",
 ]
 
@@ -52,10 +61,19 @@ Repository = "https://github.com/teohondascully/wildfire-nowcast"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# PEP 561. The `Typing :: Typed` classifier above has been claimed since A15 with
+# nothing behind it: without this marker an installed copy of the package ships
+# no types at all, so the claim was true of the source and false of the artifact.
+# It says the annotations are THERE, which they are — how strictly they are
+# CHECKED is the separate question `[tool.mypy]` below answers, with a named list
+# of what is not checked yet.
+[tool.setuptools.package-data]
+wildfire_nowcast = ["py.typed"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["src", "tests"]
+src = ["src", "tests", "tools"]
 
 [tool.ruff.lint]
 # `A`, `TID`, `LOG`, `G` and `INT` were added at A15 because the tree already
@@ -66,9 +84,150 @@ src = ["src", "tests"]
 # four people's modules and belongs in a coordinated pass, not in a config edit.
 select = ["E", "F", "I", "B", "UP", "W", "A", "TID", "LOG", "G", "INT"]
 
+# --------------------------------------------------------------------------
+# Type checking (A17). `make typecheck` runs this; so does `make check`,
+# `make ci` and the CI workflow.
+#
+# WHY `strict = true` GLOBALLY AND AN ENUMERATED EXEMPTION LIST, rather than a
+# lenient global setting: a lenient global config is green everywhere and can
+# therefore never tell you which modules are actually typed. This project has
+# already shipped three checks that could not fail (an all-NaN channel that
+# passed 56 clauses, a disjointness check that intersected a partition, a
+# fingerprint that reported MISSING silently), so the failure mode is known and
+# expensive. The exemptions are a BURN-DOWN LIST: every entry is a module name,
+# not a glob, and `tools/typecheck.py --audit` fails if any listed module has
+# become clean without being retired. It fails in the other direction too —
+# a module that starts failing and is not listed turns `make typecheck` red.
+#
+# WHAT IS ACTUALLY CHECKED TODAY: 66 of 107 modules under `src/`, including all
+# 26 of `common/`, at full `--strict`. The 41 exemptions are listed below with
+# the reason each one is there.
+#
+# WHAT IS NOT CHECKED, stated here rather than left to be discovered:
+#   * `tests/` is not in `files`. Measured, not assumed: 24 test modules, 133
+#     errors under this configuration, 80 of them a missing `-> None` on a test
+#     function. That is a real gap and it is on infra's NEXT list; it is not
+#     hidden behind a relaxed flag that would make the gap unmeasurable.
+#   * mypy is run from an ISOLATED, PINNED environment (see `MYPY_VERSION` in
+#     the Makefile) rather than installed into `.venv`, because C-4.3 puts the
+#     interpreter environment in the frozen set: a type checker must not be able
+#     to move site-packages under a lead's running experiment. `--python-
+#     executable` still points it at `.venv`, so it type-checks against exactly
+#     the numpy/xarray/torch the code runs on.
+[tool.mypy]
+python_version = "3.12"
+files = ["src/wildfire_nowcast"]
+strict = true
+# A per-module section that matches nothing is a stale exemption. This makes it
+# say so instead of sitting there looking like coverage.
+warn_unused_configs = true
+enable_error_code = [
+    # A bare `# type: ignore` is the single-line version of the blanket
+    # suppression this configuration exists to avoid. Every ignore must name the
+    # error code it is silencing, so a reader can see what was given up.
+    "ignore-without-code",
+    # `data/isotropy.py:337` read `fire_id` seven lines before it was assigned —
+    # an UnboundLocalError on the first pass, found by ruff's F821 in A15. This
+    # is the same class one step wider (conditionally-bound names).
+    "possibly-undefined",
+    "redundant-expr",
+    "truthy-bool",
+]
+
+# Third-party packages this tree imports that carry no inline type information.
+# ENUMERATED rather than set globally: a top-level `ignore_missing_imports`
+# also silences a genuine typo in an import, which is a real defect wearing a
+# configuration's clothes.
+#
+# `rasterio` has no stubs anywhere. The other three DO have stub packages on
+# typeshed (`types-PyYAML`, `pandas-stubs`, `types-geopandas`) and are listed
+# here anyway, deliberately: every importer of pandas/geopandas is under
+# `data/`, which infra may not edit, so installing those stubs would land a
+# batch of new errors entirely on another lead's fenced surface. Adding them is
+# a NEXT item for infra, to be done when the fence lifts — not a permanent
+# position. `yaml` is used only by `common/config.py`, where `safe_load` returns
+# `Any` under the stubs too, so the loss there is nil.
+[[tool.mypy.overrides]]
+module = ["rasterio.*", "yaml", "pandas.*", "geopandas.*"]
+ignore_missing_imports = true
+
+# --------------------------------------------------------------------------
+# BURN-DOWN GROUP 1 of 2 — FENCED, NOT BROKEN.
+# `model/`, `eval/` and `data/` are owned by other leads and were being written
+# in while this configuration was authored (M11 and D11, ADR-050). infra is
+# barred from editing them, so these are exempted by ownership, not by
+# difficulty; the error counts below are small and most are annotations.
+# Counts recorded 2026-08-14 as documentation. They are deliberately NOT
+# asserted anywhere: a pinned count in a directory another lead is writing in
+# would go red on their ordinary work and teach everyone to edit the pin.
+# The MEMBERSHIP is pinned (tests/test_typecheck_config.py) and the audit
+# requires each entry to still fail, which is what actually cannot rot.
+#
+# THREE ENTRIES HERE LOOK LIKE LIVE DEFECTS RATHER THAN MISSING ANNOTATIONS and
+# are escalated in coordination/status/infra.md rather than fixed here:
+# `model/train.py` 810 and 1397, and `eval/selftest.py` 1211/1226.
+[[tool.mypy.overrides]]
+module = [
+    "wildfire_nowcast.data.cli",              # 5
+    "wildfire_nowcast.data.folds",            # 2
+    "wildfire_nowcast.data.gofer_ext",        # 6
+    "wildfire_nowcast.data.ignitions",        # 1
+    "wildfire_nowcast.data.interim_build",    # 1
+    "wildfire_nowcast.data.isotropy",         # 3
+    "wildfire_nowcast.data.isotropy_selftest",# 5
+    "wildfire_nowcast.data.leakage",          # 2
+    "wildfire_nowcast.data.pipeline",         # 2
+    "wildfire_nowcast.data.rasterize",        # 2
+    "wildfire_nowcast.data.sources.burn_scar",# 1
+    "wildfire_nowcast.data.sources.gee",      # 1
+    "wildfire_nowcast.data.sources.nifc",     # 1
+    "wildfire_nowcast.data.swap",             # 2
+    "wildfire_nowcast.eval.baseline_run",     # 2
+    "wildfire_nowcast.eval.masks",            # 3
+    "wildfire_nowcast.eval.regime_calibration", # 7
+    "wildfire_nowcast.eval.selftest",         # 14
+    "wildfire_nowcast.model.api",             # 2
+    "wildfire_nowcast.model.baselines.ellipse", # 4
+    "wildfire_nowcast.model.controls",        # 2
+    "wildfire_nowcast.model.degrade",         # 2
+    "wildfire_nowcast.model.direct",          # 2
+    "wildfire_nowcast.model.inputs",          # 1
+    "wildfire_nowcast.model.kernel",          # 28
+    "wildfire_nowcast.model.latent",          # 6
+    "wildfire_nowcast.model.spread",          # 1
+    "wildfire_nowcast.model.train",           # 8
+]
+ignore_errors = true
+
+# --------------------------------------------------------------------------
+# BURN-DOWN GROUP 2 of 2 — ANOTHER LEAD'S DIRECTORY.
+# `sim/` is simviz's. Same reasoning: exempted by ownership. `sim/review.py`
+# (26) is the largest single entry in the whole list and is also the file the
+# A15 audit already proposed splitting, so the two burn down together.
+[[tool.mypy.overrides]]
+module = [
+    "wildfire_nowcast.sim.blockanatomy",      # 3
+    "wildfire_nowcast.sim.coarsen",           # 1
+    "wildfire_nowcast.sim.diagnostics",       # 2
+    "wildfire_nowcast.sim.drift",             # 4
+    "wildfire_nowcast.sim.elmfire",           # 6
+    "wildfire_nowcast.sim.landfire",          # 1
+    "wildfire_nowcast.sim.movie",             # 5
+    "wildfire_nowcast.sim.playthrough",       # 4
+    "wildfire_nowcast.sim.reader",            # 5
+    "wildfire_nowcast.sim.replay",            # 5
+    "wildfire_nowcast.sim.review",            # 26
+    "wildfire_nowcast.sim.rundash",           # 2
+    "wildfire_nowcast.sim.selftest",          # 7
+]
+ignore_errors = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+# `tools` is on the path so `tests/test_typecheck_config.py` can audit the SAME
+# `burn_down_modules()` the gate uses, rather than a second copy of it that
+# could agree with the pin while the gate reads something else.
+pythonpath = ["src", "tools"]
 # `--strict-markers` / `--strict-config`: a typo'd marker or ini key is an
 # ERROR, not a silent no-op. A deselection that silently matches nothing is the
 # same failure mode as a grep that silently matches nothing, and this repo has

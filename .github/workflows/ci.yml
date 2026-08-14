@@ -60,6 +60,13 @@ jobs:
       - name: lint
         run: make lint
 
+      # mypy --strict over `src/`, plus the audit of the exemption list that
+      # lets it pass: a listed module that has become clean fails the build
+      # rather than sitting there as permanent debt. Runs from a pinned,
+      # isolated tool environment (Makefile: MYPY_VERSION), not from .venv.
+      - name: typecheck
+        run: make typecheck
+
       # The whole suite, INCLUDING the cases `make test` deselects as slow.
       - name: tests
         run: make test-all
