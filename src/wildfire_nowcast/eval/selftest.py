@@ -1367,6 +1367,267 @@ def check_gate_mean_preserving_is_off_by_default_and_exact_when_on() -> Check:
     )
 
 
+def _toy_ladder_base() -> tuple[np.ndarray, np.ndarray]:
+    """A small absorbing forecast with a real anisotropic front. No model, no zarr."""
+    rng = np.random.default_rng(11)
+    height, width, members, leads = 22, 26, 5, 3
+    x0 = np.zeros((height, width), np.uint8)
+    x0[9:13, 10:14] = 2
+    x0[8:14, 9:15] = np.maximum(x0[8:14, 9:15], 1)
+    base = np.zeros((members, leads, height, width), np.uint8)
+    for m in range(members):
+        cur = x0 > 0
+        for lead in range(leads):
+            add = np.zeros_like(cur)
+            for y, x in zip(*np.nonzero(cur), strict=True):
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        yy, xx = y + dy, x + dx
+                        if 0 <= yy < height and 0 <= xx < width:
+                            if rng.random() < (0.55 if dx > 0 else 0.10):
+                                add[yy, xx] = True
+            cur = cur | add
+            base[m, lead] = np.where(cur, 1, 0)
+        base[m] = np.maximum.accumulate(base[m], axis=0)
+    return np.maximum(base, x0[None, None]).astype(np.uint8), x0
+
+
+def check_degradation_null_rung_is_bitwise_the_undegraded_forecast() -> Check:
+    """[M11] The ladder's NEGATIVE CONTROL, and it must not be an ``if``.
+
+    The whole power analysis rests on "a rung of zero severity separates at zero
+    block-SD". If the identity were implemented by returning the input early, the
+    claim would be a property of a branch and would say nothing about the
+    construction that produces every OTHER rung. So the identity runs the full
+    machinery — build the cell order, rank it, take the first ``n_h`` — and is
+    asserted bitwise here, in BOTH families.
+    """
+    from wildfire_nowcast.model.degrade import MODE_AREA, MODE_SHAPE, degrade_samples
+
+    base, x0 = _toy_ladder_base()
+    area_identity = degrade_samples(base, x0, mode=MODE_AREA, level=1.0)
+    shape_identity = degrade_samples(base, x0, mode=MODE_SHAPE, level=0.0)
+    # ...and a rung that is NOT the identity must actually differ, or the check
+    # above passes for the uninteresting reason that nothing ever changes.
+    moved = degrade_samples(base, x0, mode=MODE_AREA, level=0.5)
+    ok = (
+        np.array_equal(area_identity, base)
+        and np.array_equal(shape_identity, base)
+        and not np.array_equal(moved, base)
+    )
+    return Check(
+        "degradation_null_rung_is_bitwise_the_undegraded_forecast",
+        ok,
+        "k=1 and f=0 reproduce the wrapped samples bitwise THROUGH the degradation path, "
+        "and k=0.5 does not — the positive control on the negative control",
+        {
+            "area_identity_bitwise": bool(np.array_equal(area_identity, base)),
+            "shape_identity_bitwise": bool(np.array_equal(shape_identity, base)),
+            "half_area_rung_differs": bool(not np.array_equal(moved, base)),
+        },
+    )
+
+
+def check_degradation_rungs_hit_their_declared_severity() -> Check:
+    """[M11] A ladder is only interpretable if each rung IS the severity it claims.
+
+    Two known answers, both forced by the construction rather than read back:
+
+    * an AREA rung realises ``k`` times the reference increment, to within the
+      rounding of one cell per member and lead;
+    * a SHAPE rung realises the reference area **EXACTLY** — integer equality, not
+      a tolerance — because "a channel blind to shape at fixed area" is a
+      different finding from "a channel blind to area", and separating them
+      requires the area error to be zero rather than small.
+
+    ``degrade_samples`` also runs every rung through ``validate_samples``, so a
+    degradation that un-burned a cell or broke the absorbing order (C1.1) would
+    raise here rather than reach a metric.
+
+    THE UNDEFINED CASE IS PART OF THE CHECK, NOT AN EDGE OF IT. A ladder that
+    spans harmless to catastrophic will eventually contain a rung whose increment
+    union with the reference is EMPTY — neither forecast added a cell. That is
+    the rung most likely to break monotonicity, so a validator that raises there
+    is a validator that goes silent exactly where it is needed. An UNDEFINED
+    overlap is therefore FAILED here, never skipped and never defaulted to a
+    number, and the degenerate case is exercised below so that this check is
+    observed to RETURN a verdict rather than abort.
+    """
+    from wildfire_nowcast.model.degrade import (
+        MODE_AREA,
+        MODE_SHAPE,
+        UNDEFINED,
+        degrade_samples,
+        increment_overlap,
+    )
+
+    base, x0 = _toy_ladder_base()
+    free = x0 == 0
+    n_ref = int(((base > 0) & free[None, None]).sum())
+
+    area_rows = {}
+    for k in (0.10, 0.28, 0.50, 2.00, 5.00):
+        deg = degrade_samples(base, x0, mode=MODE_AREA, level=k)
+        area_rows[k] = int(((deg > 0) & free[None, None]).sum()) / n_ref
+    area_ok = all(abs(v - k) <= 0.02 * max(k, 1.0) for k, v in area_rows.items())
+
+    shape_rows = {}
+    for f in (0.05, 0.15, 0.40, 1.00):
+        deg = degrade_samples(base, x0, mode=MODE_SHAPE, level=f)
+        shape_rows[f] = (
+            int(((deg > 0) & free[None, None]).sum()),
+            increment_overlap(deg, base, x0),
+        )
+    exact_area = all(cells == n_ref for cells, _ in shape_rows.values())
+    all_defined = all(ov.defined for _, ov in shape_rows.values())
+    ious = [ov.iou for _, ov in shape_rows.values()]
+    monotone_iou = all_defined and all(
+        a > b for a, b in zip(ious[:-1], ious[1:], strict=True)
+    )
+
+    # The degenerate rung, planted: a forecast that adds nothing, compared with
+    # itself. The overlap must report UNDEFINED and must NOT be orderable.
+    nothing = np.maximum(np.zeros_like(base), x0[None, None]).astype(np.uint8)
+    degenerate = increment_overlap(nothing, nothing, x0)
+    degenerate_is_undefined = degenerate.outcome == UNDEFINED and degenerate.iou is None
+    ordering_undefined_raises = False
+    try:
+        _ = degenerate.iou > 0.5  # type: ignore[operator]
+    except TypeError:
+        ordering_undefined_raises = True
+    # ...and a check built the same way must RETURN False rather than raise when
+    # a rung is undefined. Verified by running the same reduction on a row set
+    # that contains one.
+    with_undefined = [1.0, degenerate.iou]
+    verdict_on_undefined = all(ov is not None for ov in with_undefined) and all(
+        a > b
+        for a, b in zip(with_undefined[:-1], with_undefined[1:], strict=True)
+    )
+
+    return Check(
+        "degradation_rungs_hit_their_declared_severity",
+        area_ok
+        and exact_area
+        and monotone_iou
+        and degenerate_is_undefined
+        and ordering_undefined_raises
+        and verdict_on_undefined is False,
+        "area rungs realise k within 2%; shape rungs realise the reference area EXACTLY and "
+        "their IoU against it falls monotonically in f; an EMPTY increment union reports "
+        "UNDEFINED, refuses to be ordered, and makes the monotonicity claim FALSE rather "
+        "than raising",
+        {
+            "area_realised": {str(k): v for k, v in area_rows.items()},
+            "shape_cells_equal_reference": exact_area,
+            "shape_iou_by_f": {str(f): ov.iou for f, (_, ov) in shape_rows.items()},
+            "shape_overlaps_all_defined": all_defined,
+            "reference_increment_cells": n_ref,
+            "degenerate_outcome": degenerate.outcome,
+            "degenerate_union": degenerate.union,
+            "ordering_an_undefined_overlap_raises": ordering_undefined_raises,
+            "monotonicity_claim_on_an_undefined_row": verdict_on_undefined,
+        },
+    )
+
+
+def check_base_prediction_cache_cannot_return_another_window() -> Check:
+    """[M11] The ladder's 16 rungs share ONE forward pass. Prove the key is safe.
+
+    The runner scores one model over every window of a fire before moving to the
+    next model, so a cache key that is not fully identifying would hand a rung
+    another window's samples and the entire ladder would be a ladder over the
+    wrong forecast — silently, with every downstream number still finite and
+    plausible. Each C5 argument is therefore perturbed in turn and the key must
+    move; the planted defect is the perturbation, not a comment saying it is safe.
+    """
+    from wildfire_nowcast.model.degrade import BasePredictionCache
+
+    base, x0 = _toy_ladder_base()
+    members, leads, height, width = base.shape
+    static = np.zeros((8, height, width), np.float32)
+    weather = np.zeros((leads, 5, height, width), np.float32)
+    cache = BasePredictionCache(capacity=4)
+    key = cache.key(x0, static, weather, members, leads, 7)
+    cache.put(key, base)
+
+    moved: dict[str, bool] = {}
+    x0b = x0.copy()
+    x0b[0, 0] = 1
+    moved["x0"] = cache.key(x0b, static, weather, members, leads, 7) != key
+    sb = static.copy()
+    sb[0, 0, 0] = 1.0
+    moved["static"] = cache.key(x0, sb, weather, members, leads, 7) != key
+    wb = weather.copy()
+    wb[0, 0, 0, 0] = 1.0
+    moved["weather"] = cache.key(x0, sb * 0, wb, members, leads, 7) != key
+    moved["seed"] = cache.key(x0, static, weather, members, leads, 8) != key
+    moved["members"] = cache.key(x0, static, weather, members + 1, leads, 7) != key
+
+    round_trip = np.array_equal(cache.get(key), base)
+    miss_is_none = cache.get("0" * 32) is None
+    return Check(
+        "base_prediction_cache_cannot_return_another_window",
+        all(moved.values()) and round_trip and miss_is_none,
+        "every C5 argument moves the key, a hit is bitwise, and a miss is None rather than a "
+        "stale neighbouring window",
+        {**{f"key_moves_on_{k}": v for k, v in moved.items()},
+         "round_trip_bitwise": round_trip, "miss_returns_none": miss_is_none},
+    )
+
+
+def check_mde_read_off_requires_a_SUSTAINED_crossing() -> Check:
+    """[M11] One rung crossing a bar is not a detection threshold.
+
+    Known answer, on a hand-built curve. A channel that reads 2.4 block-SD at
+    severity 0.2 and falls back to 1.1 at 0.4 has not detected 0.2 — it has
+    produced one lucky rung, and taking the first crossing would report an MDE
+    three times too optimistic for exactly the instrument this analysis exists to
+    distrust. The read-off therefore requires every LARGER rung to clear the bar
+    too, and the monotonicity report must NAME the inversion rather than smooth it.
+    """
+    from wildfire_nowcast.eval.power import minimum_detectable_effect, monotonicity
+
+    lucky = [
+        {"severity": 0.2, "abs_separation_sd": 2.4, "level": 1.0, "truth_distance": 0.2},
+        {"severity": 0.4, "abs_separation_sd": 1.1, "level": 0.5, "truth_distance": 0.4},
+        {"severity": 0.8, "abs_separation_sd": 3.0, "level": 3.0, "truth_distance": 0.8},
+        {"severity": 1.6, "abs_separation_sd": 6.0, "level": 6.0, "truth_distance": 1.6},
+    ]
+    got = minimum_detectable_effect(lucky, bar=2.0)
+    # sustained detection starts at 0.8; interpolating 1.1 -> 3.0 gives 0.4 + 0.4*(0.9/1.9)
+    expected = 0.4 + 0.4 * (2.0 - 1.1) / (3.0 - 1.1)
+    sustained_ok = got["bound"] == "interpolated" and _close(got["mde"], expected, 1e-9)
+
+    blind = [dict(row, abs_separation_sd=0.3) for row in lucky]
+    blind_ok = minimum_detectable_effect(blind, bar=2.0)["bound"] == "greater_than"
+    loud = [dict(row, abs_separation_sd=9.0) for row in lucky]
+    loud_ok = minimum_detectable_effect(loud, bar=2.0)["bound"] == "at_or_below"
+
+    clean = monotonicity(lucky, by="truth_distance", value="level", expect_increasing=True)
+    inverted = monotonicity(
+        [dict(row) for row in lucky[:1]]
+        + [dict(lucky[1], level=9.0)]
+        + [dict(row) for row in lucky[2:]],
+        by="truth_distance",
+        value="level",
+        expect_increasing=True,
+    )
+    monotone_ok = clean["monotone"] is False and inverted["n_inversions"] >= 1
+    return Check(
+        "mde_read_off_requires_a_SUSTAINED_crossing",
+        sustained_ok and blind_ok and loud_ok and monotone_ok,
+        "a lucky rung does not set the MDE; a blind channel is bounded BELOW rather than "
+        "reported as a number; and a planted inversion is named, not smoothed",
+        {
+            "mde": got.get("mde"),
+            "expected": expected,
+            "blind_channel_bound": minimum_detectable_effect(blind, bar=2.0)["bound"],
+            "loud_channel_bound": minimum_detectable_effect(loud, bar=2.0)["bound"],
+            "planted_inversions": inverted["n_inversions"],
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -1412,6 +1673,11 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     # the units defect simviz raised against C6's own dispersion decomposition
     check_debiased_dispersion_is_in_the_same_units_as_the_criterion,
     check_gate_mean_preserving_is_off_by_default_and_exact_when_on,
+    # M11 — the degradation ladder and the power read-off that stands on it
+    check_degradation_null_rung_is_bitwise_the_undegraded_forecast,
+    check_degradation_rungs_hit_their_declared_severity,
+    check_base_prediction_cache_cannot_return_another_window,
+    check_mde_read_off_requires_a_SUSTAINED_crossing,
 )
 
 
