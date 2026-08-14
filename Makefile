@@ -18,7 +18,7 @@ TENSOR ?= outputs/synthetic_fire/tensor.zarr
 MOVIE  ?= outputs/fire.mp4
 
 .PHONY: help venv install test test-all lint format-check format synth contract contract-reporting \
-        contract-real contract-split contract-all-fires null-check check movie clean-outputs \
+        contract-real contract-split contract-all-fires null-check check ci movie clean-outputs \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
 
@@ -153,8 +153,15 @@ playthrough-coarsening: | $(PY)
 playthrough-baseline: | $(PY)
 	$(PY) -m wildfire_nowcast.sim.playthrough
 
-## check: lint + the full suite + every playthrough (what CI runs)
+## check: lint + the full suite + every playthrough. The developer gate.
 check: lint test-all playthrough
+
+## ci: exactly what .github/workflows/ci.yml runs, in one command, so the gate
+##         can be reproduced locally instead of read off a log. `check` plus the
+##         two artifact-level checks that need no data: the synthetic fire judged
+##         by the real C1-C3 checker, and C6.0's do-nothing null.
+##         tests/test_ci_matches_makefile.py fails the build if the two drift.
+ci: lint test-all playthrough synth contract null-check
 
 ## movie: render a fire movie from a tensor path -> $(MOVIE)
 movie: | $(PY)
