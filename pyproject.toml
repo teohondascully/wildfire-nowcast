@@ -5,8 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wildfire-nowcast"
 version = "0.0.0"
-description = "Wildfire spread nowcasting: data, model, simulation, and visualization."
+description = "Probabilistic 1-3 h wildfire spread nowcasting: data, model, simulation and evaluation."
+readme = "README.md"
+# ADR-001 pins the development interpreter to CPython 3.12 and CI runs only
+# that. The floor is 3.11 because nothing here uses 3.12-only syntax; it is a
+# statement about the source, not a tested claim.
 requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Typing :: Typed",
+]
+# Everything `src/` imports directly. pandas, shapely, pyproj and pillow arrive
+# transitively via geopandas/rasterio/matplotlib, but they are imported BY NAME
+# in `data/`, `common/contract.py` and `sim/review.py`, and a package that
+# imports a name it does not declare breaks the day a transitive dep drops it.
+# Exact versions of the environment of record are in `requirements.lock`.
 dependencies = [
     "numpy",
     "xarray",
@@ -17,6 +33,10 @@ dependencies = [
     "geopandas",
     "rasterio",
     "matplotlib",
+    "pandas",
+    "shapely",
+    "pyproj",
+    "pillow",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +45,9 @@ dev = [
     "ruff",
     "pre-commit",
 ]
+
+[project.urls]
+Repository = "https://github.com/teohondascully/wildfire-nowcast"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -35,12 +58,22 @@ target-version = "py311"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "W"]
+# `A`, `TID`, `LOG`, `G` and `INT` were added at A15 because the tree already
+# satisfied them, so they cost nothing today and stop a regression tomorrow.
+# The other families were MEASURED before deciding, not guessed: every one of
+# them fires on code four leads own (`S101` on 1,198 asserts in tests, `D103` on
+# 217 functions, `PLR2004` on 392 comparisons), so selecting one is a change to
+# four people's modules and belongs in a coordinated pass, not in a config edit.
+select = ["E", "F", "I", "B", "UP", "W", "A", "TID", "LOG", "G", "INT"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra"
+# `--strict-markers` / `--strict-config`: a typo'd marker or ini key is an
+# ERROR, not a silent no-op. A deselection that silently matches nothing is the
+# same failure mode as a grep that silently matches nothing, and this repo has
+# been bitten by that shape more than once.
+addopts = "-ra --strict-markers --strict-config"
 # `slow` is DESELECTED by `make test` and RUN by `make playthrough` / `make check`.
 # It exists for exactly one case today: the ELMFIRE non-degeneracy playthrough,
 # which runs a real Fortran simulator six times (33 s). Bare `pytest` still runs
