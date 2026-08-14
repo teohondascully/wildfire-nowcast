@@ -203,6 +203,12 @@ from __future__ import annotations
 # public surface, so every existing import path resolves unchanged. Nothing
 # below is new API; if a name is here it was importable from
 # `wildfire_nowcast.common.null_check` before the split.
+#
+# [A17] `CALIBRATION_METRIC` / `GATE_METRIC` are imported from the modules that
+# DEFINE them rather than from `registry`, which only re-aliases them. Same
+# objects, and it keeps C0's single implementation one import away, not two.
+from wildfire_nowcast.common.calibration import GATE_CRITERION_KEY as CALIBRATION_METRIC
+from wildfire_nowcast.common.iou_terms import GATE_CRITERION_KEY as GATE_METRIC
 from wildfire_nowcast.common.null_check.cli import (
     format_report,
     main,
@@ -235,12 +241,10 @@ from wildfire_nowcast.common.null_check.forecasters import (
 )
 from wildfire_nowcast.common.null_check.registry import (
     C6_METRICS,
-    CALIBRATION_METRIC,
     CAPTURE_NOT_APPLICABLE,
     DIAGNOSTIC,
     FAMILY_SKILL,
     FAMILY_SPREAD,
-    GATE_METRIC,
     HIGHER,
     LABEL_STATISTIC,
     LOWER,

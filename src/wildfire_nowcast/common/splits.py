@@ -831,11 +831,16 @@ def check_split_assignment(
 
     typed: list[tuple[str, int, int]] = []
     malformed: list[str] = []
-    for man in manifests:
+    # Named `entry` rather than reusing `man`: the earlier `man` is the
+    # Optional result of `read_json`, and rebinding it here would have this
+    # loop's element inherit that `| None` for no reason.
+    for entry in manifests:
         try:
-            typed.append((str(man["fire_id"]), int(man["cv_fold"]), int(man["spatial_block_id"])))
+            typed.append(
+                (str(entry["fire_id"]), int(entry["cv_fold"]), int(entry["spatial_block_id"]))
+            )
         except Exception:
-            malformed.append(str(man.get("fire_id", "<no fire_id>")))
+            malformed.append(str(entry.get("fire_id", "<no fire_id>")))
     rep.add(
         "C3.1",
         "fold_and_block_typed",

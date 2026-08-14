@@ -348,7 +348,9 @@ def _finite(value: object) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool) and np.isfinite(value)
 
 
-def _horizon_value(fire: Mapping[str, Any], model: str, key: str, horizon: int, stratum: str):
+def _horizon_value(
+    fire: Mapping[str, Any], model: str, key: str, horizon: int, stratum: str
+) -> Any:
     row = ((fire.get("models", {}).get(model) or {}).get(stratum)) or {}
     return (row.get(key) or {}).get(str(horizon))
 
@@ -382,7 +384,9 @@ def calibration_separation(
     by_block: dict[int, list[tuple[float, float, str]]] = {}
     for fire_id, fire in per_fire.items():
         candidate = _horizon_value(fire, model, _ERROR_KEY, horizon, stratum)
-        floor = None
+        # `Any`, not `float | None`: `_finite()` below is the guard, and it is a
+        # plain bool predicate the checker cannot narrow through.
+        floor: Any = None
         for arm in degenerate_arms:
             floor = _horizon_value(fire, arm, _FLOOR_KEY, horizon, stratum)
             if _finite(floor):
@@ -435,7 +439,7 @@ def calibration_separation_summary(
     for model in models:
         rows: dict[str, Any] = {}
         for horizon in range(1, horizon_h + 1):
-            entry = {}
+            entry: dict[str, Any] = {}
             for ref in ("floor", "envelope"):
                 sep = calibration_separation(
                     per_fire,

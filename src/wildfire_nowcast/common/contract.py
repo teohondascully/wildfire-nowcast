@@ -68,7 +68,7 @@ import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import xarray as xr
@@ -1106,9 +1106,9 @@ def open_tensor_dataset(path: str | Path) -> xr.Dataset:
     if not p.exists():
         raise FileNotFoundError(f"no tensor store at {p}")
     try:
-        return xr.open_zarr(p, consolidated=True, decode_timedelta=False)
+        return cast("xr.Dataset", xr.open_zarr(p, consolidated=True, decode_timedelta=False))
     except Exception:
-        return xr.open_zarr(p, consolidated=False, decode_timedelta=False)
+        return cast("xr.Dataset", xr.open_zarr(p, consolidated=False, decode_timedelta=False))
 
 
 def _is_naive_iso(value: object) -> bool:
@@ -1124,7 +1124,9 @@ def _is_naive_iso(value: object) -> bool:
 
 
 def _as_seconds(value: np.datetime64) -> np.datetime64:
-    return np.datetime64(value, "s")
+    # numpy's stubs carry no (datetime64, unit) overload even though the runtime
+    # accepts it; the ignore is scoped to the two codes it needs, never bare.
+    return np.datetime64(value, "s")  # type: ignore[call-overload,no-any-return]
 
 
 def _epsg_of(value: object) -> int | None:
@@ -1328,7 +1330,8 @@ def _check_variables(
         else f"missing data variables: {missing}",
     )
 
-    unexpected = sorted(present - set(DATA_VARS) - ALLOWED_EXTRA_VARS)
+    # xarray keys are `Hashable`; every store this checker admits uses `str`.
+    unexpected = sorted(cast("set[str]", present - set(DATA_VARS) - ALLOWED_EXTRA_VARS))
     hint = ""
     if any(v in CHANNEL_INDEX for v in unexpected):
         hint = (
@@ -2393,7 +2396,9 @@ def _check_bootstrap_guard(rep: ContractReport, stats: dict[str, Any]) -> None:
     )
     if not ok:
         return
-    enough = int(raw) >= MIN_TRAIN_BLOCKS_FOR_REPORTING
+    # `ok` above already established `isinstance(raw, int)`; the cast restates
+    # that for the type checker without adding a second runtime guard.
+    enough = int(cast("int", raw)) >= MIN_TRAIN_BLOCKS_FOR_REPORTING
     rep.add(
         "C3",
         "bootstrap_guard",

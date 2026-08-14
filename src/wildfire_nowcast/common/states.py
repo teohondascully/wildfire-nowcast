@@ -49,7 +49,7 @@ contagion source.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 
@@ -78,8 +78,11 @@ __all__ = [
 #: The one supported rule. ``provisional_p0`` is RETIRED (ADR-006 P1) and is
 #: rejected rather than quietly re-implemented, so no artefact can be produced
 #: under it by accident.
-FIRELINE_V2 = "fireline_v2"
 StateRule = Literal["fireline_v2"]
+#: Annotated with the alias rather than inferred as ``str``: without this the
+#: literal type is widened and ``rule: StateRule = FIRELINE_V2`` below stops
+#: type-checking, which is the one place the retired rule could re-enter.
+FIRELINE_V2: StateRule = "fireline_v2"
 RETIRED_RULES = frozenset({"provisional_p0", "provisional", "p0"})
 
 
@@ -226,7 +229,7 @@ def burning_residence_hours(state: np.ndarray) -> np.ndarray:
     """
     arr = np.asarray(state)
     counts = (arr == BURNING).sum(axis=0).ravel()
-    return counts[counts > 0]
+    return cast("np.ndarray[Any, Any]", counts[counts > 0])
 
 
 def frames_without_burning(state: np.ndarray) -> np.ndarray:

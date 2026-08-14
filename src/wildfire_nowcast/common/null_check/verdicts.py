@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -131,7 +131,7 @@ def _advantage(a: float, b: float, spec: MetricSpec) -> float:
 
 
 def compare(
-    a_by_seed: Sequence[float], b_by_seed: Sequence[float], spec: MetricSpec
+    a_by_seed: Sequence[float | None], b_by_seed: Sequence[float | None], spec: MetricSpec
 ) -> tuple[str, float, float]:
     """PAIRED comparison across seeds: ``(verdict, mean advantage, sd)``.
 
@@ -155,6 +155,10 @@ def compare(
     for a SAFETY check is to flag more, not fewer — an undecided comparison here
     resolves to "the metric cannot tell these apart", which is a finding.
     """
+    # The parameters are `float | None` because the filter below already admits
+    # None and every caller passes `by_seed[...]`, which is `list[float | None]`.
+    # The previous `Sequence[float]` annotation described a contract the callers
+    # never met; widening it changes no behaviour, it stops the annotation lying.
     diffs = [
         _advantage(float(a), float(b), spec)
         for a, b in zip(a_by_seed, b_by_seed, strict=True)
@@ -293,7 +297,11 @@ def _best_skill_reference(means: Mapping[str, float | None], spec: MetricSpec) -
         return SKILLFUL
     best = scored[0]
     for name in scored[1:]:
-        if _advantage(float(means[name]), float(means[best]), spec) > 0:
+        # `scored` was filtered on `is not None`, which the checker cannot carry
+        # across the subscript; the casts restate it without a second guard.
+        this = float(cast("float", means[name]))
+        incumbent = float(cast("float", means[best]))
+        if _advantage(this, incumbent, spec) > 0:
             best = name
     return best
 
@@ -477,7 +485,7 @@ def run_null_check(
         raise ValueError("run_null_check needs at least one seed")
     models = dict(forecasters or forecasters_for(windows))
     scorer = score_fn or _c6_scorer()
-    pool = getattr(scorer, "aggregate", None)
+    pool: Any = getattr(scorer, "aggregate", None)
     if pool is None:  # pragma: no cover - only for an injected scorer
         from wildfire_nowcast.eval.metrics import aggregate as pool  # noqa: PLC0415
 
@@ -498,7 +506,7 @@ def run_null_check(
     # pooled[model][seed_index] = the aggregated score dict
     pooled: dict[str, list[Mapping[str, Any]]] = {}
     for name, fn in models.items():
-        runs = []
+        runs: list[Mapping[str, Any]] = []
         for seed in seeds:
             # A forecaster that never draws produces the same score at every
             # seed, so scoring it once and replicating is bitwise identical, not

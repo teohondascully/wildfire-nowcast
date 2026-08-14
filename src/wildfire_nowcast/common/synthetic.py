@@ -42,7 +42,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple, cast
 
 import numpy as np
 import xarray as xr
@@ -276,7 +276,7 @@ def _dilate(mask: np.ndarray, kernel: np.ndarray) -> np.ndarray:
 def _disc(shape: tuple[int, int], row: int, col: int, radius: float) -> np.ndarray:
     ny, nx = shape
     rr, cc = np.ogrid[:ny, :nx]
-    return ((rr - row) ** 2 + (cc - col) ** 2) <= radius**2
+    return cast("np.ndarray[Any, Any]", ((rr - row) ** 2 + (cc - col) ** 2) <= radius**2)
 
 
 # --------------------------------------------------------------------------

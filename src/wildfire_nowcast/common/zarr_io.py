@@ -35,7 +35,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import xarray as xr
@@ -279,11 +279,13 @@ def write_tensor(
     t_chunk = min(time_chunk, n_t)
     encoding: dict[str, dict[str, Any]] = {}
     for name in ds.data_vars:
+        # xarray types variable names as `Hashable`; C1 stores use `str`.
+        key = cast("str", name)
         ndim = ds[name].ndim
         if ndim == 3:
-            encoding[name] = {"chunks": (t_chunk, ny, nx)}
+            encoding[key] = {"chunks": (t_chunk, ny, nx)}
         elif ndim == 4:
-            encoding[name] = {"chunks": (t_chunk, 1, ny, nx)}
+            encoding[key] = {"chunks": (t_chunk, 1, ny, nx)}
     encoding["time"] = dict(_TIME_ENCODING)
 
     with warnings.catch_warnings():
@@ -291,7 +293,10 @@ def write_tensor(
         # it because it makes opening many-chunk stores far cheaper, and every
         # reader here goes through open_tensor(), which falls back gracefully.
         warnings.filterwarnings("ignore", message=".*[Cc]onsolidated metadata.*")
-        ds.to_zarr(p, mode=mode, consolidated=True, encoding=encoding)
+        # `mode` stays `str` in this signature: xarray's stub wants a Literal,
+        # and narrowing a public parameter to satisfy a stub would push the
+        # constraint onto every caller for no runtime benefit.
+        ds.to_zarr(p, mode=mode, consolidated=True, encoding=encoding)  # type: ignore[call-overload]
     return p
 
 
@@ -301,9 +306,9 @@ def open_tensor(path: str | Path) -> xr.Dataset:
     if not p.exists():
         raise FileNotFoundError(f"no tensor store at {p}")
     try:
-        return xr.open_zarr(p, consolidated=True, decode_timedelta=False)
+        return cast("xr.Dataset", xr.open_zarr(p, consolidated=True, decode_timedelta=False))
     except Exception:
-        return xr.open_zarr(p, consolidated=False, decode_timedelta=False)
+        return cast("xr.Dataset", xr.open_zarr(p, consolidated=False, decode_timedelta=False))
 
 
 # --------------------------------------------------------------------------
@@ -456,7 +461,7 @@ def write_manifest(manifest: Mapping[str, Any], path: str | Path) -> Path:
 
 
 def read_manifest(path: str | Path) -> dict[str, Any]:
-    return json.loads(Path(path).read_text())
+    return cast("dict[str, Any]", json.loads(Path(path).read_text()))
 
 
 # --------------------------------------------------------------------------
@@ -518,7 +523,7 @@ def write_norm_stats(stats: Mapping[str, Any], path: str | Path) -> Path:
 
 
 def read_norm_stats(path: str | Path) -> dict[str, Any]:
-    return json.loads(Path(path).read_text())
+    return cast("dict[str, Any]", json.loads(Path(path).read_text()))
 
 
 def compute_norm_stats(
