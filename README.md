@@ -4,6 +4,8 @@ probabilistically, and for no other reason. it uses public data only.
 
 wildfire-nowcast
 
+[![ci](https://github.com/teohondascully/wildfire-nowcast/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/teohondascully/wildfire-nowcast/actions/workflows/ci.yml)
+
 short-range probabilistic wildfire spread. we learn a transition kernel
 p(x_{t+1h} | x_t, features), sample monte carlo ensembles from it, and score
 whether those ensembles are calibrated rather than merely sharp. the horizon is
@@ -88,9 +90,10 @@ tests/ mirrors the contract rather than the module tree: the c1-c3 suite takes
 --tensor-path, so a real fire is judged by exactly the file that judges the
 synthetic one.
 
-running it. make install, then make test. make lint and make null-check are part
-of the same gate, and make ci runs what github actions runs on every push: lint,
-the full suite including the slow playthroughs, the mutation-coverage gate over
+running it. make install, then make test. make lint, make typecheck and make
+null-check are part of the same gate, and make ci runs what github actions runs
+on every push: lint, types, the full suite including the slow playthroughs, the
+mutation-coverage gate over
 every playthrough, a freshly generated synthetic fire judged by the real c1-c3
 checker, and the do-nothing null check. what ci does not cover is written down in
 .github/workflows/ci.yml rather than left to be discovered — the fire corpus is
@@ -98,6 +101,18 @@ not in the repo, so the cross-fire split clauses run against a synthetic corpus
 there, elmfire is not built, and earth engine ingestion needs credentials. the
 contract version is parsed from the first line of docs/interfaces.md at import
 with no fallback, so a drifted version fails loudly instead of silently.
+
+types. make typecheck runs mypy in strict mode over src, from a pinned isolated
+environment rather than from .venv, so a developer tool cannot move the
+interpreter the numbers are produced on. it is honest about what it does not
+cover: 66 of the 107 modules are checked today, including all 26 of common, and
+the other 41 are listed by name in pyproject.toml with the reason each one is
+there. the list is a burn-down and it fails in both directions — adding a module
+to it changes a pin in tests/test_typecheck_config.py, and a listed module that
+has become clean fails the build until it is retired, because an exemption list
+that only ever checks its ceiling turns into a permanent excuse. tests are not
+type-checked yet and that gap is written down rather than hidden behind a
+relaxed setting.
 
 data is not in the repo. the fire tensors are about 1.3 gb and the run records
 another 38 mb. both are reproducible from the ingestion pipeline but require
