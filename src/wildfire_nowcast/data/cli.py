@@ -74,6 +74,11 @@ def _build_parser() -> argparse.ArgumentParser:
     bp.add_argument("--quiet", action="store_true")
 
     np_ = sub.add_parser("norm-stats", help="recompute the C3 file over the train folds")
+    np_.add_argument(
+        "--fires-root",
+        default=None,
+        help="corpus root (default: data/fires/). ADR-054's 2 km corpus lives elsewhere.",
+    )
     np_.add_argument("--train-folds", type=int, nargs="+", default=None,
                      help="fold ids to train on (default: every fold that has a built fire)")
     np_.add_argument("--out", default=None)
@@ -138,7 +143,11 @@ def _cmd_build(fire_ids: Sequence[str], *, verbose: bool) -> int:
     return rc
 
 
-def _cmd_norm_stats(train_folds: Sequence[int] | None, out: str | None) -> int:
+def _cmd_norm_stats(
+    train_folds: Sequence[int] | None,
+    out: str | None,
+    fires_root: str | None = None,
+) -> int:
     """C3 — recompute ``data/norm_stats.json`` over the TRAIN folds only.
 
     **Membership comes from the MANIFESTS ON DISK, never from
@@ -165,7 +174,12 @@ def _cmd_norm_stats(train_folds: Sequence[int] | None, out: str | None) -> int:
         write_norm_stats,
     )
 
-    root = Path(fires_dir())
+    # ``fires_root`` is a PARAMETER rather than a second copy of this function:
+    # ADR-054's 2 km corpus needs the identical assembly over a different root,
+    # and two implementations of "which fires are train" is precisely the C0
+    # hazard. Default is unchanged, so every existing call site is byte-for-byte
+    # the same computation.
+    root = Path(fires_root) if fires_root else Path(fires_dir())
     built: dict[str, dict[str, object]] = {}
     for manifest_path in sorted(root.glob("*/manifest.json")):
         if not (manifest_path.parent / "tensor.zarr").exists():
@@ -178,7 +192,7 @@ def _cmd_norm_stats(train_folds: Sequence[int] | None, out: str | None) -> int:
             "label_source": str(man.get("label_source") or "unknown"),
         }
     if not built:
-        print("no built tensors under data/fires/", file=sys.stderr)
+        print(f"no built tensors under {root}", file=sys.stderr)
         return 1
 
     folds = (
@@ -213,7 +227,7 @@ def _cmd_norm_stats(train_folds: Sequence[int] | None, out: str | None) -> int:
         src: sorted(f for f in train_ids if built[f]["label_source"] == src)
         for src in sorted({str(built[f]["label_source"]) for f in train_ids})
     }
-    stats["membership_source"] = "data/fires/*/manifest.json (C2 root cv_fold)"
+    stats["membership_source"] = f"{root.name}/*/manifest.json (C2 root cv_fold)"
     stats["policy"] = (
         "computed over TRAIN folds only; never recomputed inline by models (C3). "
         "n_train_blocks counts DISTINCT spatial_block_id, not fires (C3.3). "
@@ -224,12 +238,16 @@ def _cmd_norm_stats(train_folds: Sequence[int] | None, out: str | None) -> int:
         "fire's statistic in here?' with ONE read: fold INDICES are not identifying "
         "across corpus versions, fire ids are."
     )
-    path = write_norm_stats(stats, Path(out) if out else norm_stats_path())
+    path = write_norm_stats(
+        stats, Path(out) if out else (root / "norm_stats.json" if fires_root else norm_stats_path())
+    )
     # The fingerprint is a function of `train_folds`, which this file DEFINES, so
     # it can only be read AFTER the write. Stamping it from the pre-write state
     # would record the fingerprint of the split being replaced — the same
     # sampled-at-the-wrong-end defect C-4.2 names for code fingerprints.
-    stats["split_fingerprint"] = split_fingerprint(stats_path=path).get("fingerprint")
+    stats["split_fingerprint"] = split_fingerprint(
+        fires_root=root, stats_path=path
+    ).get("fingerprint")
     path = write_norm_stats(stats, path)
     print(
         json.dumps(
@@ -364,7 +382,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_build(args.fire_id, verbose=not args.quiet)
 
     if args.cmd == "norm-stats":
-        return _cmd_norm_stats(args.train_folds, args.out)
+        return _cmd_norm_stats(args.train_folds, args.out, args.fires_root)
 
     if args.cmd == "backfill-c2-v27":
         return _cmd_backfill_c2_v27(args.fire_id, dry_run=args.dry_run)
