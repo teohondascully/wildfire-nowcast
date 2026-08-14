@@ -85,6 +85,7 @@ from wildfire_nowcast.common.runs import create_run_dir
 from wildfire_nowcast.common.states import dilate
 from wildfire_nowcast.common.zarr_io import get_channel, open_tensor, read_norm_stats
 from wildfire_nowcast.eval.masks import default_band_radius, frontier
+from wildfire_nowcast.model.direct import DirectHorizonKernel, parameter_counts
 from wildfire_nowcast.model.inputs import (
     WEATHER_INPUT_CHANNELS,
     static_from_dataset,
@@ -275,6 +276,13 @@ class TrainConfig:
     #: enabling it silently would be indistinguishable from tuning on the gate.
     w_area_crps: float = 0.0
     band_radius_cells: int | None = None
+    #: [M10 / ADR-045] Fit the DIRECT-HORIZON head (arm B) instead of the
+    #: free-running rollout (arm A). **False = arm A, bitwise** — verified by
+    #: `runs/_m10_bitidentity.py` against the incumbent checkpoint's own outputs,
+    #: not by inspection. See :mod:`wildfire_nowcast.model.direct` for why B's
+    #: stencil is multi-scale with tied weights (the two obvious constructions
+    #: violate ADR-045 (3)'s capacity or reach conditions).
+    direct_horizon: bool = False
     #: North-south mirror ABLATION (:func:`mirror_north_south`). Diagnostic only:
     #: a model fitted with this on must never be evaluated against real held-out
     #: fires, because it was fitted to a world that does not exist. It answers one
@@ -618,21 +626,30 @@ def _elbo_terms(
     kl_per_dim = torch.zeros(latent.dim, dtype=DTYPE)
     z_prev: Tensor | None = None
     mu_p_prev: Tensor | None = None
+    # [M10] A DIRECT-HORIZON head anchors every lead on the window's ORIGIN; a
+    # rollout anchors each step on the state it reached. The encoder must see the
+    # same field the decoder modulates or the spatial latent dimensions describe a
+    # different fire from the one they act on — which would not crash, and would
+    # not show up anywhere except as a latent that mysteriously learned nothing.
+    anchor_on_origin = bool(getattr(model, "anchors_on_origin", False))
     for k in range(horizon_h):
         w_k = weather[:, k]
-        p_zero = model.step_probability(b, w_k, fire.fields, None).detach()
+        p_zero = model.step_probability_at(b, weather, fire.fields, k, None, b0).detach()
         # [M7] The encoder sees the SAME fire-anchored basis the decoder applies.
         # Without it a globally-pooled q cannot tell "the east flank ran" from
         # "the west flank ran", the spatial dimensions are UNIDENTIFIABLE, and
         # their fitted sigma would be a statement about my pooling rather than
         # about fire. Detached with the rest of the encoder's inputs: q inverts
         # the decoder, it does not reshape it.
+        basis_anchor = b0 if anchor_on_origin else b
         basis_k = (
-            spatial_basis(b.detach(), latent.spatial_modes) if latent.spatial_modes else None
+            spatial_basis(basis_anchor.detach(), latent.spatial_modes)
+            if latent.spatial_modes
+            else None
         )
         mu, log_var = latent.posterior(b.detach(), y[:, k], p_zero, basis_k)
         z = reparameterise(mu, log_var)
-        p = model.step_probability(b, w_k, fire.fields, latent.effect(z))
+        p = model.step_probability_at(b, weather, fire.fields, k, latent.effect(z), b0)
         b = b + (1.0 - b) * p
         posterior.append(b)
         # [M6] The KL is measured against THIS STEP's prior, which under a
@@ -1266,9 +1283,15 @@ def train_kernel(
     ]
     load_s = time.time() - t_load
 
-    model = ContagionKernel(
+    # [M10] One constructor call, one config, two arms. The direct head differs
+    # from the rollout in its CLASS and in nothing else that this function does —
+    # same losses, same optimiser, same seed, same calibration, same diagnostics —
+    # so a difference in the result is a difference in the horizon treatment and
+    # not in the training recipe.
+    kernel_cls = DirectHorizonKernel if cfg.direct_horizon else ContagionKernel
+    model = kernel_cls(
         KernelConfig(radius=cfg.radius, susceptibility_mode=cfg.susceptibility_mode),
-        name="contagion_kernel",
+        name="direct_horizon_kernel" if cfg.direct_horizon else "contagion_kernel",
         ellipse_params=EllipseParams().scaled(cfg.ellipse_scale),
         latent_config=(
             None
@@ -1493,6 +1516,10 @@ def train_kernel(
         # than a comparison against a number from another session.
         "wind_sectors": {"final": sectors, "untrained_control": init_sectors},
         "latent_bit_identity": check_latent_off_is_bit_identical(),
+        # [M10 / ADR-045 (3)] "B is not allowed to win on capacity." Every run
+        # carries its own parameter census so the comparison is a number in the
+        # artifact rather than an argument in a status entry.
+        "parameter_counts": parameter_counts(model),
         "parameters": parameter_report(model),
         "offset_kernel": offset_kernel_table(model),
         # ADR-015 (6a): the fix is only a fix if the gradient is measurably

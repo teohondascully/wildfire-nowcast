@@ -611,6 +611,10 @@ class ContagionKernel(nn.Module):
         fields: StaticFields,
         latent: LatentEffect | None = None,
         spatial_log_intensity: Tensor | None = None,
+        *,
+        dilation: int = 1,
+        reach_scale: float | Tensor = 1.0,
+        log_amplitude: float | Tensor = 0.0,
     ) -> Tensor:
         """``log w_d(x)`` for every offset. ``[..., K, H, W]``.
 
@@ -623,6 +627,23 @@ class ContagionKernel(nn.Module):
         wind, so it shifts every offset and every cell of the step TOGETHER —
         which is the whole content of "correlated innovations". ``None``
         reproduces the deterministic path exactly.
+
+        [M10] The three keyword-only arguments exist so the DIRECT-HORIZON head
+        can reuse THIS function rather than restate the elliptical-Gaussian weight
+        (C0: one implementation of the physics, which is the rule
+        :func:`check_torch_matches_numpy` already exists to defend).
+
+        ``dilation``     place the stencil at ``dilation * d`` cells, keeping one
+                         free weight per BASE offset. A lead-``h`` head using
+                         dilations ``1..h`` therefore has A's per-lead receptive
+                         field and A's parameter count.
+        ``reach_scale``  multiplies the directional rate of spread (cells per
+                         LEAD, not per hour).
+        ``log_amplitude`` adds to ``log alpha`` (the per-lead hazard scale).
+
+        Each is guarded by an exact-identity check so the default path executes
+        the *same expressions it did before M10*; the incumbent's bit-identity is
+        measured by ``runs/_m10_bitidentity.py``, not assumed from this comment.
         """
         u10 = weather_step[..., weather_index("wind_u10"), :, :]
         v10 = weather_step[..., weather_index("wind_v10"), :, :]
@@ -639,9 +660,15 @@ class ContagionKernel(nn.Module):
         ) * self.offset_north.reshape(-1, 1, 1)
         factor = (1.0 - ecc.unsqueeze(-3)) / (1.0 - ecc.unsqueeze(-3) * cos_theta)
         reach = torch.exp(self.log_gamma) * head.unsqueeze(-3) * factor
+        if not (isinstance(reach_scale, float) and reach_scale == 1.0):
+            reach = reach * reach_scale
         dist = self.offset_dist.reshape(-1, 1, 1)
+        if int(dilation) != 1:
+            dist = dist * float(dilation)
         radial = -0.5 * (dist / torch.clamp(reach, min=1e-9)) ** 2
         log_w = self.log_alpha + self.offset_log_weight.reshape(-1, 1, 1) + radial
+        if not (isinstance(log_amplitude, float) and log_amplitude == 0.0):
+            log_w = log_w + log_amplitude
         if self.config.susceptibility_mode == "amplitude":
             log_w = log_w + self.log_susceptibility(fields).unsqueeze(-3)
         if latent is not None:
@@ -686,6 +713,38 @@ class ContagionKernel(nn.Module):
         lam = (torch.exp(log_w) * neighbours).sum(dim=-3)
         return -torch.expm1(-lam)  # 1 - exp(-lambda), accurate for small lambda
 
+    def step_probability_at(
+        self,
+        burned: Tensor,
+        weather: Tensor,
+        fields: StaticFields,
+        k: int,
+        latent: LatentEffect | None = None,
+        burned0: Tensor | None = None,
+    ) -> Tensor:
+        """[M10] The CONDITIONAL ignition probability for lead ``k+1``. ``[..., H, W]``.
+
+        Here it is exactly :meth:`step_probability` on ``weather[k]`` — the
+        free-running one-step transition, unchanged — and ``burned0`` is ignored.
+        The indirection exists so a DIRECT-HORIZON head
+        (:class:`~wildfire_nowcast.model.direct.DirectHorizonKernel`) can predict
+        the lead-``k+1`` marginal in one shot from ``burned0`` while sharing this
+        class's rollout, sampler and C5 ``predict`` rather than forking them.
+
+        A fork would have been the easier edit and the wrong one: M10 compares a
+        rollout against a direct head, so any difference between the two arms that
+        comes from *two copies of the sampling loop* is a difference M10 would
+        report as a finding. One loop, one absorbing-state bookkeeping, one RNG
+        consumption order; only the hazard differs.
+
+        **Bit-identity of the incumbent is MEASURED, not asserted** — see
+        ``runs/_m10_bitidentity.py``, which digests this class's sampled ensemble,
+        mean field and marginal on real held-out windows before and after this
+        change.
+        """
+        del burned0  # a free-running step has no use for the window's origin
+        return self.step_probability(burned, weather[..., k, :, :, :], fields, latent)
+
     def rollout(
         self,
         burned0: Tensor,
@@ -714,7 +773,7 @@ class ContagionKernel(nn.Module):
         out = []
         for k in range(int(horizon_h)):
             z_k = None if latents is None or k >= len(latents) else latents[k]
-            p = self.step_probability(b, weather[..., k, :, :, :], fields, z_k)
+            p = self.step_probability_at(b, weather, fields, k, z_k, burned0)
             b = b + (1.0 - b) * p
             out.append(b)
         return torch.stack(out, dim=-3)
@@ -950,6 +1009,11 @@ class ContagionKernel(nn.Module):
         burned = torch.as_tensor(
             np.repeat((state0 > UNBURNED)[None], n_members, axis=0).astype(np.float64), dtype=DTYPE
         )
+        # [M10] The window's ORIGIN, kept separate from the accumulating state.
+        # A free-running rollout never needs it; a direct-horizon head computes
+        # every lead's hazard from it and uses `burned` only to keep fire
+        # absorbing. Cloned so the two can never alias.
+        burned_origin = burned.clone()
         ignited_at = np.full((n_members, *state0.shape), -1, dtype=np.int64)
         state = np.repeat(state0[None], n_members, axis=0)
         out = np.empty((n_members, horizon_h, *state0.shape), dtype=np.uint8)
@@ -968,7 +1032,7 @@ class ContagionKernel(nn.Module):
                 else None
             )
             z_k = path.step((n_members,), generator=gen, covariates=cov)
-            p = self.step_probability(burned, w[k], fields, z_k)
+            p = self.step_probability_at(burned, w, fields, k, z_k, burned_origin)
             draw = torch.rand(p.shape, generator=gen, dtype=DTYPE)
             newly = ((draw < p) & (burned < 0.5)).numpy()
             burned = torch.clamp(burned + torch.as_tensor(newly.astype(np.float64)), max=1.0)
