@@ -1338,8 +1338,8 @@ on the figure rather than in a footnote:</p>
 <h4>NOT MEASURED — a panel we owe you and cannot render today</h4>
 <p>We have no rendered <b>spatial</b> ensemble of the learned kernel on a held-out fire — the
 spaghetti-of-member-fronts picture, but for our model rather than for the ellipse. Producing one
-requires calling <code>predict()</code> against a checkpoint, and the model lead is currently
-rewriting the evaluation package; running our renderer against a tree being edited is a hazard we
+requires calling <code>predict()</code> against a checkpoint, and the evaluation package was
+being rewritten at the time; running the renderer against a tree being edited is a hazard we
 have already caused once. The numbers above (dispersion ratio, ablation collapse, member counts)
 are all we can honestly show today. <b>This gap points in our favour and you should treat it as
 unverified.</b></p>

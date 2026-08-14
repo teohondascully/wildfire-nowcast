@@ -1,8 +1,10 @@
 """ELMFIRE behind the C5 ``predict()`` signature — **NATIVE INPUTS, CONTRACT
 OUTPUTS** (ADR-026 (3)).
 
-CLAUDE.md makes "ELMFIRE Monte Carlo with default Rothermel parameters" a
-non-negotiable baseline. This module makes it callable exactly like every other
+"ELMFIRE Monte Carlo with default Rothermel parameters" is a non-negotiable
+baseline of this project (``README.md``, *baselines*). It is not something the
+model gets to opt out of comparing against, however it scores.
+This module makes it callable exactly like every other
 C5 model, so G5 can be scored through C6 on the same windows, members and masks
 as the kernel and the ellipse. **The head-to-head is G5 and is NOT authorised
 here.** Nothing in this file produces a comparison.

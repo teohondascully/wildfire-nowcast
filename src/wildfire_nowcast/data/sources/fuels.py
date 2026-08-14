@@ -1,7 +1,8 @@
 """C1 channels 9 (``fuel_model_id``, FBFM40) and 10 (``canopy_cover``).
 
-**Finding that changes the plan (2026-08-07).** CLAUDE.md assumes FBFM40 and
-canopy come from GEE. They do not. The Earth Engine public catalog carries only
+**Finding that changes the plan (2026-08-07).** The original design assumed
+FBFM40 and canopy come from GEE. They do not. The Earth Engine public catalog
+carries only
 LANDFIRE ``v1.2.0``/``v1.4.0`` — EVC, EVH, EVT, BPS, ESP and the fire-regime
 products. There is **no FBFM40 and no canopy-cover asset**, and v1.4.0
 represents circa-2014 conditions, i.e. 5-7 years stale for 2019-2021 fires. That
@@ -20,8 +21,8 @@ release published after a fire has that fire's own burn scar baked into its
 fuels, so training on it leaks the label. :func:`vintage_for_fire` therefore
 picks the newest vintage whose *effective year* is strictly before the fire's
 ignition year, and the residual staleness is closed forward with MTBS and
-current-season NIFC perimeters (:mod:`.burn_scar`) — which is exactly the
-correction CLAUDE.md calls mandatory.
+current-season NIFC perimeters (:mod:`.burn_scar`) — the MTBS/NIFC correction the
+feature spec in ``README.md`` makes mandatory rather than optional.
 """
 
 from __future__ import annotations
@@ -132,7 +133,7 @@ def vintage_for_fire(fire_year: int) -> str:
 
     Consequence worth stating out loud rather than burying: because LFPS skips
     fuels for LF2020, a 2021 fire falls back to **LF2016 — five years stale**,
-    not the one-to-two years CLAUDE.md sizes the correction for. That is still
+    not the one-to-two years the MTBS correction is sized for. That is still
     the correct choice (it is the newest *legal* vintage), and the staleness is
     recorded in provenance as ``fuels_staleness_years`` and partly corrected by
     channel 13, whose MTBS window is anchored to this same vintage year and so

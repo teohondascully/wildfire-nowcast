@@ -12,10 +12,11 @@ Read the following as a warning label:
   It has no Rothermel physics, no fuels response beyond a barrier mask, and no
   calibration of any kind. **It must never appear in a gate, a report, a figure
   intended for anyone outside this repo, or a comparison against ELMFIRE.**
-* Its one scientific commitment is structural, from CLAUDE.md: pixels are
-  conditionally independent Bernoulli **only given a shared per-step latent**
-  ``z_t``. ``latent_sigma=0`` reduces it to the independent-per-pixel-noise
-  model that CLAUDE.md names as known-broken, and it is retained deliberately as
+* Its one scientific commitment is structural, and is the project's (see
+  ``README.md``): pixels are conditionally independent Bernoulli **only given a
+  shared per-step latent** ``z_t``. ``latent_sigma=0`` reduces it to the
+  independent-per-pixel-noise model that is known-broken by ensemble collapse,
+  and that degenerate setting is retained deliberately as
   the POSITIVE CONTROL for the ensemble-collapse detector in
   :mod:`wildfire_nowcast.sim.ensemble`. A collapse detector that has never been
   shown to fire is not a detector.
@@ -113,8 +114,8 @@ class StubEnsemble:
                 u = float(np.nanmean(weather[step, _U]))
                 v = float(np.nanmean(weather[step, _V]))
                 rh = float(np.nanmean(weather[step, _RH]))
-                # ONE latent per step, shared by every pixel (CLAUDE.md). This is
-                # the whole reason the ensemble has usable spread.
+                # ONE latent per step, shared by every pixel. This is the whole
+                # reason the ensemble has usable spread.
                 z = float(rng.normal(0.0, self.latent_sigma))
 
                 ever = state > UNBURNED

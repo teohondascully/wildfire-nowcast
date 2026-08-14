@@ -540,11 +540,12 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "`common.dispersion as g3`, calls `g3.first_moment_condition_from_blocks`, and emits "
         "`g3_conditions`. UNDEFINED is a third outcome and is never a pass.",
     ),
-    # [v2.13] Classified by the ORCHESTRATOR, not infra — a declared
-    # boundary crossing (ADR-040). I authored C3.5, the registry correctly went
-    # red because it was unclassified, and no lead was live to fix it. The
-    # crossing is one dict entry and no logic; the checks it names were written
-    # and verified by infra at A14. Recorded rather than quietly done.
+    # [v2.13] Classified by the MAINTAINER rather than by the author of the
+    # checks — a declared ownership crossing (ADR-040). C3.5 was authored here,
+    # the registry correctly went red because the clause was unclassified, and
+    # nobody who owned the classification was available to fix it. The crossing
+    # is one dict entry and no logic; the checks it names were written and
+    # verified at A14. Recorded rather than quietly done.
     "C3.5": ClauseImpl(
         CLAUSE_ENFORCED,
         checks=("norm_stats_declares_fire_ids", "train_heldout_disjoint"),
@@ -2073,7 +2074,8 @@ def _check_manifest_v27_keys(rep: ContractReport, man: Mapping[str, Any]) -> Non
         else f"C2 [v2.7] requires {MANIFEST_VINTAGE_LAG_KEY} as a non-negative INT (root or "
         f"provenance); got {_manifest_lookup(man, MANIFEST_VINTAGE_LAG_KEY)!r}. LFPS publishes "
         "no LF2020 product, so 2021 fires carry 5-year and 2022 fires 6-year stale fuels, not "
-        "the 1-2 CLAUDE.md assumed (ADR-014 §3). This is staleness, not leakage — but the MTBS "
+        "the 1-2 years the MTBS correction is sized for (ADR-014 §3). This is staleness, not "
+        "leakage — but the MTBS "
         "correction is far past its design load and any result spanning 2021+ fires MUST state "
         "the lag, so it cannot be left as a string for a reader to parse",
     )

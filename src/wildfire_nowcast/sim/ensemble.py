@@ -17,8 +17,10 @@ actually unsure. :func:`arrival_quantiles` treats "never arrived in the window"
 as ``+inf``, so the q-quantile is undefined (NaN) whenever fewer than a fraction
 ``q`` of members arrive at all, and the figure draws those cells as censored.
 
-**Ensemble collapse is checked, not assumed.** CLAUDE.md names
-independent-per-pixel-noise models as known-broken by collapse. A spaghetti plot
+**Ensemble collapse is checked, not assumed.** Models with independent
+per-pixel noise and no shared per-step latent are known-broken by collapse
+(``README.md``): ten thousand independent Bernoullis average out and total
+burned area concentrates on its mean. A spaghetti plot
 of a collapsed ensemble is a single thick line and looks tidy, which is the
 danger. :func:`ensemble_diagnostics` measures spread directly and the figure
 carries a loud banner when it is degenerate. These are RENDERING diagnostics for
@@ -131,7 +133,8 @@ def independence_dispersion_index(samples: np.ndarray, lead: int = -1) -> float:
         index = std(member areas) / sqrt(Σ p_i (1 − p_i))
 
     ``index ≈ 1`` means the ensemble carries no correlated innovation at all —
-    precisely the independent-per-pixel model CLAUDE.md names as known-broken.
+    precisely the independent-per-pixel model this project treats as known-broken
+    and keeps only as an ablation.
     ``index >> 1`` means a shared per-step latent is actually moving the whole
     front together, which is what ``z_t`` exists to do.
 

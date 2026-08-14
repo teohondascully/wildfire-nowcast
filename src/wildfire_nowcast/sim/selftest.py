@@ -181,7 +181,7 @@ def test_collapse_is_detected_and_healthy_is_not() -> None:
     p = rng.uniform(0.2, 0.8, size=n_cells)
     indep = (rng.random((n_members, n_cells)) < p).astype(np.uint8).reshape(n_members, 1, 30, 30)
     assert ensemble_diagnostics(indep)["collapsed"], (
-        "independent-per-pixel noise is the model CLAUDE.md names as known-broken; the detector "
+        "independent-per-pixel noise is the known-broken model (it collapses); the detector "
         "must fire on it"
     )
 

@@ -23,7 +23,8 @@ paths rather than the easy ones:
   burned, and stops the main front;
 * at a scripted hour a **spot fire ignites on the far side of that river**, far
   enough away that no contiguous spread could have produced it. Long-range
-  spotting is an explicit component of the model (see CLAUDE.md), so every
+  spotting is an explicit, separate component of the model (``README.md``,
+  *the model has two components*), so every
   downstream consumer needs a fixture where it actually happens.
 
 Physics here is a caricature — an anisotropic wind/slope-driven dilation with

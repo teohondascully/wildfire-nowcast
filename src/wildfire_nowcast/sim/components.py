@@ -64,8 +64,8 @@ __all__ = [
 ]
 
 #: Separation at or below which two blobs in the SAME frame are one fire that
-#: GOFER rasterised into two pieces. Anchored to the label noise scale CLAUDE.md
-#: already states (~2 km effective GOES resolution), NOT fitted to any fire.
+#: GOFER rasterised into two pieces. Anchored to the label noise scale the corpus
+#: already has (~2 km effective GOES resolution), NOT fitted to any fire.
 FRAGMENT_KM: float = 2.0
 
 #: Separation at or above which a new component is confidently a DIFFERENT fire

@@ -1,9 +1,10 @@
 """C-4.3 [v2.12] — the interpreter ENVIRONMENT is in C-4's frozen set.
 
-WHERE THIS CLAUSE CAME FROM, AND IT IS DATA-LEAD'S
---------------------------------------------------
-D5 needed ``scipy`` mid-burst and **declined to install it**, on the reasoning
-that adding a package to the shared virtualenv while modelling is TRAINING is a
+WHERE THIS CLAUSE CAME FROM, AND IT WAS NOT THIS MODULE'S AUTHOR
+----------------------------------------------------------------
+The ingestion work needed ``scipy`` mid-burst and **declined to install it**, on
+the reasoning that adding a package to the shared virtualenv while training is
+in flight is a
 shared-state change of exactly the class C-4 exists to stop — and wrote pure-numpy
 equivalents instead. **C-4 as written enumerated FILES and said nothing about the
 environment**, so a lead could have installed anything mid-run and violated no

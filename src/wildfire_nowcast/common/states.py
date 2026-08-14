@@ -31,7 +31,8 @@ in 100% of Kincade's zero-growth hours.
 
 ``(burning(t-1) or new(t))`` is what keeps fire **absorbing**. A naive
 ``burning = new or active`` lets a cell go 2 -> 1 when the fire line wanders back
-over it, which is a state decrease and is forbidden by CLAUDE.md's ground truth.
+over it, which is a state decrease. Fire is ABSORBING here (``README.md``):
+burned area never decreases, so that transition is forbidden outright.
 Because ``new`` can never fire twice for one cell, dropping out of ``burning`` is
 permanent: every cell traces 0 -> 1 (one contiguous run) -> 2 and never returns.
 

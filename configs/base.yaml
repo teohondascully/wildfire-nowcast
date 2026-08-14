@@ -18,7 +18,8 @@ seed: 0
 # A config that declares this key with a DIFFERENT value is now an error.
 
 grid:
-  # Frozen scientific ground truth (CLAUDE.md); mirrored here so runs record it.
+  # Frozen scientific ground truth (see README.md); mirrored here so every run
+  # records the geometry it was produced under rather than assuming today's.
   crs: EPSG:5070
   cell_size_m: 1000
   timestep_hours: 1

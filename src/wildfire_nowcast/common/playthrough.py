@@ -478,8 +478,9 @@ def coverage_from_caught_map(
 ) -> PlaythroughReport:
     """Adopt a FOREIGN playthrough that already reports which criterion caught what.
 
-    ``sim/coarsen.py`` and ``sim/playthrough.py`` are sim's files and are
-    not infra's to restructure (C-4 / CLAUDE.md ownership). They already
+    ``sim/coarsen.py`` and ``sim/playthrough.py`` belong to the simulation and
+    figures area and are not this module's to restructure (C-4 ownership rules).
+    They already
     emit ``defects_caught_by: {defect: [criteria]}`` plus a "the rule passes every
     scenario" flag, which is this protocol's shape written independently — so the
     same coverage requirement can be enforced over them without touching a line
