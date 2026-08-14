@@ -76,10 +76,28 @@ out of sample that we do. the spread of log growth rates is 1.46 in truth and
 than reality's is, so the ensemble is too narrow because the rate is wrong, not
 because the noise is too small.
 
+layout. src/wildfire_nowcast/common is the single implementation of anything the
+contract adjudicates: the channel list, the state rule, the grid and lattice, the
+zarr io layer, the split fingerprint, the c6 metric registries and the contract
+checker itself. everything else imports it rather than reimplementing it, because
+a producer and a verifier computing geometry through different code is how a
+tensor passes its check and is still wrong. data/ ingests and assembles tensors,
+model/ holds the kernel and the training loop, eval/ holds the metrics and the
+baseline runner, sim/ holds the ensemble replay, the diagnostics and the figures.
+tests/ mirrors the contract rather than the module tree: the c1-c3 suite takes
+--tensor-path, so a real fire is judged by exactly the file that judges the
+synthetic one.
+
 running it. make install, then make test. make lint and make null-check are part
-of the same gate. the contract version is parsed from the first line of
-docs/interfaces.md at import with no fallback, so a drifted version fails loudly
-instead of silently.
+of the same gate, and make ci runs what github actions runs on every push: lint,
+the full suite including the slow playthroughs, the mutation-coverage gate over
+every playthrough, a freshly generated synthetic fire judged by the real c1-c3
+checker, and the do-nothing null check. what ci does not cover is written down in
+.github/workflows/ci.yml rather than left to be discovered — the fire corpus is
+not in the repo, so the cross-fire split clauses run against a synthetic corpus
+there, elmfire is not built, and earth engine ingestion needs credentials. the
+contract version is parsed from the first line of docs/interfaces.md at import
+with no fallback, so a drifted version fails loudly instead of silently.
 
 data is not in the repo. the fire tensors are about 1.3 gb and the run records
 another 38 mb. both are reproducible from the ingestion pipeline but require
