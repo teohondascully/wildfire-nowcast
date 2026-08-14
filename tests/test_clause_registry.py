@@ -26,6 +26,7 @@ cannot drift from the contract it audits.
 from __future__ import annotations
 
 import importlib
+import json
 import re
 from pathlib import Path
 
@@ -74,15 +75,83 @@ def clauses_in_interfaces() -> set[str]:
 
 
 @pytest.fixture(scope="module")
-def emitted_check_ids(default_synthetic: SyntheticFire) -> set[str]:
+def conformant_corpus(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
+    """A SYNTHETIC, fully conformant split: manifests on disk + a norm-stats file.
+
+    [A15] Built here rather than read from ``data/fires/`` so that the C-2 audit
+    runs on a machine that has no fire corpus — CI, a fresh clone, a reviewer.
+    Before this, five of C3/C3.1/C6.3's cross-fire check ids simply never
+    emitted without the 1.3 GB of data, and ``test_claimed_check_ids_really_run``
+    read that absence as *the registry claims a check that does not exist*. The
+    audit was therefore only runnable on one laptop, which is the wrong property
+    for the check that guards against clauses being fiction.
+
+    Conformant on purpose (see :func:`emitted_check_ids`), including the four
+    held-out spatial blocks C6.3 requires for G2, so ``heldout_block_coverage``
+    is emitted from its PASSING branch rather than its failing one.
+    """
+    root = tmp_path_factory.mktemp("clause_registry_corpus")
+    fires_root = root / "fires"
+    fires_root.mkdir()
+
+    # fold 3 is held out, matching the corpus of record's shape: 4 held-out
+    # blocks (the C6.3 minimum) and one block per fire, so no block straddles.
+    folds = {"f0": 0, "f1": 1, "f2": 2, "f4": 4, "h0": 3, "h1": 3, "h2": 3, "h3": 3}
+    for block, (fire_id, fold) in enumerate(folds.items()):
+        fire_dir = fires_root / fire_id
+        fire_dir.mkdir()
+        (fire_dir / "manifest.json").write_text(
+            json.dumps(
+                {"fire_id": fire_id, "cv_fold": fold, "spatial_block_id": block, "n_hours": 24}
+            )
+        )
+
+    train_folds = sorted({f for f in folds.values() if f != 3})
+    stats_path = root / "norm_stats.json"
+    stats_path.write_text(
+        json.dumps(
+            {
+                "train_folds": train_folds,
+                "train_fire_ids": [k for k, v in folds.items() if v != 3],
+                "heldout_fire_ids": [k for k, v in folds.items() if v == 3],
+            }
+        )
+    )
+    return fires_root, stats_path
+
+
+def test_the_conformant_corpus_is_actually_conformant(
+    conformant_corpus: tuple[Path, Path],
+) -> None:
+    """Positive control for the fixture the audit rests on.
+
+    A fixture that quietly produced a FAILING split would still emit every check
+    id — the ids come from both branches — and the audit above would stay green
+    while its evidence came from the failure path. Assert the split passes, so
+    the registry is checked against checks that were observed to succeed.
+    """
+    fires_root, stats_path = conformant_corpus
+    rep = S.check_split_assignment(fires_root=fires_root, stats_path=stats_path)
+    assert rep.ok, [c.detail for c in rep.checks if not c.ok]
+    assert rep.reporting_ok, [c.detail for c in rep.checks if not c.ok]
+
+
+@pytest.fixture(scope="module")
+def emitted_check_ids(
+    default_synthetic: SyntheticFire, conformant_corpus: tuple[Path, Path]
+) -> set[str]:
     """Every check id the checker emits on CONFORMANT artifacts.
 
     Conformant on purpose: a clause that only ever appears in a failure branch
     is a clause nobody sees pass, and this is the set a registry claim is
     checked against.
     """
+    fires_root, stats_path = conformant_corpus
     ids = {c.check_id for c in C.check_all(default_synthetic.tensor_path).checks}
-    ids |= {c.check_id for c in S.check_split_assignment().checks}
+    ids |= {
+        c.check_id
+        for c in S.check_split_assignment(fires_root=fires_root, stats_path=stats_path).checks
+    }
     ids |= {
         c.check_id
         for c in S.check_run_split(
