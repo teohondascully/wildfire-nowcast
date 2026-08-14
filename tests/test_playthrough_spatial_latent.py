@@ -35,8 +35,9 @@ and would be untestable on a centred fire.
    at EVERY cell, not merely on average over the domain. A domain-average version
    would move the mean hazard around inside the field while looking correct in
    aggregate — the exact shape of insights item 42.
-5. **IT IS LOW-RANK, NOT A NOISE FIELD.** CLAUDE.md records per-pixel-independent
-   noise as known-broken. With ``R`` modes the induced log-field lies in an
+5. **IT IS LOW-RANK, NOT A NOISE FIELD.** Per-pixel-independent noise is
+   known-broken here (it collapses the ensemble; see ``README.md``). With ``R``
+   modes the induced log-field lies in an
    ``R``-dimensional space, so ``R + 1`` independent draws are LINEARLY DEPENDENT
    to machine precision. That is checked as a rank, which is the difference
    between a correlated innovation and speckle, and no amount of "it looks
@@ -347,8 +348,8 @@ PLAYTHROUGH = PT.Playthrough(
             lambda o: o["induced_rank"] == o["declared_modes"] and o["induced_rank"] < 5,
             note="R+3 independent draws span exactly R dimensions out of 315 cells. This is "
             "the difference between a correlated innovation and the per-pixel noise field "
-            "CLAUDE.md records as known-broken, and it is checked as a RANK rather than "
-            "asserted from the fact that the picture looks smooth.",
+            "that is known-broken by ensemble collapse, and it is checked as a RANK rather "
+            "than asserted from the fact that the picture looks smooth.",
         ),
         PT.Probe(
             "the_scenario_really_is_off_centre",

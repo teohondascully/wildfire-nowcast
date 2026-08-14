@@ -47,8 +47,8 @@ WHY THIS AND NOT JUST THE POLICY
 --------------------------------
 ADR-030 says *no gate is adjudicated on a metric whose implementation lacks a
 playthrough test that recovers a known answer and detects a planted defect*. As
-written that binds the ORCHESTRATOR at adjudication time, on a judgement about a
-file it did not write. Three of this project's six green-but-vacuous defects were
+written that binds the REVIEWER at adjudication time, on a judgement about a
+file they did not write. Three of this project's six green-but-vacuous defects were
 found by the person who wrote the check, going back to look; the other three were
 found much later by someone else. **A policy enforced by inspection is a policy
 enforced by whoever happens to look.** After this module, a playthrough that
