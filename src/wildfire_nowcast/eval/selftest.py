@@ -1628,6 +1628,254 @@ def check_mde_read_off_requires_a_SUSTAINED_crossing() -> Check:
     )
 
 
+def check_square_dilation_iou_matches_its_closed_form() -> Check:
+    """[L1] The morphology control ASSERTS A MAGNITUDE, with zero tolerance.
+
+    An ``S x S`` square dilated by ``r`` cells with an 8-connected structuring
+    element is EXACTLY ``(S+2r) x (S+2r)``, so ``IoU == S^2 / (S+2r)^2`` in closed
+    form. The whole synthetic arm of the label-noise floor is built on this
+    operator, so it is certified against arithmetic rather than against itself.
+
+    The check carries its own planted defect: a 4-CONNECTED dilation, which is
+    the most plausible wrong answer, must NOT reproduce the closed form. Without
+    that clause "the identity holds" would be consistent with an identity that
+    holds for everything.
+    """
+    from wildfire_nowcast.eval.labelfloor import square_dilation_identity
+
+    side, radius, pad = 21, 1, 12
+    exact = square_dilation_identity(side=side, radius=radius, pad=pad)
+
+    n = side + 2 * pad
+    base = np.zeros((n, n), dtype=bool)
+    base[pad : pad + side, pad : pad + side] = True
+    four = base.copy()
+    four[1:, :] |= base[:-1, :]
+    four[:-1, :] |= base[1:, :]
+    four[:, 1:] |= base[:, :-1]
+    four[:, :-1] |= base[:, 1:]
+    four_iou = float((base & four).sum()) / float((base | four).sum())
+    analytic = (side**2) / float((side + 2 * radius) ** 2)
+
+    ok = bool(exact["exact"]) and abs(four_iou - analytic) > 1e-9
+    return Check(
+        "square_dilation_iou_matches_its_closed_form",
+        ok,
+        "8-connected dilate/erode reproduce S^2/(S+2r)^2 and (S-2r)^2/S^2 EXACTLY "
+        "(abs error 0.0), and a 4-connected impostor does not",
+        {
+            "dilate_iou_abs_error": exact["dilate_iou_abs_error"],
+            "erode_iou_abs_error": exact["erode_iou_abs_error"],
+            "dilate_cells": exact["dilate_cells"],
+            "dilate_cells_analytic": exact["dilate_cells_analytic"],
+            "planted_4_connected_abs_error": abs(four_iou - analytic),
+        },
+    )
+
+
+def check_calibration_target_and_gate_criterion_are_different_estimands() -> Check:
+    """[L1-close] The ceiling is not re-reporting its own calibration target.
+
+    ADR-056 (6). The severity was calibrated so whole-footprint
+    ``IoU(noise(L), L)`` hit 0.756818 and the oracle then scored
+    ``iou_shape_masked_3h = 0.7590`` — within 0.3%. Close enough that the
+    headline collapses if the two are one quantity through the plumbing.
+
+    Three clauses, and each can fail independently:
+    1. **MAGNITUDES.** Two constructed cases, whole-footprint and
+       masked-increment IoU both in closed form, asserted with zero tolerance
+       (``9800/10208``, ``0``, ``9590/10610``, ``9/11``).
+    2. **ORDER REVERSAL.** ``whole(A) > whole(B)`` while
+       ``masked(A) < masked(B)``, so neither can be a monotone function of the
+       other. Equality of two numbers is a coincidence; a reversal is not.
+    3. **THE CONTROL'S OWN CONTROL.** At severity zero the two agree exactly,
+       so the harness is capable of reporting agreement and clause 2 is a
+       property of the cases, not of the code.
+    """
+    from wildfire_nowcast.eval.labelfloor import whole_footprint_vs_masked_increment
+
+    report = whole_footprint_vs_masked_increment()
+    ok = (
+        bool(report["magnitudes_exact"])
+        and bool(report["order_reverses"])
+        and bool(report["agrees_at_identity"])
+    )
+    return Check(
+        "calibration_target_and_gate_criterion_are_different_estimands",
+        ok,
+        "whole-footprint IoU and masked-increment IoU hit four closed forms EXACTLY, "
+        "reverse order between two cases, and coincide at severity zero",
+        {
+            "case_a": {
+                "whole": report["case_a"]["whole_footprint_iou"],
+                "masked": report["case_a"]["masked_increment_iou"],
+            },
+            "case_b": {
+                "whole": report["case_b"]["whole_footprint_iou"],
+                "masked": report["case_b"]["masked_increment_iou"],
+            },
+            "identity_case_agrees": report["agrees_at_identity"],
+            "order_reverses": report["order_reverses"],
+            "magnitudes_exact": report["magnitudes_exact"],
+        },
+    )
+
+
+def check_severity_sampler_is_the_shipped_observation_noise() -> Check:
+    """[L1] The severity ladder EXTENDS the shipped noise model; it does not replace it.
+
+    C0 has one implementation of anything the contract adjudicates, and a second
+    observation-noise model wearing the first one's calibration would be exactly
+    the drift C0 forbids. The assertion is BITWISE — every field of every draw,
+    on a shared RNG stream — because agreeing moments is what a second model
+    would also produce.
+
+    Two clauses, not one: the draws must match, AND the comparison must be
+    non-vacuous (a sampler that always returned the identity would match too).
+    """
+    from wildfire_nowcast.model.noiseoracle import sampler_reduces_to_shipped
+
+    report = sampler_reduces_to_shipped(n_draws=4000)
+    ok = bool(report["bitwise_identical"]) and report["n_nonidentity_draws"] > 100
+    return Check(
+        "severity_sampler_is_the_shipped_observation_noise",
+        ok,
+        "at scale 1 the severity sampler reproduces the shipped label-perturbation "
+        "sampler draw for draw, and most draws are NOT the identity",
+        {
+            "mismatches": report["mismatches"],
+            "in_shipped_regime": report["in_shipped_regime"],
+            "n_nonidentity_draws": report["n_nonidentity_draws"],
+            "first_mismatch": report["first_mismatch"],
+        },
+    )
+
+
+def check_noise_oracle_null_severity_is_the_labels_exactly() -> Check:
+    """[L1] The ceiling's NULL RUNG, and it must not be an ``if``.
+
+    Severity 0 is a perfect forecaster against perfect labels, so it must score
+    the optimum of every metric EXACTLY — IoU 1, Brier 0, arrival CRPS 0 — and a
+    non-zero severity must move at least one of them, or the ladder is measuring
+    the harness. The identity runs the entire perturbation path (draw, morph,
+    shift, union with ``x0``, absorbing check) rather than returning truth early.
+    """
+    from wildfire_nowcast.model.noiseoracle import NoisyTruthOracle, WindowTable
+
+    ds, _ = _synthetic_dataset()
+    try:
+        windows = [forecast_inputs(ds, t0=t, horizon_h=3, fire_id="synthetic") for t in (6, 9)]
+        table = WindowTable()
+        for window in windows:
+            table.add(window)
+        clean = NoisyTruthOracle(table, name="null", scale=0.0, split_fingerprint="x")
+        noisy = NoisyTruthOracle(table, name="noisy", scale=6.0, split_fingerprint="x")
+        exact = []
+        moved = False
+        for window in windows:
+            samples = clean.predict(window.x0, window.static, window.weather, 8, 3, 3)
+            truth_state = np.asarray(window.truth) > 0
+            exact.append(bool(np.all((samples > 0) == truth_state[None])))
+            dirty = noisy.predict(window.x0, window.static, window.weather, 8, 3, 3)
+            moved = moved or not np.array_equal(dirty, samples)
+    finally:
+        ds.close()
+    ok = all(exact) and moved
+    return Check(
+        "noise_oracle_null_severity_is_the_labels_exactly",
+        ok,
+        "severity 0 reproduces the label trajectory cell for cell THROUGH the full "
+        "perturbation path, and a non-zero severity does not",
+        {
+            "windows_exact": exact,
+            "nonzero_severity_differs": moved,
+            "table": table.stats(),
+        },
+    )
+
+
+def check_window_table_refuses_a_key_collision() -> Check:
+    """[L1] A truth-aware oracle that returns the WRONG window is undetectable downstream.
+
+    C5 hands ``predict`` no fire id and no ``t0``, so the oracle identifies its
+    window from ``(x0, static, weather)``. If two windows ever hashed alike, the
+    oracle would score one fire's forecast against another's truth and every
+    number under it would be finite, plausible and wrong. The table therefore
+    RAISES on a duplicate rather than overwriting, and a miss RAISES rather than
+    falling back — both are asserted here by provoking them.
+    """
+    from wildfire_nowcast.model.noiseoracle import NoisyTruthOracle, WindowTable
+
+    ds, _ = _synthetic_dataset()
+    try:
+        window = forecast_inputs(ds, t0=6, horizon_h=3, fire_id="synthetic")
+        other = forecast_inputs(ds, t0=9, horizon_h=3, fire_id="synthetic")
+        table = WindowTable()
+        table.add(window)
+        duplicate_raised = False
+        try:
+            table.add(window)
+        except KeyError:
+            duplicate_raised = True
+        miss_raised = False
+        oracle = NoisyTruthOracle(table, name="o", scale=1.0, split_fingerprint="x")
+        try:
+            oracle.predict(other.x0, other.static, other.weather, 4, 3, 1)
+        except KeyError:
+            miss_raised = True
+        # ...and the window it DOES know must still be served, or "it raises" is
+        # true for the uninteresting reason that it raises on everything.
+        served = oracle.predict(window.x0, window.static, window.weather, 4, 3, 1)
+    finally:
+        ds.close()
+    ok = duplicate_raised and miss_raised and served.shape == (4, 3, *window.x0.shape)
+    return Check(
+        "window_table_refuses_a_key_collision",
+        ok,
+        "a duplicate key RAISES, an unknown window RAISES, and a known window is "
+        "still served — a lookup that raises on everything is not a lookup",
+        {
+            "duplicate_raised": duplicate_raised,
+            "miss_on_unknown_window_raised": miss_raised,
+            "known_window_served_shape": list(served.shape),
+            "stats": table.stats(),
+        },
+    )
+
+
+def check_the_official_perimeter_endpoint_has_not_drifted() -> Check:
+    """[L1] Two copies of one URL is one copy too many unless they are checked.
+
+    The label-floor module holds its own copy of the WFIGS endpoint so that its
+    cache lands under ``runs/`` instead of under ``data/``. That is a deliberate
+    duplication and C0's whole point is that duplications drift, so the two
+    constants are compared here rather than trusted. No network call is made.
+    """
+    from wildfire_nowcast.data.sources.nifc import WFIGS_PERIMETERS_URL as SOURCE_URL
+    from wildfire_nowcast.eval.labelfloor import WFIGS_PERIMETERS_URL as EVAL_URL
+    from wildfire_nowcast.eval.labelfloor import cache_dir, wfigs_name_for
+
+    same = SOURCE_URL == EVAL_URL
+    names = {
+        "2020_czu_lightning_complex": "CZU LIGHTNING COMPLEX",
+        "2019_kincade": "KINCADE",
+        "2024_borel": "BOREL",
+    }
+    derived_ok = all(wfigs_name_for(k) == v for k, v in names.items())
+    cache_outside_data = "data" not in cache_dir().parts
+    return Check(
+        "the_official_perimeter_endpoint_has_not_drifted",
+        same and derived_ok and cache_outside_data,
+        "the duplicated WFIGS endpoint matches its source, incident names are DERIVED "
+        "from the fire id, and the official-geometry cache is outside data/",
+        {
+            "urls_agree": same,
+            "derived_names_ok": derived_ok,
+            "cache_dir": str(cache_dir()),
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -1678,6 +1926,13 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_degradation_rungs_hit_their_declared_severity,
     check_base_prediction_cache_cannot_return_another_window,
     check_mde_read_off_requires_a_SUSTAINED_crossing,
+    # L1 — the label-noise floor: the morphology, the severity ladder, the oracle
+    check_square_dilation_iou_matches_its_closed_form,
+    check_calibration_target_and_gate_criterion_are_different_estimands,
+    check_severity_sampler_is_the_shipped_observation_noise,
+    check_noise_oracle_null_severity_is_the_labels_exactly,
+    check_window_table_refuses_a_key_collision,
+    check_the_official_perimeter_endpoint_has_not_drifted,
 )
 
 
