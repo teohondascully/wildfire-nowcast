@@ -115,8 +115,8 @@ and ONLY where a ratified clause names C6 as its implementation site — C6.4 se
 this precedent and the maintainer ratified it in ADR-020. Any non-additive
 edit is a BLOCKER, never a patch. The additive edit MUST be declared in the
 editing lead's status entry in the same session. Rationale: modelling learned
-that infra owned part of its module FROM A FILE TIMESTAMP. A reader of CLAUDE.md
-and a reader of `eval/metrics.py` currently disagree about who owns it; folklore
+that another owner held part of its module FROM A FILE TIMESTAMP. A reader of the
+ownership map and a reader of `eval/metrics.py` disagree about who owns it; folklore
 is not an ownership model.
 
 **C-4.2 A CODE FINGERPRINT MUST BE SAMPLED BEFORE *AND* AFTER THE RUN.**
@@ -261,7 +261,7 @@ norm_stats_path.
 on this. Stated rather than assumed.
 [v2.7] ADD `fuel_vintage_lag_years` (int, machine-readable) — LFPS publishes NO
 LF2020 product, so 2021 fires carry 5-YEAR and 2022 fires 6-YEAR stale fuels,
-not the 1-2 CLAUDE.md assumed. Vintage still precedes ignition (no leakage),
+not the 1-2 the design assumed. Vintage still precedes ignition (no leakage),
 but the MTBS correction is doing far more work than designed. Any result
 spanning 2021+ fires MUST state the lag.
 [v2.7] ADD `n_ignition_components` (int), DERIVED not defaulted, with method +
@@ -432,7 +432,7 @@ WHY: the CV split moved mid-task (`train_folds [0,1,3]` → `[0,1,2,4]`) and fou
 fires silently crossed from train to held-out. **No per-tensor check could see
 it** — every tensor was individually conformant throughout. This is the first
 hazard created by PARALLELISM itself rather than by any lead's work.
-ORCHESTRATOR RULE: no fold change is authorised while any lead is training.
+MAINTAINER RULE: no fold change is authorised while any lead is training.
 
 ### [v2.14] C6.5 G3's bar is GEOMETRIC and carries a FIRST-MOMENT condition
 The dispersion bar is `|log(adr)| <= log(1.2)`, i.e. `[0.8333, 1.2]`.
