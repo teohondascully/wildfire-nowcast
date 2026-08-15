@@ -1,4 +1,14 @@
-# INTERFACES v2.14 (bump version + DECISIONS.md entry to change anything here)
+# INTERFACES v2.15 (bump version + DECISIONS.md entry to change anything here)
+# v2.15 ADR-053 (1)(2): C6.6 — Brier, arrival-time CRPS, `calibration_error` and
+#       reliability are NON-ADJUDICATING. They ran BACKWARDS on M11's ladder
+#       (Spearman -0.45 / -0.34 / -0.14 / -0.80 against |log(area error)|), so a
+#       forecast 40x TOO SMALL beats a 3%-correct one by 17% on Brier. This bump
+#       only ever REMOVES a metric's power to pass something, which is why it is
+#       the one bump permitted under the ADR-054 freeze. The flag is CARRIED by
+#       the C6 registry in `common/` and an adjudicating call on a barred
+#       channel RAISES — see C6.6. THIS BUMP WAS MADE BY infra UNDER AN EXPLICIT
+#       DIRECTIVE (task I1), the same precedent as v2.12 below; no other line of
+#       this contract was touched by that lead. [v2.15]
 # v2.14 ADR-043: C6.5 (geometric G3 bar + first-moment condition) and C6.3's
 #       pooling addition RATIFY — held back at v2.13 precisely because they were
 #       implemented in `common/` but not CALLED. Verified before bumping:
@@ -454,6 +464,49 @@ denominator is the model's own mean-area error, exactly 0 there — so the metri
 goes undefined precisely as a model gets the first moment right. UNDEFINED is
 its own outcome and is **NEVER a pass**.
 IMPLEMENTED BY: `common/dispersion.py`, CALLED BY `eval/baseline_run.py`.
+
+### [v2.15] C6.6 FOUR METRICS MAY BE REPORTED AND MAY NOT DECIDE A GATE
+Brier (`brier_{1,2,3}h`), arrival-time CRPS (`arrival_crps`), `calibration_error`
+(`calibration_error_{1,2,3}h`) and reliability (`reliability_{1,2,3}h`) are
+**NON-ADJUDICATING**. They may appear in any report, table or figure. They may
+not pass, fail, or void anything.
+**THE MEASUREMENT THAT DISQUALIFIED THEM (ADR-053 (1)(2)).** M11's degradation
+ladder — a forecast degraded across **0.053x to 8.0x area error**, scored on
+**n=5 held-out blocks** — measured each channel's Spearman correlation against
+`|log(area error)|`, i.e. against how wrong the forecast actually was:
+```
+  Brier               -0.45      arrival CRPS        -0.34
+  calibration_error   -0.14      reliability         -0.80
+```
+Every one is the WRONG SIGN: on these channels a worse forecast scores better.
+Concretely, **a forecast 40x TOO SMALL beats a 3%-correct one by 17% on Brier**,
+and none of the four has a minimum detectable effect ANYWHERE on the ladder
+(plateau 0.66-1.58 across the whole 0.053x-8.0x range). M10's +0.80 separation
+was the CEILING of what these channels can express, not a near-miss of the 2.0
+bar.
+**THE ONLY CHANNELS THAT MAY ADJUDICATE TODAY ARE:**
+```
+  area_dispersion_ratio          (dispersion; MDE 1.021x)
+  growth_calibration             (C6.5's first moment; MDE 1.056x, DEGENERATE on
+                                  an AREA ladder because it IS the perturbed
+                                  quantity there)
+  best_member_iou_shape_masked   (the only LOCATION-sensitive channel; MDE 13.0x,
+                                  underpowered rather than blind)
+```
+This clause SUBTRACTS and never adds: it can only stop a gate from being passed,
+never let one be passed. That is why it is the single bump permitted while the
+contract is otherwise frozen (ADR-054).
+**IMPLEMENTED BY** `common/null_check/registry.py`: `MetricSpec.gate_eligible`
+carries the ruling per channel, `adjudicating_metrics()` DERIVES the permitted
+set from those flags rather than restating it, and `assert_may_adjudicate()`
+**RAISES `NonAdjudicatingMetricError`** — it does not warn. The failure being
+repaired is a human quoting a number while forgetting a ruling made two weeks
+earlier, and a warning is read by exactly the person who already forgot.
+The flag is already load-bearing: `MetricVerdict.is_failure` and
+`is_reporting_gap` read `gate_eligible`, so C6.0's harness (`make null-check`,
+run by `make ci`) changes tier for these four channels at this bump.
+An UNREGISTERED metric raises as well — an unknown channel is not a permitted
+one (C-2 one level down).
 
 ### [v2.14] C6.3 (addition) A block contributing NOTHING is a HARD FAIL
 A block that contributes nothing to an equal-block mean is a HARD failure, not

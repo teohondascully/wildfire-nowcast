@@ -619,6 +619,29 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         checks=("heldout_block_coverage",),
         where=("wildfire_nowcast.common.splits.check_split_assignment",),
     ),
+    # [v2.15] Authored by infra under the explicit I1 directive (the v2.12
+    # precedent). THIRD clause-authoring crossing; A14's auto-discovery still
+    # does not cover clause classification, so writing a clause still compels an
+    # edit to this file. The mechanism fix remains owed.
+    "C6.6": ClauseImpl(
+        CLAUSE_ENFORCED,
+        where=(
+            "wildfire_nowcast.common.null_check.C6_METRICS",
+            "wildfire_nowcast.common.null_check.adjudicating_metrics",
+            "wildfire_nowcast.common.null_check.assert_may_adjudicate",
+            "wildfire_nowcast.common.null_check.verdicts.MetricVerdict.is_failure",
+        ),
+        note="Brier / arrival_crps / calibration_error / reliability are NON-ADJUDICATING "
+        "(ADR-053 (1)(2)): Spearman -0.45 / -0.34 / -0.14 / -0.80 against |log(area error)| on "
+        "M11's 0.053x-8.0x ladder at n=5 blocks, i.e. the WRONG SIGN, and no MDE anywhere. "
+        "ENFORCED rather than external: `gate_eligible` is not documentation — "
+        "`MetricVerdict.is_failure` and `is_reporting_gap` both read it, so C6.0's harness "
+        "(`make null-check`, inside `make ci`) changes tier for these four at this bump. "
+        "`assert_may_adjudicate` RAISES rather than warning, because the failure being "
+        "repaired is someone forgetting a ruling, and a warning is read by that same someone. "
+        "The permitted trio is DERIVED from the flags by `adjudicating_metrics()` and pinned "
+        "in tests/test_null_check.py, so it cannot drift from the flags in either direction.",
+    ),
     "C7": ClauseImpl(
         CLAUSE_ENFORCED,
         where=(

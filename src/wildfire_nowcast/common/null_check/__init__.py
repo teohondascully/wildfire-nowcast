@@ -256,6 +256,10 @@ from wildfire_nowcast.common.null_check.registry import (
     VERDICT_SILENCE_FAVOURING,
     VERDICT_UNDECIDABLE,
     MetricSpec,
+    NonAdjudicatingMetricError,
+    adjudicating_metrics,
+    assert_may_adjudicate,
+    may_adjudicate,
 )
 from wildfire_nowcast.common.null_check.verdicts import (
     CMP_BETTER,
@@ -294,6 +298,12 @@ __all__ = [
     "SKILL_REFERENCES",
     "MetricSpec",
     "C6_METRICS",
+    # [v2.15] C6.6 — the flag is now ASKABLE, and asking is the point: scoring
+    # code must not have to remember which channels the contract disqualified.
+    "adjudicating_metrics",
+    "may_adjudicate",
+    "assert_may_adjudicate",
+    "NonAdjudicatingMetricError",
     "Window",
     "Forecaster",
     "FORECASTERS",

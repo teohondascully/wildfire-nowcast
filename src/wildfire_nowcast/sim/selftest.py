@@ -371,11 +371,19 @@ def test_every_key_the_dashboard_plots_is_classified() -> None:
     else:  # pragma: no cover
         raise AssertionError("an unregistered key must RAISE, not render unbadged")
 
-    # The two halves of G3 must come back GATE, and the three metrics the
-    # contract retired must come back QUARANTINED. If this ever inverts, the
+    # G3's dispersion half must come back GATE, and every metric the contract
+    # has retired must come back QUARANTINED. If this ever inverts, the
     # dashboard is about to cite a demoted metric as capability.
     assert classify("area_dispersion_ratio").state == GATE
-    assert classify("band_calibration_error_by_horizon").state == GATE
+    # [v2.15, C6.6] `calibration_error` MOVED from GATE to QUARANTINED. It is
+    # anti-monotone (Spearman -0.14 against |log(area error)| on M11's ladder,
+    # ADR-053 (1)(2)) and may be REPORTED but may not decide a gate. The badge
+    # follows `common/null_check.C6_METRICS`, so this line tracks the ruling
+    # rather than restating it; asserted in the QUARANTINED direction so a quiet
+    # reversal of the ruling is still caught here. Edited by infra under the I1
+    # contract-bump directive and declared in status/infra.md — one line, no
+    # behaviour, in a package infra does not own.
+    assert classify("band_calibration_error_by_horizon").state == QUARANTINED
     for key in ("dispersion_ratio", "band_ece_by_horizon", "band_reliability_by_horizon"):
         assert classify(key).state == QUARANTINED, key
 

@@ -482,3 +482,102 @@ def test_an_unregistered_metric_is_reported_not_skipped(scenario) -> None:
     report = N.run_null_check(windows[:5], stats, seeds=(0,), score_fn=score)
     assert any("some_new_metric_nobody_declared" in p for p in report.problems), report.problems
     assert not report.ok
+
+
+# --------------------------------------------------------------------------
+# C6.6 [v2.15] — which channels may decide a gate, asked rather than remembered
+# --------------------------------------------------------------------------
+
+#: The three channels the contract lets adjudicate at v2.15. PINNED HERE and
+#: DERIVED in code, so the pin and the flags must agree: flip a flag and this is
+#: red; add a name here without flipping a flag and this is red. A list that can
+#: only fail in one direction is the defect ADR-057 catalogued.
+ADJUDICATING_AT_V2_15 = {
+    "area_dispersion_ratio",
+    "growth_calibration",
+    "best_member_iou_shape_masked",
+}
+
+#: Disqualified by C6.6, with the Spearman that did it (ADR-053 (1)(2)).
+NON_ADJUDICATING_AT_V2_15 = {
+    "brier_1h": "-0.45",
+    "brier_2h": "-0.45",
+    "brier_3h": "-0.45",
+    "arrival_crps": "-0.34",
+    "calibration_error_1h": "-0.14",
+    "calibration_error_2h": "-0.14",
+    "calibration_error_3h": "-0.14",
+    "reliability_1h": "-0.80",
+    "reliability_2h": "-0.80",
+    "reliability_3h": "-0.80",
+}
+
+
+def test_exactly_three_channels_may_adjudicate() -> None:
+    assert N.adjudicating_metrics() == ADJUDICATING_AT_V2_15
+
+
+def test_the_four_anti_monotone_families_cannot_gate_anything() -> None:
+    """C6.6's subject, channel by channel, and every one of them is registered.
+
+    An UNregistered channel would sail past a membership test on
+    ``adjudicating_metrics()`` while being just as un-rulable, so presence in the
+    table is asserted first.
+    """
+    for metric in NON_ADJUDICATING_AT_V2_15:
+        assert metric in N.C6_METRICS, f"{metric} is not registered, so nothing rules on it"
+        assert not N.C6_METRICS[metric].gate_eligible, metric
+        assert not N.may_adjudicate(metric), metric
+
+
+def test_each_disqualified_channel_carries_the_number_that_disqualified_it() -> None:
+    """A ruling with no measurement attached is folklore in two months."""
+    for metric, rho in NON_ADJUDICATING_AT_V2_15.items():
+        spec = N.C6_METRICS[metric]
+        assert "C6.6" in spec.quarantined_by, (metric, spec.quarantined_by)
+        assert rho in spec.note, (metric, rho, spec.note)
+        assert "ADR-053" in spec.note, metric
+
+
+def test_adjudicating_on_a_barred_channel_FAILS_rather_than_warns() -> None:
+    """The whole point of C6.6 being code and not a note in a status file."""
+    for metric in NON_ADJUDICATING_AT_V2_15:
+        with pytest.raises(N.NonAdjudicatingMetricError, match="MAY NOT decide"):
+            N.assert_may_adjudicate(metric, gate="G3")
+
+
+def test_the_three_permitted_channels_are_allowed_through() -> None:
+    """Both directions. A guard that refuses everything is not a guard either."""
+    for metric in ADJUDICATING_AT_V2_15:
+        spec = N.assert_may_adjudicate(metric, gate="G3")
+        assert spec.gate_eligible
+
+
+def test_an_unregistered_channel_may_not_adjudicate_either() -> None:
+    with pytest.raises(N.NonAdjudicatingMetricError, match="not in C6_METRICS"):
+        N.assert_may_adjudicate("elasticity_of_log_growth_rate", gate="a new gate")
+    assert not N.may_adjudicate("elasticity_of_log_growth_rate")
+
+
+def test_the_refusal_names_what_may_be_used_instead() -> None:
+    """A guard that only says no teaches people to route around it."""
+    with pytest.raises(N.NonAdjudicatingMetricError) as exc:
+        N.assert_may_adjudicate("brier_3h", gate="G2")
+    message = str(exc.value)
+    assert "G2" in message
+    for permitted in ADJUDICATING_AT_V2_15:
+        assert permitted in message
+
+
+def test_the_disqualified_channels_left_the_hard_tier(report_a) -> None:
+    """The flag is live, not decorative: it decides C-1 severity in the harness.
+
+    ``is_failure`` and ``is_reporting_gap`` both read ``gate_eligible``, so this
+    is the observable consequence of the bump inside `make null-check`.
+    """
+    verdicts = _verdicts(report_a)
+    for metric in NON_ADJUDICATING_AT_V2_15:
+        for key, v in verdicts.items():
+            if key[0] == metric:
+                assert not v.is_failure, (key, v.detail)
+                assert not v.is_reporting_gap, (key, v.detail)
