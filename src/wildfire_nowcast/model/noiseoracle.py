@@ -57,6 +57,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from wildfire_nowcast.common.seeds import stable_seed
 from wildfire_nowcast.model.api import validate_predict_inputs, validate_samples
 from wildfire_nowcast.model.labelnoise import (
     FCONF_LEVELS,
@@ -414,8 +415,11 @@ class NoisyTruthOracle:
         sev = self.severity(fire_id)
         # Seeded on the window AND the severity, so two rungs never share a draw
         # and the same rung is reproducible window by window.
+        # `stable_seed`, NOT `hash` (ADR-057): CPython randomises str hashing per
+        # process, so this line used to draw a different stream in every run and
+        # "same seed" was false across processes. Movement measured at 0.018.
         rng = np.random.default_rng(
-            [int(seed), int(t0), abs(hash(fire_id)) % (2**31), int(round(self.scale * 1e6))]
+            [int(seed), int(t0), stable_seed(fire_id), int(round(self.scale * 1e6))]
         )
         x0_arr = np.asarray(x0, dtype=np.uint8)
         burned0 = x0_arr > 0
@@ -464,7 +468,7 @@ def final_footprint_agreement(
     footprint on the same 1 km grid, compared by intersection over union.
     """
     sev = severity_for(fire_id, scale, cell_size_m=cell_size_m)
-    rng = np.random.default_rng([int(seed), abs(hash(fire_id)) % (2**31)])
+    rng = np.random.default_rng([int(seed), stable_seed(fire_id)])
     base = np.asarray(burned_final, dtype=bool)
     ious: list[float] = []
     ratios: list[float] = []
