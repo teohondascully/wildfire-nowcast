@@ -46,6 +46,7 @@ __all__ = [
     "SCORING_SUBTREES",
     "DIGEST_CHARS",
     "EmptyFingerprintScanError",
+    "FingerprintTargetMissingError",
     "package_root",
     "discover_modules",
     "fingerprint_modules",
@@ -67,6 +68,14 @@ SCORING_SUBTREES: tuple[str, ...] = ("eval", "model")
 
 class EmptyFingerprintScanError(RuntimeError):
     """Raised when a scan covers nothing. An empty all-clear is not an all-clear."""
+
+
+class FingerprintTargetMissingError(RuntimeError):
+    """Raised when a module to be fingerprinted does not resolve to a file.
+
+    Its predecessor was the string ``"MISSING"`` sitting in the payload while the
+    run reported success (``eval/reporting.py:222``, ADR-047 (7)).
+    """
 
 
 def package_root() -> Path:
@@ -111,20 +120,34 @@ def discover_modules(subtrees: Sequence[str], *, root: Path | None = None) -> tu
 def fingerprint_modules(modules: Sequence[str], *, root: Path | None = None) -> dict[str, str]:
     """Per-module content digests, keyed by path relative to the package root.
 
-    A target that does not resolve to a file records ``"MISSING"`` — **carried
-    over verbatim from the enumerated implementation and repaired separately**,
-    because a sentinel that a reader can skim past is its own defect
-    (ADR-047 (7)) and it deserves its own commit and its own planted test.
+    **A TARGET THAT DOES NOT RESOLVE RAISES (ADR-047 (7)).** It used to record
+    the string ``"MISSING"`` and let the run report success, which is the worst
+    available outcome: the payload still had a value for every module, so every
+    reader and every equality check saw a complete answer, and a module that had
+    moved or become a package was recorded as though it had been read. The
+    decision is to refuse the payload rather than to mark it, because a mark
+    inside a dict of 28 hashes is exactly the thing a reader skims past — and it
+    is the reason ``contract.py`` could not be split (ADR-047 (6)).
+
+    Reachable only two ways now that the set is discovered rather than declared:
+    a caller passing an explicit module that does not exist, or a file deleted
+    between the walk and the read. The second is code moving mid-run, which is a
+    C-4 breach and precisely what this instrument exists to detect.
     """
     base = package_root() if root is None else Path(root)
     out: dict[str, str] = {}
     for name in modules:
         path = base / name
-        out[name] = (
-            hashlib.sha256(path.read_bytes()).hexdigest()[:DIGEST_CHARS]
-            if path.is_file()
-            else "MISSING"
-        )
+        if not path.is_file():
+            raise FingerprintTargetMissingError(
+                f"cannot fingerprint {name!r}: {path} is not a file. REFUSING to record a "
+                "sentinel and continue — a fingerprint that names every module and has read "
+                "only some of them answers 'which code produced this number' with a value "
+                "that looks like an answer. If the module moved or became a package, the "
+                "walk will find it at its new path; if it vanished during a run, that is a "
+                "C-4 breach and this is the instrument that was built to say so."
+            )
+        out[name] = hashlib.sha256(path.read_bytes()).hexdigest()[:DIGEST_CHARS]
     return out
 
 

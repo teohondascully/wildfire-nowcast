@@ -189,6 +189,40 @@ def test_a_missing_subtree_raises_instead_of_being_skipped(tmp_path: Path) -> No
         F.discover_modules(("eval", "sim"), root=root)
 
 
+# --------------------------------------------------------------------------
+# 4. a missing target is LOUD, never a sentinel (ADR-047 (7))
+# --------------------------------------------------------------------------
+
+
+def test_a_missing_target_raises_instead_of_recording_a_sentinel(tmp_path: Path) -> None:
+    """``"MISSING"`` used to be a legal value in a payload that reported success.
+
+    That is the failure this repo keeps meeting under different names: an
+    unevaluable answer formatted like an answer. A raise is the only outcome a
+    reader cannot skim past, and it is what makes packaging a fingerprinted
+    module safe (ADR-047 (6)).
+    """
+    root = _fake_package(tmp_path / "pkg")
+    with pytest.raises(F.FingerprintTargetMissingError, match="is not a file"):
+        F.fingerprint_modules(("eval/metrics.py", "eval/gone.py"), root=root)
+
+
+def test_a_module_deleted_between_the_walk_and_the_read_raises(tmp_path: Path) -> None:
+    """The only way the real, DISCOVERED set can hit this: code moving mid-run."""
+    root = _fake_package(tmp_path / "pkg")
+    modules = F.discover_modules(F.SCORING_SUBTREES, root=root)
+    assert "eval/metrics.py" in modules
+    (root / "eval" / "metrics.py").unlink()
+    with pytest.raises(F.FingerprintTargetMissingError, match="eval/metrics.py"):
+        F.fingerprint_modules(modules, root=root)
+
+
+def test_no_real_payload_can_carry_the_sentinel() -> None:
+    """Belt and braces on the live instrument: the token must not appear at all."""
+    for payload in (scoring_code_fingerprint(), common_code_fingerprint()):
+        assert "MISSING" not in json.dumps(payload)
+
+
 def test_the_payload_is_json_serialisable_and_ordered(tmp_path: Path) -> None:
     """It is stamped into artifacts, so it must survive a round trip unchanged."""
     root = _fake_package(tmp_path / "pkg")
