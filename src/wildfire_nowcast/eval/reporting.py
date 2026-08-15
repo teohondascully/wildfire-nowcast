@@ -135,6 +135,28 @@ def assert_reportable(path: str | Path | None = None) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
+# C-4.2 — the code fingerprints. **THE MODULE SETS ARE NO LONGER ENUMERATED
+# HERE (ADR-057).**
+#
+# Two hand-written tuples used to live at this spot: ``_COMMON_CODE_MODULES``
+# (7 files out of `common/`) and ``_SCORING_CODE_MODULES`` (10 files out of
+# `eval/` + `model/`). The second one OMITTED ``model/noiseoracle.py`` and
+# ``model/direct.py``, so a run stamped "one version of the scoring code" while
+# an uncovered module was edited after it finished. A list that must be updated
+# by hand is not a check on a growing tree; it is a claim that decays silently.
+#
+# Both sets are now WALKED from the imported package by
+# ``common/codefingerprint.py``: whole subtrees, recursive, so a module added
+# tomorrow and a module that becomes a package are both covered without anyone
+# remembering. That module is in `common/` and not here on purpose — C0 puts the
+# one implementation of an adjudicated quantity in `common/`, the same argument
+# that re-homed C8 just below.
+#
+# CONSEQUENCE, STATED RATHER THAN DISCOVERED: coverage widened, so both
+# fingerprint VALUES change, and `per_file` keys are now package-relative
+# (``common/contract.py``, not ``contract.py``). Fingerprints recorded by runs
+# before this change are not comparable with fingerprints recorded after it.
+#
 # C8 — RE-HOMED to common/splits.py (ADR-015 (4) -> infra A10).
 #
 # This module originated `split_fingerprint` / `assert_split_unchanged` during
@@ -150,44 +172,15 @@ def assert_reportable(path: str | Path | None = None) -> dict[str, Any]:
 # `SplitChangedError` is aliased, not redefined: two exception classes with one
 # name is how an `except` clause in another module silently stops catching.
 # --------------------------------------------------------------------------
+from wildfire_nowcast.common.codefingerprint import (  # noqa: E402
+    COMMON_SUBTREES,
+    SCORING_SUBTREES,
+    code_fingerprint,
+)
 from wildfire_nowcast.common.splits import (  # noqa: E402
     SplitChangedError,
     assert_split_unchanged,
     split_fingerprint,
-)
-
-#: Modules under ``common/`` whose behaviour a reported number depends on. Not
-#: every file — only the ones a leave-fire-out score is computed THROUGH.
-_COMMON_CODE_MODULES: tuple[str, ...] = (
-    "contract.py",
-    "states.py",
-    "zarr_io.py",
-    "grid.py",
-    "paths.py",
-    "derive.py",
-    # [v2.10] C6.4's gate criterion is computed here (C0: the ONE
-    # implementation). It was missing from this tuple on the day it started
-    # adjudicating G2 — a metric that decides a gate must be inside the
-    # fingerprint of the code a gate number was computed through, or "which
-    # version of the criterion produced this" is unanswerable exactly when it
-    # matters most.
-    "iou_terms.py",
-)
-
-#: Modules under ``eval/`` and ``model/`` a leave-fire-out score is computed
-#: THROUGH. Separate from ``common/`` because they have a different owner and a
-#: different failure mode: ``common/`` moves under me, these move BY me.
-_SCORING_CODE_MODULES: tuple[str, ...] = (
-    "eval/metrics.py",
-    "eval/masks.py",
-    "eval/baseline_run.py",
-    "eval/validity.py",
-    "eval/reporting.py",
-    "model/kernel.py",
-    "model/inputs.py",
-    "model/spread.py",
-    "model/baselines/ellipse.py",
-    "model/baselines/persistence.py",
 )
 
 
@@ -209,27 +202,16 @@ def common_code_fingerprint() -> dict[str, Any]:
     over-strict check on shared code would fire constantly and be disabled. What
     it buys is that "which version of the state rule produced this number" stops
     being unanswerable after the fact.
+
+    [ADR-057] Covers ALL of ``common/`` now, recursively, rather than seven named
+    files. That is not a widening for its own sake: C-4 freezes the WHOLE of
+    ``common/`` while a lead runs, so a fingerprint over part of it answered a
+    narrower question than the clause it serves asks.
     """
-    import hashlib
-
-    from wildfire_nowcast.common.paths import repo_root
-
-    common = Path(repo_root()) / "src" / "wildfire_nowcast" / "common"
-    per_file: dict[str, str] = {}
-    for name in _COMMON_CODE_MODULES:
-        path = common / name
-        per_file[name] = (
-            hashlib.sha256(path.read_bytes()).hexdigest()[:16] if path.is_file() else "MISSING"
-        )
-    combined = hashlib.sha256(
-        json.dumps(per_file, sort_keys=True).encode()
-    ).hexdigest()[:16]
-    return {
-        "fingerprint": combined,
-        "per_file": per_file,
-        "modules": list(_COMMON_CODE_MODULES),
-        "status": "PROPOSAL — reported, not enforced. See status/model.md (M3).",
-    }
+    return code_fingerprint(
+        COMMON_SUBTREES,
+        status="PROPOSAL — reported, not enforced. See status/model.md (M3).",
+    )
 
 
 def scoring_code_fingerprint() -> dict[str, Any]:
@@ -246,28 +228,18 @@ def scoring_code_fingerprint() -> dict[str, Any]:
     Reported, never enforced, for the same reason as
     :func:`common_code_fingerprint`: a docstring edit changes the hash and does
     not change the result, so raising here would train people to bypass it.
+
+    [ADR-057] The ten enumerated modules are gone. This walks ``eval/`` and
+    ``model/`` whole, which is what makes the answer to "was the scoring code
+    edited during this run" mean the same thing next month as it does today.
     """
-    import hashlib
-
-    from wildfire_nowcast.common.paths import repo_root
-
-    src = Path(repo_root()) / "src" / "wildfire_nowcast"
-    per_file: dict[str, str] = {}
-    for name in _SCORING_CODE_MODULES:
-        path = src / name
-        per_file[name] = (
-            hashlib.sha256(path.read_bytes()).hexdigest()[:16] if path.is_file() else "MISSING"
-        )
-    combined = hashlib.sha256(json.dumps(per_file, sort_keys=True).encode()).hexdigest()[:16]
-    return {
-        "fingerprint": combined,
-        "per_file": per_file,
-        "modules": list(_SCORING_CODE_MODULES),
-        "status": (
+    return code_fingerprint(
+        SCORING_SUBTREES,
+        status=(
             "PROPOSAL — reported, not enforced. `git_sha` is real but NOT identifying "
             "while `git_dirty` is true for every run; this is."
         ),
-    }
+    )
 
 
 def check_common_code_unchanged(before: Mapping[str, Any]) -> dict[str, Any]:
