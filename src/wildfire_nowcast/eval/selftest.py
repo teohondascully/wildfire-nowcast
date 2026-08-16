@@ -2259,6 +2259,216 @@ def check_stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one() -
     )
 
 
+def check_arm_s_is_arm_a_plus_four_parameters_and_starts_there() -> Check:
+    """[S1] The CAPACITY condition and the zero-init condition, as arithmetic.
+
+    ADR-061 (6) fixes arm S as "the incumbent plus ONE scalar input, ~4 extra
+    parameters". Two things have to be true for a difference between S and A to
+    be attributable to the covariate rather than to capacity or to a different
+    starting point, and both are measurements, not intentions:
+
+    * ``count(S) - count(A) == 4`` on the *same* configuration, latent included,
+      and the extra tensors are exactly the stage head's two.
+    * At initialisation the head is the IDENTITY — ``log_amplitude`` exactly 0.0
+      and ``reach_scale`` exactly 1.0, for any state — so S at step 0 IS A. Not
+      "close to": exact, because the coefficients are zero and the basis is
+      linear in them.
+
+    Planted defect, and the reason this check exists at all: a head of the form
+    ``v tanh(w z + b) + u z`` also has 4 parameters and also starts at zero, and
+    two of them would be BORN DEAD (``df/dw = v sech^2(.) z = 0`` at ``v = 0``).
+    So the gradient of every coefficient is measured at init and must be
+    non-zero; a head that reports 4 parameters and can only move 2 would make
+    "S is A + 4" a false statement about capacity in the direction that flatters
+    the challenger.
+    """
+    import torch
+
+    from wildfire_nowcast.model.direct import parameter_counts
+    from wildfire_nowcast.model.kernel import ContagionKernel, KernelConfig
+    from wildfire_nowcast.model.latent import LatentConfig
+    from wildfire_nowcast.model.stagehead import N_STAGE_PARAMETERS, StageHead
+
+    latent = LatentConfig(dim=4, spatial_modes=2)
+    arm_a = ContagionKernel(KernelConfig(stage_scalar=False), latent_config=latent)
+    arm_s = ContagionKernel(KernelConfig(stage_scalar=True), latent_config=latent)
+    counts_a, counts_s = parameter_counts(arm_a), parameter_counts(arm_s)
+    delta = int(counts_s["total"]) - int(counts_a["total"])
+    extra = sorted(set(counts_s["per_tensor"]) - set(counts_a["per_tensor"]))
+    missing = sorted(set(counts_a["per_tensor"]) - set(counts_s["per_tensor"]))
+
+    head = StageHead()
+    burned = torch.rand(3, 12, 15)
+    log_amplitude, log_reach = head(burned)
+    identity_at_init = bool(
+        torch.equal(log_amplitude, torch.zeros_like(log_amplitude))
+        and torch.equal(torch.exp(log_reach), torch.ones_like(log_reach))
+    )
+
+    (log_amplitude.sum() + log_reach.sum()).backward()
+    grads = {
+        name: [float(g) for g in (param.grad.reshape(-1) if param.grad is not None else [])]
+        for name, param in head.named_parameters()
+    }
+    flat = [g for values in grads.values() for g in values]
+    all_live = bool(len(flat) == N_STAGE_PARAMETERS and all(abs(g) > 0.0 for g in flat))
+
+    return Check(
+        "arm_s_is_arm_a_plus_four_parameters_and_starts_there",
+        bool(
+            delta == N_STAGE_PARAMETERS
+            and not missing
+            and len(extra) == 2
+            and identity_at_init
+            and all_live
+        ),
+        f"arm S carries exactly {N_STAGE_PARAMETERS} parameters more than arm A, is the "
+        "identity at initialisation, and every one of the four has a non-zero gradient there",
+        {
+            "n_parameters_arm_a": counts_a["total"],
+            "n_parameters_arm_s": counts_s["total"],
+            "delta": delta,
+            "extra_tensors": extra,
+            "missing_tensors": missing,
+            "identity_at_init": identity_at_init,
+            "init_gradients": grads,
+            "all_four_gradients_live": all_live,
+        },
+    )
+
+
+def check_stage_covariate_is_one_global_scalar_of_x_t() -> Check:
+    """[S1] The covariate is a function of ``x_t`` ALONE, and of its MASS alone.
+
+    Three properties, each of which a plausible mis-implementation would break:
+
+    * **Permutation invariance.** Move the same burned mass anywhere on the grid
+      and ``z`` is bit-identical. This is what makes it ONE scalar rather than a
+      smuggled spatial field; a head that read, say, a pooled feature map would
+      fail it.
+    * **Strict monotonicity in area**, so the covariate can express "older, and
+      therefore bigger" at all, and ``log1p`` so an EMPTY state is finite. C1.1
+      records 6-37% of frames with an empty state-1 set; ``log(0) = -inf`` would
+      take the whole step's hazard with it on exactly those frames.
+    * **It moves within a rollout.** ``spatial_log_intensity_field`` is
+      recomputed per step from the state that step reached, and the stage
+      covariate must be too, or "stage" would freeze at ``t0`` and the arm would
+      be testing a per-window constant instead of a state covariate.
+
+    The last one is checked on the KERNEL, not on the head, because the head
+    being correct in isolation says nothing about where the kernel calls it.
+    """
+    import torch
+
+    from wildfire_nowcast.model.stagehead import STAGE_CENTRE, STAGE_SCALE, StageHead
+
+    head = StageHead()
+    grid = torch.zeros(1, 8, 8)
+    grid[0, :2, :3] = 1.0
+    moved = torch.zeros(1, 8, 8)
+    moved[0, 5:7, 4:7] = 1.0  # same six cells, elsewhere
+    permutation_invariant = bool(torch.equal(head.covariate(grid), head.covariate(moved)))
+
+    areas = [0.0, 1.0, 10.0, 1000.0, 100000.0]
+    zs = []
+    for area in areas:
+        field = torch.zeros(1, 400, 400)
+        field.reshape(1, -1)[0, : int(area)] = 1.0
+        zs.append(float(head.covariate(field)[0]))
+    monotone = all(a < b for a, b in zip(zs[:-1], zs[1:], strict=True))
+    empty_is_finite = bool(
+        zs[0] == (0.0 - STAGE_CENTRE) / STAGE_SCALE and all(v == v for v in zs)
+    )
+
+    # ... and the kernel calls it on the state each step actually reached.
+    with torch.no_grad():
+        small = torch.zeros(1, 6, 6)
+        small[0, 3, 3] = 1.0
+        big = torch.zeros(1, 6, 6)
+        big[0, 1:5, 1:5] = 1.0
+        head.log_amplitude_coeff[0] = -0.5
+        amp_small = float(head(small)[0][0])
+        amp_big = float(head(big)[0][0])
+    responds_to_state = amp_big < amp_small
+
+    return Check(
+        "stage_covariate_is_one_global_scalar_of_x_t",
+        bool(permutation_invariant and monotone and empty_is_finite and responds_to_state),
+        "z depends on the burned MASS and on nothing else about where it is, is strictly "
+        "increasing in area, is finite on an empty state, and moves when the state grows",
+        {
+            "permutation_invariant": permutation_invariant,
+            "z_by_area": dict(zip([str(a) for a in areas], zs, strict=True)),
+            "monotone_in_area": monotone,
+            "empty_state_z": zs[0],
+            "log_amplitude_small_state": amp_small,
+            "log_amplitude_large_state": amp_big,
+        },
+    )
+
+
+def check_arm_a_reloads_from_a_pre_s1_spec_without_a_stage_head() -> Check:
+    """[S1] Absence is arm A. The archived-checkpoint rule, applied once more.
+
+    Every flag this kernel has acquired follows the same rule (``latent_config``,
+    ``mean_preserving``, ``spatial_modes``, ``gate_mean_preserving``): a spec
+    written before the flag existed must reload as the model it was FITTED as,
+    never acquire the new component. If ``stage_scalar`` defaulted to True on a
+    missing key, every archived G2/M5-M10 checkpoint would silently become arm S
+    on reload and every historical number would be attributed to the wrong model.
+
+    Checked both ways, because only the round trip can fail: a spec with the key
+    absent yields ``stage is None``, and a FITTED arm S round-trips its four
+    coefficients bit-exactly through JSON.
+    """
+    import json
+
+    import torch
+
+    from wildfire_nowcast.model.kernel import ContagionKernel, KernelConfig
+
+    arm_s = ContagionKernel(KernelConfig(stage_scalar=True))
+    with torch.no_grad():
+        arm_s.stage.log_amplitude_coeff.copy_(torch.tensor([-0.37, 0.11, -0.02]))
+        arm_s.stage.log_reach_coeff.copy_(torch.tensor([0.29]))
+    spec = json.loads(json.dumps(arm_s.to_spec()))
+    reloaded = ContagionKernel.from_spec(spec)
+    round_trips = bool(
+        reloaded.stage is not None
+        and torch.equal(reloaded.stage.log_amplitude_coeff, arm_s.stage.log_amplitude_coeff)
+        and torch.equal(reloaded.stage.log_reach_coeff, arm_s.stage.log_reach_coeff)
+    )
+
+    pre_s1 = json.loads(json.dumps(arm_s.to_spec()))
+    pre_s1["config"].pop("stage_scalar")
+    pre_s1["parameters"] = {
+        k: v for k, v in pre_s1["parameters"].items() if not k.startswith("stage.")
+    }
+    absent = ContagionKernel.from_spec(pre_s1)
+    absence_is_arm_a = absent.stage is None
+
+    # POSITIVE CONTROL: the round-trip clause must be able to fail.
+    tampered = json.loads(json.dumps(arm_s.to_spec()))
+    tampered["parameters"]["stage.log_reach_coeff"] = [0.29 + 1e-3]
+    tampered_model = ContagionKernel.from_spec(tampered)
+    control_differs = not torch.equal(
+        tampered_model.stage.log_reach_coeff, arm_s.stage.log_reach_coeff
+    )
+
+    return Check(
+        "arm_a_reloads_from_a_pre_s1_spec_without_a_stage_head",
+        bool(round_trips and absence_is_arm_a and control_differs),
+        "a fitted arm S round-trips its four coefficients through JSON, a spec with no "
+        "`stage_scalar` key reloads as ARM A, and a tampered coefficient is detected",
+        {
+            "round_trips": round_trips,
+            "absence_is_arm_a": absence_is_arm_a,
+            "positive_control_detects_tamper": control_differs,
+            "stage_report": arm_s.stage.report(),
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -2326,6 +2536,10 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_stage_ladder_severity_is_not_computed_by_the_channel,
     # U0b — the criterion ADR-060 (7) item 2 replaced the effect size with
     check_stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one,
+    # S1 — arm S's capacity, its covariate, and its archived-spec behaviour
+    check_arm_s_is_arm_a_plus_four_parameters_and_starts_there,
+    check_stage_covariate_is_one_global_scalar_of_x_t,
+    check_arm_a_reloads_from_a_pre_s1_spec_without_a_stage_head,
 )
 
 
