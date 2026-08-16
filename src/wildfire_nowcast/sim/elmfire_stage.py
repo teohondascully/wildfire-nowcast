@@ -445,32 +445,80 @@ def run_fire(
     out: Path | None = None,
     progress: bool = True,
 ) -> dict[str, Any]:
-    """Run ELMFIRE over every window of one fire and emit ``eval.response`` rows."""
+    """Run ELMFIRE over every window of one fire and emit ``eval.response`` rows.
+
+    **Kill-tolerant, because three bursts of this project have died mid-run.**
+    Every finished row is appended to ``<out>.partial.jsonl`` and flushed
+    immediately, and a re-run SKIPS the ``t0`` values already on disk. A run that
+    is killed at window 310 of 346 therefore costs 36 windows, not 310. The
+    partial file is kept after a successful run so the resume path is auditable
+    rather than a claim.
+    """
     binary = str(find_binary())
     t0s = window_t0s(fire_id, stride=stride)
     if limit is not None:
         t0s = t0s[: int(limit)]
-    jobs = [(i, t0, spatial_block_id) for i, t0 in enumerate(t0s)]
+
+    partial_path = (
+        None if out is None else Path(str(out).removesuffix(".json") + ".partial.jsonl")
+    )
+    done: dict[int, dict[str, Any]] = {}
+    if partial_path is not None and partial_path.exists():
+        for line in partial_path.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                # A row half-written when the process died. Dropping it is right:
+                # it will simply be recomputed. Silently KEEPING it would not be.
+                continue
+            if int(row.get("n_members_run", members)) == int(members):
+                done[int(row["t0"])] = row
+    jobs = [
+        (i, t0, spatial_block_id) for i, t0 in enumerate(t0s) if t0 not in done
+    ]
+    if progress and done:
+        print(
+            f"[E1] {fire_id}: resuming — {len(done)} of {len(t0s)} windows already "
+            f"on disk in {partial_path}",
+            flush=True,
+        )
+
     scoring_before = scoring_code_fingerprint()
     started = time.time()
     rows: list[dict[str, Any]] = []
-    if workers <= 1:
-        _worker_init(fire_id, refine, members, binary)
-        for job in jobs:
-            rows.append(_worker_run(job))
+    sink = None if partial_path is None else partial_path.open("a")
+    try:
+        def _keep(row: dict[str, Any]) -> None:
+            row["n_members_run"] = int(members)
+            rows.append(row)
+            if sink is not None:
+                sink.write(json.dumps(row, default=float) + "\n")
+                sink.flush()
             if progress and len(rows) % 10 == 0:
                 _report(fire_id, len(rows), len(jobs), started)
-    else:
-        with ProcessPoolExecutor(
-            max_workers=int(workers),
-            initializer=_worker_init,
-            initargs=(fire_id, refine, members, binary),
-        ) as pool:
-            for row in pool.map(_worker_run, jobs, chunksize=1):
-                rows.append(row)
-                if progress and len(rows) % 10 == 0:
-                    _report(fire_id, len(rows), len(jobs), started)
+
+        if workers <= 1:
+            if jobs:
+                _worker_init(fire_id, refine, members, binary)
+            for job in jobs:
+                _keep(_worker_run(job))
+        elif jobs:
+            with ProcessPoolExecutor(
+                max_workers=int(workers),
+                initializer=_worker_init,
+                initargs=(fire_id, refine, members, binary),
+            ) as pool:
+                for row in pool.map(_worker_run, jobs, chunksize=1):
+                    _keep(row)
+    finally:
+        if sink is not None:
+            sink.close()
     elapsed = time.time() - started
+    n_resumed = len(done)
+    rows = sorted([*done.values(), *rows], key=lambda r: int(r["t0"]))
     payload: dict[str, Any] = {
         "task": f"{TASK} — window rows for ONE fire",
         "fire_id": fire_id,
@@ -488,10 +536,13 @@ def run_fire(
         "refine": refine,
         "fine_cell_m": round(1000.0 / refine, 4),
         "n_rows": len(rows),
-        "n_windows_expected": len(jobs),
+        "n_windows_expected": len(t0s),
+        "n_windows_resumed_from_disk": n_resumed,
+        "n_windows_computed_this_pass": len(rows) - n_resumed,
+        "partial_path": None if partial_path is None else str(partial_path),
         "workers": int(workers),
         "elapsed_s": round(elapsed, 1),
-        "seconds_per_window": round(elapsed / max(1, len(rows)), 3),
+        "seconds_per_window": round(elapsed / max(1, len(rows) - n_resumed), 3),
         "mapping_compromises": MAPPING_COMPROMISES,
         "not_a_gate": (
             "G5 is NOT attempted here and no C6 gate criterion is computed. "
