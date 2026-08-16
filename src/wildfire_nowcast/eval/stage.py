@@ -99,6 +99,8 @@ __all__ = [
     "proportional_closure_separation",
     "apply_stage_slope_to_rows",
     "inject_stage_slope",
+    "injection_severity",
+    "SEVERITY_UNIT",
     "synthetic_exponential_growth",
     "expected_stage_decay_of_exponential",
     "known_beta_recovery",
@@ -138,6 +140,15 @@ OUTCOME_NOT_FINITE: Final = "UNDEFINED_non_finite_or_negative_growth"
 #: conversion is correct and the artifact does not state it, which is the
 #: units-in-the-key failure this project has now paid for three times.
 RATE_MINUS_GROWTH_ELASTICITY: Final = -1.0
+
+#: The unit of the MDE ladder's severity axis, spelled once so an artifact cannot
+#: report a severity without saying what it is. ``eval/power`` requires the
+#: severity to be declared in a unit the channel under test does not compute, and
+#: this one is raw displaced cell count: no logarithm, no half-means, no rank.
+SEVERITY_UNIT: Final = (
+    "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's "
+    "total forecast growth the perturbation MOVES. Cell counts only."
+)
 
 #: Absolute tolerance at which a recomputation counts as reproducing a published
 #: number. Both published estimators are pure functions of stored rows, so the
@@ -442,6 +453,36 @@ def apply_stage_slope_to_rows(
         for i, value in zip(indices, inject_stage_slope(growth, age, delta), strict=True):
             out[i][target] = float(value)
     return out
+
+
+def injection_severity(
+    base: Sequence[Mapping[str, Any]],
+    perturbed: Sequence[Mapping[str, Any]],
+    *,
+    target: str = "model_growth",
+    block_key: str = "spatial_block_id",
+) -> float:
+    """How much forecast a perturbation MOVED, in units of :data:`SEVERITY_UNIT`.
+
+    The severity axis of an MDE ladder must not be computed by the channel under
+    test, or the ladder measures the channel against itself and any channel looks
+    sensitive (``eval/power``'s module docstring, and M11's ``severity_source``
+    note). This one is a plain L1 displacement of predicted cells and
+    ``stage_decay`` is BLIND to part of it by construction: rearranging growth
+    within a half changes this number and leaves ``stage_decay`` bit-identical,
+    which is asserted in ``eval.selftest`` rather than argued here.
+
+    Equal-block mean, matching the estimand it is a severity axis for, so one
+    long fire cannot set the ladder's x-coordinate for the fold.
+    """
+    moved: dict[int, float] = {}
+    total: dict[int, float] = {}
+    for old, new in zip(base, perturbed, strict=True):
+        block = int(old[block_key])
+        moved[block] = moved.get(block, 0.0) + abs(float(new[target]) - float(old[target]))
+        total[block] = total.get(block, 0.0) + float(old[target])
+    per_block = [moved[b] / total[b] for b in sorted(moved) if total[b] > 0.0]
+    return float(np.mean(per_block)) if per_block else 0.0
 
 
 # --------------------------------------------------------------------------
