@@ -73,6 +73,7 @@ __all__ = [
     "test_e1_records_the_registry_refusing_stage_decay_a_gate",
     "test_e1_decides_only_what_the_missing_blocks_cannot_change",
     "test_e1_refuses_to_score_a_fire_that_did_not_finish",
+    "test_e1_refuses_a_window_that_may_have_hit_elmfire_s_wall_clock_cap",
     "test_e1_page_renders_a_partial_run_as_partial",
 ]
 
@@ -915,6 +916,38 @@ def test_e1_refuses_to_score_a_fire_that_did_not_finish() -> None:
         got = score(paths)
     assert got["blocks_scored"] == [5], "a truncated fire was scored as if complete"
     assert got["per_fire"]["fire_4"]["scored"] is False
+    assert "refused" in got["per_fire"]["fire_4"]
+
+
+def test_e1_refuses_a_window_that_may_have_hit_elmfire_s_wall_clock_cap() -> None:
+    """ELMFIRE's ``MAX_RUNTIME`` is WALL-CLOCK and its abort is SILENT
+    (``elmfire_level_set.f90:1263`` sets ``T = TSTOP + 1``). A capped window
+    under-reports growth on exactly the late, large windows, which moves
+    ``stage_decay`` toward deceleration. It must be refused, not averaged in."""
+    import json  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.elmfire_stage import TRUNCATION_FRACTION, score
+
+    up = [1.0] * 6 + [4.0] * 6
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = _e1_write(Path(tmp), _e1_rows({4: (up, up), 5: (up, up)}))
+        for path in paths:
+            blob = json.loads(path.read_text())
+            blob["elmfire_max_runtime_s"] = 600.0
+            for row in blob["rows"]:
+                row["_elapsed_s"] = 100.0  # 50 s/member on 2 members: well clear
+            path.write_text(json.dumps(blob))
+        clean = score(paths)
+        assert clean["blocks_scored"] == [4, 5], "a clearly-safe run was refused"
+        assert clean["per_fire"]["fire_4"]["max_runtime_margin"] > 2.0
+
+        capped = json.loads(paths[0].read_text())
+        capped["rows"][-1]["_elapsed_s"] = 2 * TRUNCATION_FRACTION * 600.0 + 1.0
+        paths[0].write_text(json.dumps(capped))
+        got = score(paths)
+    assert got["blocks_scored"] == [5], "a window at the wall-clock cap was scored"
+    assert got["per_fire"]["fire_4"]["n_windows_near_max_runtime"] == 1
     assert "refused" in got["per_fire"]["fire_4"]
 
 

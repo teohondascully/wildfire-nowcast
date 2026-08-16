@@ -153,6 +153,20 @@ PRE_REGISTRATION: Final = {
     ),
 }
 
+#: A window whose per-member WALL-CLOCK time reaches this fraction of ELMFIRE's
+#: ``MAX_RUNTIME`` is treated as possibly truncated and is refused. 0.9 rather
+#: than 1.0 because the cap is checked at the top of a timestep, so a run can
+#: exceed it slightly, and because our own measurement is the parent's view of
+#: the subprocess and includes a little setup.
+TRUNCATION_FRACTION: Final = 0.9
+
+TRUNCATION_MARGIN_NOTE: Final = (
+    "235 s/member against a 600 s cap on the four blocks scored here (2.55x "
+    "margin, 0 windows within 50% of the cap), so those blocks are cap-"
+    "independent; Creek reaches 385 s/member by t0=124 and rises, which is why "
+    "it is the block that did not finish"
+)
+
 #: Places E1's configuration departs from ELMFIRE's OWN namelist defaults, over
 #: and above ``sim.elmfire.MAPPING_COMPROMISES``. ADR-064 (6) says "default
 #: Rothermel parameters, no tuning by us", so a deviation that is ours has to be
@@ -173,6 +187,27 @@ DECLARED_DEVIATIONS_FROM_ELMFIRE_DEFAULTS: Final = [
             "costs ~717 s. It was NOT changed mid-experiment — altering a solver "
             "setting after seeing that a run is slow is how one experiment becomes "
             "two. A future full-14-block run should decide it BEFORE starting."
+        ),
+    },
+    {
+        "namelist": "&SIMULATOR MAX_RUNTIME",
+        "elmfire_default": 999999.0,
+        "ours": 600.0,
+        "where_set": "sim.elmfire.ElmfireConfig.max_runtime_s, chosen at S3/S4",
+        "direction": (
+            "DANGEROUS, and it is why this is declared rather than left implicit. "
+            "`elmfire_level_set.f90:1263` compares it against WALL-CLOCK elapsed "
+            "time and, when exceeded, sets `T = TSTOP + 1` and stops the "
+            "simulation early. Nothing in the rasters says so. A capped run "
+            "therefore UNDER-reports late-window growth, which biases stage_decay "
+            "DOWN — toward deceleration, i.e. AGAINST E-P1 — and, because the cap "
+            "is wall-clock, whether it bites depends on machine load and worker "
+            "count rather than on the fire."
+        ),
+        "cost": (
+            "MEASURED, not assumed: across the scored blocks the worst window "
+            f"costs {TRUNCATION_MARGIN_NOTE}. Any window within "
+            "`TRUNCATION_FRACTION` of the cap is refused by `score`."
         ),
     },
     {
@@ -291,11 +326,11 @@ def build_domain_stack(
     }
     if use_cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(
-            cache,
-            provenance_json=np.asarray(json.dumps(provenance, sort_keys=True)),
+        arrays: dict[str, Any] = {
+            "provenance_json": np.asarray(json.dumps(provenance, sort_keys=True)),
             **stack.layers,
-        )
+        }
+        np.savez_compressed(cache, **arrays)
     return DomainStack(fire_id, coarse, fine, refine, dict(stack.layers), provenance)
 
 
@@ -579,6 +614,16 @@ def run_fire(
         "workers": int(workers),
         "elapsed_s": round(elapsed, 1),
         "seconds_per_window": round(elapsed / max(1, len(rows) - n_resumed), 3),
+        "elmfire_max_runtime_s": float(ElmfireConfig().max_runtime_s),
+        "max_seconds_per_member": round(
+            max((float(r["_elapsed_s"]) / max(1, members) for r in rows), default=0.0), 1
+        ),
+        "n_windows_near_max_runtime": sum(
+            1
+            for r in rows
+            if float(r["_elapsed_s"]) / max(1, members)
+            >= TRUNCATION_FRACTION * float(ElmfireConfig().max_runtime_s)
+        ),
         "mapping_compromises": MAPPING_COMPROMISES,
         "not_a_gate": (
             "G5 is NOT attempted here and no C6 gate criterion is computed. "
@@ -678,16 +723,46 @@ def score(
         blob = json.loads(Path(path).read_text())
         n_have, n_want = int(blob["n_rows"]), int(blob["n_windows_expected"])
         complete = n_have == n_want
+        cap = float(blob.get("elmfire_max_runtime_s") or ElmfireConfig().max_runtime_s)
+        n_members_run = int(blob["n_members"])
+        # Absence of a timing is recorded, not treated as safety: a row with no
+        # `_elapsed_s` cannot be checked against the cap, and saying so is the
+        # difference between "checked and clear" and "not checked".
+        timed = [
+            float(r["_elapsed_s"]) / max(1, n_members_run)
+            for r in blob["rows"]
+            if r.get("_elapsed_s") is not None
+        ]
+        n_untimed = len(blob["rows"]) - len(timed)
+        worst = max(timed, default=0.0)
+        n_near = sum(1 for t in timed if t >= TRUNCATION_FRACTION * cap)
         per_fire[blob["fire_id"]] = {
             "spatial_block_id": int(blob["spatial_block_id"]),
             "n_windows": n_have,
             "n_windows_expected": n_want,
             "complete": complete,
-            "scored": complete,
-            "n_members": int(blob["n_members"]),
+            "scored": complete and n_near == 0,
+            "n_members": n_members_run,
             "elapsed_s": blob["elapsed_s"],
+            "elmfire_max_runtime_s": cap,
+            "max_seconds_per_member": round(worst, 1),
+            "max_runtime_margin": round(cap / worst, 2) if worst > 0 else None,
+            "n_windows_near_max_runtime": n_near,
+            "n_windows_without_timing_so_uncheckable": n_untimed,
             "rows_path": str(path),
         }
+        if complete and n_near:
+            # ELMFIRE's MAX_RUNTIME is WALL-CLOCK and its abort is SILENT
+            # (elmfire_level_set.f90:1263 sets T = TSTOP + 1 and dumps). A capped
+            # window under-reports growth, and it under-reports it on exactly the
+            # late, large windows — which moves stage_decay toward deceleration.
+            per_fire[blob["fire_id"]]["refused"] = (
+                f"{n_near} window(s) reached >= {TRUNCATION_FRACTION:.0%} of the "
+                f"{cap:.0f} s wall-clock MAX_RUNTIME, where ELMFIRE stops the "
+                "simulation early and says so nowhere in its rasters. Not scored: a "
+                "silently truncated late window biases stage_decay DOWN."
+            )
+            continue
         if not complete:
             # REFUSED, not truncated. `stage_decay` splits a block's windows at
             # their own median age, so scoring the first 60% of a fire's life

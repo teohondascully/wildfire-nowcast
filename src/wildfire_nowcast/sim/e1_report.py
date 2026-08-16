@@ -80,10 +80,14 @@ def render(payload: dict[str, Any], path: Path) -> Path:
     )
     # Right-aligned: the left edge is where block 0's markers sit, and a caption
     # sitting on top of a data point is a rendering defect, not a caption.
+    plate = {"facecolor": "white", "alpha": 0.85, "edgecolor": "none", "pad": 1.6}
     ax.text(0.985, 0.975, "ACCELERATES with age", transform=ax.transAxes, fontsize=9,
-            color=COL_WARN, va="top", ha="right")
+            color=COL_WARN, va="top", ha="right", bbox=plate, zorder=4)
     ax.text(0.985, 0.025, "DECELERATES with age", transform=ax.transAxes, fontsize=9,
-            color="#166534", va="bottom", ha="right")
+            color="#166534", va="bottom", ha="right", bbox=plate, zorder=4)
+    # Room on the right for the two captions. Without it a caption sits on the
+    # last block's marker, which is the same defect class as insight 45 (iv).
+    ax.set_xlim(-0.35, (len(blocks) - 1) + 0.85 if blocks else 1.0)
     ax.set_xticks(xs)
     ax.set_xticklabels([_BLOCK_NAMES.get(b, str(b)) for b in blocks], fontsize=9)
     ax.set_ylabel("stage_decay  =  log(late-half mean growth / early-half mean growth)")
