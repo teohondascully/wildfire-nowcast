@@ -689,6 +689,24 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "about it. Today such an artifact cannot be checked at all, so this is strictly harder. "
         "Verified by planting all three defects in tests/test_splits.py.",
     ),
+    "C8.2": ClauseImpl(
+        CLAUSE_ENFORCED,
+        where=(
+            "wildfire_nowcast.common.splits.SplitContext",
+            "wildfire_nowcast.common.splits.resolve_split_context",
+            "wildfire_nowcast.common.splits.assert_fit_and_stamp_agree",
+            "wildfire_nowcast.common.splits.SplitFitStampMismatchError",
+        ),
+        note="[ADR-062 (5)] the approved `stats_path` parameter must reach read_norm_stats, "
+        "split_fingerprint AND assert_split_unchanged ATOMICALLY, because a caller that sets "
+        "the FIT from one fold-stats file while the STAMPS come from the default recreates the "
+        "leak the parameter was approved to avoid. ENFORCED BY SHAPE, not by a report check: "
+        "SplitContext resolves the path ONCE and its three operations take no path argument at "
+        "all, so the desynchronised call cannot be written; resolve_split_context additionally "
+        "runs assert_fit_and_stamp_agree, so an inconsistent context cannot be constructed. No "
+        "`checks=` because there is no artifact to inspect — the clause is about a call shape, "
+        "and tests/test_splits.py plants the desynchronised caller and shows it cannot pass.",
+    ),
 }
 
 

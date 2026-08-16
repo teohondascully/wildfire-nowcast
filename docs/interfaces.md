@@ -501,6 +501,38 @@ IMPLEMENTED BY: `common/splits.py` — `declared_cv_matrix`,
 `_add_cv_matrix_clauses`, called by `check_run_split`. All three hard clauses
 were verified by PLANTING the defect they name.
 
+### [v2.16] C8.2 THE FOLD PARTITION AND THE NORMALISATION ARE THE SAME OBJECT
+`eval/baseline_run.py` states the governing principle: *folds come from
+`norm_stats.json`, never from an argument, because the stats a model consumes
+already saw those fires.* **The invariant that protects is "the fold partition
+and the normalisation are the SAME OBJECT" — not "there is only ONE object"**
+(ADR-062 (5)). Five stats files, each recomputed over exactly its own folds and
+each stamping its own `split_fingerprint`, preserve it exactly: there is no fold
+list anywhere the normalisation did not see.
+**THE DANGER THE PARAMETER CREATES, AND THE REQUIREMENT:** a caller can set the
+FIT from one of the five while the STAMPS still come from the default, silently
+recreating the leak `stats_path` was approved to avoid. **One parameter MUST
+reach `read_norm_stats`, `split_fingerprint` and `assert_split_unchanged`
+ATOMICALLY. That failure must be IMPOSSIBLE, not discouraged.**
+**A parameter threaded to three call sites cannot be made impossible to
+desynchronise — only easy to synchronise, and easy is what the leak already
+was. So the parameter is removed from the calls instead.**
+`common/splits.SplitContext` resolves the path ONCE, at construction, and its
+operations — `norm_stats()`, `fingerprint()`, `assert_unchanged()`,
+`check_assignment()` — **take no path argument at all**. You cannot pass a
+different path to a method that has no path parameter. `resolve_split_context()`
+is the single resolution point; `None` is today's behaviour, byte-identical.
+BELT AS WELL AS SHAPE: `resolve_split_context` calls
+`assert_fit_and_stamp_agree`, which compares the fit's `train_folds` and
+declared fire ids against the stamp's and RAISES, so an inconsistent context
+cannot be constructed either. Every stamp carries a `split_context` provenance
+block naming its stats file, and closing a run under a different context than
+opened it is a hard error.
+IMPLEMENTED BY: `common/splits.py`. Verified by PLANTING the desynchronised
+caller — fit from one file, stamps from another — and observing it cannot pass.
+**`split_fingerprint` itself is UNCHANGED**: the hash of record must not move
+while five artifacts are being stamped through it.
+
 ### [v2.14] C6.5 G3's bar is GEOMETRIC and carries a FIRST-MOMENT condition
 The dispersion bar is `|log(adr)| <= log(1.2)`, i.e. `[0.8333, 1.2]`.
 **The old `[0.8, 1.2]` was NOT symmetric:** in the bar's own log units it was

@@ -1076,3 +1076,185 @@ def test_a_matrix_still_reports_when_the_split_on_disk_is_none_of_its_members(
     gap = {c.check_id: c for c in stale.checks}["matches_current"]
     assert gap.ok is False and gap.severity == "reporting"
     assert stale.ok, "a stale-split matrix is a REPORTING gap, not a hard failure"
+
+
+# --------------------------------------------------------------------------
+# [v2.16] C8.2 — ATOMICITY OF THE FIT AND THE STAMPS (ADR-062 (5))
+#
+# The approved `stats_path` parameter lets a caller train against one of five
+# internally-consistent fold-stats files. The danger is a caller setting the FIT
+# from one of them while the STAMPS still come from the default, which silently
+# recreates the leak the parameter was approved to avoid. These tests plant that
+# caller and show it cannot pass.
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def two_folds(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """``(fires_root, stats_A, stats_B)`` — the same corpus under TWO partitions.
+
+    This is the leave-fold-out situation in miniature: one set of manifests, two
+    ``norm_stats.json`` files each fitted on its own folds and each declaring its
+    own membership by id. Nothing here is malformed; the only way to go wrong is
+    to mix them.
+    """
+    fires = tmp_path / "fires"
+    _fire(fires, "a_fire", fold=0, block=0)
+    _fire(fires, "b_fire", fold=1, block=1)
+    _fire(fires, "c_fire", fold=2, block=2)
+    _fire(fires, "d_fire", fold=3, block=3)
+
+    stats_a = tmp_path / "norm_stats_heldout3.json"
+    _stats(stats_a, train_folds=[0, 1, 2], train=["a_fire", "b_fire", "c_fire"], heldout=["d_fire"])
+    stats_b = tmp_path / "norm_stats_heldout0.json"
+    _stats(stats_b, train_folds=[1, 2, 3], train=["b_fire", "c_fire", "d_fire"], heldout=["a_fire"])
+    return fires, stats_a, stats_b
+
+
+def test_a_split_context_moves_the_fit_and_BOTH_stamps_together(
+    two_folds: tuple[Path, Path, Path],
+) -> None:
+    """The control: one parameter, one resolution point, three products agreeing."""
+    fires, _stats_a, stats_b = two_folds
+    ctx = S.resolve_split_context(stats_path=stats_b, fires_root=fires)
+
+    fit = ctx.norm_stats()
+    stamp = ctx.fingerprint()
+    assert fit["train_folds"] == stamp["train_folds"] == [1, 2, 3]
+    assert sorted(fit["train_fire_ids"]) == sorted(stamp["train_fire_ids"])
+    closing = ctx.assert_unchanged(stamp)
+    assert closing["fingerprint"] == stamp["fingerprint"]
+    # ...and the stamp says WHICH of the five it came from, so a later reader
+    # does not have to re-derive it.
+    assert stamp[S.SPLIT_CONTEXT_KEY]["stats_path"] == str(stats_b)
+
+
+def test_PLANTED_a_caller_that_sets_the_FIT_without_moving_the_STAMPS_cannot_pass(
+    two_folds: tuple[Path, Path, Path],
+) -> None:
+    """OBSERVATION — PLANTED: the exact leak ADR-062 (5) says must be impossible.
+
+    This is the old shape, written out deliberately: `read_norm_stats(B)` for the
+    fit, `split_fingerprint()` at the default for the stamp. Every individual
+    call is correct; only their JOIN is wrong — the same structure as ADR-015,
+    where every tensor was conformant and the relation between them was not.
+    """
+    from wildfire_nowcast.common.zarr_io import read_norm_stats
+
+    fires, stats_a, stats_b = two_folds
+    fit = read_norm_stats(stats_b)  # PLANTED: fit from B ...
+    stamp = S.split_fingerprint(fires_root=fires, stats_path=stats_a)  # ... stamp from A
+
+    with pytest.raises(S.SplitFitStampMismatchError) as excinfo:
+        S.assert_fit_and_stamp_agree(fit, stamp)
+    message = str(excinfo.value)
+    assert "[1, 2, 3]" in message and "[0, 1, 2]" in message, message
+    assert "SAME OBJECT" in message, "the failure must state the invariant it defends"
+
+    # And the atomic form of the same intent is fine, which is what makes the
+    # test above a statement about the MIXING rather than about either file.
+    S.assert_fit_and_stamp_agree(
+        read_norm_stats(stats_b),
+        S.split_fingerprint(fires_root=fires, stats_path=stats_b),
+    )
+
+
+def test_no_split_context_operation_accepts_a_path(two_folds: tuple[Path, Path, Path]) -> None:
+    """The shape claim, asserted by INTROSPECTION rather than by convention.
+
+    "Make it impossible, not discouraged" is a claim about the API surface, so it
+    is checked against the API surface. If a future edit adds a `stats_path` back
+    onto any of these methods, the desynchronised call becomes expressible again
+    and this test goes red at that moment rather than at the next leak.
+    """
+    import inspect
+
+    for name in ("norm_stats", "fingerprint", "assert_unchanged", "check_assignment"):
+        params = set(inspect.signature(getattr(S.SplitContext, name)).parameters) - {"self"}
+        offending = {p for p in params if "path" in p or "root" in p or "stats" in p}
+        assert not offending, (
+            f"SplitContext.{name} accepts {offending}. C8.2 is enforced by SHAPE: the whole "
+            "guarantee is that these operations have NO path parameter to desynchronise, so "
+            "adding one back reduces the clause to a convention"
+        )
+
+    fires, _stats_a, stats_b = two_folds
+    ctx = S.resolve_split_context(stats_path=stats_b, fires_root=fires)
+    with pytest.raises(TypeError):
+        ctx.fingerprint(stats_path=_stats_a)  # type: ignore[call-arg]
+
+
+def test_PLANTED_a_stats_file_whose_membership_drifted_cannot_become_a_context(
+    tmp_path: Path,
+) -> None:
+    """The case the SHAPE cannot cover, which is why the belt exists.
+
+    A single path used consistently everywhere still leaks if the file's declared
+    membership has drifted from the manifests it names — ADR-038 (1), where one
+    fire carrying 9.76% of train mass moved train -> held-out. The shape cannot
+    see this; the value-reading guard can.
+    """
+    fires = tmp_path / "fires"
+    _fire(fires, "a_fire", fold=0, block=0)
+    _fire(fires, "b_fire", fold=1, block=1)
+    _fire(fires, "c_fire", fold=3, block=2)  # PLANTED: manifest says fold 3 ...
+    stats = tmp_path / "norm_stats.json"
+    _stats(
+        stats,
+        train_folds=[0, 1],
+        train=["a_fire", "b_fire", "c_fire"],  # ... the stats still call it TRAIN
+        heldout=[],
+    )
+    with pytest.raises(S.SplitFitStampMismatchError) as excinfo:
+        S.resolve_split_context(stats_path=stats, fires_root=fires)
+    assert "c_fire" in str(excinfo.value)
+
+
+def test_a_run_cannot_be_CLOSED_under_a_different_context_than_it_OPENED(
+    two_folds: tuple[Path, Path, Path],
+) -> None:
+    """Two partitions bracketing one run: the 'unchanged' would be between two
+    things that were never the same."""
+    fires, stats_a, stats_b = two_folds
+    opened = S.resolve_split_context(stats_path=stats_a, fires_root=fires).fingerprint()
+    closing = S.resolve_split_context(stats_path=stats_b, fires_root=fires)
+    with pytest.raises(S.SplitFitStampMismatchError) as excinfo:
+        closing.assert_unchanged(opened)
+    assert str(stats_a) in str(excinfo.value) and str(stats_b) in str(excinfo.value)
+
+
+def test_a_split_context_still_detects_the_ADR_015_defect(
+    two_folds: tuple[Path, Path, Path],
+) -> None:
+    """C8's original job survives the new wrapper — the split MOVING mid-run.
+
+    Worth a test rather than an assumption: `assert_unchanged` gained a
+    precondition, and a guard that starts failing early can stop reaching the
+    check it was wrapping.
+    """
+    fires, _stats_a, stats_b = two_folds
+    ctx = S.resolve_split_context(stats_path=stats_b, fires_root=fires)
+    before = ctx.fingerprint()
+    _fire(fires, "e_fire", fold=1, block=4)  # a fire appears mid-run
+    with pytest.raises(S.SplitChangedError):
+        ctx.assert_unchanged(before)
+
+
+def test_the_default_context_is_todays_behaviour_exactly(
+    two_folds: tuple[Path, Path, Path],
+) -> None:
+    """`stats_path=None` must be byte-identical to the unparameterised call.
+
+    ADR-062 (5) approved the parameter on the condition that the default is
+    unchanged; five artifacts are being stamped through `split_fingerprint` in
+    parallel and the hash of record may not move.
+    """
+    fires, stats_a, _stats_b = two_folds
+    ctx = S.resolve_split_context(stats_path=stats_a, fires_root=fires)
+    direct = S.split_fingerprint(fires_root=fires, stats_path=stats_a)
+    through = ctx.fingerprint()
+    assert through["fingerprint"] == direct["fingerprint"]
+    assert {k: v for k, v in through.items() if k != S.SPLIT_CONTEXT_KEY} == direct, (
+        "the context may ADD provenance and may not change any value split_fingerprint "
+        "produced — the hash of record is being stamped through it right now"
+    )

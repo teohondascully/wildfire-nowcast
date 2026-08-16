@@ -75,6 +75,12 @@ __all__ = [
     "CvMatrixMember",
     "DeclaredCvMatrix",
     "declared_cv_matrix",
+    # [v2.16] C8.2 — fit/stamp atomicity (ADR-062 (5))
+    "SPLIT_CONTEXT_KEY",
+    "SplitContext",
+    "SplitFitStampMismatchError",
+    "assert_fit_and_stamp_agree",
+    "resolve_split_context",
 ]
 
 
@@ -348,6 +354,176 @@ def assert_split_unchanged(before: Mapping[str, Any], **kwargs: Any) -> dict[str
             "report these numbers."
         )
     return now
+
+
+# --------------------------------------------------------------------------
+# [v2.16] C8.2 — ATOMICITY OF THE FIT AND THE STAMPS (ADR-062 (5))
+# --------------------------------------------------------------------------
+
+
+class SplitFitStampMismatchError(RuntimeError):
+    """The normalisation FIT and the split STAMP came from different objects."""
+
+
+#: The provenance block a :class:`SplitContext` writes into every stamp it
+#: produces, so a later reader can tell WHICH of the five fold-stats files a
+#: number was produced under without re-deriving it.
+SPLIT_CONTEXT_KEY = "split_context"
+
+
+def assert_fit_and_stamp_agree(
+    stats: Mapping[str, Any], stamp: Mapping[str, Any], *, where: str = ""
+) -> None:
+    """[v2.16] C8.2 — raise unless the FIT and the STAMP describe the same partition.
+
+    ``stats`` is the normalisation actually consumed (a ``norm_stats.json``
+    payload); ``stamp`` is a :func:`split_fingerprint` result. The danger ADR-062
+    (5) names is a caller setting the FIT from one of the five fold-stats files
+    while the STAMPS still come from the default — which recreates, silently, the
+    exact leak the ``stats_path`` parameter was approved to avoid.
+
+    **This READS VALUES.** It compares ``train_folds`` and the declared fire ids,
+    which is the whole reason it can fail: the check it replaces would have been
+    "did the caller pass the same path twice", a proposition about a call site
+    rather than about the objects, and unfalsifiable from the artifact.
+    """
+    fit_folds = stats.get("train_folds")
+    stamp_folds = stamp.get("train_folds")
+    site = f" ({where})" if where else ""
+    if fit_folds != stamp_folds:
+        raise SplitFitStampMismatchError(
+            f"C8.2 — THE FIT AND THE SPLIT STAMP DISAGREE{site}. The normalisation was fitted "
+            f"on train_folds {fit_folds}; the split stamp says train_folds {stamp_folds}. The "
+            "fold partition and the normalisation are THE SAME OBJECT (ADR-062 (5)): a run that "
+            "normalises with one and stamps the other reports a split it did not train under, "
+            "and every held-out number in it may be measured on a fire the normalisation saw. "
+            "Resolve both through ONE SplitContext."
+        )
+    for key in DECLARED_MEMBERSHIP_KEYS:
+        declared = stats.get(key)
+        if declared is None:
+            continue
+        if sorted(str(v) for v in declared) != sorted(str(v) for v in stamp.get(key, [])):
+            raise SplitFitStampMismatchError(
+                f"C8.2 — THE FIT AND THE SPLIT STAMP DISAGREE{site} on `{key}`. The "
+                f"normalisation declares {sorted(str(v) for v in declared)}; the split stamp "
+                f"derives {sorted(str(v) for v in stamp.get(key, []))} from the manifests "
+                "on disk. Same defect as the fold mismatch above, one level finer: fold indices "
+                "are not identifying across corpus versions, so two files can agree on every "
+                "fold number and disagree about which fires those folds contain."
+            )
+
+
+@dataclass(frozen=True)
+class SplitContext:
+    """[v2.16] C8.2 — the fit and both stamps, resolved ONCE and inseparable.
+
+    **The shape, and why this shape.** ADR-062 (5) approved ``stats_path`` so a
+    caller can train against one of five internally-consistent fold-stats files,
+    and required that the one parameter reach :func:`read_norm_stats
+    <wildfire_nowcast.common.zarr_io.read_norm_stats>`, :func:`split_fingerprint`
+    and :func:`assert_split_unchanged` **atomically** — *make that failure
+    impossible, not merely discouraged.*
+
+    A parameter threaded to three call sites cannot be made impossible to
+    desynchronise; it can only be made easy to synchronise, and "easy" is what
+    the leak was already. So the parameter is REMOVED FROM THE CALLS INSTEAD.
+    This object resolves the path once, at construction, and its three
+    operations — :meth:`norm_stats`, :meth:`fingerprint`, :meth:`assert_unchanged`
+    — **take no path argument at all.** You cannot pass a different path to a
+    method that has no path parameter, and
+    ``tests/test_splits.py::test_no_split_context_operation_accepts_a_path``
+    asserts that property by introspection rather than by convention.
+
+    The second half is the belt: :func:`resolve_split_context` calls
+    :func:`assert_fit_and_stamp_agree` before returning, so an inconsistent
+    context cannot be CONSTRUCTED either — which covers the case the shape
+    cannot, namely a stats file whose declared membership has drifted from the
+    manifests it names.
+
+    Frozen, because the whole guarantee is that the resolution point is one
+    point: a context you can re-point is a parameter again.
+    """
+
+    stats_path: Path
+    fires_root: Path
+
+    # -- the three operations. NONE of them takes a path. ------------------
+    def norm_stats(self) -> dict[str, Any]:
+        """THE FIT: the normalisation this context's runs consume."""
+        # Imported here rather than at module scope on purpose: `zarr_io` pulls
+        # in xarray/zarr, and `splits` is imported by `runs.create_run_dir`,
+        # i.e. by every run. C0 still holds — this is THE `read_norm_stats`,
+        # not a second copy.
+        from wildfire_nowcast.common.zarr_io import read_norm_stats
+
+        return read_norm_stats(self.stats_path)
+
+    def fingerprint(self) -> dict[str, Any]:
+        """STAMP 1: the split fingerprint, plus this context's provenance."""
+        stamp = split_fingerprint(fires_root=self.fires_root, stats_path=self.stats_path)
+        stamp[SPLIT_CONTEXT_KEY] = self.provenance()
+        return stamp
+
+    def assert_unchanged(self, before: Mapping[str, Any]) -> dict[str, Any]:
+        """STAMP 2: the end-of-run stamp, against ``before`` from THIS context."""
+        prior = before.get(SPLIT_CONTEXT_KEY)
+        if isinstance(prior, Mapping):
+            was = str(prior.get("stats_path", ""))
+            if was and was != str(self.stats_path):
+                raise SplitFitStampMismatchError(
+                    f"C8.2 — this run OPENED under {was} and is CLOSING under "
+                    f"{self.stats_path}. Two different fold partitions bracket one run, so the "
+                    "'unchanged' this would assert is between two things that were never the "
+                    "same. Close a run with the context that opened it."
+                )
+        now = assert_split_unchanged(
+            before, fires_root=self.fires_root, stats_path=self.stats_path
+        )
+        now[SPLIT_CONTEXT_KEY] = self.provenance()
+        return now
+
+    def check_assignment(self) -> ContractReport:
+        """C3/C3.1 for THIS partition — same atomicity, same reason."""
+        return check_split_assignment(fires_root=self.fires_root, stats_path=self.stats_path)
+
+    def provenance(self) -> dict[str, str]:
+        """What a reader needs to know which of the five folds a number came from."""
+        return {
+            "stats_path": str(self.stats_path),
+            "fires_root": str(self.fires_root),
+            "clause": "C8.2 [v2.16] (ADR-062 (5))",
+        }
+
+
+def resolve_split_context(
+    *,
+    stats_path: str | Path | None = None,
+    fires_root: str | Path | None = None,
+) -> SplitContext:
+    """THE single resolution point for ``stats_path`` (C8.2, ADR-062 (5)).
+
+    ``None`` means the repo default, so ``resolve_split_context()`` is today's
+    behaviour exactly. Pass one of the five leave-fold-out artifacts to move the
+    fit and both stamps together — there is no way to move only one.
+
+    Raises :class:`SplitFitStampMismatchError` if the resolved fit and stamp do
+    not describe the same partition, so the inconsistent context never exists.
+    """
+    resolved_stats = Path(stats_path) if stats_path is not None else norm_stats_path()
+    resolved_fires = Path(fires_root) if fires_root is not None else fires_dir()
+    context = SplitContext(stats_path=resolved_stats, fires_root=resolved_fires)
+    stats = read_json(resolved_stats)
+    if stats is None:
+        raise SplitFitStampMismatchError(
+            f"C8.2 — no readable norm_stats at {resolved_stats}. A context anchored on a stats "
+            "file that does not exist would stamp a partition nothing was fitted on; C-1: "
+            "unverifiable is a failure, not a pass."
+        )
+    assert_fit_and_stamp_agree(
+        stats, context.fingerprint(), where=f"resolving {resolved_stats}"
+    )
+    return context
 
 
 # --------------------------------------------------------------------------
