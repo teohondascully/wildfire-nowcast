@@ -62,6 +62,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -463,6 +464,17 @@ class ElmfireConfig:
     crown_fire: bool = True
     #: A pre-supplied uniform stack (playthrough 2 runs with no network).
     stack: NativeStack | None = None
+    #: [E1] A callable supplying the native stack for ONE window, so a whole-fire
+    #: 30 m fetch can be SLICED instead of re-fetched per window. Takes precedence
+    #: over :attr:`stack`. This is exact rather than an approximation:
+    #: :func:`~wildfire_nowcast.sim.coarsen.fine_grid` shares the north-west corner
+    #: and refines by an integer, and :func:`window_grids` snaps to whole coarse
+    #: cells, so every window's fine grid is a sub-grid of the whole-domain fine
+    #: grid with origin ``(row0 * refine, col0 * refine)`` and no remainder. The
+    #: claim is CHECKED, not asserted, by
+    #: ``sim.elmfire_stage.verify_slice_equivalence``, which re-fetches one window
+    #: from LFPS and compares byte-for-byte against the slice.
+    stack_provider: Callable[[Window], NativeStack] | None = None
     fire_year: int = 2020
     env: dict[str, str] = field(default_factory=dict)
 
@@ -481,6 +493,7 @@ class ElmfireConfig:
             "moisture_sigma_pct": self.moisture_sigma_pct,
             "coarsening_rule": COARSENING_RULE,
             "coarsening_threshold": OCCUPANCY_THRESHOLD,
+            "stack_provider": self.stack_provider is not None,
         }
 
 
@@ -507,6 +520,8 @@ class ElmfireNativeModel:
 
     def _stack_for(self, window: Window, static: np.ndarray | None) -> NativeStack:
         cfg = self.config
+        if cfg.stack_provider is not None:
+            return cfg.stack_provider(window)
         if cfg.stack is not None:
             return cfg.stack
         if cfg.mode is InputMode.NATIVE:

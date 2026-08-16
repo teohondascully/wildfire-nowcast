@@ -64,6 +64,13 @@ __all__ = [
     "test_degeneracy_verdict_does_not_flag_a_healthy_ensemble",
     "test_zero_growth_is_degenerate_by_c6_2_verbatim",
     "test_every_playthrough_arm_declares_its_expected_verdict",
+    "test_e1_domain_slice_is_exact_and_a_one_cell_shift_is_not",
+    "test_e1_refuses_a_mismatched_refine_rather_than_misregistering",
+    "test_e1_reads_the_verdict_off_the_pre_registered_rule_in_both_directions",
+    "test_e1_a_partial_run_is_self_identifying_and_names_its_fires",
+    "test_e1_scores_every_block_at_the_same_ensemble_size",
+    "test_e1_does_not_carry_a_second_copy_of_the_estimator",
+    "test_e1_records_the_registry_refusing_stage_decay_a_gate",
 ]
 
 
@@ -641,6 +648,216 @@ def test_every_playthrough_arm_declares_its_expected_verdict() -> None:
         "it exists to prevent"
     )
     assert any(not a.expect_degenerate for a in ARMS)
+
+
+# -- E1: ELMFIRE against stage_decay (ADR-064) -----------------------------
+
+
+def _e1_rows(values: dict[int, tuple[list[float], list[float]]]) -> list[dict[str, object]]:
+    """Synthetic window rows: ``{block: (truth_growth, model_growth)}``."""
+    rows: list[dict[str, object]] = []
+    for block, (truth, model) in values.items():
+        for t0, (tg, mg) in enumerate(zip(truth, model, strict=True)):
+            rows.append(
+                {
+                    "fire_id": f"fire_{block}",
+                    "spatial_block_id": block,
+                    "t0": t0,
+                    "truth_growth": float(tg),
+                    "model_growth": float(mg),
+                    "model_growth_by_member_prefix": {"1": float(mg), "2": float(mg)},
+                }
+            )
+    return rows
+
+
+def _e1_write(tmp: Path, rows: list[dict[str, object]]) -> list[Path]:
+    import json  # noqa: PLC0415
+    from itertools import groupby  # noqa: PLC0415
+
+    paths: list[Path] = []
+    key = lambda r: (r["fire_id"], r["spatial_block_id"])  # noqa: E731
+    for (fire_id, block), group in groupby(sorted(rows, key=key), key=key):
+        chunk = list(group)
+        path = tmp / f"e1_rows_{fire_id}.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "fire_id": fire_id,
+                    "spatial_block_id": block,
+                    "n_rows": len(chunk),
+                    "n_windows_expected": len(chunk),
+                    "n_members": 2,
+                    "elapsed_s": 0.0,
+                    "rows": chunk,
+                }
+            )
+        )
+        paths.append(path)
+    return paths
+
+
+def test_e1_domain_slice_is_exact_and_a_one_cell_shift_is_not() -> None:
+    """The whole-domain fetch must be EXACTLY the per-window fetch, and the
+    comparison must be able to fail. Network-free: the arithmetic is what is
+    under test, not LFPS."""
+    from wildfire_nowcast.common.grid import Grid
+    from wildfire_nowcast.sim.coarsen import fine_grid
+    from wildfire_nowcast.sim.elmfire import window_grids
+    from wildfire_nowcast.sim.elmfire_stage import DomainStack
+    from wildfire_nowcast.sim.landfire import NATIVE_LAYERS
+
+    refine = 4
+    coarse = Grid(x_min=0.0, y_max=10_000.0, nx=10, ny=8, cell_size_m=1000.0, crs="EPSG:5070")
+    fine = fine_grid(coarse, refine)
+    rng = np.random.default_rng(0)
+    layers = {
+        lay.stub: rng.integers(0, 200, size=fine.shape).astype(np.int16)
+        for lay in NATIVE_LAYERS
+    }
+    domain = DomainStack("synthetic", coarse, fine, refine, layers, {"source": "synthetic"})
+
+    x0 = np.zeros(coarse.shape, dtype=np.uint8)
+    x0[4, 5] = 1
+    window = window_grids(coarse, x0, reach_cells=2, refine=refine)
+    sliced = domain.slice_for(window)
+    r0, c0 = window.row0 * refine, window.col0 * refine
+    for stub, arr in sliced.layers.items():
+        expected = layers[stub][r0 : r0 + window.fine.ny, c0 : c0 + window.fine.nx]
+        assert np.array_equal(arr, expected), f"{stub}: slice is not the sub-grid"
+        shifted = layers[stub][r0 + 1 : r0 + 1 + window.fine.ny, c0 : c0 + window.fine.nx]
+        assert not np.array_equal(arr, shifted), (
+            f"{stub}: a one-cell-shifted slice compares EQUAL, so the check cannot fail"
+        )
+    assert sliced.grid.x_min == window.fine.x_min
+    assert sliced.grid.y_max == window.fine.y_max
+
+
+def test_e1_refuses_a_mismatched_refine_rather_than_misregistering() -> None:
+    """A refine mismatch must RAISE. Silently slicing at the wrong lattice
+    misregisters every fuel cell and would look like a physics result."""
+    import pytest  # noqa: PLC0415
+
+    from wildfire_nowcast.common.grid import Grid
+    from wildfire_nowcast.sim.coarsen import fine_grid
+    from wildfire_nowcast.sim.elmfire import window_grids
+    from wildfire_nowcast.sim.elmfire_stage import DomainStack
+
+    coarse = Grid(x_min=0.0, y_max=6_000.0, nx=6, ny=6, cell_size_m=1000.0, crs="EPSG:5070")
+    domain = DomainStack(
+        "synthetic", coarse, fine_grid(coarse, 4), 4,
+        {"dem": np.zeros(fine_grid(coarse, 4).shape, dtype=np.int16)}, {},
+    )
+    x0 = np.zeros(coarse.shape, dtype=np.uint8)
+    x0[3, 3] = 1
+    with pytest.raises(ValueError, match="refine"):
+        domain.slice_for(window_grids(coarse, x0, reach_cells=1, refine=3))
+
+
+def test_e1_reads_the_verdict_off_the_pre_registered_rule_in_both_directions() -> None:
+    """ADR-064 (4) fixes the rule BEFORE the run: >=4/5 positive -> the defect is
+    the model class's; >=4/5 negative -> E-P1 refuted; 3/5 -> not_a_verdict. A
+    rule that can only return one of those is not a rule."""
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.elmfire_stage import HELD_OUT_BLOCKS, score
+
+    up = [1.0] * 6 + [4.0] * 6  # accelerating
+    down = [4.0] * 6 + [1.0] * 6  # decelerating
+    cases = {
+        "E-P1_HELD_defect_belongs_to_the_model_class": [up] * 5,
+        "E-P1_REFUTED_the_defect_is_ours": [down] * 5,
+        "not_a_verdict": [up, up, up, down, down],
+    }
+    for expected, shapes in cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = _e1_rows(
+                {b: (down, shape) for b, shape in zip(HELD_OUT_BLOCKS, shapes, strict=True)}
+            )
+            got = score(_e1_write(Path(tmp), rows))
+            assert got["verdict"] == expected, (
+                f"{expected} case returned {got['verdict']} "
+                f"({got['n_blocks_positive']}/5 positive)"
+            )
+            assert got["complete"] is True
+
+
+def test_e1_a_partial_run_is_self_identifying_and_names_its_fires() -> None:
+    """The expensive failure mode is a half-run someone later reads as finished."""
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.elmfire_stage import score
+
+    up = [1.0] * 6 + [4.0] * 6
+    with tempfile.TemporaryDirectory() as tmp:
+        rows = _e1_rows({4: (up, up), 5: (up, up)})
+        got = score(_e1_write(Path(tmp), rows))
+    assert got["verdict"] == "not_a_verdict"
+    assert got["complete"] is False
+    assert "not_a_verdict" in got
+    assert got["blocks_scored"] == [4, 5]
+    assert "fire_4" in got["not_a_verdict"] and "fire_5" in got["not_a_verdict"], (
+        "a partial run must NAME the fires that exist, not merely count them"
+    )
+
+
+def test_e1_scores_every_block_at_the_same_ensemble_size() -> None:
+    """Blocks run at different member counts must not be compared across them."""
+    import json  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.elmfire_stage import score
+
+    up = [1.0] * 6 + [4.0] * 6
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = _e1_write(Path(tmp), _e1_rows({4: (up, up), 5: (up, up)}))
+        rich = json.loads(paths[0].read_text())
+        rich["n_members"] = 4
+        for row in rich["rows"]:
+            # member 4 would read a DIFFERENT growth; the headline must not use it
+            row["model_growth"] = 99.0
+            row["model_growth_by_member_prefix"]["4"] = 99.0
+        paths[0].write_text(json.dumps(rich))
+        got = score(paths)
+    assert got["headline_member_prefix"] == 2
+    assert got["n_members_as_run"] == [2, 4]
+    assert got["per_block"]["4"]["elmfire"] == got["per_block"]["5"]["elmfire"], (
+        "the 4-member fire was read at 4 members while the other was read at 2"
+    )
+
+
+def test_e1_does_not_carry_a_second_copy_of_the_estimator() -> None:
+    """C0 / ADR-064 (6): ELMFIRE is scored with ``eval/stage.py`` UNCHANGED. A
+    local re-implementation is how one comparison becomes two measurements."""
+    import inspect  # noqa: PLC0415
+
+    from wildfire_nowcast.eval import stage as stage_module
+    from wildfire_nowcast.sim import elmfire_stage
+
+    source = inspect.getsource(elmfire_stage)
+    banned = "def " + "stage_decay"
+    assert banned not in source, (
+        "sim/elmfire_stage.py defines its own stage_decay — that is a second "
+        "implementation of the estimand and a C0 breach"
+    )
+    assert elmfire_stage.stage_decay_by_block is stage_module.stage_decay_by_block
+    assert "log(" not in source.replace("log(mean", ""), (
+        "the estimand's arithmetic appears to be spelled out here rather than imported"
+    )
+
+
+def test_e1_records_the_registry_refusing_stage_decay_a_gate() -> None:
+    """``stage_decay`` may not decide a gate, and the artifact must SAY SO."""
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.elmfire_stage import score
+
+    up = [1.0] * 6 + [4.0] * 6
+    with tempfile.TemporaryDirectory() as tmp:
+        got = score(_e1_write(Path(tmp), _e1_rows({4: (up, up)})))
+    assert got["licence"]["may_adjudicate"] is False
+    assert got["licence"]["outcome"] == "NOT_LICENSED"
+    assert "G5" in got["not_a_gate"]
 
 
 # -- runner ----------------------------------------------------------------
