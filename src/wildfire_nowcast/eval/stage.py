@@ -115,6 +115,10 @@ __all__ = [
     "REPRODUCTION_TOL",
     "reproduction_error",
     "licence",
+    "sign_test",
+    "estimand_digest",
+    "D3_LICENSED_ESTIMAND_SHA256",
+    "ESTIMAND_FUNCTIONS",
 ]
 
 #: The channel name, spelled ONCE. Every caller and every registry question uses
@@ -1000,6 +1004,113 @@ def reproduction_error(
         "published": b,
         "abs_error": err,
         "outcome": "REPRODUCED" if err <= tol else "NOT_REPRODUCED",
+    }
+
+
+# --------------------------------------------------------------------------
+# the criterion that CAN benefit from more blocks (ADR-060 (7) item 2)
+# --------------------------------------------------------------------------
+
+
+def sign_test(n_favourable: int, n_blocks: int) -> dict[str, Any]:
+    """One-sided exact binomial tail at p = 0.5: ``P(X >= n_favourable)``.
+
+    ADR-060 (7) item 2: an effect size cannot benefit from more blocks, because
+    adding blocks raises the SD as fast as the mean; a paired SIGN criterion can,
+    because the tail shrinks geometrically. 4/5 is p = 0.1875 and 11/14 is
+    p = 0.0287 on the SAME per-block direction. G2 already stands on unanimity
+    plus a sign test rather than an SD (ADR-053 (5)).
+
+    Exact, via :func:`math.comb` — no normal approximation, which at n = 14 would
+    be wrong in the third decimal and is where a borderline call would land.
+
+    Reports the OUTCOME string beside the number (ADR-057 (1)); ties must be
+    resolved by the CALLER before it gets here, since a block whose value is
+    exactly zero is not evidence in either direction and silently counting it as
+    unfavourable would be a choice made inside a p-value.
+    """
+    n = int(n_blocks)
+    k = int(n_favourable)
+    if n <= 0:
+        return {"outcome": "UNDEFINED_no_blocks", "p_one_sided": None, "k": k, "n": n}
+    if not 0 <= k <= n:
+        raise ValueError(f"n_favourable={k} is not in [0, {n}]")
+    tail = sum(math.comb(n, i) for i in range(k, n + 1))
+    return {
+        "outcome": OUTCOME_OK,
+        "p_one_sided": tail / float(2**n),
+        "k": k,
+        "n": n,
+        "fraction": k / float(n),
+        "tail_numerator": tail,
+        "denominator": 2**n,
+        "note": (
+            "One-sided exact binomial tail at p=0.5, i.e. the chance of seeing at least this "
+            "many blocks pointing one way if each block were a coin flip. It tests DIRECTION "
+            "and says nothing about magnitude."
+        ),
+    }
+
+
+# --------------------------------------------------------------------------
+# provenance: is this the estimand ADR-060 licensed, or a re-tuned one?
+# --------------------------------------------------------------------------
+
+#: The functions that ARE the estimand. Everything else in this module is a
+#: published-statistic reproduction, a control, or plumbing.
+ESTIMAND_FUNCTIONS: Final = (
+    "StageDecay",
+    "stage_decay",
+    "stage_decay_by_block",
+    "paired_stage_gap",
+)
+
+#: SHA-256 of the source of :data:`ESTIMAND_FUNCTIONS`, as they stood when
+#: ``known_beta_recovery`` licensed them (U0 deliverable 3, ruled in ADR-060).
+#: Pinned so that a run record can CLAIM "the same estimator" and be checked
+#: rather than believed. Changing the estimand means updating this constant in
+#: the SAME commit and re-running D3 — that friction is the point, because a
+#: silently re-tuned estimand invalidates every result that cites this one.
+D3_LICENSED_ESTIMAND_SHA256: Final = (
+    "a78c175a278d6041be769b8d998c4811030f8c3aa82af46143a25920ad03a903"
+)
+
+
+def estimand_digest() -> dict[str, Any]:
+    """Hash the LIVE source of the estimand and compare it with the pinned digest.
+
+    Reads this module's own file and slices out :data:`ESTIMAND_FUNCTIONS` by AST,
+    so reformatting elsewhere in the file, new helpers and new docstrings cannot
+    move it, and an edit to the estimand itself cannot fail to.
+    """
+    import ast
+    import hashlib
+    from pathlib import Path
+
+    text = Path(__file__).read_text()
+    tree = ast.parse(text)
+    segments = [
+        ast.get_source_segment(text, node) or ""
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.ClassDef) and node.name in ESTIMAND_FUNCTIONS
+    ]
+    found = tuple(
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.ClassDef) and node.name in ESTIMAND_FUNCTIONS
+    )
+    digest = hashlib.sha256("\n".join(segments).encode()).hexdigest()
+    missing = [name for name in ESTIMAND_FUNCTIONS if name not in found]
+    return {
+        "outcome": (
+            "UNCHANGED_SINCE_D3"
+            if digest == D3_LICENSED_ESTIMAND_SHA256 and not missing
+            else "CHANGED_SINCE_D3"
+        ),
+        "sha256": digest,
+        "pinned": D3_LICENSED_ESTIMAND_SHA256,
+        "functions": list(found),
+        "missing": missing,
     }
 
 
