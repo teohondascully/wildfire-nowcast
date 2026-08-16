@@ -11,6 +11,7 @@ testing the wrong thing.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -819,3 +820,259 @@ def test_create_run_dir_stamps_the_environment(tmp_path: Path) -> None:
     assert set(S.fingerprints_in(meta).values()) == {
         meta["split_fingerprint"]["fingerprint"]
     }
+
+
+# --------------------------------------------------------------------------
+# [v2.16] C8.1 — the CV-MATRIX artifact class (ADR-062 (6))
+#
+# Every one of these plants the defect the clause names. A guard nobody has
+# watched fail is not a guard: C8.1 exists because a leave-fold-out matrix has
+# five fingerprints by construction, and the tempting fix — record them under a
+# name the checker does not read — is the exact move C8 exists to prevent.
+# --------------------------------------------------------------------------
+
+
+def _fold_run(runs_root: Path, name: str, fingerprint: str) -> None:
+    """A fold run dir carrying exactly ONE stamp, as C8.1 requires of a member."""
+    run_dir = runs_root / name
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "results.json").write_text(json.dumps({"split_fingerprint": fingerprint}))
+
+
+def _matrix_payload(members: dict[str, str], *, n_members: int | None = None) -> dict[str, Any]:
+    """An aggregate declaring ``{label: fingerprint}``, run dirs named ``s1-<label>``."""
+    declared = {
+        label: {"run": f"runs/s1-{label}", "split_fingerprint": fp}
+        for label, fp in members.items()
+    }
+    return {
+        "arm": "S",
+        "cv_matrix": {
+            "n_members": len(declared) if n_members is None else n_members,
+            "members": declared,
+            "adr": "ADR-062 (6)",
+        },
+    }
+
+
+#: Five folds, five splits — the shape ADR-062 (6) is actually about.
+_FIVE_FOLDS = {
+    "fold0": "0000aaaaaaaaaaaa",
+    "fold1": "1111bbbbbbbbbbbb",
+    "fold2": "2222cccccccccccc",
+    "fold3": "3333dddddddddddd",
+    "fold4": "4444eeeeeeeeeeee",
+}
+
+
+def _five_fold_matrix(runs_root: Path) -> dict[str, Any]:
+    for label, fp in _FIVE_FOLDS.items():
+        _fold_run(runs_root, f"s1-{label}", fp)
+    return _matrix_payload(_FIVE_FOLDS)
+
+
+def test_a_well_formed_five_fold_matrix_is_GREEN(tmp_path: Path) -> None:
+    """OBSERVATION 3 (the control): five folds, five fingerprints, all verified.
+
+    Under v2.15 this identical artifact HARD FAILS `C8.internally_consistent`
+    for carrying five stamps — which is why the matrix could not be checked at
+    all rather than being checked leniently.
+    """
+    payload = _five_fold_matrix(tmp_path)
+    rep = S.check_run_split(
+        payload, current={"fingerprint": _FIVE_FOLDS["fold3"]}, runs_root=tmp_path
+    )
+    assert rep.ok, rep.format(verbose=True)
+    assert rep.reporting_ok, rep.format(verbose=True)
+    emitted = {c.check_id for c in rep.checks}
+    assert {
+        "cv_matrix_well_formed",
+        "cv_matrix_member_count",
+        "cv_matrix_member_stamps",
+        "cv_matrix_members_distinct",
+    } <= emitted, sorted(emitted)
+
+
+def test_a_member_stamp_that_DISAGREES_with_the_matrix_claim_is_a_HARD_fail(
+    tmp_path: Path,
+) -> None:
+    """OBSERVATION 1 — PLANTED: fold 2's run dir was trained under a different split.
+
+    This is the ADR-015 defect with the AGGREGATE as its subject: the claim is
+    what a reader trusts, the run dir is what was actually trained, and a matrix
+    describing a split that produced none of its numbers reads as reassurance
+    while doing so.
+    """
+    payload = _five_fold_matrix(tmp_path)
+    _fold_run(tmp_path, "s1-fold2", "9999ffffffffffff")  # PLANTED: claim says 2222cc...
+
+    rep = S.check_run_split(
+        payload, current={"fingerprint": _FIVE_FOLDS["fold3"]}, runs_root=tmp_path
+    )
+    failed = {c.check_id for c in rep.failures}
+    assert "cv_matrix_member_stamps" in failed, rep.format(verbose=True)
+    assert not rep.ok
+    detail = next(c.message for c in rep.failures if c.check_id == "cv_matrix_member_stamps")
+    assert "fold2" in detail and "9999ffffffffffff" in detail and "2222cccccccccccc" in detail, (
+        "the failure must name WHICH member, what was CLAIMED and what was STAMPED — a hard "
+        "clause whose message does not identify the offender gets read once and then ignored"
+    )
+    # ...and the OTHER four members must not be implicated by one bad member.
+    assert "cv_matrix_member_count" not in failed
+
+
+def test_five_declared_but_four_present_is_a_HARD_fail(tmp_path: Path) -> None:
+    """OBSERVATION 2 — PLANTED: the matrix declares 5 folds and 4 exist on disk.
+
+    The criterion this matrix feeds is a COUNT OVER FOLDS (>= 11/14, ADR-061
+    (6)), so a fold that silently does not exist moves the denominator without
+    changing anything a reader can see. ADR-063 (3) named exactly this: a partial
+    run that is not self-identifying is the expensive kind of interrupted run.
+    """
+    payload = _five_fold_matrix(tmp_path)
+    shutil.rmtree(tmp_path / "s1-fold4")  # PLANTED: 5 declared, 4 present
+
+    rep = S.check_run_split(
+        payload, current={"fingerprint": _FIVE_FOLDS["fold3"]}, runs_root=tmp_path
+    )
+    failed = {c.check_id for c in rep.failures}
+    assert "cv_matrix_member_count" in failed, rep.format(verbose=True)
+    assert not rep.ok
+    detail = next(c.message for c in rep.failures if c.check_id == "cv_matrix_member_count")
+    assert "fold4" in detail and "n_members=5" in detail, detail
+
+
+def test_a_matrix_declaration_the_checker_cannot_read_is_a_HARD_fail(tmp_path: Path) -> None:
+    """PLANTED: `cv_matrix` present, members carrying a fingerprint and NO run.
+
+    Without this clause the exemption is free: declare the key, get the member
+    stamps out of `C8.internally_consistent`, and declare nothing checkable. That
+    is the renamed-field move under a different name, so it must cost more than
+    the honest form, not less.
+    """
+    payload = {
+        "cv_matrix": {
+            "n_members": 5,
+            "members": {label: {"split_fingerprint": fp} for label, fp in _FIVE_FOLDS.items()},
+        }
+    }
+    rep = S.check_run_split(payload, current={"fingerprint": "zzzz"}, runs_root=tmp_path)
+    failed = {c.check_id for c in rep.failures}
+    assert "cv_matrix_well_formed" in failed, rep.format(verbose=True)
+    assert not rep.ok
+
+
+def test_a_matrix_member_run_with_NO_stamp_at_all_is_a_HARD_fail(tmp_path: Path) -> None:
+    """C-1 one level up: an unverifiable claim is a failure, not a pass.
+
+    The dir exists, so the count clause is satisfied; there is simply nothing in
+    it to compare the claim against. A checker that treated "no stamp to compare"
+    as agreement would pass the emptiest possible matrix.
+    """
+    payload = _five_fold_matrix(tmp_path)
+    (tmp_path / "s1-fold1" / "results.json").unlink()
+
+    rep = S.check_run_split(
+        payload, current={"fingerprint": _FIVE_FOLDS["fold3"]}, runs_root=tmp_path
+    )
+    failed = {c.check_id for c in rep.failures}
+    assert "cv_matrix_member_stamps" in failed, rep.format(verbose=True)
+    assert "unverifiable" in next(
+        c.message for c in rep.failures if c.check_id == "cv_matrix_member_stamps"
+    )
+
+
+def test_two_members_sharing_a_fingerprint_REPORTS_but_does_not_block(tmp_path: Path) -> None:
+    """The one C8.1 clause that is reporting-tier, and the reason is the NULL RUNG.
+
+    Two folds under one split IS a defect in a leave-fold-out matrix. But the
+    mandatory null rung — the same arm retrained at a second seed on every fold
+    (ADR-062 (4)) — is the same split twice BY DESIGN, and a hard clause here
+    would forbid the control that makes the matrix readable. Reported loudly,
+    never blocking.
+    """
+    duplicated = {**_FIVE_FOLDS, "fold4": _FIVE_FOLDS["fold3"]}
+    for label, fp in duplicated.items():
+        _fold_run(tmp_path, f"s1-{label}", fp)
+    rep = S.check_run_split(
+        _matrix_payload(duplicated),
+        current={"fingerprint": _FIVE_FOLDS["fold3"]},
+        runs_root=tmp_path,
+    )
+    ids = {c.check_id: c for c in rep.checks}
+    assert ids["cv_matrix_members_distinct"].ok is False
+    assert ids["cv_matrix_members_distinct"].severity == "reporting"
+    assert rep.ok and not rep.reporting_ok, rep.format(verbose=True)
+
+
+def test_the_matrix_key_does_not_buy_a_FOLD_run_out_of_anything(tmp_path: Path) -> None:
+    """Each fold is its own run dir carrying ONE stamp — that part is UNCHANGED.
+
+    The exemption is for the aggregate's declaration and nothing else. A fold run
+    that carries two disagreeing stamps is the literal train-vs-eval mismatch and
+    is still a hard fail, matrix or no matrix.
+    """
+    run_dir = tmp_path / "s1-fold0"
+    run_dir.mkdir()
+    (run_dir / "results.json").write_text(
+        json.dumps(
+            {"split_before": {"fingerprint": "aaaa"}, "split_after": {"fingerprint": "bbbb"}}
+        )
+    )
+    rep = S.check_run_split(run_dir, current={"fingerprint": "aaaa"}, runs_root=tmp_path)
+    assert "internally_consistent" in {c.check_id for c in rep.failures}, rep.format(verbose=True)
+
+
+def test_an_ordinary_artifact_emits_NO_cv_matrix_clause(tmp_path: Path) -> None:
+    """Every archived run predates C8.1 and must not acquire a phantom failure.
+
+    Same reasoning as C-4.3's tiering, and asserted for the same reason: a hard
+    clause that fires on every artifact is worse than no clause, because the
+    first thing anyone does with it is stop reading it.
+    """
+    rep = S.check_run_split(
+        {"split_before": {"fingerprint": "aaaa"}, "split_after": {"fingerprint": "aaaa"}},
+        current={"fingerprint": "aaaa"},
+        runs_root=tmp_path,
+    )
+    assert not any(c.check_id.startswith("cv_matrix_") for c in rep.checks)
+    assert rep.ok
+
+
+def test_the_member_stamps_are_STILL_VISIBLE_to_the_checker(tmp_path: Path) -> None:
+    """The refusal ADR-062 (6) upheld, asserted as a property rather than trusted.
+
+    `fingerprints_in` skips `cv_matrix` so a matrix does not hard-fail
+    `internally_consistent` for its own structure — but the five stamps must not
+    thereby become invisible. `declared_cv_matrix` reads every one of them, and
+    `check_run_split` checks each against its run dir. If a future edit moved the
+    members somewhere the parser does not look, this test goes red.
+    """
+    payload = _five_fold_matrix(tmp_path)
+    assert S.fingerprints_in(payload) == {}, "the aggregate carries no stamp of its own"
+    matrix = S.declared_cv_matrix(payload)
+    assert matrix is not None
+    assert set(matrix.fingerprints) == set(_FIVE_FOLDS.values()), (
+        "the checker must SEE all five declared fingerprints. Recording them where it cannot "
+        "is precisely the move C8 exists to prevent (ADR-062 (6))"
+    )
+    assert matrix.n_members == 5
+
+
+def test_a_matrix_still_reports_when_the_split_on_disk_is_none_of_its_members(
+    tmp_path: Path,
+) -> None:
+    """C8.matches_current stays REPORTING-tier and stays meaningful for a matrix.
+
+    It passes when today's split is any ONE of the members — a fold run scored
+    today is legitimately current — and gaps when it is none of them.
+    """
+    payload = _five_fold_matrix(tmp_path)
+    ok = S.check_run_split(
+        payload, current={"fingerprint": _FIVE_FOLDS["fold0"]}, runs_root=tmp_path
+    )
+    assert {c.check_id: c for c in ok.checks}["matches_current"].ok is True
+    stale = S.check_run_split(payload, current={"fingerprint": "not-a-member"}, runs_root=tmp_path)
+    gap = {c.check_id: c for c in stale.checks}["matches_current"]
+    assert gap.ok is False and gap.severity == "reporting"
+    assert stale.ok, "a stale-split matrix is a REPORTING gap, not a hard failure"

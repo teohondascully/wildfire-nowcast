@@ -1,4 +1,20 @@
-# INTERFACES v2.15 (bump version + DECISIONS.md entry to change anything here)
+# INTERFACES v2.16 (bump version + DECISIONS.md entry to change anything here)
+# v2.16 ADR-062 (5)(6)(7): MAKE A CROSS-VALIDATION MATRIX CHECKABLE. Three
+#       additions, all of which make the checker stricter and none of which
+#       exempts anything. **C8.1** — a full leave-fold-out matrix has FIVE split
+#       fingerprints by construction, and `check_run_split` hard-fails on more
+#       than one per artifact, so today a matrix cannot be checked AT ALL.
+#       Modelling proposed recording the five under a key the checker cannot see
+#       and flagged, against its own convenience, that this is exactly the move
+#       C8 exists to prevent; the refusal was upheld. A CV matrix becomes a
+#       declared ARTIFACT CLASS that pays THREE new hard clauses for the one it
+#       is excused. **C8.2** — the approved `stats_path` parameter must reach the
+#       FIT and BOTH STAMPS atomically; a caller must not be able to set one
+#       without the others. **C6.3 (addition)** — an expected `c6_3_satisfied:
+#       false` may be STAMPED as expected, and the stamp may not flip the value.
+#       THIS BUMP WAS MADE BY infra UNDER AN EXPLICIT DIRECTIVE (task I2), the
+#       same precedent as v2.15 and v2.12; no other line of this contract was
+#       touched by that lead. [v2.16]
 # v2.15 ADR-053 (1)(2): C6.6 — Brier, arrival-time CRPS, `calibration_error` and
 #       reliability are NON-ADJUDICATING. They ran BACKWARDS on M11's ladder
 #       (Spearman -0.45 / -0.34 / -0.14 / -0.80 against |log(area error)|), so a
@@ -443,6 +459,47 @@ fires silently crossed from train to held-out. **No per-tensor check could see
 it** — every tensor was individually conformant throughout. This is the first
 hazard created by PARALLELISM itself rather than by any lead's work.
 MAINTAINER RULE: no fold change is authorised while any lead is training.
+
+### [v2.16] C8.1 A CV MATRIX IS A DECLARED ARTIFACT CLASS, NOT AN EXEMPTION
+A full leave-fold-out matrix holds out every block exactly once, so it has **as
+many split fingerprints as it has folds** — five, for the 14-block / 5-fold
+partition. `check_run_split` treats more than one fingerprint inside one
+artifact as a `C8.internally_consistent` **HARD FAIL**, so **today a CV matrix
+cannot be checked at all**: it either fails for having the structure it is
+defined to have, or its stamps get recorded under a name the checker does not
+read. Modelling proposed the second **and flagged that it is precisely the move
+C8 exists to prevent** (ADR-062 (6)). That refusal is upheld and generalised.
+**THE ANSWER TO "THE CHECKER CANNOT EXPRESS THIS" IS TO EXTEND THE CHECKER,
+NEVER TO RENAME THE FIELD.**
+STRUCTURE:
+- **Each fold is its own run dir carrying exactly ONE stamp.** Unchanged, and it
+  is where train-vs-eval agreement actually has to hold. Every C8 clause applies
+  to a fold run exactly as before.
+- **The aggregate declares its members under `cv_matrix`, a key the checker DOES
+  see**: `{"n_members": <int>, "members": {<label>: {"run": "runs/<dir>",
+  "split_fingerprint": "<hex>"}, ...}}`.
+THE TRADE IS DELIBERATELY UNFAVOURABLE. Declaring `cv_matrix` buys the member
+stamps out of the one-fingerprint rule and pays **three clauses no other
+artifact faces**, all HARD FAIL:
+1. **The declaration must parse** — an int `n_members`, and every member
+   carrying both a `run` and a `split_fingerprint`. A member with a fingerprint
+   and no run dir is an unverifiable assertion about a run nobody can find.
+2. **The declared member count must equal the member runs PRESENT.** 5 declared
+   and 4 on disk is a partial matrix reading as a whole one — and the criterion
+   it feeds is a COUNT OVER FOLDS (≥11/14), so a fold that silently does not
+   exist moves the denominator without changing the report.
+3. **Every member run's OWN stamp must equal what the matrix claims about it.**
+   The claim is what a reader trusts; the run dir is what was actually trained.
+REPORTING TIER: two members sharing one fingerprint is surfaced, not blocked —
+in a leave-fold-out matrix it means two folds trained on the same partition, but
+the mandatory null rung (the same arm at a second seed, ADR-062 (4)) **is** the
+same split twice by design, and a hard clause would forbid the control that
+makes the matrix readable.
+**This is strictly harder than v2.15, on an artifact class v2.15 could not
+check.** Bars only get harder.
+IMPLEMENTED BY: `common/splits.py` — `declared_cv_matrix`,
+`_add_cv_matrix_clauses`, called by `check_run_split`. All three hard clauses
+were verified by PLANTING the defect they name.
 
 ### [v2.14] C6.5 G3's bar is GEOMETRIC and carries a FIRST-MOMENT condition
 The dispersion bar is `|log(adr)| <= log(1.2)`, i.e. `[0.8333, 1.2]`.

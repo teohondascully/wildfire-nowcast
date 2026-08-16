@@ -41,6 +41,7 @@ import hashlib
 import json
 import sys
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,12 @@ __all__ = [
     "ENVIRONMENT_FINGERPRINT_FAMILY",
     "RUN_FINGERPRINT_FAMILIES",
     "code_fingerprint_ends",
+    # [v2.16] C8.1 — the CV-matrix artifact class (ADR-062 (6))
+    "CV_MATRIX_KEY",
+    "CV_MATRIX_MEMBER_KEYS",
+    "CvMatrixMember",
+    "DeclaredCvMatrix",
+    "declared_cv_matrix",
 ]
 
 
@@ -374,6 +381,175 @@ _NON_SPLIT_FINGERPRINT_BLOCKS: frozenset[str] = frozenset(
 )
 
 
+# --------------------------------------------------------------------------
+# [v2.16] C8.1 — the CV-MATRIX artifact class (ADR-062 (6))
+# --------------------------------------------------------------------------
+
+
+#: The key an AGGREGATE artifact uses to declare the fold runs it summarises.
+#:
+#: **Why this key exists at all.** A full leave-fold-out matrix has FIVE split
+#: fingerprints by construction — one per fold — and
+#: :func:`check_run_split` hard-fails ``C8.internally_consistent`` on more than
+#: one fingerprint per artifact. modelling proposed recording the five under a
+#: name the checker does not read, *and flagged that doing so is exactly the move
+#: C8 exists to prevent*. That refusal was upheld and generalised (ADR-062 (6)):
+#: **the answer to "the checker cannot express this" is to extend the checker,
+#: never to rename the field.**
+#:
+#: So this is NOT an exemption and the trade is deliberately unfavourable. An
+#: artifact that declares ``cv_matrix`` buys its member stamps out of the
+#: one-fingerprint rule and pays for it with THREE new hard clauses that do not
+#: apply to anything else: the declaration must parse, the declared member count
+#: must match the member runs actually present, and every member run's own stamp
+#: must equal what the matrix claims about it. Today a matrix cannot be checked
+#: at all; under C8.1 it is checked against the run dirs on disk.
+CV_MATRIX_KEY = "cv_matrix"
+
+#: The keys a declared matrix member MUST carry. ``run`` is what makes the claim
+#: falsifiable: without a path to the fold's run dir, the declared fingerprint is
+#: an unverifiable assertion about a run nobody can find, which is C-1's
+#: "unverifiable is a failure" one level up.
+CV_MATRIX_MEMBER_KEYS: tuple[str, str] = ("run", "split_fingerprint")
+
+#: The key carrying the declared member count. Checked against the member runs
+#: PRESENT rather than against the member entries alone: a matrix that declares
+#: five folds, lists five, and has four on disk is a partial run being read as a
+#: whole one — ADR-063 (3)'s expensive failure mode, made mechanical.
+CV_MATRIX_COUNT_KEY = "n_members"
+
+
+@dataclass(frozen=True)
+class CvMatrixMember:
+    """One fold of a CV matrix, as the AGGREGATE declares it.
+
+    ``fingerprint`` is a CLAIM about ``run``, never a substitute for it. C8.1
+    reads the run dir and fails if the two disagree.
+    """
+
+    label: str
+    run: str
+    fingerprint: str
+
+
+@dataclass(frozen=True)
+class DeclaredCvMatrix:
+    """A parsed ``cv_matrix`` declaration, with its own defects listed.
+
+    ``problems`` are strings and never exceptions, for the same reason
+    :func:`read_json` never raises: a malformed artifact must fail its own clause
+    rather than abort the punch list.
+    """
+
+    n_members: int | None
+    members: tuple[CvMatrixMember, ...]
+    problems: tuple[str, ...]
+
+    @property
+    def fingerprints(self) -> tuple[str, ...]:
+        return tuple(m.fingerprint for m in self.members)
+
+
+def _member_from(label: str, node: object) -> tuple[CvMatrixMember | None, list[str]]:
+    problems: list[str] = []
+    if not isinstance(node, Mapping):
+        return None, [f"member {label!r} is not an object: {node!r}"]
+    values: dict[str, str] = {}
+    for key in CV_MATRIX_MEMBER_KEYS:
+        value = node.get(key)
+        if not isinstance(value, str) or not value.strip():
+            problems.append(
+                f"member {label!r} does not declare a non-empty `{key}`: {value!r}. C8.1 "
+                "requires both, because a fingerprint with no run dir cannot be checked "
+                "against anything"
+            )
+            continue
+        values[key] = value.strip()
+    if problems:
+        return None, problems
+    member = CvMatrixMember(
+        label=label, run=values["run"], fingerprint=values["split_fingerprint"]
+    )
+    return member, []
+
+
+def declared_cv_matrix(payload: Mapping[str, Any]) -> DeclaredCvMatrix | None:
+    """Parse a ``cv_matrix`` declaration, or return ``None`` if there is none.
+
+    Accepts ``members`` as a mapping ``{label: member}`` (the natural shape for
+    folds) or as a list of member objects, in which case a member's own
+    ``label``/``fold`` key names it and the index is the fallback. Reading both
+    shapes is the same reasoning as :data:`FINGERPRINT_KEYS`: a checker that only
+    understands its own writer's shape is not a checker.
+    """
+    node = payload.get(CV_MATRIX_KEY)
+    if node is None:
+        return None
+    if not isinstance(node, Mapping):
+        return DeclaredCvMatrix(
+            None, (), (f"`{CV_MATRIX_KEY}` is not an object: {type(node).__name__}",)
+        )
+
+    problems: list[str] = []
+    raw_count = node.get(CV_MATRIX_COUNT_KEY)
+    n_members: int | None = None
+    if isinstance(raw_count, bool) or not isinstance(raw_count, int):
+        problems.append(
+            f"`{CV_MATRIX_KEY}.{CV_MATRIX_COUNT_KEY}` is absent or not an int: {raw_count!r}. "
+            "The count is the whole point of declaring it — it is what makes a MISSING fold "
+            "detectable rather than merely absent"
+        )
+    else:
+        n_members = int(raw_count)
+
+    raw_members = node.get("members")
+    members: list[CvMatrixMember] = []
+    if isinstance(raw_members, Mapping):
+        entries: list[tuple[str, object]] = [(str(k), v) for k, v in raw_members.items()]
+    elif isinstance(raw_members, list):
+        entries = []
+        for i, item in enumerate(raw_members):
+            label = str(i)
+            if isinstance(item, Mapping):
+                for key in ("label", "fold", "name"):
+                    if isinstance(item.get(key), (str, int)):
+                        label = str(item[key])
+                        break
+            entries.append((label, item))
+    else:
+        entries = []
+        problems.append(
+            f"`{CV_MATRIX_KEY}.members` is absent or is neither an object nor a list: "
+            f"{type(raw_members).__name__}"
+        )
+
+    seen: set[str] = set()
+    for label, item in entries:
+        if label in seen:
+            problems.append(f"member label {label!r} is declared more than once")
+        seen.add(label)
+        member, member_problems = _member_from(label, item)
+        problems.extend(member_problems)
+        if member is not None:
+            members.append(member)
+
+    return DeclaredCvMatrix(n_members, tuple(members), tuple(problems))
+
+
+def _resolve_member_run(run: str, root: Path) -> Path:
+    """Where a declared member's run dir is, given the runs root.
+
+    Absolute paths are honoured; anything containing ``runs/`` is taken relative
+    to the runs root from that segment on; a bare name is a directory under it.
+    """
+    path = Path(run)
+    if path.is_absolute():
+        return path
+    if "runs/" in run:
+        return root / run.split("runs/", 1)[1]
+    return root / run
+
+
 def fingerprints_in(payload: object, *, prefix: str = "") -> dict[str, str]:
     """Every SPLIT fingerprint in a run artifact, keyed by its dotted location.
 
@@ -381,6 +557,14 @@ def fingerprints_in(payload: object, *, prefix: str = "") -> dict[str, str]:
     ``split_before``, ``split_after`` or at the root is all found by one pass.
     Code-fingerprint blocks are skipped — see
     :data:`_NON_SPLIT_FINGERPRINT_BLOCKS`.
+
+    [v2.16] ``cv_matrix`` is skipped here and read by :func:`declared_cv_matrix`
+    instead. This is the one place the distinction matters, so it is stated
+    plainly: the member stamps are NOT hidden from the checker, they are moved to
+    a STRICTER checker. Collecting them here would make every leave-fold-out
+    matrix hard-fail ``C8.internally_consistent`` for having the five
+    fingerprints it is defined to have, while checking none of them against the
+    fold runs on disk.
     """
     found: dict[str, str] = {}
 
@@ -388,7 +572,7 @@ def fingerprints_in(payload: object, *, prefix: str = "") -> dict[str, str]:
         if isinstance(node, Mapping):
             for key, value in node.items():
                 here = f"{path}.{key}" if path else str(key)
-                if key in _NON_SPLIT_FINGERPRINT_BLOCKS:
+                if key in _NON_SPLIT_FINGERPRINT_BLOCKS or key == CV_MATRIX_KEY:
                     continue
                 if key in FINGERPRINT_KEYS:
                     if isinstance(value, str) and value:
@@ -482,6 +666,13 @@ def check_run_split(
     ``C8.code_sampled_both_ends`` (reporting) [v2.11, C-4.2] every code
                                           fingerprint family is sampled BEFORE as
                                           well as after — see below.
+    ``C8.1 cv_matrix_*``      (fail)      [v2.16, ADR-062 (6)] if this artifact
+                                          declares a CV matrix, the declaration
+                                          must parse, the declared member count
+                                          must match the member runs present, and
+                                          every member run's own stamp must equal
+                                          what the matrix claims about it. See
+                                          :func:`_add_cv_matrix_clauses`.
 
     Why the last one is ``reporting`` and not ``fail``: an archived result was
     internally consistent when it was produced, and ADR-014 approved a fold
@@ -534,42 +725,85 @@ def check_run_split(
         for where, fp in fingerprints_in(payload).items():
             found[f"{name}:{where}"] = fp
 
+    # [v2.16] C8.1 — a declared CV matrix, if this artifact is one.
+    matrices: dict[str, DeclaredCvMatrix] = {}
+    for name, payload in payloads.items():
+        matrix = declared_cv_matrix(payload)
+        if matrix is not None:
+            matrices[name] = matrix
+    member_fingerprints = sorted({fp for m in matrices.values() for fp in m.fingerprints})
+    member_dirs = {
+        _resolve_member_run(member.run, root)
+        for matrix in matrices.values()
+        for member in matrix.members
+    }
+
     rep.add(
         "C8",
         "stamped",
-        bool(found),
+        bool(found) or bool(matrices),
         f"split fingerprint stamped in {len(found)} location(s): "
         f"{sorted(set(found.values()))}"
         if found
+        else f"a CV matrix declaring {len(member_fingerprints)} member fingerprint(s) "
+        f"{member_fingerprints} (C8.1)"
+        if matrices
         else "NO split fingerprint anywhere in this run. C8: every run stamps one and every "
         "reported number carries it. Without it, a number cannot be shown to have been "
         "produced under the split it claims — and the split HAS moved under a running "
         "experiment before (ADR-015)",
     )
-    if not found:
+    if not (found or matrices):
         return rep
 
     distinct = sorted(set(found.values()))
-    rep.add(
-        "C8",
-        "internally_consistent",
-        len(distinct) == 1,
-        f"all {len(found)} stamps agree ({distinct[0]})"
-        if len(distinct) == 1
-        else "C8 HARD FAIL — this artifact carries MORE THAN ONE split fingerprint: "
-        + "; ".join(f"{k}={v}" for k, v in sorted(found.items()))
-        + ". The split used for TRAINING differs from the split used for EVALUATION, so "
-        "fires that were trained on are being scored as held-out. Discard the numbers and "
-        "re-run against a frozen split",
-        severity=SEVERITY_FAIL,
-    )
+    if matrices and not found:
+        # A pure aggregate stamps nothing of its own; there is no train-vs-eval
+        # pair inside it to disagree. Its members' agreement with the fold runs
+        # on disk is C8.1's job and is strictly harder than this clause. Stated
+        # rather than skipped, because a clause that silently stops applying is
+        # how a hard gate becomes decoration.
+        rep.add(
+            "C8",
+            "internally_consistent",
+            True,
+            f"CV matrix: this aggregate carries no split stamp of its own, so there is no "
+            f"train-vs-eval pair here to disagree. Its {len(member_fingerprints)} member "
+            "fingerprint(s) are checked against the fold run dirs by C8.1, which is stricter "
+            "than this clause (ADR-062 (6))",
+            severity=SEVERITY_FAIL,
+        )
+    else:
+        rep.add(
+            "C8",
+            "internally_consistent",
+            len(distinct) == 1,
+            f"all {len(found)} stamps agree ({distinct[0]})"
+            if len(distinct) == 1
+            else "C8 HARD FAIL — this artifact carries MORE THAN ONE split fingerprint: "
+            + "; ".join(f"{k}={v}" for k, v in sorted(found.items()))
+            + ". The split used for TRAINING differs from the split used for EVALUATION, so "
+            "fires that were trained on are being scored as held-out. Discard the numbers and "
+            "re-run against a frozen split",
+            severity=SEVERITY_FAIL,
+        )
+
+    _add_cv_matrix_clauses(rep, matrices, root)
 
     if follow_references:
         chain: dict[str, str] = {}
         for payload in payloads.values():
             for ref in _referenced_run_dirs(payload, root):
+                # Declared members are EXCLUDED here and checked by C8.1 against
+                # what the matrix claims about each one individually. Left in,
+                # every matrix would hard-fail C8.chain for holding the five
+                # different fingerprints it exists to hold — and would do so
+                # WITHOUT ever comparing a member's stamp to its own claim.
+                if ref in member_dirs:
+                    continue
                 chain.update(_artifact_fingerprints(ref))
-        mismatched = {k: v for k, v in chain.items() if v not in distinct}
+        accepted = set(distinct) | set(member_fingerprints)
+        mismatched = {k: v for k, v in chain.items() if v not in accepted}
         if chain:
             rep.add(
                 "C8",
@@ -580,15 +814,15 @@ def check_run_split(
                 if not mismatched
                 else "C8 HARD FAIL — this run consumed artifacts stamped with a DIFFERENT "
                 "split: " + "; ".join(f"{k}={v}" for k, v in sorted(mismatched.items())[:6])
-                + f" vs this artifact's {distinct}. A checkpoint trained under one split and "
-                "evaluated under another produces held-out numbers on trained-on fires",
+                + f" vs this artifact's {sorted(accepted)}. A checkpoint trained under one split "
+                "and evaluated under another produces held-out numbers on trained-on fires",
                 severity=SEVERITY_FAIL,
             )
 
     _add_code_fingerprint_clauses(rep, payloads)
 
     now = dict(current) if current is not None else split_fingerprint()
-    ok = now.get("fingerprint") in distinct
+    ok = now.get("fingerprint") in set(distinct) | set(member_fingerprints)
     rep.add(
         "C8",
         "matches_current",
@@ -596,7 +830,8 @@ def check_run_split(
         f"fingerprint matches the split on disk now ({now.get('fingerprint')}; "
         f"{now.get('n_fires')} fires, train folds {now.get('train_folds')})"
         if ok
-        else f"this artifact was produced under split {distinct}, but the split on disk is now "
+        else "this artifact was produced under split "
+        f"{sorted(set(distinct) | set(member_fingerprints))}, but the split on disk is now "
         f"{now.get('fingerprint')} ({now.get('n_fires')} fires, train folds "
         f"{now.get('train_folds')}, {now.get('n_heldout_blocks')} held-out blocks). The numbers "
         "were internally consistent when produced and are NOT invalidated by this, but they "
@@ -605,6 +840,141 @@ def check_run_split(
         severity=SEVERITY_REPORTING,
     )
     return rep
+
+
+def _add_cv_matrix_clauses(
+    rep: ContractReport, matrices: Mapping[str, DeclaredCvMatrix], root: Path
+) -> None:
+    """[v2.16] C8.1 — the three clauses a CV matrix pays for its exemption with.
+
+    ``cv_matrix_well_formed``      (fail) the declaration parses: an int
+                                          ``n_members`` and members each carrying
+                                          a ``run`` and a ``split_fingerprint``.
+    ``cv_matrix_member_count``     (fail) the declared count equals the number of
+                                          member entries AND the number of member
+                                          run dirs actually on disk.
+    ``cv_matrix_member_stamps``    (fail) every member run's OWN stamp equals what
+                                          the matrix claims about it.
+    ``cv_matrix_members_distinct`` (reporting) two members under one fingerprint.
+
+    Why the last one is REPORTING and not FAIL, stated because the other three
+    are hard and the asymmetry should not have to be inferred: a leave-fold-out
+    matrix's five folds have five different splits, so duplicates there are a
+    real defect — but the mandatory **null rung** (ADR-062 (4): retrain the same
+    arm at a second seed on every fold) is by design the SAME split twice, and a
+    hard clause would forbid the control that makes the matrix readable. So it is
+    surfaced, loudly, and does not block.
+    """
+    if not matrices:
+        return
+
+    problems: list[str] = []
+    count_problems: list[str] = []
+    stamp_problems: list[str] = []
+    checked = 0
+    present_total = 0
+    declared_total = 0
+    by_fingerprint: dict[str, list[str]] = {}
+
+    for name, matrix in sorted(matrices.items()):
+        problems.extend(f"{name}: {p}" for p in matrix.problems)
+        declared_total += len(matrix.members)
+        present: list[CvMatrixMember] = []
+        for member in matrix.members:
+            by_fingerprint.setdefault(member.fingerprint, []).append(f"{name}:{member.label}")
+            run_dir = _resolve_member_run(member.run, root)
+            if not run_dir.is_dir():
+                count_problems.append(
+                    f"{name}: member {member.label!r} declares run {member.run!r}, and there is "
+                    f"no such run directory at {run_dir}"
+                )
+                continue
+            present.append(member)
+            stamps = _artifact_fingerprints(run_dir)
+            if not stamps:
+                stamp_problems.append(
+                    f"{name}: member {member.label!r} run {run_dir.name} carries NO split "
+                    f"fingerprint at all, so the matrix's claim of {member.fingerprint} about it "
+                    "is unverifiable (C-1: unverifiable is a failure, not a pass)"
+                )
+                continue
+            checked += 1
+            disagreeing = {k: v for k, v in stamps.items() if v != member.fingerprint}
+            if disagreeing:
+                stamp_problems.append(
+                    f"{name}: member {member.label!r} is CLAIMED to be {member.fingerprint} but "
+                    f"{run_dir.name} stamps "
+                    + "; ".join(f"{k}={v}" for k, v in sorted(disagreeing.items())[:4])
+                )
+        present_total += len(present)
+        if matrix.n_members is not None:
+            if matrix.n_members != len(matrix.members):
+                count_problems.append(
+                    f"{name}: declares {CV_MATRIX_COUNT_KEY}={matrix.n_members} but lists "
+                    f"{len(matrix.members)} usable member(s)"
+                )
+            if matrix.n_members != len(present):
+                count_problems.append(
+                    f"{name}: declares {CV_MATRIX_COUNT_KEY}={matrix.n_members} but "
+                    f"{len(present)} member run(s) are present on disk"
+                )
+
+    rep.add(
+        "C8.1",
+        "cv_matrix_well_formed",
+        not problems,
+        f"the CV matrix declaration in {len(matrices)} artifact(s) parses: "
+        f"{declared_total} member(s), each with a run and a split fingerprint"
+        if not problems
+        else "C8.1 HARD FAIL — the CV matrix declaration does not parse: "
+        + "; ".join(problems[:6])
+        + ". `cv_matrix` is the key that buys a matrix out of C8's one-fingerprint rule; a "
+        "declaration the checker cannot read buys the exemption and pays nothing, which is the "
+        "renamed-field move ADR-062 (6) refused",
+        severity=SEVERITY_FAIL,
+    )
+    rep.add(
+        "C8.1",
+        "cv_matrix_member_count",
+        not count_problems,
+        f"every declared member run is present: {present_total} of {declared_total}"
+        if not count_problems
+        else "C8.1 HARD FAIL — the declared member count does not match the member runs "
+        "present: " + "; ".join(count_problems[:6])
+        + ". A matrix missing a fold is a PARTIAL result that reads as a whole one, and the "
+        "criterion it feeds is a count over folds (>= 11/14): a fold that silently does not "
+        "exist changes the denominator without changing the report",
+        severity=SEVERITY_FAIL,
+    )
+    rep.add(
+        "C8.1",
+        "cv_matrix_member_stamps",
+        not stamp_problems,
+        f"all {checked} member run(s) stamp exactly the fingerprint the matrix claims for them"
+        if not stamp_problems
+        else "C8.1 HARD FAIL — a member run's OWN stamp differs from what this matrix claims "
+        "about it: " + "; ".join(stamp_problems[:6])
+        + ". The claim is what a reader trusts and the run dir is what was actually trained, so "
+        "a disagreement means the matrix is describing a split that produced none of its "
+        "numbers — the ADR-015 defect with the aggregate as its subject",
+        severity=SEVERITY_FAIL,
+    )
+    duplicated = {fp: where for fp, where in by_fingerprint.items() if len(where) > 1}
+    rep.add(
+        "C8.1",
+        "cv_matrix_members_distinct",
+        not duplicated,
+        f"the {len(by_fingerprint)} member fingerprint(s) are distinct — every fold ran under "
+        "its own split"
+        if not duplicated
+        else "C8.1 — two or more members share one split fingerprint: "
+        + "; ".join(f"{fp} <- {sorted(w)}" for fp, w in sorted(duplicated.items())[:4])
+        + ". In a leave-fold-out matrix that means two folds trained on the same partition, so "
+        "one of them held out nothing new. LEGITIMATE for a null rung (the same arm at a second "
+        "seed IS the same split by design, ADR-062 (4)) — which is why this reports rather than "
+        "blocks. Say which it is in the artifact",
+        severity=SEVERITY_REPORTING,
+    )
 
 
 def _add_code_fingerprint_clauses(

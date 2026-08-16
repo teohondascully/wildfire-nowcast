@@ -663,6 +663,32 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         ),
         note="cross-fire and cross-run: no per-tensor check can see a split move (ADR-015).",
     ),
+    # [v2.16] FOURTH clause-authoring crossing (cf. C6.6 at v2.15, C6.5 at
+    # ADR-044, C3.5 at ADR-040). A14's auto-discovery still does not cover clause
+    # classification, so writing a clause STILL compels an edit to this file.
+    # Four instances; the mechanism fix is owed and is not this task.
+    "C8.1": ClauseImpl(
+        CLAUSE_ENFORCED,
+        checks=(
+            "cv_matrix_well_formed",
+            "cv_matrix_member_count",
+            "cv_matrix_member_stamps",
+            "cv_matrix_members_distinct",
+        ),
+        where=(
+            "wildfire_nowcast.common.splits.CV_MATRIX_KEY",
+            "wildfire_nowcast.common.splits.declared_cv_matrix",
+            "wildfire_nowcast.common.splits.check_run_split",
+        ),
+        note="[ADR-062 (6)] a leave-fold-out matrix has FIVE split fingerprints by "
+        "construction and C8 hard-fails on more than one per artifact. This is an EXTENSION of "
+        "the checker, NOT an exemption from it: an artifact declaring `cv_matrix` buys its "
+        "member stamps out of C8.internally_consistent and pays three hard clauses no other "
+        "artifact faces — the declaration must parse, the declared member count must equal the "
+        "member runs PRESENT, and every member run's own stamp must equal the matrix's claim "
+        "about it. Today such an artifact cannot be checked at all, so this is strictly harder. "
+        "Verified by planting all three defects in tests/test_splits.py.",
+    ),
 }
 
 

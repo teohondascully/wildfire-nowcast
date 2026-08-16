@@ -137,8 +137,35 @@ def test_the_conformant_corpus_is_actually_conformant(
 
 
 @pytest.fixture(scope="module")
+def conformant_cv_matrix(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> tuple[dict[str, object], Path]:
+    """[v2.16] C8.1 — a WELL-FORMED CV matrix plus the fold run dirs it claims.
+
+    Conformant for the same reason :func:`conformant_corpus` is: C8.1's four
+    check ids must be observed from their PASSING branch, or the registry would
+    be validated against checks nobody has seen succeed. Two members rather than
+    five — the clause is about the relation between a claim and a run dir, and
+    the arity is the matrix's business, not the checker's.
+    """
+    runs_root = tmp_path_factory.mktemp("cv_matrix_runs")
+    members: dict[str, dict[str, str]] = {}
+    for label, fp in (("fold0", "aaaa000000000000"), ("fold1", "bbbb111111111111")):
+        run_dir = runs_root / f"s1-{label}"
+        run_dir.mkdir()
+        (run_dir / "results.json").write_text(json.dumps({"split_fingerprint": fp}))
+        members[label] = {"run": f"runs/{run_dir.name}", "split_fingerprint": fp}
+    payload: dict[str, object] = {
+        "cv_matrix": {"n_members": len(members), "members": members, "adr": "ADR-062 (6)"}
+    }
+    return payload, runs_root
+
+
+@pytest.fixture(scope="module")
 def emitted_check_ids(
-    default_synthetic: SyntheticFire, conformant_corpus: tuple[Path, Path]
+    default_synthetic: SyntheticFire,
+    conformant_corpus: tuple[Path, Path],
+    conformant_cv_matrix: tuple[dict[str, object], Path],
 ) -> set[str]:
     """Every check id the checker emits on CONFORMANT artifacts.
 
@@ -175,7 +202,35 @@ def emitted_check_ids(
             current={"fingerprint": "x"},
         ).checks
     }
+    # [v2.16] C8.1's clauses only emit when a `cv_matrix` key is present, so the
+    # conformant payload for them is a separate artifact with its member run dirs
+    # actually on disk — a claim about a run dir cannot be checked from a payload
+    # alone, which is the entire point of the clause.
+    matrix_payload, matrix_runs = conformant_cv_matrix
+    ids |= {
+        c.check_id
+        for c in S.check_run_split(
+            matrix_payload, current={"fingerprint": "aaaa000000000000"}, runs_root=matrix_runs
+        ).checks
+    }
     return ids
+
+
+def test_the_conformant_cv_matrix_is_actually_conformant(
+    conformant_cv_matrix: tuple[dict[str, object], Path],
+) -> None:
+    """Positive control for the C8.1 fixture, mirroring the corpus one above.
+
+    C8.1's ids are emitted from BOTH branches, so a fixture that quietly declared
+    a broken matrix would still satisfy ``test_claimed_check_ids_really_run``
+    while the registry's evidence came entirely from the failure path.
+    """
+    payload, runs_root = conformant_cv_matrix
+    rep = S.check_run_split(
+        payload, current={"fingerprint": "aaaa000000000000"}, runs_root=runs_root
+    )
+    assert rep.ok, [c.detail for c in rep.checks if not c.ok]
+    assert rep.reporting_ok, [c.detail for c in rep.checks if not c.ok]
 
 
 def test_interfaces_parses_into_the_clauses_we_expect() -> None:
