@@ -2121,6 +2121,76 @@ def check_stage_decay_asks_the_registry_instead_of_remembering() -> Check:
     )
 
 
+def check_stage_ladder_severity_is_not_computed_by_the_channel() -> Check:
+    """[U0] The MDE ladder's x-axis must not be the channel under test.
+
+    ``eval/power``'s standard: a severity declared in the unit the channel
+    computes makes every channel look sensitive, because the ladder is then
+    regressing a statistic on itself. :func:`eval.stage.injection_severity` is
+    raw displaced cell count, and this check shows the two are genuinely
+    different quantities rather than asserting it in prose:
+
+    1. **The identity rung is exactly zero.** ``delta = 0`` runs the whole
+       injection path and must move nothing, so a non-zero reading on the null
+       rung of ``runs/u0.json`` would be a ladder defect and not an effect.
+    2. **Severity is strictly increasing in the injected tilt**, so the ladder's
+       rungs are ORDERED — an unordered severity axis makes the MDE read-off
+       meaningless whatever the separations do.
+    3. **``stage_decay`` is BLIND to part of severity.** Moving growth between
+       two windows in the SAME half leaves ``stage_decay`` bit-identical (the
+       half mean is preserved) while severity rises. That is the demonstration
+       that the x-axis carries information the y-axis cannot see.
+    """
+    from wildfire_nowcast.eval.stage import (
+        apply_stage_slope_to_rows,
+        injection_severity,
+        stage_decay_by_block,
+    )
+
+    rows: list[dict[str, Any]] = [
+        {"spatial_block_id": 0, "t0": i, "model_growth": 1.0 + float(i % 3)} for i in range(40)
+    ]
+    identity = apply_stage_slope_to_rows(rows, 0.0)
+    identity_severity = injection_severity(rows, identity)
+
+    severities = [
+        injection_severity(rows, apply_stage_slope_to_rows(rows, -delta))
+        for delta in (0.1, 0.5, 1.0, 2.0)
+    ]
+    monotone = all(a < b for a, b in zip(severities, severities[1:], strict=False))
+
+    # A transfer of 1.0 cell from window 1 to window 0. Both are in the EARLY
+    # half, so the half sum — and therefore stage_decay — is untouched.
+    moved = [dict(r) for r in rows]
+    moved[0]["model_growth"] = float(rows[0]["model_growth"]) + 1.0
+    moved[1]["model_growth"] = float(rows[1]["model_growth"]) - 1.0
+    before = stage_decay_by_block(rows, target="model_growth")[0]
+    after = stage_decay_by_block(moved, target="model_growth")[0]
+    blind = bool(
+        before.value is not None and after.value is not None and after.value == before.value
+    )
+    moved_severity = injection_severity(rows, moved)
+
+    return Check(
+        "stage_ladder_severity_is_not_computed_by_the_channel",
+        bool(
+            identity_severity == 0.0
+            and monotone
+            and blind
+            and moved_severity > 0.0
+            and severities[0] > 0.0
+        ),
+        "the ladder's severity axis is zero at the identity, strictly increasing in the "
+        "injected tilt, and measures displacement stage_decay is bit-blind to",
+        {
+            "identity_severity": identity_severity,
+            "severities": severities,
+            "stage_decay_unchanged_by_within_half_transfer": blind,
+            "severity_of_that_transfer": moved_severity,
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -2185,6 +2255,7 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_stage_decay_agrees_when_it_should_and_reverses_the_published_order,
     check_stage_decay_separation_cannot_be_bought_by_closing_more_of_the_gap,
     check_stage_decay_asks_the_registry_instead_of_remembering,
+    check_stage_ladder_severity_is_not_computed_by_the_channel,
 )
 
 
