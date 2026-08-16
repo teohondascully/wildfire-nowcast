@@ -198,6 +198,16 @@ def emitted_check_ids(
                 # the fourth time the C-2 audit has caught its own maintainer.
                 "environment_before": {"fingerprint": "env-x"},
                 "environment_after": {"fingerprint": "env-x"},
+                # [v2.16] C6.3 (addition)'s clauses only emit when a
+                # `c6_3_satisfied` key is present, and the conformant form is a
+                # false that is DECLARED expected — the value stays False, the
+                # declaration sits beside it and cites the ruling.
+                "fold": S.stamp_c6_3_expected_false(
+                    {"c6_3_satisfied": False, "n_heldout_blocks": 1},
+                    citation="ADR-062 (7)",
+                    why="fold 0 holds out one block; the matrix pools all 14 and adjudicates "
+                    "nothing gate-shaped",
+                ),
             },
             current={"fingerprint": "x"},
         ).checks

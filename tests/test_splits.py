@@ -1258,3 +1258,151 @@ def test_the_default_context_is_todays_behaviour_exactly(
         "the context may ADD provenance and may not change any value split_fingerprint "
         "produced — the hash of record is being stamped through it right now"
     )
+
+
+# --------------------------------------------------------------------------
+# [v2.16] C6.3 (addition) — AN EXPECTED FALSE IS STAMPED, NOT DISCOVERED
+# (ADR-062 (7))
+#
+# The whole hazard of an "expected" stamp is that it becomes a way to write
+# EXPECTED next to a value and have the reader stop looking at the value. So the
+# tests that matter here are the ones that try to make the stamp move it.
+# --------------------------------------------------------------------------
+
+
+def test_the_expected_false_stamp_does_NOT_flip_the_value() -> None:
+    """THE property. `c6_3_satisfied` must be byte-identical after stamping."""
+    before = {"c6_3_satisfied": False, "n_heldout_blocks": 1, "heldout_blocks": [2]}
+    after = S.stamp_c6_3_expected_false(
+        before,
+        citation="ADR-062 (7)",
+        why="fold 0 holds out block {2} alone; S1 pools 14 blocks and adjudicates nothing "
+        "gate-shaped",
+    )
+    assert after["c6_3_satisfied"] is False, "the stamp MOVED the value it was meant to annotate"
+    assert before["c6_3_satisfied"] is False, "the input was mutated"
+    assert {k: v for k, v in after.items() if k != S.C6_3_EXPECTED_FALSE_KEY} == before
+    assert "ADR-062" in after[S.C6_3_EXPECTED_FALSE_KEY]["citation"]
+
+
+def test_PLANTED_stamping_a_SATISFIED_split_as_expected_false_raises() -> None:
+    """The abuse this mechanism would otherwise create, planted.
+
+    If "expected" could be written beside a `true`, the stamp would be a way of
+    telling a reader to stop reading — the same failure as a warning nobody reads
+    (C6.6's reasoning), one artifact down.
+    """
+    for value in (True, None, 1, "false"):
+        with pytest.raises(ValueError, match="must BE false"):
+            S.stamp_c6_3_expected_false(
+                {"c6_3_satisfied": value}, citation="ADR-062 (7)", why="because I said so"
+            )
+
+
+def test_an_expectation_with_no_ADR_behind_it_is_refused() -> None:
+    """An expectation with no provenance is an assertion, and this project has
+    been burned by exactly that: a ruling made two weeks earlier that nobody
+    could find from the artifact."""
+    with pytest.raises(ValueError, match="must name an ADR"):
+        S.stamp_c6_3_expected_false(
+            {"c6_3_satisfied": False}, citation="the maintainer said it was fine", why="one block"
+        )
+    with pytest.raises(ValueError, match="what makes this false EXPECTED"):
+        S.stamp_c6_3_expected_false({"c6_3_satisfied": False}, citation="ADR-062 (7)", why="  ")
+
+
+def test_PLANTED_a_declaration_beside_a_TRUE_value_is_a_HARD_fail() -> None:
+    """The checker's half of the same property, in case someone writes the JSON
+    by hand and never goes through the stamping function."""
+    rep = S.check_run_split(
+        {
+            "split_fingerprint": "aaaa",
+            "fold": {
+                "c6_3_satisfied": True,  # PLANTED: declared expected-false, but TRUE
+                "c6_3_expected_false": {"citation": "ADR-062 (7)", "why": "one block"},
+            },
+        },
+        current={"fingerprint": "aaaa"},
+    )
+    failed = {c.check_id for c in rep.failures}
+    assert "c6_3_expected_false_did_not_flip" in failed, rep.format(verbose=True)
+    assert not rep.ok
+
+
+def test_PLANTED_a_declaration_citing_nothing_is_a_HARD_fail() -> None:
+    rep = S.check_run_split(
+        {
+            "split_fingerprint": "aaaa",
+            "fold": {
+                "c6_3_satisfied": False,
+                "c6_3_expected_false": {"citation": "trust me", "why": "one block"},
+            },
+        },
+        current={"fingerprint": "aaaa"},
+    )
+    assert "c6_3_expected_false_did_not_flip" in {c.check_id for c in rep.failures}
+
+
+def test_an_UNDECLARED_false_is_a_reporting_gap_and_the_declared_one_is_clean() -> None:
+    """The tier, and its reason: the value is already TRUE of the split (the fold
+    really does hold out one block), so it is a documentation gap and not a
+    measurement failure. Every archived artifact predates the clause."""
+    undeclared = S.check_run_split(
+        {"split_fingerprint": "aaaa", "fold": {"c6_3_satisfied": False}},
+        current={"fingerprint": "aaaa"},
+    )
+    gap = {c.check_id: c for c in undeclared.checks}["c6_3_expected_false_declared"]
+    assert gap.ok is False and gap.severity == "reporting"
+    assert undeclared.ok and not undeclared.reporting_ok
+
+    declared = S.check_run_split(
+        {
+            "split_fingerprint": "aaaa",
+            "fold": S.stamp_c6_3_expected_false(
+                {"c6_3_satisfied": False, "n_heldout_blocks": 1},
+                citation="ADR-062 (7)",
+                why="fold 0 holds out one block",
+            ),
+        },
+        current={"fingerprint": "aaaa"},
+    )
+    assert declared.ok and declared.reporting_ok, declared.format(verbose=True)
+
+
+def test_an_artifact_with_no_c6_3_key_emits_NO_expectation_clause() -> None:
+    """Same pre-emption as C-4.3 and C8.1: no phantom gap on the archive."""
+    rep = S.check_run_split(
+        {"split_before": {"fingerprint": "aaaa"}, "split_after": {"fingerprint": "aaaa"}},
+        current={"fingerprint": "aaaa"},
+    )
+    assert not any(c.check_id.startswith("c6_3_expected_false") for c in rep.checks)
+
+
+def test_the_expected_false_FOLD_SET_is_derived_and_it_is_THREE_folds() -> None:
+    """ADR-062 (7) names folds 0 and 1. The partition it states names THREE.
+
+    Fold 2 holds out ``{3, 9, 13}`` — three blocks, below the minimum of 4 — so
+    it reports ``c6_3_satisfied: false`` exactly as folds 0 and 1 do. The ADR's
+    RULING is unaffected and simply covers one more fold than it names; this is
+    recorded here rather than corrected in DECISIONS.md, which is not this
+    lead's file.
+
+    The set is DERIVED from the partition. A hand-written ``(0, 1)`` would have
+    reproduced the slip and then outlived it — the same shape as the enumerated
+    `_SCORING_CODE_MODULES` and the public-tell allowlist.
+    """
+    assert S.folds_expected_to_fail_c6_3() == (0, 1, 2)
+    # ...and the partition itself is a partition: 14 blocks, each exactly once.
+    held = [b for blocks in S.LEAVE_FOLD_OUT_BLOCKS.values() for b in blocks]
+    assert sorted(held) == list(range(14)), held
+    assert len(held) == len(set(held)) == 14
+
+
+def test_the_derivation_tracks_the_bar_rather_than_restating_it() -> None:
+    """Positive control for the derivation: give it a partition where every fold
+    clears the bar and it must return NOTHING. A function that returned (0, 1, 2)
+    for any input would pass the test above and mean nothing."""
+    generous = {k: tuple(range(k * 4, k * 4 + 4)) for k in range(5)}
+    assert S.folds_expected_to_fail_c6_3(generous) == ()
+    thin = {k: (k,) for k in range(5)}
+    assert S.folds_expected_to_fail_c6_3(thin) == (0, 1, 2, 3, 4)

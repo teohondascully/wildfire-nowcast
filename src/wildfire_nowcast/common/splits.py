@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -81,6 +82,11 @@ __all__ = [
     "SplitFitStampMismatchError",
     "assert_fit_and_stamp_agree",
     "resolve_split_context",
+    # [v2.16] C6.3 (addition) — the expected-false stamp (ADR-062 (7))
+    "C6_3_EXPECTED_FALSE_KEY",
+    "LEAVE_FOLD_OUT_BLOCKS",
+    "folds_expected_to_fail_c6_3",
+    "stamp_c6_3_expected_false",
 ]
 
 
@@ -527,6 +533,181 @@ def resolve_split_context(
 
 
 # --------------------------------------------------------------------------
+# [v2.16] C6.3 (addition) — AN EXPECTED FALSE IS STAMPED, NOT DISCOVERED
+# (ADR-062 (7))
+# --------------------------------------------------------------------------
+
+
+#: The key under which a run DECLARES that its ``c6_3_satisfied: false`` is
+#: expected. It sits BESIDE the value and never replaces it.
+C6_3_EXPECTED_FALSE_KEY = "c6_3_expected_false"
+
+#: [ADR-062 (7)] the leave-fold-out partition of the 14 spatial blocks. Pinned
+#: here so the claim "these folds are expected to report false" is DERIVED from
+#: the partition rather than restated next to it — the second copy of a fact is
+#: how ``CONTRACT_VERSION`` stayed stale for seven versions.
+LEAVE_FOLD_OUT_BLOCKS: dict[int, tuple[int, ...]] = {
+    0: (2,),
+    1: (1,),
+    2: (3, 9, 13),
+    3: (4, 5, 6, 7, 12),
+    4: (0, 8, 10, 11),
+}
+
+
+def folds_expected_to_fail_c6_3(
+    partition: Mapping[int, Sequence[int]] | None = None,
+) -> tuple[int, ...]:
+    """Which folds hold out too few blocks for C6.3, DERIVED from the partition.
+
+    **THIS RETURNS THREE FOLDS, NOT TWO.** ADR-062 (7) names folds 0 and 1 as the
+    expected-false pair because they hold out one block each. Fold 2 holds out
+    ``{3, 9, 13}`` — **three** blocks, which is also below
+    :data:`MIN_HELDOUT_BLOCKS_FOR_G2` (4), so it reports ``c6_3_satisfied: false``
+    as well. The ADR's arithmetic, not its ruling, is what differs; the ruling
+    ("an expected false must be stamped, not discovered") applies unchanged and
+    to one more fold than it names. Raised to the maintainer as a PROPOSAL rather
+    than corrected in DECISIONS.md, which is not this lead's file.
+
+    Deriving it is the point: had this been a hand-written ``(0, 1)`` it would
+    have reproduced the slip and then outlived it.
+    """
+    blocks = LEAVE_FOLD_OUT_BLOCKS if partition is None else partition
+    return tuple(
+        sorted(fold for fold, held in blocks.items() if len(set(held)) < MIN_HELDOUT_BLOCKS_FOR_G2)
+    )
+
+
+def stamp_c6_3_expected_false(
+    fingerprint: Mapping[str, Any], *, citation: str, why: str
+) -> dict[str, Any]:
+    """[v2.16] Mark a ``c6_3_satisfied: false`` as EXPECTED. **The value does not move.**
+
+    ADR-062 (7): folds that hold out fewer than
+    :data:`MIN_HELDOUT_BLOCKS_FOR_G2` blocks report ``c6_3_satisfied: false``,
+    which is correct and expected for a CV matrix that pools all 14 blocks and
+    adjudicates nothing gate-shaped — *but it must be STAMPED as expected, citing
+    the ADR, so a future reader does not discover it as a fault.*
+
+    **An expected-false must still BE false.** This returns a copy whose
+    ``c6_3_satisfied`` is byte-identical to the input's; the declaration is a
+    sibling key, never a substitute. Stamping a SATISFIED split as
+    "expected-false" raises, because that is the failure this mechanism would
+    otherwise create: a way to write "expected" next to a value and have the
+    reader stop looking at the value.
+
+    :raises ValueError: if ``c6_3_satisfied`` is not exactly ``False``, if the
+        citation names no ADR, or if no reason is given.
+    """
+    value = fingerprint.get("c6_3_satisfied")
+    if value is not False:
+        raise ValueError(
+            f"refusing to stamp `{C6_3_EXPECTED_FALSE_KEY}` on a split whose c6_3_satisfied is "
+            f"{value!r}. An EXPECTED FALSE must BE false: a stamp that can be applied to a true "
+            "or a missing value is a stamp that tells a reader to stop looking at the value, "
+            "which is the opposite of what ADR-062 (7) asked for."
+        )
+    if not re.search(r"ADR-\d+", citation):
+        raise ValueError(
+            f"`citation` must name an ADR (e.g. 'ADR-062 (7)'); got {citation!r}. The whole "
+            "purpose of the stamp is that a future reader can find the ruling that made this "
+            "expected — an expectation with no provenance is an assertion."
+        )
+    if not why.strip():
+        raise ValueError("`why` must say what makes this false EXPECTED, in this run's terms")
+
+    stamped = dict(fingerprint)
+    stamped[C6_3_EXPECTED_FALSE_KEY] = {
+        "citation": citation,
+        "why": why.strip(),
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": MIN_HELDOUT_BLOCKS_FOR_G2,
+        "n_heldout_blocks": fingerprint.get("n_heldout_blocks"),
+    }
+    return stamped
+
+
+def _c6_3_sites(payload: object, *, prefix: str = "") -> dict[str, tuple[object, object]]:
+    """Every mapping carrying a ``c6_3_satisfied``, as ``{where: (value, declaration)}``."""
+    found: dict[str, tuple[object, object]] = {}
+
+    def walk(node: object, path: str) -> None:
+        if isinstance(node, Mapping):
+            if "c6_3_satisfied" in node:
+                found[path or "<root>"] = (
+                    node.get("c6_3_satisfied"),
+                    node.get(C6_3_EXPECTED_FALSE_KEY),
+                )
+            for key, value in node.items():
+                walk(value, f"{path}.{key}" if path else str(key))
+        elif isinstance(node, list | tuple):
+            for i, value in enumerate(node):
+                walk(value, f"{path}[{i}]")
+
+    walk(payload, prefix)
+    return found
+
+
+def _add_c6_3_expectation_clauses(
+    rep: ContractReport, payloads: Mapping[str, Mapping[str, Any]]
+) -> None:
+    """[v2.16] C6.3 (addition) — an expected false is declared, and stays false."""
+    sites: dict[str, tuple[object, object]] = {}
+    for name, payload in payloads.items():
+        for where, pair in _c6_3_sites(payload).items():
+            sites[f"{name}:{where}"] = pair
+    if not sites:
+        return
+
+    flipped: list[str] = []
+    undeclared: list[str] = []
+    declared = 0
+    for where, (value, declaration) in sorted(sites.items()):
+        if declaration is not None:
+            if value is not False:
+                flipped.append(f"{where} declares an expected-false but c6_3_satisfied={value!r}")
+                continue
+            citation = (
+                declaration.get("citation") if isinstance(declaration, Mapping) else declaration
+            )
+            if not (isinstance(citation, str) and re.search(r"ADR-\d+", citation)):
+                flipped.append(f"{where} declares an expected-false citing nothing: {citation!r}")
+                continue
+            declared += 1
+        elif value is False:
+            undeclared.append(where)
+
+    rep.add(
+        "C6.3",
+        "c6_3_expected_false_did_not_flip",
+        not flipped,
+        f"all {declared} expected-false declaration(s) sit beside a c6_3_satisfied that is "
+        "still False, and each cites an ADR"
+        if not flipped
+        else "C6.3 HARD FAIL — an expected-false declaration is not describing a false: "
+        + "; ".join(flipped[:6])
+        + ". ADR-062 (7) asked that an expected false be STAMPED, not that it be resolved. A "
+        "stamp that can sit beside a TRUE or a missing value tells a reader to stop looking at "
+        "the value, which is strictly worse than the surprise it was meant to prevent",
+        severity=SEVERITY_FAIL,
+    )
+    rep.add(
+        "C6.3",
+        "c6_3_expected_false_declared",
+        not undeclared,
+        f"every c6_3_satisfied=false in this artifact is declared expected ({declared})"
+        if not undeclared
+        else "C6.3 — c6_3_satisfied is FALSE and undeclared at: " + "; ".join(undeclared[:6])
+        + f". A fold holding out fewer than {MIN_HELDOUT_BLOCKS_FOR_G2} blocks legitimately "
+        "reports false (ADR-062 (7): folds 0, 1 and 2 of the leave-fold-out partition do), but "
+        "it must be stamped with the ruling that makes it expected — `stamp_c6_3_expected_false`"
+        " — so a future reader does not discover it as a fault. REPORTING tier: the value is "
+        "already true of the split, and every archived artifact predates this clause",
+        severity=SEVERITY_REPORTING,
+    )
+
+
+# --------------------------------------------------------------------------
 # C8 — fingerprint extraction and checking
 # --------------------------------------------------------------------------
 
@@ -965,6 +1146,7 @@ def check_run_split(
         )
 
     _add_cv_matrix_clauses(rep, matrices, root)
+    _add_c6_3_expectation_clauses(rep, payloads)
 
     if follow_references:
         chain: dict[str, str] = {}

@@ -616,8 +616,24 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
     ),
     "C6.3": ClauseImpl(
         CLAUSE_ENFORCED,
-        checks=("heldout_block_coverage",),
-        where=("wildfire_nowcast.common.splits.check_split_assignment",),
+        checks=(
+            "heldout_block_coverage",
+            # [v2.16] ADR-062 (7) — an expected false is stamped, not discovered.
+            "c6_3_expected_false_did_not_flip",
+            "c6_3_expected_false_declared",
+        ),
+        where=(
+            "wildfire_nowcast.common.splits.check_split_assignment",
+            "wildfire_nowcast.common.splits.stamp_c6_3_expected_false",
+            "wildfire_nowcast.common.splits.folds_expected_to_fail_c6_3",
+        ),
+        note="[v2.16] the expected-false stamp is a SIBLING of `c6_3_satisfied` and never a "
+        "substitute: `stamp_c6_3_expected_false` copies the value through unchanged and RAISES "
+        "if asked to stamp a true or a missing one, and `c6_3_expected_false_did_not_flip` is a "
+        "HARD FAIL on any declaration sitting beside a non-false. The expected-false fold set "
+        "is DERIVED from LEAVE_FOLD_OUT_BLOCKS, which is how infra found that ADR-062 (7)'s "
+        "'folds 0 and 1' is THREE folds — fold 2 holds out 3 blocks, also below the minimum "
+        "of 4. Ruling unaffected; raised as a PROPOSAL, not corrected in DECISIONS.md.",
     ),
     # [v2.15] Authored by infra under the explicit I1 directive (the v2.12
     # precedent). THIRD clause-authoring crossing; A14's auto-discovery still

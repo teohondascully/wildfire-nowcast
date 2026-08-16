@@ -597,6 +597,32 @@ run by `make ci`) changes tier for these four channels at this bump.
 An UNREGISTERED metric raises as well — an unknown channel is not a permitted
 one (C-2 one level down).
 
+### [v2.16] C6.3 (addition) AN EXPECTED FALSE IS STAMPED, NOT DISCOVERED
+A leave-fold-out fold that holds out fewer than 4 spatial blocks reports
+`c6_3_satisfied: false`. **That is correct and expected** for a CV matrix that
+pools all 14 blocks and adjudicates nothing gate-shaped (ADR-062 (7)) — but it
+will look alarming in an artifact, so it **MUST be stamped as expected, citing
+the ruling that makes it so**, rather than discovered later as a fault.
+**AN EXPECTED-FALSE MUST STILL BE FALSE.** `stamp_c6_3_expected_false` returns a
+copy whose `c6_3_satisfied` is byte-identical to the input's; the declaration is
+a SIBLING key and never a substitute. Stamping a SATISFIED split as
+expected-false **raises** — a stamp that can sit beside a `true` or a missing
+value is a stamp that tells a reader to stop looking at the value, which is
+strictly worse than the surprise it was meant to prevent.
+- `C6.3.c6_3_expected_false_did_not_flip` — **HARD FAIL**: a declaration must sit
+  beside a `c6_3_satisfied` that is still exactly `false`, and must cite an ADR.
+- `C6.3.c6_3_expected_false_declared` — REPORTING: an undeclared `false` is a
+  gap, not a failure. The value is already true of the split, and every archived
+  artifact predates this clause.
+**THREE FOLDS, NOT TWO — infra's arithmetic against ADR-062 (7)'s.** The ADR
+names folds 0 and 1 (one block each). Fold 2 holds out `{3, 9, 13}` — **three**
+blocks, also below the minimum of 4 — so it reports false as well. The RULING is
+unaffected and applies to one more fold than it names. The set is therefore
+DERIVED from the partition by `folds_expected_to_fail_c6_3()`, never restated:
+had it been hand-written it would have reproduced the slip and then outlived it.
+IMPLEMENTED BY: `common/splits.py` — `stamp_c6_3_expected_false`,
+`_add_c6_3_expectation_clauses`, called by `check_run_split`.
+
 ### [v2.14] C6.3 (addition) A block contributing NOTHING is a HARD FAIL
 A block that contributes nothing to an equal-block mean is a HARD failure, not
 a silently smaller sample. The pooled result MUST carry the number of blocks
