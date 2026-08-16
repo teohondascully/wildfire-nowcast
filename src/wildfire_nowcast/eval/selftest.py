@@ -2191,6 +2191,74 @@ def check_stage_ladder_severity_is_not_computed_by_the_channel() -> Check:
     )
 
 
+def check_stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one() -> Check:
+    """[U0b] The sign criterion against closed forms, and the estimand against its digest.
+
+    ADR-060 (7) item 2 moved this channel from an effect size to a paired SIGN
+    criterion, so the p-value is now load-bearing and is asserted as a RATIONAL,
+    not to three decimals: ``P(X >= 11 | n=14) = 470/16384``, ``P(X >= 4 | n=5) =
+    6/32``, ``P(X >= 14 | n=14) = 1/16384``, ``P(X >= 0) = 1`` exactly. Exact
+    ``math.comb``, never a normal approximation — at n=14 the approximation is
+    wrong in the third decimal, which is precisely where a 10-vs-11 call lands.
+    Monotonicity in ``k`` rides along, since a tail that is not monotone is not a
+    tail.
+
+    The second half is provenance, not arithmetic. ``runs/u0b.json`` claims to use
+    the estimand D3 licensed; :func:`eval.stage.estimand_digest` hashes the LIVE
+    source of those four objects and compares it with the pinned SHA-256, so the
+    claim is checked rather than believed. **This check is DESIGNED to go red if
+    the estimand is edited** — that is not brittleness, it is the friction that
+    stops a silent re-tune from inheriting ADR-060's licence. Re-pin the constant
+    in the same commit and re-run the known-beta control.
+
+    Planted defect for the arithmetic half: ``sign_test(15, 14)`` must RAISE
+    rather than return a tail, because a count that exceeds its denominator is a
+    caller bug and returning 0.0 would hide it inside a p-value.
+    """
+    from fractions import Fraction
+
+    from wildfire_nowcast.eval.stage import estimand_digest, sign_test
+
+    closed_form = {
+        (11, 14): Fraction(470, 16384),
+        (4, 5): Fraction(6, 32),
+        (14, 14): Fraction(1, 16384),
+        (0, 14): Fraction(1, 1),
+        (7, 14): Fraction(9908, 16384),
+    }
+    errors = {
+        f"{k}/{n}": abs(float(sign_test(k, n)["p_one_sided"]) - float(want))
+        for (k, n), want in closed_form.items()
+    }
+    tails = [float(sign_test(k, 14)["p_one_sided"]) for k in range(15)]
+    monotone = all(a >= b for a, b in zip(tails[:-1], tails[1:], strict=True))
+    try:
+        sign_test(15, 14)
+        refuses_impossible = False
+    except ValueError:
+        refuses_impossible = True
+
+    digest = estimand_digest()
+    return Check(
+        "stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one",
+        bool(
+            max(errors.values()) == 0.0
+            and monotone
+            and refuses_impossible
+            and digest["outcome"] == "UNCHANGED_SINCE_D3"
+        ),
+        "the one-sided sign tail matches five exact rationals, is monotone in k, refuses a "
+        "count above its denominator, and the estimand still hashes to the source D3 licensed",
+        {
+            "abs_errors": errors,
+            "monotone_in_k": monotone,
+            "refuses_k_above_n": refuses_impossible,
+            "estimand_outcome": digest["outcome"],
+            "estimand_sha256": digest["sha256"],
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -2256,6 +2324,8 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_stage_decay_separation_cannot_be_bought_by_closing_more_of_the_gap,
     check_stage_decay_asks_the_registry_instead_of_remembering,
     check_stage_ladder_severity_is_not_computed_by_the_channel,
+    # U0b — the criterion ADR-060 (7) item 2 replaced the effect size with
+    check_stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one,
 )
 
 
