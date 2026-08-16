@@ -153,6 +153,42 @@ PRE_REGISTRATION: Final = {
     ),
 }
 
+#: Places E1's configuration departs from ELMFIRE's OWN namelist defaults, over
+#: and above ``sim.elmfire.MAPPING_COMPROMISES``. ADR-064 (6) says "default
+#: Rothermel parameters, no tuning by us", so a deviation that is ours has to be
+#: named even when it is the conservative one.
+DECLARED_DEVIATIONS_FROM_ELMFIRE_DEFAULTS: Final = [
+    {
+        "namelist": "&TIME_CONTROL SIMULATION_DT",
+        "elmfire_default": 5.0,
+        "ours": 1.0,
+        "where_set": "sim.elmfire.ElmfireConfig.simulation_dt_s, chosen at S3/S4",
+        "direction": (
+            "FINER than the default, i.e. a more accurate level-set solve, not a "
+            "faster or more favourable one. It is not a Rothermel parameter."
+        ),
+        "cost": (
+            "5x the runtime. This is the single reason block 4 (Creek, 785 windows, "
+            "78% of the total compute) is expensive: at t0=62 one window already "
+            "costs ~717 s. It was NOT changed mid-experiment — altering a solver "
+            "setting after seeing that a run is slow is how one experiment becomes "
+            "two. A future full-14-block run should decide it BEFORE starting."
+        ),
+    },
+    {
+        "namelist": "&SPOTTING ENABLE_SPOTTING",
+        "elmfire_default": False,
+        "ours": False,
+        "where_set": "upstream default, elmfire_namelists.f90:695 — untouched",
+        "direction": (
+            "we take ELMFIRE's own default. Recorded because our kernel HAS a "
+            "long-range spot component, so the comparison is a spotting model "
+            "against a non-spotting one. Carried from S4's fairness note."
+        ),
+        "cost": "none",
+    },
+]
+
 #: The published reference rows, same estimator, same held-out blocks
 #: (STATE.md / ``runs/s1.json``). Carried so a reader never has to fetch them.
 REFERENCE_STAGE_DECAY: Final[dict[str, dict[int, float]]] = {
@@ -640,17 +676,32 @@ def score(
     members = set()
     for path in rows_paths:
         blob = json.loads(Path(path).read_text())
-        rows.extend(blob["rows"])
-        members.add(int(blob["n_members"]))
+        n_have, n_want = int(blob["n_rows"]), int(blob["n_windows_expected"])
+        complete = n_have == n_want
         per_fire[blob["fire_id"]] = {
             "spatial_block_id": int(blob["spatial_block_id"]),
-            "n_windows": int(blob["n_rows"]),
-            "n_windows_expected": int(blob["n_windows_expected"]),
-            "complete": int(blob["n_rows"]) == int(blob["n_windows_expected"]),
+            "n_windows": n_have,
+            "n_windows_expected": n_want,
+            "complete": complete,
+            "scored": complete,
             "n_members": int(blob["n_members"]),
             "elapsed_s": blob["elapsed_s"],
             "rows_path": str(path),
         }
+        if not complete:
+            # REFUSED, not truncated. `stage_decay` splits a block's windows at
+            # their own median age, so scoring the first 60% of a fire's life
+            # computes a DIFFERENT estimand — an early-vs-earlier contrast — and
+            # would read as a block that decelerates less than it does.
+            per_fire[blob["fire_id"]]["refused"] = (
+                f"{n_have} of {n_want} windows. stage_decay is a late-half vs "
+                "early-half contrast over a block's WHOLE window set; a prefix of "
+                "a fire's life is a different estimand, not a noisier version of "
+                "this one. Not scored."
+            )
+            continue
+        rows.extend(blob["rows"])
+        members.add(int(blob["n_members"]))
     headline_prefix = int(member_prefix) if member_prefix else (min(members) if members else 0)
     key = str(headline_prefix)
     rows = [
@@ -709,28 +760,61 @@ def score(
 
     scored = [b for b in blocks if per_block[str(b)]["elmfire"] is not None]
     n_pos = len(positives)
+    n_neg = len(scored) - n_pos
+    n_expected = len(HELD_OUT_BLOCKS)
+    n_missing = max(0, n_expected - len(scored))
     complete = sorted(scored) == sorted(HELD_OUT_BLOCKS)
 
-    if not complete:
-        verdict = "not_a_verdict"
-        why = (
-            f"INCOMPLETE: {len(scored)} of {len(HELD_OUT_BLOCKS)} currently held-out "
-            f"blocks scored. Present: {sorted(scored)}; expected {list(HELD_OUT_BLOCKS)}. "
-            f"Fires on disk: {sorted(per_fire)}. ADR-064's decision rule is stated over "
-            "the five held-out blocks and a subset is a different, weaker test."
-        )
-    elif n_pos >= 4:
+    # ADR-064 (4)'s rule is a COUNT with a threshold, so it can be decided before
+    # every block exists: the missing blocks can only move the count by their own
+    # number. With 4 of 5 scored and 4 positive, the final count is 4 or 5 and
+    # >=4/5 holds under BOTH completions. Saying "not_a_verdict" there would
+    # discard a determination the pre-registered rule already makes; claiming a
+    # verdict when a missing block COULD flip it would be the opposite error.
+    # Both are refused explicitly rather than left to a reader.
+    p1_held_under_every_completion = n_pos >= 4
+    p1_refuted_under_every_completion = n_neg >= 4
+    determined = p1_held_under_every_completion or p1_refuted_under_every_completion
+
+    if p1_held_under_every_completion:
         verdict = "E-P1_HELD_defect_belongs_to_the_model_class"
         why = (
-            f"{n_pos}/5 blocks POSITIVE (accelerating). ADR-064 (4): >=4/5 positive "
-            "-> perimeter-proportional spread models systematically fail to "
-            "reproduce observed fire deceleration."
+            f"{n_pos} of {len(scored)} scored blocks are POSITIVE (accelerating)"
+            + (
+                ". ADR-064 (4): >=4/5 positive -> perimeter-proportional spread "
+                "models systematically fail to reproduce observed fire deceleration."
+                if complete
+                else (
+                    f", with {n_missing} block(s) not scored. The count can only "
+                    f"RISE, so the final tally is >= {n_pos}/5 under every possible "
+                    "completion and ADR-064 (4)'s >=4/5 threshold is met either way. "
+                    "The MAGNITUDE columns are still incomplete; only the sign count "
+                    "is determined."
+                )
+            )
         )
-    elif n_pos <= 1:
+    elif p1_refuted_under_every_completion:
         verdict = "E-P1_REFUTED_the_defect_is_ours"
         why = (
-            f"{5 - n_pos}/5 blocks NEGATIVE (decelerating). ADR-064 (4): >=4/5 "
-            "negative -> E-P1 is REFUTED and the defect is OURS specifically."
+            f"{n_neg} of {len(scored)} scored blocks are NEGATIVE (decelerating)"
+            + (
+                ". ADR-064 (4): >=4/5 negative -> E-P1 is REFUTED and the defect "
+                "is OURS specifically."
+                if complete
+                else (
+                    f", with {n_missing} block(s) not scored; the count can only "
+                    "RISE, so >=4/5 negative holds under every completion."
+                )
+            )
+        )
+    elif not complete:
+        verdict = "not_a_verdict"
+        why = (
+            f"INCOMPLETE and UNDETERMINED: {len(scored)} of {n_expected} currently "
+            f"held-out blocks scored ({n_pos} positive, {n_neg} negative). Present: "
+            f"{sorted(scored)}; expected {list(HELD_OUT_BLOCKS)}. Fires on disk: "
+            f"{sorted(per_fire)}. Neither threshold is reachable-or-not independently "
+            "of the missing block(s), so no reading is licensed."
         )
     else:
         verdict = "not_a_verdict"
@@ -769,7 +853,10 @@ def score(
         "n_rows": len(rows),
         "held_out_blocks_expected": list(HELD_OUT_BLOCKS),
         "blocks_scored": sorted(scored),
+        "blocks_missing": sorted(set(HELD_OUT_BLOCKS) - set(scored)),
         "complete": complete,
+        "verdict_determined_without_the_missing_blocks": determined,
+        "declared_deviations_from_elmfire_defaults": DECLARED_DEVIATIONS_FROM_ELMFIRE_DEFAULTS,
         "per_block": per_block,
         "n_blocks_positive": n_pos,
         "n_blocks_scored": len(scored),
@@ -794,6 +881,8 @@ def score(
         ),
     }
     if not complete:
+        payload["incomplete"] = why
+    if verdict == "not_a_verdict":
         payload["not_a_verdict"] = why
     if out is not None:
         Path(out).parent.mkdir(parents=True, exist_ok=True)

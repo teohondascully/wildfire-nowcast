@@ -71,6 +71,8 @@ __all__ = [
     "test_e1_scores_every_block_at_the_same_ensemble_size",
     "test_e1_does_not_carry_a_second_copy_of_the_estimator",
     "test_e1_records_the_registry_refusing_stage_decay_a_gate",
+    "test_e1_decides_only_what_the_missing_blocks_cannot_change",
+    "test_e1_refuses_to_score_a_fire_that_did_not_finish",
     "test_e1_page_renders_a_partial_run_as_partial",
 ]
 
@@ -859,6 +861,61 @@ def test_e1_records_the_registry_refusing_stage_decay_a_gate() -> None:
     assert got["licence"]["may_adjudicate"] is False
     assert got["licence"]["outcome"] == "NOT_LICENSED"
     assert "G5" in got["not_a_gate"]
+
+
+def test_e1_decides_only_what_the_missing_blocks_cannot_change() -> None:
+    """ADR-064 (4)'s rule is a COUNT with a threshold, so 4 positive of 4 scored
+    already meets >=4/5 whatever the fifth does — and 3 of 4 does not. Both
+    directions must be right, or the rule is either timid or over-claiming."""
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.elmfire_stage import score
+
+    up = [1.0] * 6 + [4.0] * 6
+    down = [4.0] * 6 + [1.0] * 6
+    with tempfile.TemporaryDirectory() as tmp:
+        four_up = score(_e1_write(Path(tmp), _e1_rows({4: (down, up), 5: (down, up),
+                                                       6: (down, up), 7: (down, up)})))
+    with tempfile.TemporaryDirectory() as tmp:
+        three_up = score(_e1_write(Path(tmp), _e1_rows({4: (down, up), 5: (down, up),
+                                                        6: (down, up), 7: (down, down)})))
+    with tempfile.TemporaryDirectory() as tmp:
+        four_down = score(_e1_write(Path(tmp), _e1_rows({4: (down, down), 5: (down, down),
+                                                         6: (down, down), 7: (down, down)})))
+
+    assert four_up["complete"] is False
+    assert four_up["verdict_determined_without_the_missing_blocks"] is True
+    assert four_up["verdict"] == "E-P1_HELD_defect_belongs_to_the_model_class"
+    assert four_up["blocks_missing"] == [12]
+
+    assert three_up["verdict"] == "not_a_verdict", (
+        "3 positive of 4 is NOT determined — the fifth block decides it, and "
+        "reading a verdict here would be over-claiming"
+    )
+    assert three_up["verdict_determined_without_the_missing_blocks"] is False
+
+    assert four_down["verdict"] == "E-P1_REFUTED_the_defect_is_ours"
+
+
+def test_e1_refuses_to_score_a_fire_that_did_not_finish() -> None:
+    """A prefix of a fire's life is a DIFFERENT estimand, not a noisier one:
+    stage_decay splits at the block's own median age. Scoring a truncated fire
+    would report an early-vs-earlier contrast as if it were the whole life."""
+    import json  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.elmfire_stage import score
+
+    up = [1.0] * 6 + [4.0] * 6
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = _e1_write(Path(tmp), _e1_rows({4: (up, up), 5: (up, up)}))
+        truncated = json.loads(paths[0].read_text())
+        truncated["n_windows_expected"] = truncated["n_rows"] + 40
+        paths[0].write_text(json.dumps(truncated))
+        got = score(paths)
+    assert got["blocks_scored"] == [5], "a truncated fire was scored as if complete"
+    assert got["per_fire"]["fire_4"]["scored"] is False
+    assert "refused" in got["per_fire"]["fire_4"]
 
 
 def test_e1_page_renders_a_partial_run_as_partial() -> None:
