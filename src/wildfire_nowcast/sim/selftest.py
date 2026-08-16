@@ -71,6 +71,7 @@ __all__ = [
     "test_e1_scores_every_block_at_the_same_ensemble_size",
     "test_e1_does_not_carry_a_second_copy_of_the_estimator",
     "test_e1_records_the_registry_refusing_stage_decay_a_gate",
+    "test_e1_page_renders_a_partial_run_as_partial",
 ]
 
 
@@ -858,6 +859,23 @@ def test_e1_records_the_registry_refusing_stage_decay_a_gate() -> None:
     assert got["licence"]["may_adjudicate"] is False
     assert got["licence"]["outcome"] == "NOT_LICENSED"
     assert "G5" in got["not_a_gate"]
+
+
+def test_e1_page_renders_a_partial_run_as_partial() -> None:
+    """A page built from 2 of 5 blocks must SAY 2 of 5 in its own title. A figure
+    that looks finished is how a half-run gets quoted as a result."""
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.e1_report import render
+    from wildfire_nowcast.sim.elmfire_stage import score
+
+    up = [1.0] * 6 + [4.0] * 6
+    with tempfile.TemporaryDirectory() as tmp:
+        payload = score(_e1_write(Path(tmp), _e1_rows({4: (up, up), 5: (up, up)})))
+        out = render(payload, Path(tmp) / "page.png")
+        assert out.exists() and out.stat().st_size > 5_000
+    assert payload["n_blocks_scored"] == 2
+    assert payload["verdict"] == "not_a_verdict"
 
 
 # -- runner ----------------------------------------------------------------
