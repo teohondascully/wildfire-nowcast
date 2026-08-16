@@ -1,0 +1,134 @@
+{
+  "channel_order": [
+    "fire_state",
+    "wind_u10",
+    "wind_v10",
+    "temp_2m",
+    "rh_2m",
+    "elevation",
+    "slope",
+    "aspect_sin",
+    "aspect_cos",
+    "fuel_model_id",
+    "canopy_cover",
+    "fuel_moisture_proxy",
+    "water_barrier_mask",
+    "recent_burn_scar"
+  ],
+  "mean": {
+    "fire_state": 0.0,
+    "wind_u10": 0.4204168255101458,
+    "wind_v10": 0.02030713236190847,
+    "temp_2m": 292.44703695839337,
+    "rh_2m": 38.68674362916019,
+    "elevation": 1343.1160300501756,
+    "slope": 5.771775124667137,
+    "aspect_sin": -0.07835998501873258,
+    "aspect_cos": -0.06858661270149231,
+    "fuel_model_id": 0.0,
+    "canopy_cover": 21.876900977867965,
+    "fuel_moisture_proxy": 7.871386397626973,
+    "water_barrier_mask": 0.12037208671044121,
+    "recent_burn_scar": 0.042630175156475505
+  },
+  "std": {
+    "fire_state": 1.0,
+    "wind_u10": 2.1811770997568254,
+    "wind_v10": 2.1416811171321664,
+    "temp_2m": 8.395232290380811,
+    "rh_2m": 21.47918915317549,
+    "elevation": 882.5615025310303,
+    "slope": 4.3191153672402605,
+    "aspect_sin": 0.7068355445386609,
+    "aspect_cos": 0.6996707115676617,
+    "fuel_model_id": 1.0,
+    "canopy_cover": 21.77883159120866,
+    "fuel_moisture_proxy": 4.734755115931805,
+    "water_barrier_mask": 0.32539613926937616,
+    "recent_burn_scar": 0.20202188822650807
+  },
+  "train_folds": [
+    0,
+    2,
+    3,
+    4
+  ],
+  "n_train_blocks": 13,
+  "created_utc": "2026-08-16T07:11:00",
+  "categorical_identity_note": "fire_state (channel 0) and fuel_model_id (channel 9) are CATEGORICAL: mean=0 / std=1 is an identity transform, i.e. DO NOT standardise them. Embed the class id instead (C3.2).",
+  "train_fire_ids": [
+    "2019_kincade",
+    "2020_bobcat",
+    "2020_creek",
+    "2020_czu_lightning_complex",
+    "2020_dolan",
+    "2020_glass",
+    "2020_july_complex",
+    "2020_scu_lightning_complex",
+    "2020_zogg",
+    "2021_caldor",
+    "2021_knp_complex",
+    "2022_mckinney",
+    "2022_mosquito",
+    "2023_kelly",
+    "2023_york",
+    "2024_borel",
+    "2024_bridge",
+    "2025_gifford",
+    "2025_madre"
+  ],
+  "train_spatial_block_ids": [
+    0,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "heldout_fire_ids": [
+    "2019_walker",
+    "2024_park"
+  ],
+  "heldout_folds": [
+    1
+  ],
+  "heldout_spatial_block_ids": [
+    1
+  ],
+  "n_fires_in_corpus": 21,
+  "train_label_sources": {
+    "gofer": [
+      "2019_kincade",
+      "2020_bobcat",
+      "2020_creek",
+      "2020_czu_lightning_complex",
+      "2020_dolan",
+      "2020_glass",
+      "2020_july_complex",
+      "2020_scu_lightning_complex",
+      "2020_zogg",
+      "2021_caldor",
+      "2021_knp_complex"
+    ],
+    "gofer_ext": [
+      "2022_mckinney",
+      "2022_mosquito",
+      "2023_kelly",
+      "2023_york",
+      "2024_borel",
+      "2024_bridge",
+      "2025_gifford",
+      "2025_madre"
+    ]
+  },
+  "membership_source": "fires/*/manifest.json (C2 root cv_fold)",
+  "policy": "computed over TRAIN folds only; never recomputed inline by models (C3). n_train_blocks counts DISTINCT spatial_block_id, not fires (C3.3). Fire membership is read from the manifests on disk, NOT from the 28-fire GOFER assignment index \u2014 that index cannot see gofer_ext fires and would silently normalise a 21-fire corpus on 12 of them. train_fire_ids and heldout_fire_ids are both recorded so a reader can settle 'was a held-out fire's statistic in here?' with ONE read: fold INDICES are not identifying across corpus versions, fire ids are.",
+  "split_fingerprint": "606d5904b7254f1a"
+}
