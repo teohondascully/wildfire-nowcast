@@ -120,24 +120,29 @@ def check_perfect_forecast() -> Check:
         and _close(res["arrival_crps"], 0.0)
         and _close(res["best_member_iou"], 1.0)
     )
-    return Check("perfect_forecast", ok, "brier/crps 0 and IoU 1", {
-        "brier_1h": res["brier_1h"], "arrival_crps": res["arrival_crps"],
-        "best_member_iou": res["best_member_iou"],
-    })
+    return Check(
+        "perfect_forecast",
+        ok,
+        "brier/crps 0 and IoU 1",
+        {
+            "brier_1h": res["brier_1h"],
+            "arrival_crps": res["arrival_crps"],
+            "best_member_iou": res["best_member_iou"],
+        },
+    )
 
 
 def check_brier_hand_computed() -> Check:
     """Half the members burn everything, half nothing, truth burns: Brier = 0.25."""
     shape = (12, 12)
-    members = np.concatenate(
-        [np.ones((4, *shape), bool), np.zeros((4, *shape), bool)], axis=0
-    )
+    members = np.concatenate([np.ones((4, *shape), bool), np.zeros((4, *shape), bool)], axis=0)
     samples = _binary_samples(members)
     truth = np.ones((1, *shape), np.uint8)
     res = evaluate(samples, truth, x0=np.zeros(shape, np.uint8), leads=(1,))
     ok = _close(res["brier_1h"], 0.25)
-    return Check("brier_hand_computed", ok, "p=0.5, y=1 -> Brier 0.25",
-                 {"brier_1h": res["brier_1h"]})
+    return Check(
+        "brier_hand_computed", ok, "p=0.5, y=1 -> Brier 0.25", {"brier_1h": res["brier_1h"]}
+    )
 
 
 def check_crps_fair_known_answer() -> Check:
@@ -164,8 +169,7 @@ def check_arrival_times_censoring() -> Check:
     # column 3 never burns -> cap 4
     got = arrival_times(event)[0]
     ok = np.allclose(got, [1, 2, 3, 4])
-    return Check("arrival_times_censoring", ok, "1-based, capped at L+1",
-                 {"arrival": got.tolist()})
+    return Check("arrival_times_censoring", ok, "1-based, capped at L+1", {"arrival": got.tolist()})
 
 
 def check_dispersion_calibrated_is_one() -> Check:
@@ -185,8 +189,12 @@ def check_dispersion_calibrated_is_one() -> Check:
     res = evaluate(_binary_samples(members), truth, x0=np.zeros(shape, np.uint8), leads=(1,))
     ratio = res["dispersion_ratio"]
     ok = ratio is not None and 0.95 <= ratio <= 1.05
-    return Check("dispersion_calibrated_is_one", ok, "spread-skill ~ 1 when calibrated",
-                 {"dispersion_ratio": ratio})
+    return Check(
+        "dispersion_calibrated_is_one",
+        ok,
+        "spread-skill ~ 1 when calibrated",
+        {"dispersion_ratio": ratio},
+    )
 
 
 def _collapse_pair(n_members: int, shape: tuple[int, int] = (100, 100), seed: int = 11):
@@ -290,8 +298,9 @@ def check_collapse_is_invisible_to_dispersion_ratio() -> Check:
 
     # (4) what DOES separate them, at both member counts.
     area_separates = area_a < 0.1 and 0.5 < area_b < 2.0 and area_b > 50 * area_a
-    area_separates_big = b_big["by_mask"]["domain"]["area_dispersion_ratio"] > 50 * (
-        a_big["by_mask"]["domain"]["area_dispersion_ratio"]
+    area_separates_big = (
+        b_big["by_mask"]["domain"]["area_dispersion_ratio"]
+        > 50 * (a_big["by_mask"]["domain"]["area_dispersion_ratio"])
     )
     diversity_separates = div_a is not None and div_b is not None and div_b > div_a
 
@@ -339,8 +348,12 @@ def check_fuzzy_iou_reduces_to_jaccard() -> Check:
     tolerant = fuzzy_iou(a, b, 1)
     # |A n B| = 1, |A u B| = 7 -> 1/7
     ok = _close(exact, 1.0 / 7.0) and tolerant > exact and tolerant <= 1.0
-    return Check("fuzzy_iou_reduces_to_jaccard", ok, "tol=0 is Jaccard; tol>0 is bounded",
-                 {"exact": exact, "tolerant": tolerant})
+    return Check(
+        "fuzzy_iou_reduces_to_jaccard",
+        ok,
+        "tol=0 is Jaccard; tol>0 is bounded",
+        {"exact": exact, "tolerant": tolerant},
+    )
 
 
 def check_aggregate_pools_sufficient_statistics() -> Check:
@@ -368,7 +381,7 @@ def check_aggregate_pools_sufficient_statistics() -> Check:
         ok,
         "pooled Brier = total SSE / total n",
         {"pooled": pooled["brier_1h"], "expected": expected, "naive_mean_of_briers": naive},
-        )
+    )
 
 
 def check_zero_growth_window_is_free_for_persistence() -> Check:
@@ -422,18 +435,31 @@ def check_input_validation_rejects_traps() -> Check:
     static = np.zeros((8, *shape), np.float32)
     weather = np.zeros((3, 5, *shape), np.float32)
     traps: list[tuple[str, Callable[[], Any]]] = [
-        ("float x0", lambda: validate_predict_inputs(
-            x0.astype(np.float32), static, weather, 1, 3, 0)),
-        ("transposed static", lambda: validate_predict_inputs(
-            x0, static.transpose(0, 2, 1)[:, :7], weather, 1, 3, 0)),
-        ("short weather slab", lambda: validate_predict_inputs(
-            x0, static, weather[:2], 1, 3, 0)),
-        ("weather/static channel swap", lambda: validate_predict_inputs(
-            x0, np.zeros((5, *shape), np.float32), weather, 1, 3, 0)),
-        ("state 3 in x0", lambda: validate_predict_inputs(
-            np.full(shape, 3, np.uint8), static, weather, 1, 3, 0)),
-        ("non-finite weather", lambda: validate_predict_inputs(
-            x0, static, np.full((3, 5, *shape), np.nan, np.float32), 1, 3, 0)),
+        (
+            "float x0",
+            lambda: validate_predict_inputs(x0.astype(np.float32), static, weather, 1, 3, 0),
+        ),
+        (
+            "transposed static",
+            lambda: validate_predict_inputs(x0, static.transpose(0, 2, 1)[:, :7], weather, 1, 3, 0),
+        ),
+        ("short weather slab", lambda: validate_predict_inputs(x0, static, weather[:2], 1, 3, 0)),
+        (
+            "weather/static channel swap",
+            lambda: validate_predict_inputs(
+                x0, np.zeros((5, *shape), np.float32), weather, 1, 3, 0
+            ),
+        ),
+        (
+            "state 3 in x0",
+            lambda: validate_predict_inputs(np.full(shape, 3, np.uint8), static, weather, 1, 3, 0),
+        ),
+        (
+            "non-finite weather",
+            lambda: validate_predict_inputs(
+                x0, static, np.full((3, 5, *shape), np.nan, np.float32), 1, 3, 0
+            ),
+        ),
     ]
     missed = []
     for label, fn in traps:
@@ -442,8 +468,12 @@ def check_input_validation_rejects_traps() -> Check:
         except (TypeError, ValueError):
             continue
         missed.append(label)
-    return Check("input_validation_rejects_traps", not missed,
-                 "all C5 argument traps raise", {"missed": missed})
+    return Check(
+        "input_validation_rejects_traps",
+        not missed,
+        "all C5 argument traps raise",
+        {"missed": missed},
+    )
 
 
 def _toy_scene(shape: tuple[int, int] = (25, 25), wind_u: float = 20.0):
@@ -695,9 +725,7 @@ def check_susceptibility_is_an_exact_log_offset() -> Check:
         model = ContagionKernel(KernelConfig(susceptibility_mode=mode))
         fields = static_fields_from_array(static)
         with torch.no_grad():
-            log_w = model.log_weights(
-                torch.as_tensor(weather.astype(np.float64)), fields
-            ).numpy()
+            log_w = model.log_weights(torch.as_tensor(weather.astype(np.float64)), fields).numpy()
         # Offset 0, column 3 (barrier) vs column 1 (open); same fuel, wind, slope.
         out[mode] = float(log_w[0, 2, 3] - log_w[0, 2, 1])
     expected = float(KernelConfig().barrier_log_multiplier)
@@ -911,8 +939,11 @@ def check_ellipse_respects_barriers() -> Check:
         "ellipse_respects_barriers",
         ok,
         "non-burnable fuel and water_barrier_mask are never ignited",
-        {"nonburnable_cells_lit": lit_nonburnable, "barrier_cells_lit": lit_barrier,
-         "did_grow": grew},
+        {
+            "nonburnable_cells_lit": lit_nonburnable,
+            "barrier_cells_lit": lit_barrier,
+            "did_grow": grew,
+        },
     )
 
 
@@ -926,9 +957,12 @@ def check_ellipse_is_anisotropic_downwind() -> Check:
     weather = np.zeros((6, 5, *shape), np.float32)
     weather[:, weather_index("wind_u10")] = 20.0
     weather[:, weather_index("fuel_moisture_proxy")] = 2.0
-    final = EllipseBaseline(ros_sigma=0.0, bearing_sigma_deg=0.0).predict(
-        x0, static, weather, 1, 6, 0
-    )[0, -1] > 0
+    final = (
+        EllipseBaseline(ros_sigma=0.0, bearing_sigma_deg=0.0).predict(x0, static, weather, 1, 6, 0)[
+            0, -1
+        ]
+        > 0
+    )
     east = int(final[:, 16:].sum())
     west = int(final[:, :15].sum())
     lb = float(length_to_breadth(6.0))
@@ -937,8 +971,12 @@ def check_ellipse_is_anisotropic_downwind() -> Check:
         "ellipse_is_anisotropic_downwind",
         ok,
         "head runs downwind; length-to-breadth > 1 (Anderson 1983)",
-        {"cells_east": east, "cells_west": west, "lb_at_6ms": lb,
-         "back_fraction": float(ellipse_ros_factor(lb, -1.0))},
+        {
+            "cells_east": east,
+            "cells_west": west,
+            "lb_at_6ms": lb,
+            "back_fraction": float(ellipse_ros_factor(lb, -1.0)),
+        },
     )
 
 
@@ -989,8 +1027,10 @@ def check_ellipse_seeds_from_frontier_not_state_one() -> Check:
         "ellipse_seeds_from_frontier_not_state_one",
         grew,
         "spreads from the burned frontier with state 1 empty",
-        {"x0_state1_cells": int((x0 == 1).sum()),
-         "growth_cells": int((samples[0, -1] > 0).sum()) - int((x0 > 0).sum())},
+        {
+            "x0_state1_cells": int((x0 == 1).sum()),
+            "growth_cells": int((samples[0, -1] > 0).sum()) - int((x0 > 0).sum()),
+        },
     )
 
 
@@ -1016,8 +1056,12 @@ def check_forecast_window_time_phase() -> Check:
         "forecast_window_time_phase",
         phase_ok and truth_ok and x0_ok and not off_by_one,
         "weather[k] = features[t0+1+k]; truth[k] = fire_state[t0+1+k]",
-        {"phase_ok": phase_ok, "truth_ok": truth_ok, "x0_ok": x0_ok,
-         "would_be_off_by_one": bool(off_by_one)},
+        {
+            "phase_ok": phase_ok,
+            "truth_ok": truth_ok,
+            "x0_ok": x0_ok,
+            "would_be_off_by_one": bool(off_by_one),
+        },
     )
 
 
@@ -1041,6 +1085,7 @@ def check_end_to_end_on_synthetic() -> Check:
 # --------------------------------------------------------------------------
 # runner
 # --------------------------------------------------------------------------
+
 
 def check_latent_off_reproduces_the_g2_kernel_bitwise() -> Check:
     """[M5] Adding ``z_t`` must not have moved the deterministic path by one ULP.
@@ -1481,9 +1526,7 @@ def check_degradation_rungs_hit_their_declared_severity() -> Check:
     exact_area = all(cells == n_ref for cells, _ in shape_rows.values())
     all_defined = all(ov.defined for _, ov in shape_rows.values())
     ious = [ov.iou for _, ov in shape_rows.values()]
-    monotone_iou = all_defined and all(
-        a > b for a, b in zip(ious[:-1], ious[1:], strict=True)
-    )
+    monotone_iou = all_defined and all(a > b for a, b in zip(ious[:-1], ious[1:], strict=True))
 
     # The degenerate rung, planted: a forecast that adds nothing, compared with
     # itself. The overlap must report UNDEFINED and must NOT be orderable.
@@ -1500,8 +1543,7 @@ def check_degradation_rungs_hit_their_declared_severity() -> Check:
     # that contains one.
     with_undefined = [1.0, degenerate.iou]
     verdict_on_undefined = all(ov is not None for ov in with_undefined) and all(
-        a > b
-        for a, b in zip(with_undefined[:-1], with_undefined[1:], strict=True)
+        a > b for a, b in zip(with_undefined[:-1], with_undefined[1:], strict=True)
     )
 
     return Check(
@@ -1570,8 +1612,11 @@ def check_base_prediction_cache_cannot_return_another_window() -> Check:
         all(moved.values()) and round_trip and miss_is_none,
         "every C5 argument moves the key, a hit is bitwise, and a miss is None rather than a "
         "stale neighbouring window",
-        {**{f"key_moves_on_{k}": v for k, v in moved.items()},
-         "round_trip_bitwise": round_trip, "miss_returns_none": miss_is_none},
+        {
+            **{f"key_moves_on_{k}": v for k, v in moved.items()},
+            "round_trip_bitwise": round_trip,
+            "miss_returns_none": miss_is_none,
+        },
     )
 
 
@@ -1876,6 +1921,206 @@ def check_the_official_perimeter_endpoint_has_not_drifted() -> Check:
     )
 
 
+def check_stage_decay_recovers_a_known_beta() -> Check:
+    """[U0] Synthesise a KNOWN stage decay; the estimator must read it back exactly.
+
+    ADR-058 (10) item 3. ``g_i = A exp(beta i / n)`` makes the late half the
+    early half multiplied term by term by ``exp(beta / 2)``, so ``stage_decay``
+    has the closed form ``beta / 2`` for every even ``n`` and every amplitude.
+    Asserted as a MAGNITUDE at 1e-12 over 18 (beta, n, amplitude) cells spanning
+    both signs, a 100x range of ``n`` and a 1e6 range of amplitude — ADR-051's
+    standard, which asked for an analytic identity rather than a non-zero
+    reading. ``beta = 0`` must read EXACTLY ``0.0``.
+
+    Three invariants ride along because each one is a rival form rejected:
+    the estimand is exactly ANTISYMMETRIC under time reversal, it is INVARIANT
+    under any monotone reparameterisation of age (so "hours since ignition" and
+    the ``t0`` index cannot disagree), and a half with zero mean growth is
+    UNDEFINED rather than ``-inf``.
+    """
+    from wildfire_nowcast.eval.stage import known_beta_recovery
+
+    report = known_beta_recovery()
+    ok = (
+        bool(report["recovery_exact"])
+        and bool(report["zero_beta_is_exactly_zero"])
+        and bool(report["refuses_zero_half"])
+        and bool(report["antisymmetric_under_time_reversal"])
+        and bool(report["age_scale_invariant"])
+    )
+    return Check(
+        "stage_decay_recovers_a_known_beta",
+        ok,
+        "stage_decay reads back beta/2 from synthesised forecasts across sign, sample size "
+        "and amplitude; it is antisymmetric in time, invariant to the age scale, and refuses "
+        "a zero half",
+        {
+            "n_recovery_cells": len(report["recovery"]),
+            "max_abs_error": report["max_recovery_abs_error"],
+            "zero_beta_is_exactly_zero": report["zero_beta_is_exactly_zero"],
+            "refuses_zero_half": report["refuses_zero_half"],
+            "antisymmetric": report["antisymmetric_under_time_reversal"],
+            "age_scale_invariant": report["age_scale_invariant"],
+        },
+    )
+
+
+def check_stage_decay_agrees_when_it_should_and_reverses_the_published_order() -> Check:
+    """[U0] The AGREEMENT case, and the ORDER REVERSAL, in the same control.
+
+    ADR-057 (5): *a divergence test that can only ever show divergence is broken
+    in the other direction*. So this asserts both halves.
+
+    **AGREEMENT (disqualifying).** Two forecasts built to share a stage decay
+    while differing in amplitude (1 vs 987.65) and sample size (40 vs 400) must
+    be reported as the same number; a bit-identical pair must differ by EXACTLY
+    0.0; and a candidate that IS the reference must separate at EXACTLY 0.0 with
+    0 of 5 blocks favouring it. An estimator that manufactures a difference
+    between two things built to be identical is disqualified whatever else it
+    does.
+
+    **ORDER REVERSAL.** ``stage_decay`` and the published first-bin-to-last-bin
+    ratio ORDER TWO CASES OPPOSITELY, both against closed forms
+    (``log(8/13)``, ``log(61/70)``, ``-log 2``, ``-log 10``). Equality of two
+    statistics can be a coincidence; a reversal proves they are different
+    estimands, which is exactly how ADR-058 (2)'s factor of 2.6 became possible.
+
+    **THE REVERSAL'S OWN CONTROL.** A second pair on which the two statistics
+    agree, so the reversal is a property of the cases and not of the harness.
+    """
+    from wildfire_nowcast.eval.stage import known_beta_recovery
+
+    report = known_beta_recovery()
+    ok = (
+        bool(report["agrees_at_identity"])
+        and bool(report["magnitudes_exact"])
+        and bool(report["order_reverses"])
+        and bool(report["statistics_agree_on_the_control_pair"])
+    )
+    return Check(
+        "stage_decay_agrees_when_it_should_and_reverses_the_published_order",
+        ok,
+        "identical inputs give a difference of exactly 0.0, four closed forms are hit exactly, "
+        "and stage_decay reverses the published endpoint statistic on one pair while agreeing "
+        "with it on another",
+        {
+            "bit_identical_difference": report["agreement"]["bit_identical_pair_difference"],
+            "same_beta_difference": report["agreement"]["same_beta_different_amplitude_and_n"],
+            "self_separation_sd": report["agreement"]["self_separation_sd"],
+            "order_reverses": report["order_reverses"],
+            "agrees_on_control_pair": report["statistics_agree_on_the_control_pair"],
+            "x_stage_decay": report["cases"]["x_late_recovery"]["stage_decay"],
+            "y_stage_decay": report["cases"]["y_late_collapse"]["stage_decay"],
+            "x_endpoint": report["cases"]["x_late_recovery"]["endpoint_log_ratio"],
+            "y_endpoint": report["cases"]["y_late_collapse"]["endpoint_log_ratio"],
+        },
+    )
+
+
+def check_stage_decay_separation_cannot_be_bought_by_closing_more_of_the_gap() -> Check:
+    """[U0] The power ceiling is an IDENTITY, not a measurement.
+
+    An arm that reduces every block's distance-to-truth by a common fraction
+    ``f`` has per-block margins ``f * d_b``, so its equal-block separation is
+    ``mean(d) / sd(d)`` — **independent of f**. Closing 1% of the gap and closing
+    100% of it separate identically.
+
+    Verified here by running the shipped separation through
+    :func:`common.separation.separation` at f = 0.01, 0.5 and 1.0 on the same
+    five blocks and asserting the three agree to 1e-12 AND agree with the closed
+    form. The consequence is the MDE verdict in ``runs/u0.json``: on a fold whose
+    per-block distances have a coefficient of variation above 0.5, no
+    proportional-closure arm can reach 2.0 block-SD however good it is, and that
+    is a proof rather than an underpowered measurement.
+    """
+    import numpy as np
+
+    from wildfire_nowcast.eval.stage import (
+        proportional_closure_separation,
+        separation_of_blocks,
+    )
+
+    distances = {4: 2.7522, 5: 1.6473, 6: 0.3107, 7: 1.1289, 12: 1.9747}
+    ceiling = proportional_closure_separation(distances)
+    measured = [
+        separation_of_blocks(
+            {b: d * (1.0 - f) for b, d in distances.items()}, distances, lower_is_better=True
+        ).separation_sd
+        for f in (0.01, 0.5, 1.0)
+    ]
+    values = np.array([m for m in measured if m is not None], dtype=float)
+    closed = float(ceiling["separation_sd"] or 0.0)
+    ok = (
+        len(values) == 3
+        and float(np.max(np.abs(values - closed))) <= 1e-12
+        and float(np.max(values) - np.min(values)) <= 1e-12
+        and closed > 0.0
+    )
+    return Check(
+        "stage_decay_separation_cannot_be_bought_by_closing_more_of_the_gap",
+        ok,
+        "closing 1%, 50% and 100% of the per-block gap all separate at mean(d)/sd(d), so the "
+        "separation of a proportional-closure arm is a ceiling and not an effect size",
+        {
+            "closed_form": closed,
+            "measured": [float(v) for v in values],
+            "distance_cv": ceiling["distance_cv"],
+        },
+    )
+
+
+def check_stage_decay_asks_the_registry_instead_of_remembering() -> Check:
+    """[U0] The C6 guard is CALLED on the scoring path, not merely present.
+
+    ADR-059 (5): the registry was correct and ``eval/`` had no call site for
+    :func:`common.null_check.assert_may_adjudicate`, which is the difference
+    between a guard existing and a guard being wired.
+
+    Two clauses, and neither pins the maintainer's ruling — that is deliberate,
+    because a check that fails the day a channel is legitimately licensed teaches
+    people to edit checks:
+
+    1. :func:`eval.stage.licence` MIRRORS the registry. Whatever
+       ``may_adjudicate('stage_decay')`` says, ``licence()['may_adjudicate']``
+       says the same, and when the answer is NO the refusal text travels with it
+       so a reader sees WHY rather than a bare False.
+    2. The mechanism can refuse. An unregistered channel name raises
+       ``NonAdjudicatingMetricError`` — the planted defect for this clause, since
+       a licence function that returned True unconditionally would pass clause 1
+       only if the registry already said yes.
+    """
+    from wildfire_nowcast.common.null_check import (
+        NonAdjudicatingMetricError,
+        assert_may_adjudicate,
+        may_adjudicate,
+    )
+    from wildfire_nowcast.eval.stage import STAGE_DECAY_KEY, licence
+
+    report = licence(gate="the U0 self-test")
+    registry_says = may_adjudicate(STAGE_DECAY_KEY)
+    mirrors = bool(report["may_adjudicate"]) is bool(registry_says)
+    explains = registry_says or (
+        STAGE_DECAY_KEY in str(report.get("registry_refusal", ""))
+        and report["outcome"] == "NOT_LICENSED"
+    )
+    try:
+        assert_may_adjudicate("stage_decay_but_misspelled")
+        refuses_unknown = False
+    except NonAdjudicatingMetricError:
+        refuses_unknown = True
+    return Check(
+        "stage_decay_asks_the_registry_instead_of_remembering",
+        bool(mirrors and explains and refuses_unknown),
+        "eval.stage.licence reports exactly what the C6 registry says, carries the refusal "
+        "text when the answer is no, and the registry refuses an unregistered channel",
+        {
+            "registry_may_adjudicate": registry_says,
+            "licence_outcome": report["outcome"],
+            "refuses_an_unregistered_channel": refuses_unknown,
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -1933,6 +2178,13 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_noise_oracle_null_severity_is_the_labels_exactly,
     check_window_table_refuses_a_key_collision,
     check_the_official_perimeter_endpoint_has_not_drifted,
+    # U0 — the stage_decay channel: known-beta recovery, the agreement case, the
+    # order reversal against the published statistic, the power identity, and the
+    # C6 registry call site that ADR-059 (5) found missing from eval/
+    check_stage_decay_recovers_a_known_beta,
+    check_stage_decay_agrees_when_it_should_and_reverses_the_published_order,
+    check_stage_decay_separation_cannot_be_bought_by_closing_more_of_the_gap,
+    check_stage_decay_asks_the_registry_instead_of_remembering,
 )
 
 
