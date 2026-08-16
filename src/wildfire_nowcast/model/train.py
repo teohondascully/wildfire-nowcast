@@ -288,6 +288,13 @@ class TrainConfig:
     #: fires, because it was fitted to a world that does not exist. It answers one
     #: question — whether the learned S/SW anisotropy is in the data or in my code.
     mirror_ns: bool = False
+    #: [S1 / ADR-061 (6)] Fit ARM S: the incumbent kernel plus ONE scalar input,
+    #: log burned area (:class:`~wildfire_nowcast.model.stagehead.StageHead`,
+    #: 4 parameters). **False = arm A, bitwise** — measured by
+    #: ``runs/_s1_bitidentity.py`` against the incumbent checkpoint's own outputs.
+    #: Orthogonal to ``direct_horizon``: S1 tests a COVARIATE, M10 tested a
+    #: horizon treatment, and combining them would confound two arms.
+    stage_scalar: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -1290,7 +1297,14 @@ def train_kernel(
     # not in the training recipe.
     kernel_cls = DirectHorizonKernel if cfg.direct_horizon else ContagionKernel
     model = kernel_cls(
-        KernelConfig(radius=cfg.radius, susceptibility_mode=cfg.susceptibility_mode),
+        KernelConfig(
+            radius=cfg.radius,
+            susceptibility_mode=cfg.susceptibility_mode,
+            # [S1] The ONLY difference between arm A and arm S. Same class, same
+            # losses, same optimiser, same seed, same calibration — so a
+            # difference in the result is a difference in the COVARIATE.
+            stage_scalar=cfg.stage_scalar,
+        ),
         name="direct_horizon_kernel" if cfg.direct_horizon else "contagion_kernel",
         ellipse_params=EllipseParams().scaled(cfg.ellipse_scale),
         latent_config=(

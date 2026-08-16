@@ -129,6 +129,7 @@ from wildfire_nowcast.model.latent import (
     spatial_basis,
 )
 from wildfire_nowcast.model.spread import FUEL_GROUPS, EllipseParams, fuel_group
+from wildfire_nowcast.model.stagehead import StageHead
 
 __all__ = [
     "DTYPE",
@@ -245,6 +246,13 @@ class KernelConfig:
     #: the opponent mid-gate is not allowed. Kernel-only keeps the comparison
     #: honest and leaves the baseline bit-identical.
     moisture_damping_floor: float = 0.15
+    #: [S1 / ADR-061 (6)] ARM S: give the kernel ONE global scalar, log burned
+    #: area, through :class:`~wildfire_nowcast.model.stagehead.StageHead`.
+    #: **False = arm A, bitwise** — the head is not constructed at all, so
+    #: :meth:`ContagionKernel.step_probability` passes the same ``float`` defaults
+    #: to ``log_weights`` that it did before S1 and the guarded branches there do
+    #: not execute. Measured, not asserted: ``runs/_s1_bitidentity.py``.
+    stage_scalar: bool = False
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.moisture_damping_floor < 1.0:
@@ -267,6 +275,7 @@ class KernelConfig:
             "nb_log_multiplier": self.nb_log_multiplier,
             "barrier_log_multiplier": self.barrier_log_multiplier,
             "susceptibility_mode": self.susceptibility_mode,
+            "stage_scalar": self.stage_scalar,
         }
 
 
@@ -519,6 +528,9 @@ class ContagionKernel(nn.Module):
         ]
         self.fuel_log_multiplier = nn.Parameter(torch.tensor(init_fuel, dtype=DTYPE))
         self.barrier_log_multiplier = p(self.config.barrier_log_multiplier)
+        #: [S1] ARM S's one scalar covariate. ``None`` is arm A and is the
+        #: bit-identical pre-S1 code path — same rule as ``latent`` above.
+        self.stage: StageHead | None = StageHead() if self.config.stage_scalar else None
 
     # -- physics, in torch -------------------------------------------------
 
@@ -700,8 +712,23 @@ class ContagionKernel(nn.Module):
         Bernoulli parameter each pixel is drawn with, conditionally independent
         of every other pixel ONLY because ``z_t`` has already been fixed.
         """
+        # [S1] Arm S's stage covariate enters through log_weights' EXISTING M10
+        # keywords, so no expression of the physics is restated here. When
+        # `self.stage is None` these stay the `float` defaults and the guarded
+        # branches in log_weights do not execute -- arm A, bitwise.
+        log_amplitude: float | Tensor = 0.0
+        reach_scale: float | Tensor = 1.0
+        if self.stage is not None:
+            stage_log_amplitude, stage_log_reach = self.stage(burned)
+            log_amplitude = _broadcast_to_field(stage_log_amplitude, 3)
+            reach_scale = torch.exp(_broadcast_to_field(stage_log_reach, 3))
         log_w = self.log_weights(
-            weather_step, fields, latent, spatial_log_intensity_field(burned, latent)
+            weather_step,
+            fields,
+            latent,
+            spatial_log_intensity_field(burned, latent),
+            reach_scale=reach_scale,
+            log_amplitude=log_amplitude,
         )
         neighbours = torch.stack(
             [
@@ -880,7 +907,15 @@ class ContagionKernel(nn.Module):
                     "fix; 'reach' is M2's defect (zero gradient on barrier + non-burnable) "
                     "and is a control only."
                 ),
+                "stage_scalar": (
+                    "PRESENT (S1/ADR-061 (6)): ARM S — one global covariate, "
+                    "log1p(expected burned cells), as a cubic on log alpha plus a linear "
+                    "term on the reach. 4 parameters, zero-initialised."
+                    if self.stage is not None
+                    else "ABSENT — this is ARM A, the incumbent kernel (S1 control)."
+                ),
             },
+            "stage_report": (None if self.stage is None else self.stage.report()),
             "provenance": dict(self.provenance),
             "ellipse_init": self.ellipse_init.to_dict(),
             "parameters": {
@@ -896,6 +931,11 @@ class ContagionKernel(nn.Module):
         # under the DEFECT. Defaulting it to the new value would silently change
         # what a saved M2 checkpoint means, so absence maps to "reach".
         raw.setdefault("susceptibility_mode", "reach")
+        # [S1] Same rule as every flag before it: ABSENCE IS FALSE. A spec written
+        # before S1 has no stage head and must reload as ARM A, never acquire a
+        # covariate it was not fitted with. `KernelConfig`'s own default carries
+        # this; it is restated here because the line above shows that a default is
+        # NOT always the right answer for an archived spec.
         cfg = KernelConfig(**raw)
         # A spec written before M5 carries no `latent_config`, and absence must
         # map to NO LATENT — never to the current default — or every archived G2
