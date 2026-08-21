@@ -68,12 +68,22 @@ how reproducible the optimiser is, not how uncertain the estimate is, so it is
 the wrong denominator.
 
 calibration is not there yet. the ensemble dispersion gate has failed four
-times, and the reason is structural rather than a tuning problem. the elasticity
-of growth rate to frontier length is about -0.78 in the data and about -0.04 in
-the model. real fires decelerate as their perimeter grows, and a contagion
-kernel is perimeter-proportional by construction, so it cannot. the wind ellipse
-has the same defect, which is why a one-parameter baseline loses the same amount
-out of sample that we do. the spread of log growth rates is 1.46 in truth and
+times, and the reason is structural rather than a tuning problem. real fires
+decelerate as they age: 12 of the 14 spatial blocks decelerate, one-sided sign
+test p = 0.0065, against a permutation null that centres on 7.01 of 14 and a
+time-reversal control run through the same code that reads 2 of 14 at
+p = 0.9991. the caveat travels with that number: on published gofer labels alone
+the same read is 5 of 7 at p = 0.2266, so our reimplemented labels do not set
+the direction but they do set the significance. a contagion kernel is
+perimeter-proportional by construction, so it cannot decelerate, and the model
+accelerates on 5 of 5 held-out blocks under both of the estimators we have. we
+do not quote an elasticity for that gap: two of our own estimators agree on its
+sign and disagree on its magnitude by a factor of 2.6, so the magnitude is not a
+number we have. the wind ellipse also fails to decelerate materially, but we
+cannot say it fails by the same amount as the kernel does. its estimate is about
+four times less precise than the model's, wide enough to cover anything from
+clear deceleration to acceleration, and our two estimators do not agree on which
+of the two decelerates less. the spread of log growth rates is 1.46 in truth and
 0.64 in the model, and the model's growth is more predictable from covariates
 than reality's is, so the ensemble is too narrow because the rate is wrong, not
 because the noise is too small.
