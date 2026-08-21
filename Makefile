@@ -33,7 +33,7 @@ OUT    ?= outputs/synthetic_fire/tensor.zarr
 TENSOR ?= outputs/synthetic_fire/tensor.zarr
 MOVIE  ?= outputs/fire.mp4
 
-.PHONY: help venv install test test-all lint typecheck format-check format synth contract contract-reporting \
+.PHONY: help venv install hooks test test-all lint typecheck format-check format synth contract contract-reporting \
         contract-real contract-split contract-all-fires null-check check ci movie clean-outputs \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
@@ -46,9 +46,23 @@ help:
 venv:
 	$(UV) venv --python $(PY_VERSION) $(VENV)
 
-## install: install the project + dev extras into .venv
+## install: install the project + dev extras into .venv, and wire the git hooks
 install: venv
 	VIRTUAL_ENV=$(CURDIR)/$(VENV) $(UV) pip install --python $(PY) -e ".[dev]"
+	@$(MAKE) --no-print-directory hooks
+
+## hooks: install the pre-commit AND commit-msg hooks (both types, see
+##         `default_install_hook_types` in .pre-commit-config.yaml). Run by
+##         `make install` rather than left as an instruction: a guard that only
+##         works if someone remembers to install it is the guard that failed.
+##         Skipped, loudly, outside a git checkout (a source tarball has no hooks
+##         to install and that is not an error).
+hooks: | $(PY)
+	@if [ -d .git ]; then \
+	  $(VENV)/bin/pre-commit install; \
+	else \
+	  echo "not a git checkout: no hooks installed"; \
+	fi
 
 # Fail loudly (and usefully) instead of falling back to system Python.
 $(PY):

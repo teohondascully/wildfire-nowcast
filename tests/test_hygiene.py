@@ -21,7 +21,9 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
+import yaml
 
+import commit_guard  # tools/commit_guard.py, via `pythonpath` in pyproject.toml
 from wildfire_nowcast.common.paths import repo_root
 
 SRC = repo_root() / "src" / "wildfire_nowcast"
@@ -149,8 +151,7 @@ def test_retired_data_duplicates_stay_deleted(name: str) -> None:
     """
     duplicate = SRC / "data" / name
     assert not duplicate.exists(), (
-        f"{duplicate} is back. C0: the single implementation lives in common/ and data/ imports "
-        "it."
+        f"{duplicate} is back. C0: the single implementation lives in common/ and data/ imports it."
     )
 
 
@@ -547,9 +548,9 @@ def test_the_planted_defects_the_burn_down_check_must_catch() -> None:
 
     # 2. An allowlisted count going UP — the fence must not absorb new debt.
     bumped = dict(live)
-    bumped["src/wildfire_nowcast/model/train.py"] = FENCED_BURN_DOWN[
-        "src/wildfire_nowcast/model/train.py"
-    ] + 1
+    bumped["src/wildfire_nowcast/model/train.py"] = (
+        FENCED_BURN_DOWN["src/wildfire_nowcast/model/train.py"] + 1
+    )
     assert any("model/train.py" in o for o in new_or_grown_tells(bumped))
 
     # 3. An allowlisted count going DOWN without the entry being retired.
@@ -582,3 +583,362 @@ def test_the_scan_reads_its_own_source_and_is_not_self_exempt() -> None:
     source = (repo_root() / rel).read_text()
     assert not _TELL_RE.findall(source)
     assert "CLAUD" in source and "orchestr" in source  # ...but the fragments are here
+
+
+# --------------------------------------------------------------------------
+# [I4] No commit in this repository's history carries attribution
+# --------------------------------------------------------------------------
+#
+# THIS IS LAYER (b). Layer (a) is the `commit-msg` hook in
+# `.pre-commit-config.yaml`, which arrives with `make install`. A single layer is
+# already KNOWN to be insufficient here: the maintainer used `git commit
+# --no-verify` during the repair that motivated the guard, and `--no-verify`
+# walks straight past a hook. This layer scans the COMMITTED history, so it sees
+# exactly what the hook let through.
+#
+# IT IS NOT SCOPED TO A WINDOW. The audit that missed the original defect looked
+# at the eight commits it expected to be dirty. Scoping a scan to where you
+# expect the problem is the allow-list defect wearing a different hat, and it is
+# the fifth member of that family in this project. Every commit reachable from
+# every ref, or the scan does not run.
+#
+# The rules live in `tools/commit_guard.py` and are DERIVED: git's own trailer
+# grammar, git's own identity, git's own remote hosts, and a Unicode category.
+# One rule (attribution constructions in prose) could not be derived; it is
+# declared as the maintained surface and its keys are pinned below, so widening
+# it is a visible edit rather than a quiet one.
+
+#: The maintained surface, pinned. Growing rule 5 means changing this line too.
+EXPECTED_CONSTRUCTIONS = {
+    "assistance-of",
+    "co-authorship",
+    "credited-to-a-link",
+    "credited-to-an-agent",
+    "on-behalf-of",
+    "sign-off",
+}
+
+
+def _guard_inputs() -> tuple[Path, frozenset[str], frozenset[str]]:
+    root = repo_root()
+    return root, commit_guard.own_emails(root), commit_guard.own_remote_hosts(root)
+
+
+def _scan(messages: Mapping[str, str]) -> dict[str, list[commit_guard.Finding]]:
+    root, emails, hosts = _guard_inputs()
+    return commit_guard.scan_corpus(messages, repo=root, allowed_emails=emails, allowed_hosts=hosts)
+
+
+#: Shape-accurate reconstructions of what a tool actually emits, with the vendor
+#: strings replaced by placeholders. That substitution is legitimate here and NOT
+#: a weakened fixture, because every rule these trip is a rule about SHAPE (a
+#: trailer block, an address that is not ours, a host we do not push to, a
+#: pictograph). `test_the_specimens_are_caught_by_shape_and_not_by_name` proves
+#: it by swapping the placeholder for a different one and getting the same
+#: verdict. Keeping real product names out of the public tree is the same
+#: hygiene rule the tell scan above enforces.
+TRAILER_FORM = (
+    "readme: correct two public over-claims\n"
+    "\n"
+    "a body paragraph that is entirely ordinary.\n"
+    "\n"
+    "Co-Authored-By: Some Assistant (1M context) <noreply@vendor.example>\n"
+    "Tool-Session: https://vendor.example/code/session_01Gm5QZEXd8tcB6Jg\n"
+)
+BADGE_FORM = (
+    "readme: correct two public over-claims\n"
+    "\n"
+    "a body paragraph that is entirely ordinary.\n"
+    "\n"
+    "\N{ROBOT FACE} Generated with [Some Tool](https://vendor.example/tool)\n"
+)
+
+
+def test_the_history_corpus_is_whole_and_is_not_a_window() -> None:
+    """CORPUS POSITIVE CONTROL. A scan over one commit is a green light for nothing.
+
+    Three separate ways this scan could report clean while seeing almost
+    nothing, all checked by reading a value rather than by proving a set empty:
+    a shallow clone (CI's default checkout is depth 1), a corpus that does not
+    match git's own count, and an empty message.
+    """
+    root = repo_root()
+    assert not commit_guard.is_shallow(root), (
+        "this is a SHALLOW clone, so a full-history scan cannot be performed and must not "
+        "report clean. Run `git fetch --unshallow`. In CI this means `actions/checkout` lost "
+        "its `fetch-depth: 0`."
+    )
+    messages = commit_guard.commit_messages(root)
+    declared = int(
+        subprocess.run(
+            ["git", "rev-list", "--all", "--count"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    )
+    assert len(messages) == declared, (
+        f"the scan read {len(messages)} messages but git reports {declared} commits reachable "
+        "from all refs"
+    )
+    assert declared >= 50, f"only {declared} commits reachable: the scan lost its corpus"
+    assert all(m.strip() for m in messages.values()), "a commit message came back empty"
+
+    # every ref tip is inside the corpus, so no branch is invisible to the scan.
+    tips = subprocess.run(
+        ["git", "for-each-ref", "--format=%(objectname)"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    unseen = [t for t in tips if t not in messages]
+    assert not unseen, f"these ref tips are not in the scanned corpus: {unseen}"
+
+
+def test_every_attribution_rule_fires_on_its_own_specimen() -> None:
+    """PATTERN POSITIVE CONTROL, per rule. A silent pattern is an invisible pass.
+
+    Each of the five rules gets a specimen it must catch and the specimen names
+    the rule, so a rule that goes blind fails HERE with its own name rather than
+    disappearing into an aggregate zero.
+    """
+    root, emails, hosts = _guard_inputs()
+
+    def rules(message: str) -> set[str]:
+        return {
+            f.rule
+            for f in commit_guard.scan_message(
+                message, repo=root, allowed_emails=emails, allowed_hosts=hosts
+            )
+        }
+
+    specimens = {
+        "trailer": "subject\n\nbody.\n\nReviewed-By: Someone Else <x@vendor.example>\n",
+        "foreign-identity": "subject\n\nreported by x@vendor.example in the tracker.\n",
+        "foreign-url": "subject\n\nsee https://vendor.example/thing for the rationale.\n",
+        "badge-character": "subject\n\nbody \N{ROBOT FACE} done.\n",
+        "co-authorship": "subject\n\nthis change was co-authored.\n",
+        "credited-to-an-agent": "subject\n\nthe patch was written by an assistant.\n",
+        "assistance-of": "subject\n\nwritten with the help of somebody.\n",
+        "on-behalf-of": "subject\n\ncommitted on behalf of somebody.\n",
+        "credited-to-a-link": "subject\n\nGenerated with [Some Tool](https://x.example/t)\n",
+        "sign-off": "subject\n\nthis was signed-off-by a reviewer.\n",
+    }
+    for expected_rule, message in specimens.items():
+        assert expected_rule in rules(message), (
+            f"rule {expected_rule!r} went blind: it no longer fires on its own specimen"
+        )
+
+    # ...and the harder half. A pattern widened until it is ignored is switched
+    # off exactly as thoroughly as one narrowed until it is silent. These are
+    # real sentences from this repository's own commit messages and prose.
+    must_not_fire = [
+        "eval: make MISSING loud rather than silent (ADR-047)",
+        "the model accelerates on 5 of 5 held-out blocks under both estimands",
+        # the EM DASH here is the negative control for rule 4: dash punctuation is
+        # deliberately not a badge character, and eight commits in this history
+        # contain one. Spelled as an escape so the tree-wide dash count stays honest.
+        "docs: interfaces v2.16 \N{EM DASH} a CV matrix may span splits",
+        "readme: retract two public over-claims about deceleration (owed repair 9)",
+        "common: derive the scoring-code module list instead of maintaining it",
+        "the figure was generated by sim/movie.py from the run of record",
+        "data: note the lead author of the GOFER paper in the provenance dict",
+    ]
+    for line in must_not_fire:
+        assert not rules(line), f"false positive on ordinary prose: {line!r} -> {rules(line)}"
+
+
+def test_the_two_forms_that_actually_ship_are_each_caught_by_TWO_rules() -> None:
+    """The forms a harness emits, and the reason redundancy is deliberate here.
+
+    Layer (a) can be bypassed and layer (b) is what catches the bypass, so a
+    single rule carrying a whole form is a single point of failure inside the
+    layer that is supposed to be the backstop. Both real forms trip at least two
+    INDEPENDENT rules, so retiring or breaking any one rule still leaves them
+    caught.
+    """
+    root, emails, hosts = _guard_inputs()
+    for name, form in (("trailer form", TRAILER_FORM), ("badge form", BADGE_FORM)):
+        found = commit_guard.scan_message(
+            form, repo=root, allowed_emails=emails, allowed_hosts=hosts
+        )
+        distinct = {f.rule for f in found}
+        assert len(distinct) >= 2, f"{name} is carried by a single rule {distinct}: no redundancy"
+
+
+def test_the_specimens_are_caught_by_shape_and_not_by_name() -> None:
+    """The fixtures use placeholder vendors. This proves that costs nothing.
+
+    If any rule were a vendor list, swapping the placeholder would change the
+    verdict. It does not: the same message with a different made-up vendor
+    produces the same findings, which is what "derived rather than maintained"
+    has to mean operationally.
+    """
+    root, emails, hosts = _guard_inputs()
+
+    def count(message: str) -> int:
+        return len(
+            commit_guard.scan_message(
+                message, repo=root, allowed_emails=emails, allowed_hosts=hosts
+            )
+        )
+
+    for form in (TRAILER_FORM, BADGE_FORM):
+        renamed = form.replace("vendor.example", "some-other-vendor.example").replace(
+            "Some Assistant", "A Completely Different Product"
+        )
+        assert count(form) == count(renamed) >= 2, (
+            "the verdict moved when only the vendor's NAME changed, so some rule is a name list"
+        )
+
+
+def test_no_commit_reachable_from_any_ref_carries_attribution() -> None:
+    """THE CHECK. Every commit, every ref, no window and no exemption."""
+    offenders = _scan(commit_guard.commit_messages(repo_root()))
+    assert not offenders, (
+        "these commits carry attribution in their message. This repository is single author "
+        "and its history carries none. Rewriting published history is expensive, so read "
+        "`git log` for the shas below before deciding:\n  "
+        + "\n  ".join(f"{sha}: {[str(f) for f in findings]}" for sha, findings in offenders.items())
+    )
+
+
+def test_the_history_scan_catches_a_PLANTED_commit_message() -> None:
+    """PLANTED DEFECT, C3.5. The scan must find a defect placed in a real corpus.
+
+    Planted into the live corpus rather than into a fixture, so what is exercised
+    is the same dictionary the check above reads, at the same size. The final
+    assertion is the one that makes the first two mean anything: the UNPLANTED
+    corpus is clean, so this test can distinguish a working scanner from one that
+    reports everything.
+    """
+    live = dict(commit_guard.commit_messages(repo_root()))
+    assert not _scan(live), "the live corpus is dirty, so this planted defect proves nothing"
+
+    for label, form in (("planted0", TRAILER_FORM), ("planted1", BADGE_FORM)):
+        planted = dict(live)
+        planted[label] = form
+        caught = _scan(planted)
+        assert set(caught) == {label}, f"the planted {label} was not the only thing found: {caught}"
+
+
+def test_author_and_committer_identity_is_single_across_the_whole_history() -> None:
+    """Identity, checked separately from the message. Both halves were needed.
+
+    The commit that shipped attribution had a CLEAN author and committer: the
+    tell was in the message body only. Checking identity alone would have passed
+    it, and checking the message alone would miss a genuine second contributor
+    being added. These are two facts and they get two assertions.
+    """
+    rows = commit_guard.committer_identities(repo_root())
+    assert rows, "no identities read: the scan lost its corpus"
+    extra = commit_guard.single_identity_violations(rows)
+    assert not extra, f"this repository is declared single author but the history carries: {extra}"
+
+    # PLANTED DEFECT for this rule, on a hypothetical history: a second identity
+    # must be reported. Without this the assertion above passes on a repo with
+    # one commit just as happily as on one with a thousand.
+    salted = set(rows) | {
+        ("Someone Else", "else@vendor.example", "Someone Else", "else@vendor.example")
+    }
+    assert commit_guard.single_identity_violations(salted), "the identity check cannot fire"
+
+
+# --------------------------------------------------------------------------
+# [I4] Layer (a): the hook exists, is wired, and actually rejects
+# --------------------------------------------------------------------------
+
+
+def test_the_commit_msg_hook_arrives_with_make_install_rather_than_by_instruction() -> None:
+    """A guard that only works if someone remembers a command is not a guard.
+
+    Three separate things have to be true and each fails silently on its own:
+    `pre-commit install` must wire the commit-msg hook type (it wires only
+    `pre-commit` by default), the hook must be registered at the commit-msg
+    stage, and `make install` must run the installer.
+    """
+    config = yaml.safe_load((repo_root() / ".pre-commit-config.yaml").read_text())
+    assert "commit-msg" in config.get("default_install_hook_types", []), (
+        "`pre-commit install` will not wire the commit-msg hook, so the guard would arrive as "
+        "an instruction; set `default_install_hook_types`"
+    )
+    local = [r for r in config["repos"] if r.get("repo") == "local"]
+    hooks = [h for r in local for h in r["hooks"] if h["id"] == "commit-guard"]
+    assert len(hooks) == 1, "the commit-guard hook is not registered exactly once"
+    assert hooks[0]["stages"] == ["commit-msg"], hooks[0]
+    entry = Path(hooks[0]["entry"])
+    script = repo_root() / entry
+    assert script.is_file(), f"the hook points at {entry}, which does not exist"
+    assert script.stat().st_mode & 0o111, f"{entry} is not executable, so `language: script` fails"
+    assert script.read_text().startswith("#!"), f"{entry} has no shebang"
+
+    makefile = (repo_root() / "Makefile").read_text()
+    install_body = re.search(r"^install:.*?(?=^\S)", makefile, flags=re.MULTILINE | re.DOTALL)
+    assert install_body and "hooks" in install_body.group(0), (
+        "`make install` no longer installs the hooks, so a fresh clone would have none"
+    )
+
+
+def test_the_hook_REJECTS_and_ACCEPTS_end_to_end_through_its_real_entry_point(
+    tmp_path: Path,
+) -> None:
+    """PLANTED DEFECT for layer (a), run as a subprocess through the shebang.
+
+    Not by importing the function: the hook is a script invoked by git, and the
+    ways this breaks in practice (a lost executable bit, a broken shebang, a
+    non-zero exit that is not read) are invisible to an in-process call.
+    """
+    script = repo_root() / "tools" / "commit_guard.py"
+
+    def run(message: str) -> subprocess.CompletedProcess[str]:
+        path = tmp_path / "COMMIT_EDITMSG"
+        path.write_text(message)
+        return subprocess.run(
+            [str(script), str(path), "--repo", str(repo_root())],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    for form in (TRAILER_FORM, BADGE_FORM):
+        rejected = run(form)
+        assert rejected.returncode == 1, f"the hook ACCEPTED an attribution trailer: {rejected}"
+        assert "commit-guard" in rejected.stderr
+
+    clean = run("tests: add the commit-message attribution guard\n\nan ordinary body.\n")
+    assert clean.returncode == 0, f"the hook REJECTED a clean message: {clean.stderr}"
+
+    # git's own comment lines are dropped before scanning, because a guard that
+    # rejects text git is about to discard is a guard someone turns off.
+    commented = run(
+        "tests: add the guard\n\n# Co-Authored-By: Someone <x@vendor.example>\n# please ignore\n"
+    )
+    assert commented.returncode == 0, "the hook read a comment git would have stripped"
+
+
+def test_the_maintained_surface_is_pinned_and_is_the_only_one() -> None:
+    """Rule 5 is the only list, and rules 1-4 must not quietly grow one.
+
+    The pin makes widening rule 5 a visible edit. The second half is the part
+    that matters more: if `tools/commit_guard.py` ever contained this
+    repository's own address as a literal, rule 2 would have stopped being
+    derived and nothing else would have said so.
+    """
+    assert set(commit_guard.ATTRIBUTION_CONSTRUCTIONS) == EXPECTED_CONSTRUCTIONS, (
+        "rule 5's pattern set has moved. That is allowed, and it is meant to be a diff someone "
+        "argues for: update EXPECTED_CONSTRUCTIONS in the same commit."
+    )
+    assert len(EXPECTED_CONSTRUCTIONS) <= 8, "the maintained surface is growing into a tell list"
+
+    source = (repo_root() / "tools" / "commit_guard.py").read_text()
+    assert not commit_guard._EMAIL_RE.findall(source), (
+        "the guard now contains a literal e-mail address, so rule 2 is no longer derived from "
+        "git's own identity"
+    )
+    hosts = {commit_guard._url_host(u) for u in commit_guard._URL_RE.findall(source)}
+    assert not (hosts - {""}), (
+        f"the guard now hardcodes a host {hosts}, so rule 3 is no longer derived from the repo's "
+        "own remotes"
+    )

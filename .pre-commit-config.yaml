@@ -1,5 +1,6 @@
-# Run `pre-commit install` once, then hooks run on every commit.
-# Run `pre-commit autoupdate` to bump the pinned revs.
+# `make install` runs `pre-commit install` for you, so these arrive with the
+# environment rather than as an instruction someone has to remember. Run
+# `pre-commit autoupdate` to bump the pinned revs.
 #
 # The `ruff` hook here is the SAME check `make lint` and CI run, and the rev is
 # pinned to the ruff in `requirements.lock`. Those two facts are the point: a
@@ -7,6 +8,13 @@
 # teaches people to distrust the hook. `ruff-format` is deliberately MORE than
 # CI enforces — CI checks lint only, and formatting is fixed per-file as you
 # touch it, so nobody has to reformat another lead's module to land a change.
+
+# WITHOUT THIS KEY, `pre-commit install` INSTALLS ONLY THE `pre-commit` HOOK and
+# the commit-message guard below would have to be installed by a second command
+# that someone has to know about. That is exactly the shape of the failure the
+# guard exists to close: a rule that works only if a human remembers a step.
+default_install_hook_types: [pre-commit, commit-msg]
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.2
@@ -16,8 +24,8 @@ repos:
       - id: ruff-format
 
   # Guards against the accidents this repo is actually exposed to: the fire
-  # tensors are ~1.3 GB and deliberately untracked, and `runs/` is another
-  # 38 MB. A stray `git add data/` is the failure that would be expensive to
+  # tensors are ~700 MB and deliberately untracked, and `runs/` is another
+  # ~78 MB. A stray `git add data/` is the failure that would be expensive to
   # undo in a public history.
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -29,3 +37,29 @@ repos:
       - id: check-toml
       - id: check-json
       - id: detect-private-key
+
+  # LAYER (a) OF THE ATTRIBUTION GUARD. This repository is single author and its
+  # history carries no attribution on any commit; one commit that did was pushed
+  # to the public remote and had to be amended out. The rules are DERIVED (git's
+  # own trailer grammar, git's own identity, git's own remote hosts) rather than
+  # kept as a list of tool names. The module docstring says why that
+  # distinction is the whole point.
+  #
+  # THIS LAYER IS DEFEATED BY `git commit --no-verify`, and that is not a
+  # hypothetical: it happened during the repair that motivated the guard. Layer
+  # (b) is `tests/test_hygiene.py`, which scans every commit reachable from every
+  # ref and therefore sees exactly what `--no-verify` let through. Do not treat
+  # either layer as sufficient alone.
+  #
+  # `language: script` runs the file through its own shebang, so the hook works
+  # before `.venv` exists and cannot be broken by an environment problem. It is
+  # stdlib-only and computes no numbers, so it is not on the interpreter-of-record
+  # path that ADR-001 governs.
+  - repo: local
+    hooks:
+      - id: commit-guard
+        name: commit message carries no attribution or session url
+        entry: tools/commit_guard.py
+        language: script
+        stages: [commit-msg]
+        always_run: true
