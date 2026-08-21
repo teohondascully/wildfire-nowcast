@@ -5,9 +5,45 @@
 # The `ruff` hook here is the SAME check `make lint` and CI run, and the rev is
 # pinned to the ruff in `requirements.lock`. Those two facts are the point: a
 # hook on a different ruff than the gate can pass locally and fail in CI, which
-# teaches people to distrust the hook. `ruff-format` is deliberately MORE than
-# CI enforces — CI checks lint only, and formatting is fixed per-file as you
-# touch it, so nobody has to reformat another lead's module to land a change.
+# teaches people to distrust the hook. `tests/test_format_hook.py` pins the
+# version agreement, because the sentence above was written down and enforced by
+# nothing until it was.
+#
+# ############################################################################
+# NO HOOK IN THIS FILE MAY REWRITE A FILE. READ THIS BEFORE "FIXING" IT BACK.
+# ############################################################################
+# `ruff-format` ran WITHOUT `--check` until 2026-08-21 and rewrote files during
+# `git commit`. That is incompatible with this repository's code-fingerprint
+# contract (C-4.2): `eval/reporting.scoring_code_fingerprint` hashes the SOURCE
+# BYTES of every module under `model/` and `eval/`, and every run artifact stamps
+# that hash at both ends. Measured, not argued: the hook's rewrite of
+# `model/train.py` alone moved the fingerprint `85ecff60dff714b8` ->
+# `5b44d1d308ebec0d`, and `85ecff60dff714b8` is the hash carried by every S1
+# number on disk. A commit of the rewritten file would have published a tree that
+# reproduces none of them, with nothing recording why.
+#
+# THE GENERAL FORM, WHICH IS WHY THIS IS A RULE AND NOT A PATCH: at the time of
+# writing `ruff format --check src tests tools` reports 88 files would be
+# reformatted and 62 already formatted. A rewriting hook discharges that debt
+# file-by-file, SILENTLY, inside whatever commit happens to touch each file --
+# and in this repo some of those commits bind published numbers to a fingerprint.
+# Formatting debt must be discharged DELIBERATELY, in its own commit that touches
+# no logic and records the fingerprint transition, never as a side effect of a
+# science commit.
+#
+# So: `ruff-format` carries `--check` (fails loudly, changes nothing) and `ruff`
+# no longer carries `--fix` (same hazard, smaller blast radius: it rewrites only
+# newly introduced violations, but it still rewrites during a commit, and the
+# tree is lint-clean so removing it is behaviour-identical today). `make format`
+# is how you format, scoped to your own directory, on purpose.
+#
+# CONSEQUENCE, STATED SO IT IS NOT DISCOVERED: while those 88 files exist, a
+# commit that touches one of them FAILS here. That is the intended loud failure.
+# Format that file in its own labelled commit -- or, if its fingerprint is bound
+# to results that are not yet committed, use `SKIP=ruff-format git commit` for
+# that one commit, which skips this hook ALONE and leaves the commit-message
+# guard and everything else running. `--no-verify` is not the answer and is
+# forbidden by the commit rule.
 
 # WITHOUT THIS KEY, `pre-commit install` INSTALLS ONLY THE `pre-commit` HOOK and
 # the commit-message guard below would have to be installed by a second command
@@ -29,10 +65,16 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.2
     hooks:
+      # NEITHER OF THESE MAY REWRITE A FILE -- see the block at the top of this
+      # file for the measurement that forced it. `--fix` and a bare `ruff-format`
+      # both edit your worktree during `git commit`; a code fingerprint hashes
+      # source bytes, so an invisible edit detaches an artifact from the code
+      # that produced it. `tests/test_format_hook.py` asserts both of these
+      # arg lists AND measures that the configured commands leave bytes alone.
       - id: ruff
-        args: [--fix]
         stages: [pre-commit]
       - id: ruff-format
+        args: [--check]
         stages: [pre-commit]
 
   # Guards against the accidents this repo is actually exposed to: the fire

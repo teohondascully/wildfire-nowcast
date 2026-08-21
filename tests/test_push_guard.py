@@ -1,11 +1,21 @@
-"""[I5] Nothing is published that this remote does not already carry.
+"""[I5, amended I6] Nothing is published that this remote does not already carry.
 
 WHY. The public history was rebuilt from scratch before the repo went public.
-The history it replaced is still on disk as `refs/heads/pre-public-backup`: 52
-commits, **no merge base with `main`**, and files that name internal tooling in
-comments and docstrings. `git push --all` would publish all of it. The commit
+The history it replaced is still on disk, now as `refs/archive/pre-public-backup`:
+52 commits, **no merge base with `main`**, and files that name internal tooling in
+comments and docstrings. `git push --mirror` would publish all of it. The commit
 messages are clean, so `tools/commit_guard.py` -- the I4 guard -- would pass every
 one of them; this is a different failure and needs a different instrument.
+
+[I6] THE SUBJECT IS MANUFACTURED, NOT FOUND. Moving that ref out of
+`refs/heads/` (ADR-070 (4.2)) made `git push --all` structurally unable to name
+it -- a real fix -- and it also deleted the subject of two tests here, which
+stopped adjudicating anything and reported SKIPPED. A skip is not a pass, but a
+summary line does not say so. Both now build their own orphan branch in a
+throwaway repository (the `hazard` fixture), so they discriminate no matter what
+this repository's refs look like, and a third sweeps EVERY namespace of the real
+checkout so the archived backup is still covered where it actually lives. No test
+in this file can be disarmed by repository state, and none of them skips.
 
 THREE LAYERS, AND EACH ONE CATCHES THE REMOVAL OF THE ONE BELOW IT.
   (a) `<hooks>/pre-push.legacy` -- the AUTHORITATIVE layer. It reads git's own
@@ -69,6 +79,26 @@ def _local_branches(repo: Path) -> set[str]:
     return set(_git(["for-each-ref", "--format=%(refname:short)", "refs/heads/"], repo).split())
 
 
+def _all_local_refs(repo: Path) -> set[str]:
+    """EVERY local ref, not only `refs/heads/`.
+
+    `refs/heads/` IS NOT THE SUBJECT. The pre-public backup was moved to
+    `refs/archive/pre-public-backup` (ADR-070 (4.2)) so that `git push --all`,
+    which matches `refs/heads/*` only, is structurally unable to name it. That is
+    a good fix and it deleted this file's subject: two tests below stopped
+    discriminating and reported a SKIP, which reads like a pass. `git push
+    --mirror` still traverses every namespace, so the hazard is still real and
+    it is still on disk -- it is just no longer where a `refs/heads/` query
+    looks. Ask git for all of them.
+    """
+    return set(_git(["for-each-ref", "--format=%(refname)"], repo).split())
+
+
+def _ref_leaf_names(repo: Path) -> set[str]:
+    """The bare names a guard must not have written down, from every namespace."""
+    return {ref.rsplit("/", 1)[-1] for ref in _all_local_refs(repo)}
+
+
 # --------------------------------------------------------------------------
 # The derivation, measured against THIS repository
 # --------------------------------------------------------------------------
@@ -114,7 +144,11 @@ def test_no_branch_name_is_written_down_anywhere_in_the_guard() -> None:
         and id(node) not in docstrings
     ]
     assert literals, "no string literals found: the scan is broken, not the module clean"
-    for branch in _local_branches(repo_root()):
+    # Over EVERY namespace, not `refs/heads/`. `pre-public-backup` -- the name
+    # this module must not contain, and the only one that has ever been at risk
+    # of being typed in -- lives under `refs/archive/` now, so a `refs/heads/`
+    # query would quietly stop checking the one name that matters.
+    for branch in _ref_leaf_names(repo_root()):
         offenders = [
             lit for lit in literals if lit == branch or f"/{branch}" in lit or f"{branch}/" in lit
         ]
@@ -129,28 +163,121 @@ def test_no_branch_name_is_written_down_anywhere_in_the_guard() -> None:
 # --------------------------------------------------------------------------
 
 
-def _real_push_line(local: str, destination: str, remote_sha: str) -> push_guard.PushRef:
-    sha = _git(["rev-parse", local], repo_root()).strip()
+def _push_line(repo: Path, local: str, destination: str, remote_sha: str) -> push_guard.PushRef:
+    sha = _git(["rev-parse", local], repo).strip()
     return push_guard.PushRef(local, sha, destination, remote_sha)
 
 
-@pytest.mark.parametrize("branch", sorted(_local_branches(repo_root()) - {"main"}) or ["main"])
-def test_git_push_all_is_refused_for_every_local_branch_that_is_not_published(
-    branch: str,
-) -> None:
-    """PARAMETRISED OVER WHAT IS ACTUALLY ON DISK, so a new local branch is covered the day
-    it is created rather than the day someone remembers to add a case."""
-    published = push_guard.published_refs(repo_root(), "origin")
-    if f"refs/heads/{branch}" in published:
-        pytest.skip(f"{branch} is published, so it is not an instance of this hazard")
-    refusals = push_guard.adjudicate(
-        [_real_push_line(branch, f"refs/heads/{branch}", ZERO)],
-        published=published,
-        repo=repo_root(),
-        remote="origin",
+@pytest.fixture(scope="session")
+def hazard(_template: Path) -> Path:
+    """A REPOSITORY THAT CARRIES THE HAZARD BY CONSTRUCTION, not by luck.
+
+    THIS FIXTURE EXISTS BECAUSE THE TESTS BELOW USED TO READ THE REAL REPOSITORY
+    AND SKIP WHEN IT WAS CLEAN. That is the sixth instance of this project's
+    "check that cannot discriminate" family: the backup ref was moved out of
+    `refs/heads/` (ADR-070 (4.2)) -- a good structural fix -- and two tests
+    silently lost their subject and reported SKIPPED, which in a summary line
+    reads like a pass. A test whose ability to fail depends on the state of the
+    repository it is defending is not defending it.
+
+    So the subject is MANUFACTURED: `_template` builds `main` (pushed to a
+    throwaway bare remote, so `refs/remotes/origin/main` exists and the derived
+    publishable set is non-empty) plus `local-only`, an ORPHAN branch with a
+    second root and therefore no merge base with `main` -- the structure of
+    `pre-public-backup`, not an imitation of it. The structure is ASSERTED here,
+    so a fixture that stopped carrying the hazard fails loudly instead of making
+    every test that depends on it vacuous.
+    """
+    work = _template / "work"
+    published = push_guard.published_refs(work, "origin")
+    assert published == {"refs/heads/main"}, f"the fixture remote carries {sorted(published)}"
+    unpublished = sorted(_local_branches(work) - {"main"})
+    assert unpublished == ["local-only"], (
+        f"the fixture no longer manufactures an unpublished branch (found {unpublished}), so "
+        "every test that uses it would pass without adjudicating anything"
     )
-    assert [r.rule for r in refusals] == ["unpublished-ref"], refusals
-    assert branch in str(refusals[0])
+    assert not push_guard.shares_history(work, "local-only", "main"), (
+        "the manufactured branch shares history with main, so it is not the hazard: rule 2 "
+        "would have nothing to catch"
+    )
+    return work
+
+
+def test_a_MANUFACTURED_unpublished_branch_is_refused_whatever_the_real_repo_holds(
+    hazard: Path,
+) -> None:
+    """`git push --all`, adjudicated against a repository built to carry the hazard.
+
+    Its predecessor parametrised over the real `refs/heads/` and skipped when
+    there was nothing to catch. This one cannot be disarmed by anything anyone
+    does to this repository's refs.
+    """
+    published = push_guard.published_refs(hazard, "origin")
+    for branch in sorted(_local_branches(hazard) - {"main"}):
+        refusals = push_guard.adjudicate(
+            [_push_line(hazard, branch, f"refs/heads/{branch}", ZERO)],
+            published=published,
+            repo=hazard,
+            remote="origin",
+        )
+        assert [r.rule for r in refusals] == ["unpublished-ref"], refusals
+        assert branch in str(refusals[0])
+
+    # THE OTHER HALF OF THE CONTROL, in the same repository: a guard that
+    # refuses everything would satisfy the loop above.
+    assert (
+        push_guard.adjudicate(
+            [_push_line(hazard, "main", "refs/heads/main", ZERO)],
+            published=published,
+            repo=hazard,
+            remote="origin",
+        )
+        == []
+    )
+
+
+def test_every_ref_in_THIS_checkout_is_adjudicated_and_only_the_published_one_is_allowed() -> None:
+    """THE REAL REPOSITORY, SWEPT OVER EVERY NAMESPACE -- so the archived backup is covered.
+
+    `git push --mirror` traverses more than `refs/heads/`, and that is where
+    `refs/archive/pre-public-backup` lives: 52 commits with no merge base with
+    `main`. This asserts BOTH directions on live refs -- the published one is
+    allowed, everything else is refused -- so it discriminates today with the
+    backup archived, and it would still discriminate if the backup came back to
+    `refs/heads/` or a new branch appeared. It cannot skip.
+    """
+    published = push_guard.published_refs(repo_root(), "origin")
+    assert published, "the derived publishable set is EMPTY, so nothing below proves anything"
+
+    local = {ref for ref in _all_local_refs(repo_root()) if not ref.startswith("refs/remotes/")}
+    assert local, "no local refs at all: the sweep is broken, not the repository clean"
+
+    allowed, refused = [], []
+    for ref in sorted(local):
+        refusals = push_guard.adjudicate(
+            [_push_line(repo_root(), ref, ref, ZERO)],
+            published=published,
+            repo=repo_root(),
+            remote="origin",
+        )
+        (allowed if not refusals else refused).append(ref)
+        if ref in published:
+            assert not refusals, f"{ref} is published and was refused: {refusals}"
+        else:
+            assert [r.rule for r in refusals] == ["unpublished-ref"], (ref, refusals)
+
+    # THE SWEEP MUST NOT BECOME A TEST OF WHETHER A HAZARD HAPPENS TO BE ON DISK.
+    # Today it sees both kinds -- `refs/heads/main` allowed, the archived backup
+    # refused -- and that is recorded in the message below so a change is
+    # legible. But deleting the backup is a legitimate act, and this test failing
+    # (or skipping) because of it would be the same defect wearing the other
+    # face. The refusal direction is owned by the MANUFACTURED case above, which
+    # no repository state can disarm; what this one must always assert is that
+    # the guard does not simply refuse everything on live refs.
+    assert allowed, (
+        f"every local ref was refused ({refused}), including ones the remote already carries. "
+        "A guard that refuses everything is one that gets uninstalled."
+    )
 
 
 def test_a_legitimate_push_of_the_published_branch_is_allowed() -> None:
@@ -167,28 +294,46 @@ def test_a_legitimate_push_of_the_published_branch_is_allowed() -> None:
     )
 
 
-def test_unrelated_history_cannot_be_smuggled_onto_the_published_ref() -> None:
+def test_unrelated_history_cannot_be_smuggled_onto_the_published_ref(hazard: Path) -> None:
     """RULE 1 ADJUDICATES THE DESTINATION, SO ON ITS OWN IT IS DEFEATED BY A REFSPEC.
 
     `git push origin <local-only>:main` has an allowed destination and publishes
     exactly the content rule 1 exists to keep back. Rule 2 is what catches it,
     and it catches it by asking git, not by naming anything.
+
+    THE SMUGGLED BRANCH IS MANUFACTURED. This test used to look for an orphan in
+    the real repository and `pytest.skip("no local-only branch on disk to
+    smuggle")` when it found none -- so the day the backup ref was archived, the
+    test stopped adjudicating rule 2 at all and said so in a line that reads like
+    a pass. The fixture builds the orphan, and asserts it is one.
     """
-    others = sorted(_local_branches(repo_root()) - {"main"})
-    if not others:
-        pytest.skip("no local-only branch on disk to smuggle")
-    unrelated = [b for b in others if not push_guard.shares_history(repo_root(), b, "main")]
+    others = sorted(_local_branches(hazard) - {"main"})
+    unrelated = [b for b in others if not push_guard.shares_history(hazard, b, "main")]
     assert unrelated, (
-        "every local branch shares history with main, so this hazard is not present here and "
-        "this test would pass vacuously"
+        f"the manufactured repository holds {others}, none of which is an unrelated history, "
+        "so there is nothing here for rule 2 to catch and the fixture is broken"
     )
     refusals = push_guard.adjudicate(
-        [_real_push_line(unrelated[0], "refs/heads/main", ZERO)],
-        published=push_guard.published_refs(repo_root(), "origin"),
-        repo=repo_root(),
+        [_push_line(hazard, unrelated[0], "refs/heads/main", ZERO)],
+        published=push_guard.published_refs(hazard, "origin"),
+        repo=hazard,
         remote="origin",
     )
     assert [r.rule for r in refusals] == ["unrelated-history"], refusals
+
+    # CONTROL, SAME REPOSITORY, SAME DESTINATION: a related history IS allowed.
+    # Rule 2 refusing everything would satisfy the assertion above, and an
+    # amend-and-force-push has to stay possible -- it is how the attribution
+    # trailer was removed from the public history in the first place.
+    assert (
+        push_guard.adjudicate(
+            [_push_line(hazard, "main", "refs/heads/main", ZERO)],
+            published=push_guard.published_refs(hazard, "origin"),
+            repo=hazard,
+            remote="origin",
+        )
+        == []
+    )
 
 
 # --------------------------------------------------------------------------
@@ -318,11 +463,20 @@ def test_the_guard_is_the_ONLY_hook_that_runs_on_push_and_nothing_rewrites_files
 def test_both_layers_are_actually_installed_in_this_checkout() -> None:
     """LAYER (c). The config can be perfect while the hooks directory is empty.
 
-    Skipped outside a git checkout, which is the one case where having no hooks
-    is correct rather than a defect.
+    THIS USED TO SKIP OUTSIDE A GIT CHECKOUT and it no longer does. The reasoning
+    for the skip was sound -- an export with no `.git` correctly has no hooks --
+    but the skip was reachable from REPOSITORY STATE, and this file has now been
+    bitten twice by exactly that: a skip that reads like a pass in the summary
+    line while the instrument sees nothing. The precedent is `test_hygiene.py`,
+    which REFUSES on a shallow clone rather than reporting clean (ADR-069 (4)).
+    An unverifiable checkout is not a green one, so it is red and says why.
     """
-    if not (repo_root() / ".git").exists():
-        pytest.skip("not a git checkout: `make hooks` correctly installs nothing")
+    dot_git = repo_root() / ".git"
+    assert dot_git.exists(), (
+        f"{dot_git} does not exist, so this suite is running outside a git checkout and the "
+        "wiring of the publication guard CANNOT BE CHECKED HERE. That is not a pass. Run the "
+        "suite from a checkout."
+    )
     hooks = push_guard.hooks_dir(repo_root())
     chained = hooks / "pre-push"
     authoritative = hooks / "pre-push.legacy"

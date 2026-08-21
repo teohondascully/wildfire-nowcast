@@ -101,7 +101,13 @@ lint: | $(PY)
 typecheck: | $(PY)
 	MYPY="$(MYPY)" $(PY) tools/typecheck.py --python-executable $(PY)
 
-## format-check: also verify formatting (advisory; pre-commit fixes it per-file)
+## format-check: report formatting debt. ADVISORY, and NOT in `make ci` -- 88 of
+##         150 files are non-conformant, so wiring it into the gate today would
+##         turn CI red for reasons unrelated to anyone's science. The pre-commit
+##         hook REPORTS the same thing and does NOT fix it: a hook that rewrites
+##         files during a commit moves `scoring_code_fingerprint`, which every
+##         run artifact stamps at both ends. See .pre-commit-config.yaml.
+##         Discharge the debt in its own commit, then this becomes a gate.
 format-check: | $(PY)
 	$(RUFF) format --check src tests tools
 
