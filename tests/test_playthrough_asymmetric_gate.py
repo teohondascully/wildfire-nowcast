@@ -269,7 +269,7 @@ _REAL_SIGMA = LatentHead.sigma
 
 
 def _mean_fixed_by_shrinking_sigma(self: LatentHead) -> torch.Tensor:
-    """"Fix" the mean by NARROWING the gate instead of RELOCATING it.
+    """ "Fix" the mean by NARROWING the gate instead of RELOCATING it.
 
     The most dangerous defect available to this change, and the one ADR-034 (2)
     is a warning about: shrink ``sigma_gate`` until ``E[m]`` comes back to ~1.

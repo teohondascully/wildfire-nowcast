@@ -249,7 +249,7 @@ def test_UNDEFINED_dominates_and_a_gate_is_never_passed_on_one_condition() -> No
 
 
 def test_both_conditions_are_always_reported_separately() -> None:
-    """"Report them separately and always together" — asserted structurally."""
+    """ "Report them separately and always together" — asserted structurally."""
     out = D.g3_conditions(0.2147, 3.06, 1.79)
     assert set(out["conditions"]) == {"dispersion", "first_moment"}
     for cond in out["conditions"].values():
