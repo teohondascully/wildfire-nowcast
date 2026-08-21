@@ -357,8 +357,7 @@ def summarise(rows: list[WindowGrowth]) -> dict[str, Any]:
             "sector_truth_growth_windows": dict(zip(SECTORS, t_sec_g, strict=True)),
             "sector_pred_growth_windows": dict(zip(SECTORS, p_sec_g, strict=True)),
             "sector_ratio_growth_windows": {
-                s: (p / t if t else None)
-                for s, t, p in zip(SECTORS, t_sec_g, p_sec_g, strict=True)
+                s: (p / t if t else None) for s, t, p in zip(SECTORS, t_sec_g, p_sec_g, strict=True)
             },
         }
     return out
@@ -376,14 +375,20 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
         m for m in models if not (m.startswith("kernel") or m.startswith("nbfix"))
     ]
     colour = {
-        m: ("#0f766e" if (m.startswith("nbfix") or m == "kernel") else "#a78bfa"
-            if m == "kernel_init" else "#b45309")
+        m: (
+            "#0f766e"
+            if (m.startswith("nbfix") or m == "kernel")
+            else "#a78bfa"
+            if m == "kernel_init"
+            else "#b45309"
+        )
         for m in order
     }
 
     fig = plt.figure(figsize=(17.0, 9.4))
-    gs = fig.add_gridspec(2, 2, hspace=0.36, wspace=0.22, left=0.06, right=0.985,
-                          top=0.855, bottom=0.09)
+    gs = fig.add_gridspec(
+        2, 2, hspace=0.36, wspace=0.22, left=0.06, right=0.985, top=0.855, bottom=0.09
+    )
 
     # (1) the headline ratio, and the same ratio computed ONLY where truth grew
     ax = fig.add_subplot(gs[0, 0])
@@ -394,16 +399,29 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
     # with a PER-MODEL colour list while the legend carried a single swatch, so
     # the legend showed one arbitrary model's colour and implied the bars were
     # colour-coded by something they were not. One series, one colour.
-    ax.bar(xs - 0.2, all_r, width=0.38, color="#cbd5e1", edgecolor="#64748b", lw=0.7,
-           label="ALL windows (the ADR-021 number)")
-    ax.bar(xs + 0.2, grow_r, width=0.38, color="#0f766e", lw=0.7,
-           edgecolor="#111827", label="ONLY windows where truth GREW")
+    ax.bar(
+        xs - 0.2,
+        all_r,
+        width=0.38,
+        color="#cbd5e1",
+        edgecolor="#64748b",
+        lw=0.7,
+        label="ALL windows (the ADR-021 number)",
+    )
+    ax.bar(
+        xs + 0.2,
+        grow_r,
+        width=0.38,
+        color="#0f766e",
+        lw=0.7,
+        edgecolor="#111827",
+        label="ONLY windows where truth GREW",
+    )
     ax.axhline(1.0, color=COL_TEXT, lw=1.0, ls="--")
     ax.set_xticks(xs)
     ax.set_xticklabels(order, rotation=32, ha="right", fontsize=7)
     ax.set_ylabel("predicted new cells / truth new cells")
-    ax.set_title("(1) the over-prediction ratio, with and without the dormant windows",
-                 fontsize=10)
+    ax.set_title("(1) the over-prediction ratio, with and without the dormant windows", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5, axis="y")
     ax.legend(fontsize=7, frameon=False)
 
@@ -411,13 +429,27 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
     ax = fig.add_subplot(gs[0, 1])
     dorm = [summary[m]["predicted_in_dormant_windows"] for m in order]
     grew = [summary[m]["predicted_in_growth_windows"] for m in order]
-    ax.bar(xs, grew, color="#0f766e", edgecolor="#134e4a", lw=0.7,
-           label="predicted in windows where truth grew")
-    ax.bar(xs, dorm, bottom=grew, color=COL_WARN, edgecolor="#7c2d12", lw=0.7,
-           label="predicted in windows where truth grew NOTHING")
+    ax.bar(
+        xs,
+        grew,
+        color="#0f766e",
+        edgecolor="#134e4a",
+        lw=0.7,
+        label="predicted in windows where truth grew",
+    )
+    ax.bar(
+        xs,
+        dorm,
+        bottom=grew,
+        color=COL_WARN,
+        edgecolor="#7c2d12",
+        lw=0.7,
+        label="predicted in windows where truth grew NOTHING",
+    )
     truth_total = summary[order[0]]["n_new_cells_truth"] if order else 0.0
-    ax.axhline(truth_total, color="#111827", lw=1.4, ls=":",
-               label=f"TRUTH total = {truth_total:.0f} cells")
+    ax.axhline(
+        truth_total, color="#111827", lw=1.4, ls=":", label=f"TRUTH total = {truth_total:.0f} cells"
+    )
     ax.set_xticks(xs)
     ax.set_xticklabels(order, rotation=32, ha="right", fontsize=7)
     ax.set_ylabel("new cells (ensemble mean, summed over windows)")
@@ -438,8 +470,15 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
     # growth windows it is head-DEFICIENT (0.86) and rear-EXCESSIVE (1.31).
     for k, m in enumerate(order):
         vals = [summary[m]["sector_ratio_growth_windows"][s] or np.nan for s in SECTORS]
-        ax.bar(base + k * width - 0.4 + width / 2, vals, width=width * 0.92,
-               color=colour[m], edgecolor="#111827", lw=0.5, label=m)
+        ax.bar(
+            base + k * width - 0.4 + width / 2,
+            vals,
+            width=width * 0.92,
+            color=colour[m],
+            edgecolor="#111827",
+            lw=0.5,
+            label=m,
+        )
     ax.axhline(1.0, color=COL_TEXT, lw=1.0, ls="--")
     ax.set_xticks(base)
     ax.set_xticklabels([f"{s}\n(vs mean wind)" for s in SECTORS], fontsize=8)
@@ -456,8 +495,15 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
     ax = fig.add_subplot(gs[1, 1])
     for m in order:
         rs = [r for r in rows if r.model == m]
-        ax.scatter([r.truth_new for r in rs], [r.pred_new for r in rs], s=6, alpha=0.35,
-                   color=colour[m], label=m, linewidths=0)
+        ax.scatter(
+            [r.truth_new for r in rs],
+            [r.pred_new for r in rs],
+            s=6,
+            alpha=0.35,
+            color=colour[m],
+            label=m,
+            linewidths=0,
+        )
     lim = max([r.truth_new for r in rows] + [r.pred_new for r in rows] + [1.0])
     ax.plot([0, lim], [0, lim], color=COL_TEXT, lw=1.0, ls="--", label="perfect")
     ax.set_xscale("symlog", linthresh=1.0)
@@ -477,8 +523,11 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
         "truth growth. Splits sum EXACTLY to C6.2's own growth_ratio (asserted).",
         fontsize=10.5,
     )
-    stamp(fig, "ADR-021 (3b) names 2.66-3.06x as the limitation G3's dispersion bar collides "
-               "with. This is where it comes from.")
+    stamp(
+        fig,
+        "ADR-021 (3b) names 2.66-3.06x as the limitation G3's dispersion bar collides "
+        "with. This is where it comes from.",
+    )
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=140)
@@ -492,14 +541,15 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(
-        prog="python -m wildfire_nowcast.sim.growth", allow_abbrev=False
-    )
+    ap = argparse.ArgumentParser(prog="python -m wildfire_nowcast.sim.growth", allow_abbrev=False)
     ap.add_argument("--results", required=True, help="runs/<id>/results.json (the run of record)")
     ap.add_argument("--kernel", action="append", default=[], help="name=run_dir")
     ap.add_argument("--fire", action="append", default=[], help="fire_id=tensor_path")
-    ap.add_argument("--snapshot-root", default=None,
-                    help="copy checkpoints here first (C-4). Strongly recommended.")
+    ap.add_argument(
+        "--snapshot-root",
+        default=None,
+        help="copy checkpoints here first (C-4). Strongly recommended.",
+    )
     ap.add_argument("--horizon", type=int, default=3)
     ap.add_argument("--members", type=int, default=24)
     ap.add_argument("--stride", type=int, default=2)
@@ -525,8 +575,15 @@ def main(argv: list[str] | None = None) -> int:
     for spec in args.fire:
         fire_id, _, path = spec.partition("=")
         rows.extend(
-            measure_fire(fire_id, path, models, horizon_h=args.horizon,
-                         stride=args.stride, n_members=args.members, seed=args.seed)
+            measure_fire(
+                fire_id,
+                path,
+                models,
+                horizon_h=args.horizon,
+                stride=args.stride,
+                n_members=args.members,
+                seed=args.seed,
+            )
         )
     summary = summarise(rows)
 
@@ -580,9 +637,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
     for m, r in reconciliation.items():
-        print(f"  [reconcile] {m:16s} recorded {r['recorded_growth_ratio']} "
-              f"replayed {r['replayed_growth_ratio']} delta {r['abs_delta']:.4g} "
-              f"windows {r['recorded_n_windows']} vs {r['replayed_n_windows']}")
+        print(
+            f"  [reconcile] {m:16s} recorded {r['recorded_growth_ratio']} "
+            f"replayed {r['replayed_growth_ratio']} delta {r['abs_delta']:.4g} "
+            f"windows {r['recorded_n_windows']} vs {r['replayed_n_windows']}"
+        )
     return 0
 
 

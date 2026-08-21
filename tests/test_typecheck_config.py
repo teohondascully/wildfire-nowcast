@@ -244,7 +244,9 @@ def test_nothing_silences_the_checker_by_hand() -> None:
     assert not offenders, (
         "these silence the type checker without naming what they silence:\n  "
         + "\n  ".join(offenders)
-        + "\nUse `# ty" + "pe: igno" + "re[<code>]`, or put the module on the burn-down list "
+        + "\nUse `# ty"
+        + "pe: igno"
+        + "re[<code>]`, or put the module on the burn-down list "
         "where it is counted."
     )
 

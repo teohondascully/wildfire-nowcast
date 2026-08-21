@@ -50,7 +50,6 @@ have, plus one DECLARED BLIND SPOT asserted in the opposite direction. The sixth
 can see, because under it the mean is CORRECT.
 """
 
-
 from __future__ import annotations
 
 import math
@@ -70,14 +69,14 @@ from wildfire_nowcast.model.latent import LatentConfig, LatentHead
 # playthrough never requires editing another lead's file — the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
-PLAYTHROUGH_OWNER = 'modelling (M8)'
+PLAYTHROUGH_OWNER = "modelling (M8)"
 PLAYTHROUGH_NOTE = (
     "M8's MEAN-PRESERVING ASYMMETRIC GATE, written because M8 REVERSES a design decision "
     "modelling documented at M6. 7 instrument mutations plus the harness's no-op control; "
-    'the capability claim is that the correction is a pure LOCATION shift in log space, so '
-    'the bias goes and the asymmetry ADR-034 (2) identifies as the working mechanism does '
+    "the capability claim is that the correction is a pure LOCATION shift in log space, so "
+    "the bias goes and the asymmetry ADR-034 (2) identifies as the working mechanism does "
     "not. Its sharpest defect ('fix the mean by SHRINKING the gate') is invisible to every "
-    'mean-based check, because under it the mean is right.'
+    "mean-based check, because under it the mean is right."
 )
 
 #: The scenario's fixed scales. `SIGMA_GATE` is close to the value four M7 seeds
@@ -316,8 +315,10 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Probe(
             "the_mean_multiplier_is_exactly_one",
-            lambda o: _near(o["mean_multiplier_on"], 1.0, 5e-3)
-            and _near(o["mean_multiplier_off"], UNCORRECTED_MEAN, 5e-3),
+            lambda o: (
+                _near(o["mean_multiplier_on"], 1.0, 5e-3)
+                and _near(o["mean_multiplier_off"], UNCORRECTED_MEAN, 5e-3)
+            ),
             note="E[e^gate] = 1 corrected and 0.33121 uncorrected. The uncorrected value is "
             "the BIAS the kernel was silently undoing by inflating its base rate, and it is "
             "the whole reason held-out growth read 0.802-0.840.",
@@ -333,8 +334,10 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Probe(
             "the_channel_is_ASYMMETRIC_not_merely_WIDE",
-            lambda o: _near(o["p_below_mean_on"], P_BELOW_MEAN_GATE, 5e-3)
-            and o["p_below_mean_on"] - o["p_below_mean_intensity"] > 0.15,
+            lambda o: (
+                _near(o["p_below_mean_on"], P_BELOW_MEAN_GATE, 5e-3)
+                and o["p_below_mean_on"] - o["p_below_mean_intensity"] > 0.15
+            ),
             note="P(m < E[m]) = Phi(s/2) = 0.7422 at the gate's fitted scale, against 0.5 for "
             "a symmetric innovation and 0.5557 for `log_intensity` at its fitted 0.28. That "
             "18-point gap is the quantified sense in which the gate is the asymmetric "
@@ -357,9 +360,11 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Probe(
             "the_scenario_sits_where_the_model_really_fitted",
-            lambda o: 1.2 <= o["sigma_gate"] <= 1.7
-            and o["off_path_equals_legacy_expression"]
-            and o["n_draws"] >= 100_000,
+            lambda o: (
+                1.2 <= o["sigma_gate"] <= 1.7
+                and o["off_path_equals_legacy_expression"]
+                and o["n_draws"] >= 100_000
+            ),
             note="SCENARIO GUARD. Four M7 seeds fitted sigma_gate 1.215-1.606, so 1.3 is the "
             "regime the model occupies, not a convenient corner; the OFF path is the "
             "verbatim pre-M8 expression; and the Monte-Carlo probes have enough draws that "

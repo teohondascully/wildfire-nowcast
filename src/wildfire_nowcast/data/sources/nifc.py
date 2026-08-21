@@ -181,9 +181,7 @@ def large_fires(
                 # Two spellings exist in the same service and neither is always
                 # populated; taking whichever is present avoids dropping a fire
                 # for a schema quirk.
-                irwin_id=str(
-                    attrs.get("attr_IrwinID") or attrs.get("poly_IRWINID") or ""
-                ),
+                irwin_id=str(attrs.get("attr_IrwinID") or attrs.get("poly_IRWINID") or ""),
             )
         )
     return sorted(out, key=lambda f: -f.gis_acres)

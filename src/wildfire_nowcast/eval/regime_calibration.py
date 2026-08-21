@@ -191,9 +191,7 @@ def regime_table(
                         **cell,
                     }
                 )
-    disagreements = [
-        r for r in rows if r["agreement"] is not None and r["agreement"] > 1e-9
-    ]
+    disagreements = [r for r in rows if r["agreement"] is not None and r["agreement"] > 1e-9]
     reconciliation = _stratum_reconciliation(rows)
     return {
         "split_fingerprint": (results.get("split_before") or {}).get("fingerprint"),
@@ -249,9 +247,7 @@ def _stratum_reconciliation(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]
             totals[what] = {
                 "all": parts["all_windows"],
                 "growth_plus_dormant": parts["growth_windows"] + parts[DORMANT_STRATUM],
-                "residual": parts["all_windows"]
-                - parts["growth_windows"]
-                - parts[DORMANT_STRATUM],
+                "residual": parts["all_windows"] - parts["growth_windows"] - parts[DORMANT_STRATUM],
             }
         if totals:
             out.append({"fire_id": fire, "model": model, **totals})

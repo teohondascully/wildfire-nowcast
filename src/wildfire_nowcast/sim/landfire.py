@@ -220,9 +220,7 @@ def fetch_native_stack(
     """All eight native rasters for ``grid``, fuels vintage chosen by fire year."""
     folder = vintage_for_fire(int(fire_year))
     layers = {
-        layer.stub: fetch_layer(
-            layer, folder, grid, timeout_s=timeout_s, use_cache=use_cache
-        )
+        layer.stub: fetch_layer(layer, folder, grid, timeout_s=timeout_s, use_cache=use_cache)
         for layer in NATIVE_LAYERS
     }
     return NativeStack(

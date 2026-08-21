@@ -134,9 +134,7 @@ def initialize_ee(project: str | None = None, *, quiet: bool = True) -> Any:
     try:
         import ee  # noqa: PLC0415  (deliberately lazy: keeps the package importable unauthed)
     except ImportError as exc:  # pragma: no cover
-        raise GeeAuthError(
-            "earthengine-api is not importable in this environment"
-        ) from exc
+        raise GeeAuthError("earthengine-api is not importable in this environment") from exc
 
     proj = project or gee_project()
     try:
@@ -186,9 +184,7 @@ def region_for_grid(grid: Grid) -> Any:
     import ee  # noqa: PLC0415
 
     minx, miny, maxx, maxy = grid.bounds
-    return ee.Geometry.Rectangle(
-        coords=[minx, miny, maxx, maxy], proj=grid.crs, geodesic=False
-    )
+    return ee.Geometry.Rectangle(coords=[minx, miny, maxx, maxy], proj=grid.crs, geodesic=False)
 
 
 def hourly_window(
@@ -206,6 +202,7 @@ def hourly_window(
     aborted the build after every earlier chunk had already been paid for. Only
     a REVERSED window is an error.
     """
+
     def _p(x: datetime | str) -> datetime:
         d = datetime.fromisoformat(str(x)) if isinstance(x, str) else x
         return d.replace(tzinfo=UTC) if d.tzinfo is None else d.astimezone(UTC)
@@ -226,8 +223,12 @@ def pixel_grid(grid: Grid) -> dict[str, Any]:
     return {
         "dimensions": {"width": grid.nx, "height": grid.ny},
         "affineTransform": {
-            "scaleX": grid.cell_size_m, "shearX": 0.0, "translateX": grid.x_min,
-            "shearY": 0.0, "scaleY": -grid.cell_size_m, "translateY": grid.y_max,
+            "scaleX": grid.cell_size_m,
+            "shearX": 0.0,
+            "translateX": grid.x_min,
+            "shearY": 0.0,
+            "scaleY": -grid.cell_size_m,
+            "translateY": grid.y_max,
         },
         "crsCode": grid.crs,
     }
@@ -345,7 +346,10 @@ def export_image(
     if start:
         task.start()
     return ExportTask(
-        name=name, task=task, target=cfg.target, destination=destination,
+        name=name,
+        task=task,
+        target=cfg.target,
+        destination=destination,
         channels=channels or [],
     )
 

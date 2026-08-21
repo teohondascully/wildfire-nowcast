@@ -50,7 +50,6 @@ code could really have, plus one DECLARED BLIND SPOT asserted in the opposite
 direction so the day it closes the build says so.
 """
 
-
 from __future__ import annotations
 
 import math
@@ -73,7 +72,7 @@ from wildfire_nowcast.model.latent import LatentConfig, LatentHead, LatentSample
 # playthrough never requires editing another lead's file — the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
-PLAYTHROUGH_OWNER = 'modelling (M7)'
+PLAYTHROUGH_OWNER = "modelling (M7)"
 PLAYTHROUGH_NOTE = (
     "M7's LOW-RANK SPATIAL LATENT. Closed-form basis on a deliberately OFF-CENTRE fire; 5 "
     "instrument mutations plus one declared blind spot; the capability claim ('a gradient, "
@@ -300,20 +299,24 @@ PLAYTHROUGH = PT.Playthrough(
     probes=(
         PT.Probe(
             "basis_matches_the_closed_form",
-            lambda o: _near(o["phi_east_at_centroid"], 0.0, 1e-12)
-            and _near(o["phi_east_one_east"], 1.0 / RG, 1e-12)
-            and _near(o["phi_north_one_north"], 1.0 / RG, 1e-12),
+            lambda o: (
+                _near(o["phi_east_at_centroid"], 0.0, 1e-12)
+                and _near(o["phi_east_one_east"], 1.0 / RG, 1e-12)
+                and _near(o["phi_north_one_north"], 1.0 / RG, 1e-12)
+            ),
             note="rg of a 3x3 block is sqrt(4/3) analytically, so phi one cell east is "
             "0.8660 EXACTLY. Written from the definition; the module has to come to it.",
         ),
         PT.Probe(
             "basis_is_mean_zero_under_the_fire",
-            lambda o: max(
-                abs(o["weighted_mean_east"]),
-                abs(o["weighted_mean_north"]),
-                abs(o["weighted_mean_radial"]),
-            )
-            <= 1e-12,
+            lambda o: (
+                max(
+                    abs(o["weighted_mean_east"]),
+                    abs(o["weighted_mean_north"]),
+                    abs(o["weighted_mean_radial"]),
+                )
+                <= 1e-12
+            ),
             note="all three modes average to EXACTLY zero over the burned region. For the "
             "radial mode this holds only because of the gyration normalisation, and it is "
             "what stops it being a relabelled global intensity mode.",
@@ -392,9 +395,7 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Defect(
             "spatial_modes_silently_do_nothing",
-            PT.attribute_defect(
-                (kernel_mod, "spatial_log_intensity_field", _field_returns_none)
-            ),
+            PT.attribute_defect((kernel_mod, "spatial_log_intensity_field", _field_returns_none)),
             note="THE dangerous one: sigma still trains, the artifact still prints "
             "spatial_modes 2, and the model is M6. A run could be reported as a spatial "
             "latent while being the thing it was built to replace.",

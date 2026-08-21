@@ -286,9 +286,7 @@ class EllipseBaseline:
             waf_open=params.waf_open,
             waf_closed=params.waf_closed,
         )
-        speed, unit_e, unit_n = effective_wind(
-            u_mid, v_mid, fields["u_slope"], fields["v_slope"]
-        )
+        speed, unit_e, unit_n = effective_wind(u_mid, v_mid, fields["u_slope"], fields["v_slope"])
         if bearing_offset_deg:
             delta = np.radians(bearing_offset_deg)
             cos_d, sin_d = float(np.cos(delta)), float(np.sin(delta))

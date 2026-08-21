@@ -70,32 +70,30 @@ def barrier_image(grid: Grid) -> Any:
     region = region_for_grid(grid)
     crs_transform = [CELL_SIZE_M, 0, grid.x_min, 0, -CELL_SIZE_M, grid.y_max]
 
-    water30 = (
-        ee.Image(GSW_ASSET).select("occurrence").gte(WATER_OCCURRENCE_THRESHOLD).unmask(0)
-    )
+    water30 = ee.Image(GSW_ASSET).select("occurrence").gte(WATER_OCCURRENCE_THRESHOLD).unmask(0)
     # areal rule: what fraction of the 1 km cell is permanent water
-    water_frac = (
-        water30.reduceResolution(reducer=ee.Reducer.mean(), maxPixels=65535)
-        .reproject(crs=grid.crs, crsTransform=crs_transform)
+    water_frac = water30.reduceResolution(reducer=ee.Reducer.mean(), maxPixels=65535).reproject(
+        crs=grid.crs, crsTransform=crs_transform
     )
     water_area = water_frac.gte(WATER_FRACTION_THRESHOLD)
     # connectivity rule: any permanent water at all in the cell keeps narrow
     # rivers alive, which the areal rule would erase.
-    water_line = (
-        water30.reduceResolution(reducer=ee.Reducer.max(), maxPixels=65535)
-        .reproject(crs=grid.crs, crsTransform=crs_transform)
+    water_line = water30.reduceResolution(reducer=ee.Reducer.max(), maxPixels=65535).reproject(
+        crs=grid.crs, crsTransform=crs_transform
     )
 
-    roads = ee.FeatureCollection(ROADS_ASSET).filterBounds(region).filter(
-        ee.Filter.inList("rttyp", list(MAJOR_ROUTE_TYPES))
+    roads = (
+        ee.FeatureCollection(ROADS_ASSET)
+        .filterBounds(region)
+        .filter(ee.Filter.inList("rttyp", list(MAJOR_ROUTE_TYPES)))
     )
     road_mask = (
-        ee.Image(0).byte().paint(roads, 1, 1)
-        .reproject(crs=grid.crs, crsTransform=crs_transform)
+        ee.Image(0).byte().paint(roads, 1, 1).reproject(crs=grid.crs, crsTransform=crs_transform)
     )
 
     return (
-        water_area.Or(water_line).Or(road_mask)
+        water_area.Or(water_line)
+        .Or(road_mask)
         .rename("water_barrier_mask")
         .unmask(0)
         .toUint8()

@@ -248,9 +248,7 @@ def decompose_best_member_iou(
     ).check()
 
 
-def decompose_by_horizon(
-    per_member_lead: np.ndarray, truth_empty: np.ndarray
-) -> list[IouTerms]:
+def decompose_by_horizon(per_member_lead: np.ndarray, truth_empty: np.ndarray) -> list[IouTerms]:
     """:func:`decompose_best_member_iou` at every horizon ``1..L``.
 
     Entry ``H-1`` is what a length-``H`` window would have scored, so a 1/2/3 h

@@ -122,7 +122,7 @@ def test_contiguous_growth_produces_no_detached_body() -> None:
     """The check that stops a detector which fires on everything."""
     st = np.zeros((6, 9, 9), dtype=np.uint8)
     for t in range(6):
-        st[t, 4, 2: 3 + t] = 1
+        st[t, 4, 2 : 3 + t] = 1
     assert detect_detached_bodies(np.maximum.accumulate(st, axis=0), cell_size_m=1000.0) == []
 
 
@@ -214,7 +214,10 @@ def test_a_barrier_cell_that_landfire_does_not_call_water_is_not_called_water() 
 
 def test_an_empty_corridor_reports_none_mapped_rather_than_inventing_a_barrier() -> None:
     ev = barrier_evidence(
-        (4, 2), (4, 7), np.zeros((9, 20), np.float32), _flat((9, 20), 8.0),
+        (4, 2),
+        (4, 7),
+        np.zeros((9, 20), np.float32),
+        _flat((9, 20), 8.0),
         _flat((9, 20), 0.0),
     )
     assert ev.kind == "none_mapped" and ev.n_barrier_cells == 0
@@ -223,9 +226,7 @@ def test_an_empty_corridor_reports_none_mapped_rather_than_inventing_a_barrier()
 def test_a_ridge_is_detected_only_above_the_endpoints() -> None:
     elev = _flat((9, 20), 100.0)
     elev[4, 4] = 400.0
-    ev = barrier_evidence(
-        (4, 2), (4, 7), np.zeros((9, 20), np.float32), _flat((9, 20), 8.0), elev
-    )
+    ev = barrier_evidence((4, 2), (4, 7), np.zeros((9, 20), np.float32), _flat((9, 20), 8.0), elev)
     assert ev.kind == "ridge" and ev.ridge_relief_m == 300.0
 
 
@@ -234,9 +235,7 @@ def test_a_high_but_uniform_slope_is_not_a_ridge() -> None:
     elev = _flat((9, 20), 0.0)
     for c in range(20):
         elev[:, c] = 100.0 * c
-    ev = barrier_evidence(
-        (4, 2), (4, 7), np.zeros((9, 20), np.float32), _flat((9, 20), 8.0), elev
-    )
+    ev = barrier_evidence((4, 2), (4, 7), np.zeros((9, 20), np.float32), _flat((9, 20), 8.0), elev)
     assert ev.ridge_relief_m <= 0.0 and ev.kind == "none_mapped"
 
 

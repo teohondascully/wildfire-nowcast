@@ -133,8 +133,9 @@ def test_PLANTED_compensating_errors_no_longer_pass_G3() -> None:
     criterion. It must now fail the gate while its dispersion half still passes —
     and BOTH facts must be visible.
     """
-    out = D.g3_conditions(adr=0.95, candidate_growth_calibration=2.66,
-                          reference_growth_calibration=1.79)
+    out = D.g3_conditions(
+        adr=0.95, candidate_growth_calibration=2.66, reference_growth_calibration=1.79
+    )
     assert out["conditions"]["dispersion"]["outcome"] == D.PASS
     assert out["conditions"]["first_moment"]["outcome"] == D.FAIL
     assert out["outcome"] == D.FAIL, "BOTH must hold; one is not enough"

@@ -168,8 +168,12 @@ def suppression(
         off = acc.get((label, r, False))
         if not on or not off or not on.n_cells or not off.n_cells or not np.isfinite(off.rate):
             continue
-        per_ring[r] = {"on_rate": on.rate, "off_rate": off.rate, "n_on": on.n_cells,
-                       "n_off": off.n_cells}
+        per_ring[r] = {
+            "on_rate": on.rate,
+            "off_rate": off.rate,
+            "n_on": on.n_cells,
+            "n_off": off.n_cells,
+        }
         num += on.rate * on.n_cells
         den += off.rate * on.n_cells
     return {
@@ -249,8 +253,12 @@ class DriftAccumulator:
     def summary(self) -> dict[str, Any]:
         def resultant(vs: list[tuple[float, float]]) -> dict[str, float]:
             if not vs:
-                return {"r": float("nan"), "bearing_deg": float("nan"), "x": float("nan"),
-                        "y": float("nan")}
+                return {
+                    "r": float("nan"),
+                    "bearing_deg": float("nan"),
+                    "x": float("nan"),
+                    "y": float("nan"),
+                }
             arr = np.asarray(vs, dtype=float)
             mx, my = float(arr[:, 0].mean()), float(arr[:, 1].mean())
             # Compass bearing of the resultant: 0 = toward N, 90 = toward E.
@@ -340,8 +348,13 @@ def drift_statistics(
                 samples = model.predict(w.x0, w.static, w.weather, n_members, horizon_h, seed + i)
                 prob_new = ((samples[:, -1] > 0) & ~burned0[None]).mean(axis=0).astype(np.float64)
             barrier_response(
-                prob_new, band=band, rings=rings, barrier=barrier, nonburnable=nonburnable,
-                acc=acc, max_ring=max_ring,
+                prob_new,
+                band=band,
+                rings=rings,
+                barrier=barrier,
+                nonburnable=nonburnable,
+                acc=acc,
+                max_ring=max_ring,
             )
             d = displacement(prob_new * band, burned0, geom.x_centres, geom.y_centres)
             if d is not None:
@@ -369,8 +382,17 @@ def render_drift(per_fire: dict[str, dict[str, Any]], out: str | Path) -> Path:
     order += [m for m in models if m not in order and m != "persistence"]
 
     fig = plt.figure(figsize=(16.5, 9.4))
-    gs = fig.add_gridspec(2, 3, height_ratios=[1.0, 1.05], hspace=0.42, wspace=0.28,
-                          left=0.06, right=0.98, top=0.86, bottom=0.09)
+    gs = fig.add_gridspec(
+        2,
+        3,
+        height_ratios=[1.0, 1.05],
+        hspace=0.42,
+        wspace=0.28,
+        left=0.06,
+        right=0.98,
+        top=0.86,
+        bottom=0.09,
+    )
 
     # -- (a) barrier + non-burnable suppression ---------------------------
     for col, label in enumerate(("barrier", "nonburnable")):
@@ -378,22 +400,35 @@ def render_drift(per_fire: dict[str, dict[str, Any]], out: str | Path) -> Path:
         fires = list(per_fire)
         width = 0.8 / max(len(order), 1)
         for k, model in enumerate(order):
-            vals = [per_fire[f]["models"].get(model, {}).get(label, {}).get("ratio", np.nan)
-                    for f in fires]
+            vals = [
+                per_fire[f]["models"].get(model, {}).get(label, {}).get("ratio", np.nan)
+                for f in fires
+            ]
             xs = np.arange(len(fires)) + k * width - 0.4 + width / 2
-            ax.bar(xs, vals, width=width * 0.92,
-                   color="#111827" if model == "truth" else None,
-                   label=model, edgecolor="#374151", lw=0.4)
+            ax.bar(
+                xs,
+                vals,
+                width=width * 0.92,
+                color="#111827" if model == "truth" else None,
+                label=model,
+                edgecolor="#374151",
+                lw=0.4,
+            )
         ax.axhline(1.0, color=COL_WARN, ls="--", lw=1.2)
-        ax.text(len(fires) - 0.5, 1.02, "1.0 = NO suppression", color=COL_WARN, fontsize=7,
-                ha="right", va="bottom")
+        ax.text(
+            len(fires) - 0.5,
+            1.02,
+            "1.0 = NO suppression",
+            color=COL_WARN,
+            fontsize=7,
+            ha="right",
+            va="bottom",
+        )
         ax.set_xticks(range(len(fires)))
         ax.set_xticklabels([f.replace("2020_", "") for f in fires], fontsize=7.5, rotation=12)
         ax.set_yscale("log")
         ax.set_ylabel("ignition-rate ratio  on-class / off-class\n(ring-matched, pooled)")
-        ax.set_title(
-            f"(a) {label} response — lower = more suppression", fontsize=9.5
-        )
+        ax.set_title(f"(a) {label} response — lower = more suppression", fontsize=9.5)
         ax.grid(alpha=0.25, lw=0.5, axis="y")
         if col == 0:
             ax.legend(fontsize=7, frameon=False, ncol=2)
@@ -407,8 +442,14 @@ def render_drift(per_fire: dict[str, dict[str, Any]], out: str | Path) -> Path:
         ax.scatter(rw, re, s=46, label=model, edgecolors="#374151", lw=0.5, zorder=3)
     lim = 0.62
     ax.plot([0, lim], [0, lim], color="#111827", ls="--", lw=0.9)
-    ax.text(lim * 0.52, lim * 0.46, "equal — no frame preference", rotation=41, fontsize=6.5,
-            color="#374151")
+    ax.text(
+        lim * 0.52,
+        lim * 0.46,
+        "equal — no frame preference",
+        rotation=41,
+        fontsize=6.5,
+        color="#374151",
+    )
     ax.set_xlim(0, lim)
     ax.set_ylim(0, lim)
     ax.set_xlabel("wind-frame resultant |R| (bias that tracks the wind)")
@@ -432,12 +473,24 @@ def render_drift(per_fire: dict[str, dict[str, Any]], out: str | Path) -> Path:
             comp = (np.degrees(np.arctan2(np.cos(arr[:, 1]), np.sin(arr[:, 1]))) + 360.0) % 360.0
             counts, edges = np.histogram(comp, bins=16, range=(0, 360))
             centres = np.radians(0.5 * (edges[:-1] + edges[1:]))
-            ax.bar(centres, counts, width=np.radians(21), color="#0f766e", alpha=0.85,
-                   edgecolor="#134e4a", lw=0.4)
+            ax.bar(
+                centres,
+                counts,
+                width=np.radians(21),
+                color="#0f766e",
+                alpha=0.85,
+                edgecolor="#134e4a",
+                lw=0.4,
+            )
             wcomp = (np.degrees(np.arctan2(np.cos(arr[:, 0]), np.sin(arr[:, 0]))) + 360.0) % 360.0
             wc, we = np.histogram(wcomp, bins=16, range=(0, 360))
-            ax.plot(np.radians(0.5 * (we[:-1] + we[1:])), wc * counts.max() / max(wc.max(), 1),
-                    color=COL_WARN, lw=1.4, label="wind (scaled)")
+            ax.plot(
+                np.radians(0.5 * (we[:-1] + we[1:])),
+                wc * counts.max() / max(wc.max(), 1),
+                color=COL_WARN,
+                lw=1.4,
+                label="wind (scaled)",
+            )
         ax.set_title(f"(c) {model}: where the front moved", fontsize=9.5, pad=14)
         ax.tick_params(labelsize=6.5)
         if col == 0:
@@ -449,8 +502,11 @@ def render_drift(per_fire: dict[str, dict[str, Any]], out: str | Path) -> Path:
         "(b) earth-fixed vs wind-tracking directional bias    (c) drift rose vs wind rose",
         fontsize=11,
     )
-    stamp(fig, "no model internals read; the growth-calibrated ellipse is the same-inputs, "
-               "no-free-direction control")
+    stamp(
+        fig,
+        "no model internals read; the growth-calibrated ellipse is the same-inputs, "
+        "no-free-direction control",
+    )
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=140)
@@ -482,8 +538,13 @@ def main(argv: list[str] | None = None) -> int:
     per_fire: dict[str, dict[str, Any]] = {}
     for fire in fires:
         per_fire[fire] = drift_statistics(
-            fire, Path(args.fires_dir) / fire / "tensor.zarr", gate,
-            horizon_h=horizon, stride=args.stride, n_members=members, seed=seed,
+            fire,
+            Path(args.fires_dir) / fire / "tensor.zarr",
+            gate,
+            horizon_h=horizon,
+            stride=args.stride,
+            n_members=members,
+            seed=seed,
             band_radius_cells=radius,
         )
         print(f"[drift] {fire} ({per_fire[fire]['n_windows']} growth windows)")

@@ -269,9 +269,7 @@ def test_buffer_margin_is_unverifiable_not_vacuous_when_nothing_burned(
     assert "buffer_margin" in _failed_ids(C.check_tensor(_with_fire_state(synthetic_ds, empty)))
 
 
-@pytest.mark.parametrize(
-    "key", [C.MANIFEST_VINTAGE_LAG_KEY, C.MANIFEST_IGNITION_COMPONENTS_KEY]
-)
+@pytest.mark.parametrize("key", [C.MANIFEST_VINTAGE_LAG_KEY, C.MANIFEST_IGNITION_COMPONENTS_KEY])
 def test_c2_v27_keys_are_present_and_int(manifest_path: Path, labels_only: bool, key: str) -> None:
     """C2 [v2.7], ADR-014. ``n_ignition_components`` is the one that bites: GOFER
     files separate lightning ignitions under one fire id (July Complex 2, SCU 2 —
@@ -298,9 +296,7 @@ def _manifest_missing(manifest_path: Path, tmp_path: Path, key: str) -> Path:
     return path
 
 
-@pytest.mark.parametrize(
-    "key", [C.MANIFEST_VINTAGE_LAG_KEY, C.MANIFEST_IGNITION_COMPONENTS_KEY]
-)
+@pytest.mark.parametrize("key", [C.MANIFEST_VINTAGE_LAG_KEY, C.MANIFEST_IGNITION_COMPONENTS_KEY])
 def test_rejects_a_manifest_without_the_v27_keys(
     manifest_path: Path, tmp_path: Path, labels_only: bool, key: str
 ) -> None:
@@ -765,9 +761,8 @@ def test_rejects_resurrected_fire(synthetic_ds: xr.Dataset) -> None:
     values = np.asarray(synthetic_ds[C.FIRE_STATE].values).copy()
     row, col = np.argwhere(values[-1] == C.BURNED_OUT)[0]
     values[-1, row, col] = C.UNBURNED
-    assert (
-        "fire_state_absorbing"
-        in _failed_ids(C.check_tensor(_with_fire_state(synthetic_ds, values)))
+    assert "fire_state_absorbing" in _failed_ids(
+        C.check_tensor(_with_fire_state(synthetic_ds, values))
     )
 
 
@@ -855,9 +850,7 @@ def test_c1_7_canopy_cover_is_a_percentage(synthetic_ds: xr.Dataset, value: floa
 
 
 @pytest.mark.parametrize("value", [0.0, 4242.0, 100.0, 90.0, 205.0, 150.0])
-def test_c1_7_fuel_model_id_must_be_an_fbfm40_class(
-    synthetic_ds: xr.Dataset, value: float
-) -> None:
+def test_c1_7_fuel_model_id_must_be_an_fbfm40_class(synthetic_ds: xr.Dataset, value: float) -> None:
     """Integral is not enough — FBFM40 is an ENUMERATION, not a number line.
 
     Every value here is finite, integral and static, so it satisfies C1.5
@@ -901,9 +894,7 @@ def test_c1_7_accepts_the_documented_fill_policy(synthetic_ds: xr.Dataset) -> No
     "name", ["rh_2m", "temp_2m", "wind_u10", "elevation", "canopy_cover", "fuel_moisture_proxy"]
 )
 @pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
-def test_c1_5_rejects_non_finite_features(
-    synthetic_ds: xr.Dataset, name: str, bad: float
-) -> None:
+def test_c1_5_rejects_non_finite_features(synthetic_ds: xr.Dataset, name: str, bad: float) -> None:
     """A single non-finite cell anywhere in `features` is a hard failure.
 
     Measured on the v2.2 checker: an all-NaN `rh_2m` passed all 56 checks

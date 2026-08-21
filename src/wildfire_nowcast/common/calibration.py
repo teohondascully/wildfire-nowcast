@@ -298,9 +298,7 @@ def pool_strata(blocks: Sequence[Sequence[Stratum | Mapping[str, Any]]]) -> list
             slot[0] += s.n
             slot[1] += s.sum_p
             slot[2] += s.sum_y
-    return [
-        Stratum(key=k, n=int(acc[k][0]), sum_p=acc[k][1], sum_y=acc[k][2]) for k in sorted(acc)
-    ]
+    return [Stratum(key=k, n=int(acc[k][0]), sum_p=acc[k][1], sum_y=acc[k][2]) for k in sorted(acc)]
 
 
 @dataclass(frozen=True)
@@ -469,9 +467,7 @@ def calibration_terms(
     statistics rather than re-deriving them.
     """
     family_a = bin_strata(prob, truth_event, mask, n_bins) if bins is None else bins
-    family_b = (
-        None if rings is None else ring_strata(prob, truth_event, mask, rings, int(n_rings))
-    )
+    family_b = None if rings is None else ring_strata(prob, truth_event, mask, rings, int(n_rings))
     return terms_from_strata(family_a, family_b)
 
 

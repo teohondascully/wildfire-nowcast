@@ -84,9 +84,7 @@ def assign_blocks(fires: Iterable[FireFoldInput]) -> dict[str, int]:
     items = sorted(fires, key=lambda f: f.fire_id)
     groups = _spatial_groups(items)
     ordered = sorted(groups, key=lambda g: items[min(g)].fire_id)
-    return {
-        items[i].fire_id: block_id for block_id, group in enumerate(ordered) for i in group
-    }
+    return {items[i].fire_id: block_id for block_id, group in enumerate(ordered) for i in group}
 
 
 def assign_folds(fires: Iterable[FireFoldInput], k: int = 5) -> dict[str, int]:
@@ -104,9 +102,7 @@ def assign_folds(fires: Iterable[FireFoldInput], k: int = 5) -> dict[str, int]:
 
     groups = _spatial_groups(items)
     # largest group first so the big blocks land before the folds fill up
-    ordered = sorted(
-        groups, key=lambda g: (-sum(items[i].n_hours for i in g), items[g[0]].fire_id)
-    )
+    ordered = sorted(groups, key=lambda g: (-sum(items[i].n_hours for i in g), items[g[0]].fire_id))
     load = [0] * k
     out: dict[str, int] = {}
     for group in ordered:
@@ -117,8 +113,9 @@ def assign_folds(fires: Iterable[FireFoldInput], k: int = 5) -> dict[str, int]:
     return out
 
 
-def fire_domain_inputs(archive: Any = None, *, buffer_m: float | None = None
-                       ) -> list[FireFoldInput]:
+def fire_domain_inputs(
+    archive: Any = None, *, buffer_m: float | None = None
+) -> list[FireFoldInput]:
     """Buffered domain bbox + hour count for every GOFER fire.
 
     Reads perimeter geometry only — no rasterisation, no state rule — because
@@ -191,13 +188,12 @@ def fire_assignments(
     return out
 
 
-def fold_summary(fires: Iterable[FireFoldInput], folds: dict[str, int], k: int = 5
-                 ) -> dict[str, Any]:
+def fold_summary(
+    fires: Iterable[FireFoldInput], folds: dict[str, int], k: int = 5
+) -> dict[str, Any]:
     """Human-readable balance report; goes into the norm-stats provenance."""
     items = list(fires)
-    per: dict[int, dict[str, Any]] = {
-        f: {"fires": [], "n_hours": 0} for f in range(k)
-    }
+    per: dict[int, dict[str, Any]] = {f: {"fires": [], "n_hours": 0} for f in range(k)}
     for fire in sorted(items, key=lambda f: f.fire_id):
         f = folds[fire.fire_id]
         per[f]["fires"].append(fire.fire_id)

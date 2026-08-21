@@ -231,9 +231,7 @@ def _stochastic_round(value: float, rng: np.random.Generator) -> int:
     return int(low + (1 if rng.random() < (value - low) else 0))
 
 
-def sample_perturbation(
-    model: FireNoiseModel, rng: np.random.Generator
-) -> LabelPerturbation:
+def sample_perturbation(model: FireNoiseModel, rng: np.random.Generator) -> LabelPerturbation:
     """Draw ONE realisation for a whole fire. Direction uniform, sign symmetric."""
     magnitude = abs(rng.normal(0.0, model.offset_sigma_cells)) if model.offset_sigma_cells else 0.0
     magnitude = min(magnitude, float(model.max_shift_cells))
@@ -351,9 +349,7 @@ def fconf_burned_set_invariance(
             rows[str(conf)] = {
                 "burned_cells_differing_vs_050": burned_diff,
                 "state1_cells_total": int(np.count_nonzero(st == 1)),
-                "state1_cells_differing_vs_050": int(
-                    np.count_nonzero((st == 1) != (ref == 1))
-                ),
+                "state1_cells_differing_vs_050": int(np.count_nonzero((st == 1) != (ref == 1))),
             }
         per_fire[fire_id] = rows
     return {

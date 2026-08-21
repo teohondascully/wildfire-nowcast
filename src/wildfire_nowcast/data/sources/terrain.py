@@ -58,19 +58,12 @@ def terrain_image(grid: Grid) -> Any:
     coll = ee.ImageCollection(DEM_ASSET).select("elevation")
     # mosaic() drops the default projection, and reduceResolution below requires
     # one; restore it from a member tile rather than letting EE guess.
-    dem = (
-        coll.mosaic()
-        .setDefaultProjection(ee.Image(coll.first()).projection())
-        .clip(region)
-    )
+    dem = coll.mosaic().setDefaultProjection(ee.Image(coll.first()).projection()).clip(region)
 
     # Aggregate to the analysis scale FIRST (see module docstring).
-    dem_1km = (
-        dem.reduceResolution(reducer=ee.Reducer.mean(), maxPixels=65535)
-        .reproject(
-            crs=grid.crs,
-            crsTransform=[CELL_SIZE_M, 0, grid.x_min, 0, -CELL_SIZE_M, grid.y_max],
-        )
+    dem_1km = dem.reduceResolution(reducer=ee.Reducer.mean(), maxPixels=65535).reproject(
+        crs=grid.crs,
+        crsTransform=[CELL_SIZE_M, 0, grid.x_min, 0, -CELL_SIZE_M, grid.y_max],
     )
     terrain = ee.Terrain.products(dem_1km)
     slope = terrain.select("slope")
@@ -121,8 +114,7 @@ def _subgrid(grid: Grid, y0: int, x0: int, ny: int, nx: int) -> Grid:
     )
 
 
-def _fetch_terrain_tiled(grid: Grid, tile: int, halo: int = _HALO_CELLS
-                         ) -> dict[str, np.ndarray]:
+def _fetch_terrain_tiled(grid: Grid, tile: int, halo: int = _HALO_CELLS) -> dict[str, np.ndarray]:
     """Whole-domain terrain assembled from haloed spatial tiles.
 
     Chunking terrain over SPACE is the mirror of chunking RTMA over TIME, and it
@@ -171,8 +163,9 @@ def _fetch_terrain_tiled(grid: Grid, tile: int, halo: int = _HALO_CELLS
     return out
 
 
-def fetch_terrain(grid: Grid, *, tile_ladder: tuple[int, ...] = _TILE_LADDER
-                  ) -> dict[str, np.ndarray]:
+def fetch_terrain(
+    grid: Grid, *, tile_ladder: tuple[int, ...] = _TILE_LADDER
+) -> dict[str, np.ndarray]:
     """Pull the four static terrain channels as ``{channel: (H, W) float32}``.
 
     Tries the whole domain first, so every fire small enough to fit takes exactly

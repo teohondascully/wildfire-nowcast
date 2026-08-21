@@ -157,9 +157,7 @@ def build_fire_state(
     if rule == FIRELINE_V2:
         lines = arch.fire_lines(fire_id, conf=cfire_conf, to_crs=CRS_STRING)
         by_ts = dict(zip(lines["timestep"], lines.geometry, strict=True))
-        line_masks = np.stack(
-            [line_mask(by_ts.get(ts), grid) for ts in perims["timestep"]]
-        )
+        line_masks = np.stack([line_mask(by_ts.get(ts), grid) for ts in perims["timestep"]])
         missing = [ts for ts in perims["timestep"] if ts not in by_ts]
         lines_used = {
             "cfire_conf": cfire_conf,
@@ -199,7 +197,12 @@ def build_fire_state(
     }
 
     qa = fire_qa_report(
-        fire_id=fire_id, perims=perims, state=state, grid=grid, east=east, west=west,
+        fire_id=fire_id,
+        perims=perims,
+        state=state,
+        grid=grid,
+        east=east,
+        west=west,
         extra={"state_rule": rule},
     )
     return LabelBuild(

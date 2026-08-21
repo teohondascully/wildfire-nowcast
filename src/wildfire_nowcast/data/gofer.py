@@ -47,9 +47,7 @@ __all__ = [
 ]
 
 ZENODO_RECORD_ID = "14638647"
-ZENODO_FILE_URL = (
-    f"https://zenodo.org/api/records/{ZENODO_RECORD_ID}/files/GOFER.zip/content"
-)
+ZENODO_FILE_URL = f"https://zenodo.org/api/records/{ZENODO_RECORD_ID}/files/GOFER.zip/content"
 #: sha256 of GOFER.zip as published for record 14638647 (v0.12), verified 2026-08-07.
 GOFER_ZIP_SHA256 = "4366a7ce263a09346a8d16a8f1daaa67e2910e36ffb719651d4729db960a603a"
 GOFER_VERSION = "zenodo-14638647-v0.12"
@@ -125,7 +123,8 @@ def download_gofer(dest_dir: Path | None = None, *, verify: bool = True) -> Path
     if not (root / "fireData.csv").exists():
         with zipfile.ZipFile(zip_path) as zf:
             members = [
-                m for m in zf.namelist()
+                m
+                for m in zf.namelist()
                 if not m.startswith("__MACOSX/") and not m.endswith(".DS_Store")
             ]
             zf.extractall(dest_dir, members=members)

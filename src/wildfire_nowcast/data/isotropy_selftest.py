@@ -24,18 +24,35 @@ from wildfire_nowcast.data.isotropy import (
 )
 
 
-def _body(fire: str, block: int, hour: int, u: float, v: float,
-          east: float, north: float) -> BodyRecord:
+def _body(
+    fire: str, block: int, hour: int, u: float, v: float, east: float, north: float
+) -> BodyRecord:
     n = float(np.hypot(east, north)) or 1.0
     c = _cosine(u, v, -north / n, east / n)
     return BodyRecord(
-        fire_id=fire, spatial_block_id=block, cv_fold=0, split_role="train",
-        label_source="gofer", hour=hour, n_cells=1, gap_km=2.0, merges_later=True,
-        wind_u=u, wind_v=v, wind_speed=float(np.hypot(u, v)),
-        cos_anchor=c, cos_centroid=c, cos_anchor_tie_avg=c, n_tied_anchors=1,
-        cos_ceiling=1.0, disp_dr=0, disp_dc=2,
-        d_anchor=(east / n, north / n), d_centroid=(east / n, north / n),
-        parent_growth_cells=5, n_prior_burned_cells=100,
+        fire_id=fire,
+        spatial_block_id=block,
+        cv_fold=0,
+        split_role="train",
+        label_source="gofer",
+        hour=hour,
+        n_cells=1,
+        gap_km=2.0,
+        merges_later=True,
+        wind_u=u,
+        wind_v=v,
+        wind_speed=float(np.hypot(u, v)),
+        cos_anchor=c,
+        cos_centroid=c,
+        cos_anchor_tie_avg=c,
+        n_tied_anchors=1,
+        cos_ceiling=1.0,
+        disp_dr=0,
+        disp_dc=2,
+        d_anchor=(east / n, north / n),
+        d_centroid=(east / n, north / n),
+        parent_growth_cells=5,
+        n_prior_burned_cells=100,
     )
 
 
@@ -92,7 +109,9 @@ def test_cluster_bootstrap_interval_has_nominal_COVERAGE() -> None:
         offs = rng.normal(0, 0.4, size=20)
         vals = np.concatenate([o + rng.normal(0, 0.3, size=20) for o in offs])
         r = cluster_bootstrap(
-            vals, np.repeat(np.arange(20), 20), draws=1500,
+            vals,
+            np.repeat(np.arange(20), 20),
+            draws=1500,
             seed=int(rng.integers(1e6)),
         )
         misses += bool(r["excludes_zero"])
@@ -107,7 +126,9 @@ def test_cluster_bootstrap_detects_a_real_shift() -> None:
     for _ in range(30):
         vals = rng.normal(0.8, 0.3, size=400)
         r = cluster_bootstrap(
-            vals, np.repeat(np.arange(20), 20), draws=2000,
+            vals,
+            np.repeat(np.arange(20), 20),
+            draws=2000,
             seed=int(rng.integers(1e6)),
         )
         hits += bool(r["excludes_zero"])
@@ -127,9 +148,15 @@ def test_positive_control_fires_on_a_planted_skew() -> None:
         for h in range(40):
             ang = rng.uniform(-np.pi, np.pi)
             pool.append(
-                _body(f"fire{f}", f % 5, h, 6 * np.cos(ang), 6 * np.sin(ang),
-                      np.cos(rng.uniform(-np.pi, np.pi)),
-                      np.sin(rng.uniform(-np.pi, np.pi)))
+                _body(
+                    f"fire{f}",
+                    f % 5,
+                    h,
+                    6 * np.cos(ang),
+                    6 * np.sin(ang),
+                    np.cos(rng.uniform(-np.pi, np.pi)),
+                    np.sin(rng.uniform(-np.pi, np.pi)),
+                )
             )
     pos = positive_control(pool)
     assert pos["sign_check_exactly_downwind_scores_plus_one"] is True, pos
@@ -147,8 +174,7 @@ def test_negative_controls_are_flat_on_an_isotropic_pool() -> None:
             wa = rng.uniform(-np.pi, np.pi)
             da = rng.uniform(-np.pi, np.pi)
             pool.append(
-                _body(f"fire{f}", f % 5, h, 6 * np.cos(wa), 6 * np.sin(wa),
-                      np.cos(da), np.sin(da))
+                _body(f"fire{f}", f % 5, h, 6 * np.cos(wa), 6 * np.sin(wa), np.cos(da), np.sin(da))
             )
     neg = negative_controls(pool)
     assert neg["passed"] is True, neg
@@ -159,10 +185,7 @@ def test_negative_controls_catch_a_rigged_estimator() -> None:
     wind is also always due east makes the crosswind control flat but the
     permutation control STAY high — which is exactly the corpus-marginal
     confound the control exists to expose."""
-    pool = [
-        _body(f"fire{f}", f % 4, h, 6.0, 0.0, 1.0, 0.0)
-        for f in range(8) for h in range(30)
-    ]
+    pool = [_body(f"fire{f}", f % 4, h, 6.0, 0.0, 1.0, 0.0) for f in range(8) for h in range(30)]
     neg = negative_controls(pool)
     assert neg["wind_permuted_across_corpus"]["mean"] > 0.9, neg
     assert neg["wind_rotated_90deg"]["mean"] == 0.0, neg
@@ -188,8 +211,8 @@ def test_tie_averaged_direction_points_away_from_the_burned_neighbour() -> None:
 
 def test_quantisation_ceilings_are_what_the_lattice_allows() -> None:
     """A gap-2.0 body has 4 directions; a 1-cell step has 8. Different caps."""
-    assert _ceiling(5.0, 0.0, 2.0) == 1.0                      # wind due east
-    assert abs(_ceiling(5.0, 5.0, 2.0) - np.cos(np.pi / 4)) < 1e-9   # 45 deg: 0.707
+    assert _ceiling(5.0, 0.0, 2.0) == 1.0  # wind due east
+    assert abs(_ceiling(5.0, 5.0, 2.0) - np.cos(np.pi / 4)) < 1e-9  # 45 deg: 0.707
     # sqrt(5) offsets include (1,2)-type directions, so a 45 deg wind does far
     # better than the 4-cardinal cap.
     assert _ceiling(5.0, 5.0, float(np.hypot(1, 2))) > 0.94

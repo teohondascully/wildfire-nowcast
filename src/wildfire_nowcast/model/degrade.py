@@ -484,9 +484,7 @@ class DegradedModel:
         hit = self.cache.get(key)
         if hit is not None:
             return hit
-        samples = np.asarray(
-            self.model.predict(x0, static, weather, n_members, horizon_h, seed)
-        )
+        samples = np.asarray(self.model.predict(x0, static, weather, n_members, horizon_h, seed))
         self.cache.put(key, samples)
         return samples
 

@@ -107,7 +107,10 @@ BOOTSTRAP_SEED = 20260813
 
 #: 10 m wind speed bands, m/s. Spotting requires wind; jitter does not care.
 WIND_SPEED_BANDS: tuple[tuple[float, float], ...] = (
-    (0.0, 2.0), (2.0, 4.0), (4.0, 6.0), (6.0, 1e9),
+    (0.0, 2.0),
+    (2.0, 4.0),
+    (4.0, 6.0),
+    (6.0, 1e9),
 )
 
 #: Planted downwind concentrations for the positive control (von Mises kappa).
@@ -172,7 +175,14 @@ class BodyRecord:
 
 #: The 8 first-ring lattice offsets, used for the contiguous reference.
 _RING8: tuple[tuple[int, int], ...] = (
-    (-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1),
+    (-1, 0),
+    (1, 0),
+    (0, -1),
+    (0, 1),
+    (-1, -1),
+    (-1, 1),
+    (1, -1),
+    (1, 1),
 )
 
 
@@ -226,7 +236,7 @@ def _tie_averaged_ring_direction(
     h, w = prev.shape
     n = len(rows)
     dist = np.full(n, np.inf)
-    for (dy, dx) in _RING8:
+    for dy, dx in _RING8:
         rr, cc = rows + dy, cols + dx
         inside = (rr >= 0) & (rr < h) & (cc >= 0) & (cc < w)
         hit = np.zeros(n, dtype=bool)
@@ -236,7 +246,7 @@ def _tie_averaged_ring_direction(
     sum_dy = np.zeros(n)
     sum_dx = np.zeros(n)
     cnt = np.zeros(n)
-    for (dy, dx) in _RING8:
+    for dy, dx in _RING8:
         rr, cc = rows + dy, cols + dx
         inside = (rr >= 0) & (rr < h) & (cc >= 0) & (cc < w)
         hit = np.zeros(n, dtype=bool)
@@ -259,7 +269,9 @@ def _split_role_map() -> tuple[dict[str, Any], set[str]]:
     return split, set(split.get("train_fire_ids", []))
 
 
-def collect_bodies(*, verbose: bool = False) -> tuple[
+def collect_bodies(
+    *, verbose: bool = False
+) -> tuple[
     list[BodyRecord],
     list[dict[str, Any]],
     dict[str, Any],
@@ -297,9 +309,7 @@ def collect_bodies(*, verbose: bool = False) -> tuple[
         block = int(manifest["spatial_block_id"])
         fold = int(manifest["cv_fold"])
         role = "train" if fire_id in train_fires else "heldout"
-        label_source = str(
-            manifest.get("provenance", {}).get("label_source", "gofer_published")
-        )
+        label_source = str(manifest.get("provenance", {}).get("label_source", "gofer_published"))
 
         u_all = np.asarray(ds["features"].sel(channel=WIND_U_CHANNEL).values)
         v_all = np.asarray(ds["features"].sel(channel=WIND_V_CHANNEL).values)
@@ -335,9 +345,7 @@ def collect_bodies(*, verbose: bool = False) -> tuple[
             good = ok & (spd > 0) & (nrm > 0)
             if not good.any():
                 continue
-            cosv = (uu[good] * ddc[good] + vv[good] * (-ddr[good])) / (
-                spd[good] * nrm[good]
-            )
+            cosv = (uu[good] * ddc[good] + vv[good] * (-ddr[good])) / (spd[good] * nrm[good])
             c_cos.append(cosv)
             c_spd.append(spd[good])
             c_ceil.append(_ring_ceiling(uu[good], vv[good]))
@@ -352,9 +360,7 @@ def collect_bodies(*, verbose: bool = False) -> tuple[
         in_pool = 0
         verdicts: Counter[str] = Counter()
         for body in bodies:
-            verdict = classify_body(
-                body, min_gap_km=MIN_GAP_KM, min_cells=MIN_EVENT_CELLS
-            )
+            verdict = classify_body(body, min_gap_km=MIN_GAP_KM, min_cells=MIN_EVENT_CELLS)
             verdicts[verdict] += 1
             u = float(u_all[body.hour, body.anchor[0], body.anchor[1]])
             v = float(v_all[body.hour, body.anchor[0], body.anchor[1]])
@@ -437,7 +443,8 @@ def collect_bodies(*, verbose: bool = False) -> tuple[
             print(f"  {fire_id}: {len(bodies)} bodies, {in_pool} in pool", flush=True)
 
     mism = [
-        d for d in diff_samples
+        d
+        for d in diff_samples
         if d["fast_cos_anchor"] != d["ref_cos_anchor"]
         or d["fast_cos_centroid"] != d["ref_cos_centroid"]
         or d["fast_speed"] != d["ref_speed"]
@@ -492,8 +499,10 @@ def cluster_bootstrap(
     mean = float(values.mean())
     if len(uniq) < 2:
         return {
-            "n": int(values.size), "n_clusters": int(len(uniq)),
-            "mean": round(mean, 4), "ci95": None,
+            "n": int(values.size),
+            "n_clusters": int(len(uniq)),
+            "mean": round(mean, 4),
+            "ci95": None,
             "note": "fewer than 2 clusters: no clustered interval is computable",
         }
     rng = np.random.default_rng(seed)
@@ -514,9 +523,7 @@ def cluster_bootstrap(
     }
 
 
-def _multi_unit(
-    pool: list[BodyRecord], key: str
-) -> dict[str, Any]:
+def _multi_unit(pool: list[BodyRecord], key: str) -> dict[str, Any]:
     """The same mean under every candidate independence unit, side by side."""
     vals, keep = _vals(pool, key)
     sub = [b for b, k in zip(pool, keep, strict=True) if k]
@@ -542,17 +549,13 @@ def _binomial_two_sided_p(k: int, n: int) -> float | None:
     from math import comb  # noqa: PLC0415
 
     tail = sum(comb(n, i) for i in range(n + 1) if abs(i - n / 2) >= abs(k - n / 2))
-    return min(1.0, tail / 2 ** n)
+    return min(1.0, tail / 2**n)
 
 
-def _stratum(
-    pool: list[BodyRecord], key: str, unit: str = "fire"
-) -> dict[str, Any]:
+def _stratum(pool: list[BodyRecord], key: str, unit: str = "fire") -> dict[str, Any]:
     vals, keep = _vals(pool, key)
     sub = [b for b, k in zip(pool, keep, strict=True) if k]
-    cl = np.array(
-        [b.fire_id for b in sub] if unit == "fire" else [b.spatial_block_id for b in sub]
-    )
+    cl = np.array([b.fire_id for b in sub] if unit == "fire" else [b.spatial_block_id for b in sub])
     out = cluster_bootstrap(vals, cl)
     out["independence_unit"] = unit
     out["n_downwind_cos_gt_0"] = int((vals > 0).sum())
@@ -579,10 +582,9 @@ def _stratum(
     # disputes the resampling scheme.
     per_fire_means = []
     for f in sorted({b.fire_id for b in sub}):
-        fv = np.array([
-            getattr(b, key) for b in sub
-            if b.fire_id == f and getattr(b, key) is not None
-        ])
+        fv = np.array(
+            [getattr(b, key) for b in sub if b.fire_id == f and getattr(b, key) is not None]
+        )
         if fv.size:
             per_fire_means.append(float(fv.mean()))
     pos = sum(1 for m in per_fire_means if m > 0)
@@ -645,10 +647,13 @@ def positive_control(pool: list[BodyRecord], *, seed: int = 4242) -> dict[str, A
 
     exact = [
         _cos_from_unit(
-            b.wind_u, b.wind_v,
-            b.wind_u / (b.wind_speed or 1.0), b.wind_v / (b.wind_speed or 1.0),
+            b.wind_u,
+            b.wind_v,
+            b.wind_u / (b.wind_speed or 1.0),
+            b.wind_v / (b.wind_speed or 1.0),
         )
-        for b in pool if b.wind_speed > 0
+        for b in pool
+        if b.wind_speed > 0
     ]
     exact_arr = np.array([e for e in exact if e is not None], dtype=float)
     sign_ok = bool(exact_arr.size and np.allclose(exact_arr, 1.0, atol=1e-9))
@@ -760,7 +765,8 @@ def negative_controls(pool: list[BodyRecord], *, seed: int = 909) -> dict[str, A
     estimator = ["uniform_random_directions", "wind_permuted_across_corpus"]
     out["estimator_controls_that_must_be_flat"] = estimator
     out["reported_diagnostics_not_controls"] = [
-        "wind_rotated_90deg", "wind_rotated_270deg",
+        "wind_rotated_90deg",
+        "wind_rotated_270deg",
     ]
     out["reclassification_note"] = (
         "The crosswind rotations were gated as controls in the first version of "
@@ -783,7 +789,8 @@ def _lattice_realisable_gaps(lo: float, hi: float, reach: int = 8) -> list[float
     """Euclidean cell-centre distances that EXIST on the lattice in (lo, hi)."""
     vals = {
         round(float(np.hypot(dy, dx)), 3)
-        for dy in range(reach + 1) for dx in range(reach + 1)
+        for dy in range(reach + 1)
+        for dx in range(reach + 1)
         if (dy or dx)
     }
     return sorted(v for v in vals if lo < v < hi)
@@ -799,9 +806,18 @@ def _fixed_frame(pool: list[BodyRecord]) -> dict[str, Any]:
     """
     hist = Counter((b.disp_dr, b.disp_dc) for b in pool)
     names = {
-        (-2, 0): "N", (2, 0): "S", (0, 2): "E", (0, -2): "W",
-        (-1, 2): "NE", (-2, 1): "NNE", (1, 2): "SE", (2, 1): "SSE",
-        (1, -2): "SW", (2, -1): "SSW", (-1, -2): "NW", (-2, -1): "NNW",
+        (-2, 0): "N",
+        (2, 0): "S",
+        (0, 2): "E",
+        (0, -2): "W",
+        (-1, 2): "NE",
+        (-2, 1): "NNE",
+        (1, 2): "SE",
+        (2, 1): "SSE",
+        (1, -2): "SW",
+        (2, -1): "SSW",
+        (-1, -2): "NW",
+        (-2, -1): "NNW",
     }
     east = float(np.mean([b.disp_dc / np.hypot(b.disp_dr, b.disp_dc) for b in pool]))
     north = float(np.mean([-b.disp_dr / np.hypot(b.disp_dr, b.disp_dc) for b in pool]))
@@ -852,16 +868,14 @@ def _reconcile(pool: list[BodyRecord], fire_rows: list[dict[str, Any]]) -> dict[
         }
     agree_total = ref.get("crossings_json_n_detached_bodies_total") in (None, total)
     agree_events = ref.get("crossings_json_n_events") in (None, verd.get("crossing", 0))
-    partition_ok = sum(verd.values()) == total == len(pool) + (
-        total - verd.get("rasterisation_jitter", 0)
+    partition_ok = (
+        sum(verd.values()) == total == len(pool) + (total - verd.get("rasterisation_jitter", 0))
     )
     return {
         "n_detached_bodies_total": total,
         "verdict_counts": dict(sorted(verd.items())),
         "n_in_pool": len(pool),
-        "pool_equals_rasterisation_jitter_count": len(pool) == verd.get(
-            "rasterisation_jitter", 0
-        ),
+        "pool_equals_rasterisation_jitter_count": len(pool) == verd.get("rasterisation_jitter", 0),
         "verdicts_partition_the_bodies": partition_ok,
         **ref,
         "agrees_with_crossings_json_total": agree_total,
@@ -913,9 +927,7 @@ def _contiguous_reference(
 
     pool_r = cluster_bootstrap(np.array(p_cos), np.array(p_fire))
     cont_r = cluster_bootstrap(cc, cf)
-    pool_eff = cluster_bootstrap(
-        np.array(p_cos) / np.array(p_ceil), np.array(p_fire)
-    )
+    pool_eff = cluster_bootstrap(np.array(p_cos) / np.array(p_ceil), np.array(p_fire))
     cont_eff = cluster_bootstrap(cc / ce, cf)
 
     # Paired, per fire: the pool's alignment MINUS its own fire's contiguous
@@ -936,10 +948,7 @@ def _contiguous_reference(
     # difference. Both are reported; the raw one is the conservative one.
     eff_delta: dict[str, float] = {}
     for f in fires:
-        pm = [
-            c / cl for c, cl, ff in zip(p_cos, p_ceil, p_fire, strict=True)
-            if ff == f and cl
-        ]
+        pm = [c / cl for c, cl, ff in zip(p_cos, p_ceil, p_fire, strict=True) if ff == f and cl]
         m = cf == f
         cm = cc[m] / ce[m]
         if pm and cm.size:
@@ -957,14 +966,12 @@ def _contiguous_reference(
         dd: dict[str, float] = {}
         for f in fires:
             pm = [
-                b.cos_anchor for b in pool
-                if b.fire_id == f and b.cos_anchor is not None
-                and lo <= b.wind_speed < hi
+                b.cos_anchor
+                for b in pool
+                if b.fire_id == f and b.cos_anchor is not None and lo <= b.wind_speed < hi
             ]
             d = contiguous[f]
-            m = (
-                np.isfinite(d["cos"]) & (d["speed"] >= lo) & (d["speed"] < hi)
-            )
+            m = np.isfinite(d["cos"]) & (d["speed"] >= lo) & (d["speed"] < hi)
             if len(pm) >= 3 and int(m.sum()) >= 3:
                 dd[f] = float(np.mean(pm) - d["cos"][m].mean())
         arr = np.array(list(dd.values()))
@@ -1141,9 +1148,7 @@ def build_report(*, verbose: bool = False) -> dict[str, Any]:
                 "FALLS in (2.236, 3.606). Checked directly rather than accepted."
             ),
             "lattice_realisable_gaps_in_that_band": _lattice_realisable_gaps(2.236, 3.606),
-            "observed_count_in_that_band": sum(
-                n for g, n in gaps.items() if 2.236 < g < 3.606
-            ),
+            "observed_count_in_that_band": sum(n for g, n in gaps.items() if 2.236 < g < 3.606),
             "reading": (
                 "sqrt(8)=2.828, 3.000 and sqrt(10)=3.162 ARE realisable between "
                 "two integer cell centres and simply do not occur in this corpus. "
@@ -1187,9 +1192,7 @@ def build_report(*, verbose: bool = False) -> dict[str, Any]:
                     "south/east. from_anchor_tie_averaged averages over every "
                     "tied anchor and removes it."
                 ),
-                "n_bodies_with_tied_anchors": sum(
-                    1 for b in pool if b.n_tied_anchors > 1
-                ),
+                "n_bodies_with_tied_anchors": sum(1 for b in pool if b.n_tied_anchors > 1),
                 "max_tied_anchors": max((b.n_tied_anchors for b in pool), default=0),
             },
             "fixed_compass_frame": _fixed_frame(pool),
@@ -1232,16 +1235,13 @@ def build_report(*, verbose: bool = False) -> dict[str, Any]:
             "per_fire": per_fire,
             "leave_one_fire_out_pooled_mean_cos_anchor": loo,
             "leave_one_fire_out_range": (
-                [round(min(loo.values()), 4), round(max(loo.values()), 4)]
-                if loo else None
+                [round(min(loo.values()), 4), round(max(loo.values()), 4)] if loo else None
             ),
             "n_fires_with_positive_mean": sum(
-                1 for v in per_fire.values()
-                if (v["mean_cos_anchor"] or 0) > 0
+                1 for v in per_fire.values() if (v["mean_cos_anchor"] or 0) > 0
             ),
             "n_blocks_with_positive_mean": sum(
-                1 for v in per_block.values()
-                if (v["mean_cos_anchor"] or 0) > 0
+                1 for v in per_block.values() if (v["mean_cos_anchor"] or 0) > 0
             ),
             "sign_test_over_blocks_two_sided_p": _binomial_two_sided_p(
                 sum(1 for v in per_block.values() if (v["mean_cos_anchor"] or 0) > 0),
@@ -1276,8 +1276,7 @@ def build_report(*, verbose: bool = False) -> dict[str, Any]:
             "only 8 distinct directions (and at 2.236 km, 8 more). The estimand is "
             "coarsely quantised; the bootstrap reflects that but a reader should "
             "not expect fine resolution in the mean.",
-            "This analysis sets no bar for G4, proposes none, and does not reopen "
-            "min_gap_km.",
+            "This analysis sets no bar for G4, proposes none, and does not reopen min_gap_km.",
         ],
         "fires": sorted(fire_rows, key=lambda r: r["fire_id"]),
     }
@@ -1287,7 +1286,9 @@ def write_report(path: Path | None = None) -> Path:
     """Write the D10 artifact. ADDITIVE ONLY; refuses the frozen corpus."""
     out = Path(path) if path is not None else isotropy_path()
     if Path(fires_dir()) in out.parents or out.name in {
-        "norm_stats.json", "qa_audit.json", "crossings.json",
+        "norm_stats.json",
+        "qa_audit.json",
+        "crossings.json",
     }:
         raise RuntimeError("D10 is additive: refusing to write into the frozen corpus")
     rep = build_report(verbose=True)

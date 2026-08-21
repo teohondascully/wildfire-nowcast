@@ -383,8 +383,15 @@ def render_dashboard(runs: list[C6Run], out: str | Path, *, dpi: int = 130) -> P
 
     fig = plt.figure(figsize=(14.0, 9.6))
     gs = fig.add_gridspec(
-        2, 3, height_ratios=[1.0, 1.05], hspace=0.34, wspace=0.30,
-        left=0.06, right=0.98, top=0.80, bottom=0.20,
+        2,
+        3,
+        height_ratios=[1.0, 1.05],
+        hspace=0.34,
+        wspace=0.30,
+        left=0.06,
+        right=0.98,
+        top=0.80,
+        bottom=0.20,
     )
     leads = sorted(
         {

@@ -194,9 +194,7 @@ def authoritative_assignment(
         prov = man.get("provenance") or {}
         declared = str(man.get("label_source") or prov.get("label_source") or "")
         label_source[fire_id] = (
-            EXTENSION_LABEL_SOURCE
-            if declared == EXTENSION_LABEL_SOURCE
-            else PUBLISHED_LABEL_SOURCE
+            EXTENSION_LABEL_SOURCE if declared == EXTENSION_LABEL_SOURCE else PUBLISHED_LABEL_SOURCE
         )
 
     # The 28 GOFER domains carry their own inputs; a BUILT GOFER fire uses its
@@ -352,9 +350,7 @@ def swap_corpus(
                     _read_manifest(path),
                     fire_id=fire_id,
                     assignment=assignment,
-                    swapped_from=(
-                        str(extension[fire_id]) if fire_id in extension else None
-                    ),
+                    swapped_from=(str(extension[fire_id]) if fire_id in extension else None),
                     stamp=stamp,
                 ),
             )

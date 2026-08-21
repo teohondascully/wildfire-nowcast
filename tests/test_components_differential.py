@@ -95,9 +95,14 @@ def _sim_original(mask: np.ndarray) -> tuple[np.ndarray, int]:
 
 
 _NBR8_ORIGINAL: tuple[tuple[int, int], ...] = (
-    (-1, -1), (-1, 0), (-1, 1),
-    (0, -1), (0, 1),
-    (1, -1), (1, 0), (1, 1),
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
 )
 
 

@@ -60,9 +60,7 @@ class PersistenceBaseline:
     ) -> np.ndarray:
         validate_predict_inputs(x0, static, weather, n_members, horizon_h, seed)
         base = np.asarray(x0, dtype=np.uint8)
-        return np.broadcast_to(
-            base, (int(n_members), int(horizon_h), *base.shape)
-        ).copy()
+        return np.broadcast_to(base, (int(n_members), int(horizon_h), *base.shape)).copy()
 
     # -- serialisation ----------------------------------------------------
 

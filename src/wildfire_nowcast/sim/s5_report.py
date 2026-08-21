@@ -91,11 +91,7 @@ def build_report(
             pred_mean = t.truth_mean + parts.bias
             rows.append(
                 {
-                    **{
-                        k: v
-                        for k, v in parts.__dict__.items()
-                        if k not in {"model", "fire_id"}
-                    },
+                    **{k: v for k, v in parts.__dict__.items() if k not in {"model", "fire_id"}},
                     "model": arm,
                     "fire_id": fid,
                     "truth_mean": t.truth_mean,
@@ -170,8 +166,9 @@ def render(report: dict[str, Any], out_png: Path) -> None:
 
     def pick(arm: str, key: str) -> list[float]:
         by = {int(r["spatial_block_id"]): r for r in rows if r["model"] == arm}
-        return [float(by[b][key]) if by.get(b) and by[b][key] is not None else np.nan
-                for b in blocks]
+        return [
+            float(by[b][key]) if by.get(b) and by[b][key] is not None else np.nan for b in blocks
+        ]
 
     # (A) adr vs s2s for the arm that launched the task
     ax = axes[0, 0]
@@ -179,8 +176,13 @@ def render(report: dict[str, Any], out_png: Path) -> None:
     xs = np.arange(len(blocks))
     arm = "m6_fair_brier0_s1"
     ax.bar(xs - w / 2, pick(arm, "adr"), w, label="adr (G3 criterion)", color="#8899aa")
-    ax.bar(xs + w / 2, pick(arm, "spread_to_signal"), w,
-           label="s2s (spread / truth's own scale)", color="#c0392b")
+    ax.bar(
+        xs + w / 2,
+        pick(arm, "spread_to_signal"),
+        w,
+        label="s2s (spread / truth's own scale)",
+        color="#c0392b",
+    )
     ax.set_xticks(xs)
     ax.set_xticklabels([f"block {b}" for b in blocks])
     ax.set_title(f"(A) {arm}: adr looks flat, the ensemble width does NOT", fontsize=10)
@@ -188,20 +190,42 @@ def render(report: dict[str, Any], out_png: Path) -> None:
     ax.axhspan(0.8, 1.2, color="#2e7d32", alpha=0.10)
     for i, b in enumerate(blocks):
         if b == 5:
-            ax.annotate("block 5\nNARROWEST", (i + w / 2, pick(arm, "spread_to_signal")[i]),
-                        textcoords="offset points", xytext=(0, 6), ha="center",
-                        fontsize=8, color="#c0392b", fontweight="bold")
+            ax.annotate(
+                "block 5\nNARROWEST",
+                (i + w / 2, pick(arm, "spread_to_signal")[i]),
+                textcoords="offset points",
+                xytext=(0, 6),
+                ha="center",
+                fontsize=8,
+                color="#c0392b",
+                fontweight="bold",
+            )
 
     # (B) s2s across every arm — block 5 is last, always
     ax = axes[0, 1]
     arms = sorted({r["model"] for r in rows if r["model"] != "persistence"})
     for b, col in zip(blocks, ["#1f77b4", "#ff7f0e", "#c0392b", "#2ca02c"], strict=True):
-        ys = [next((float(r["spread_to_signal"]) for r in rows
-                    if r["model"] == a and int(r["spatial_block_id"]) == b), np.nan)
-              for a in arms]
-        ax.plot(range(len(arms)), ys, marker="o", ms=3,
-                lw=2.2 if b == 5 else 1.0, color=col, label=f"block {b}",
-                zorder=5 if b == 5 else 2)
+        ys = [
+            next(
+                (
+                    float(r["spread_to_signal"])
+                    for r in rows
+                    if r["model"] == a and int(r["spatial_block_id"]) == b
+                ),
+                np.nan,
+            )
+            for a in arms
+        ]
+        ax.plot(
+            range(len(arms)),
+            ys,
+            marker="o",
+            ms=3,
+            lw=2.2 if b == 5 else 1.0,
+            color=col,
+            label=f"block {b}",
+            zorder=5 if b == 5 else 2,
+        )
     ax.set_xticks(range(len(arms)))
     ax.set_xticklabels(arms, rotation=90, fontsize=5.5)
     ax.set_ylabel("spread-to-signal")
@@ -211,8 +235,9 @@ def render(report: dict[str, Any], out_png: Path) -> None:
     # (C) the mechanism: predicted mean vs truth mean
     ax = axes[1, 0]
     for i, a in enumerate(report["focus_arms"]):
-        ax.plot(xs + (i - 1.5) * 0.06, pick(a, "growth_calibration"),
-                marker="s", ms=6, lw=0, label=a)
+        ax.plot(
+            xs + (i - 1.5) * 0.06, pick(a, "growth_calibration"), marker="s", ms=6, lw=0, label=a
+        )
     ax.axhline(1.0, color="#333", lw=1, ls="--")
     ax.set_xticks(xs)
     ax.set_xticklabels([f"block {b}" for b in blocks])
@@ -228,13 +253,21 @@ def render(report: dict[str, Any], out_png: Path) -> None:
         bt = report["block_truth"]
         for fid, s in sup.items():
             b = int(bt[fid]["spatial_block_id"])
-            y = next(float(r["spread_to_signal"]) for r in rows
-                     if r["model"] == "m7_offstate_s1" and int(r["spatial_block_id"]) == b)
-            ax.scatter(s["mahalanobis"], y, s=90,
-                       color="#c0392b" if b == 5 else "#1f77b4", zorder=3)
-            ax.annotate(f"block {b}\n{fid.replace('2020_', '')}",
-                        (s["mahalanobis"], y), textcoords="offset points",
-                        xytext=(7, -4), fontsize=7.5)
+            y = next(
+                float(r["spread_to_signal"])
+                for r in rows
+                if r["model"] == "m7_offstate_s1" and int(r["spatial_block_id"]) == b
+            )
+            ax.scatter(
+                s["mahalanobis"], y, s=90, color="#c0392b" if b == 5 else "#1f77b4", zorder=3
+            )
+            ax.annotate(
+                f"block {b}\n{fid.replace('2020_', '')}",
+                (s["mahalanobis"], y),
+                textcoords="offset points",
+                xytext=(7, -4),
+                fontsize=7.5,
+            )
         ax.set_xlabel("Mahalanobis distance of scored conditions from TRAIN support")
         ax.set_ylabel("spread-to-signal (m7_offstate_s1)")
         ax.set_title(

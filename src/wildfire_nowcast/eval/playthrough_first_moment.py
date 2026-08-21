@@ -290,12 +290,12 @@ def _observe(world: dict[str, Any]) -> dict[str, Any]:
         "in_interval_boolean": dispersion_cell["in_interval_equal_block"],
         "combined_outcome": entry["g3_conditions"]["outcome"],
         "alt_pooling_would_pass": alt.get("would_pass"),
-        "null_first_moment_outcome": null_summary["models"][NULL_MODEL][
-            "first_moment_condition"
-        ]["outcome"],
-        "null_growth_calibration": null_summary["models"][NULL_MODEL][
-            "first_moment_condition"
-        ]["candidate_equal_block"],
+        "null_first_moment_outcome": null_summary["models"][NULL_MODEL]["first_moment_condition"][
+            "outcome"
+        ],
+        "null_growth_calibration": null_summary["models"][NULL_MODEL]["first_moment_condition"][
+            "candidate_equal_block"
+        ],
         # Not from the artifact: the two facts that make the scenario the right
         # scenario. Guards, below.
         "old_interval_would_have_accepted": 0.8 <= PLANTED_ADR <= 1.2,
@@ -368,8 +368,10 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Probe(
             name="the_tables_interval_is_the_geometric_one",
-            check=lambda o: PT.approximately(o["dispersion_interval"][0], 1.0 / 1.2, tol=1e-12)
-            and PT.approximately(o["dispersion_interval"][1], 1.2, tol=1e-12),
+            check=lambda o: (
+                PT.approximately(o["dispersion_interval"][0], 1.0 / 1.2, tol=1e-12)
+                and PT.approximately(o["dispersion_interval"][1], 1.2, tol=1e-12)
+            ),
             note="A hand-written 0.8333 is not 1/1.2, and a second literal is how the "
             "asymmetry got in the first time.",
         ),
@@ -391,8 +393,10 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Probe(
             name="C6_0_a_do_nothing_null_cannot_PASS_the_first_moment",
-            check=lambda o: o["null_first_moment_outcome"] == g3.UNDEFINED
-            and PT.approximately(o["null_growth_calibration"], 0.0, tol=1e-12),
+            check=lambda o: (
+                o["null_first_moment_outcome"] == g3.UNDEFINED
+                and PT.approximately(o["null_growth_calibration"], 0.0, tol=1e-12)
+            ),
             note=(
                 "C6.0 for this metric, MEASURED not argued. persistence ignites zero cells, so "
                 "its growth_calibration is exactly 0, `log_distance(0)` is None, and the "
@@ -435,9 +439,7 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Defect(
             name="degenerate_reference",
-            plant=PT.attribute_defect(
-                (baseline_run, "FIRST_MOMENT_REFERENCE_MODEL", DEGENERATE)
-            ),
+            plant=PT.attribute_defect((baseline_run, "FIRST_MOMENT_REFERENCE_MODEL", DEGENERATE)),
             note="The Brier-fitted ellipse ignites ZERO cells, so its growth_calibration is 0 "
             "and undefined in log space. C6.2's rule one level up: a reference that could not "
             "be scored must never read as a reference that was beaten.",

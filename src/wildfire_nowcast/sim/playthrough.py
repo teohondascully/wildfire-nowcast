@@ -234,8 +234,9 @@ ARMS: tuple[Arm, ...] = (
 )
 
 
-def uniform_weather(n_hours: int, n_cells: int, *, wind_ms: float, moisture_pct: float
-                    ) -> np.ndarray:
+def uniform_weather(
+    n_hours: int, n_cells: int, *, wind_ms: float, moisture_pct: float
+) -> np.ndarray:
     """C5 ``weather`` for a steady westerly. Shape ``[T, C_w, H, W]``."""
     wx = np.zeros((n_hours, len(WEATHER_C5), n_cells, n_cells), dtype=np.float32)
     idx = {c: i for i, c in enumerate(WEATHER_C5)}
@@ -247,9 +248,7 @@ def uniform_weather(n_hours: int, n_cells: int, *, wind_ms: float, moisture_pct:
     return wx
 
 
-def run_arm(
-    arm: Arm, *, n_members: int, seed: int, refine: int = DEFAULT_REFINE
-) -> dict[str, Any]:
+def run_arm(arm: Arm, *, n_members: int, seed: int, refine: int = DEFAULT_REFINE) -> dict[str, Any]:
     """Run one arm end to end and score it. Returns the verdict plus evidence."""
     grid = Grid(
         x_min=-2_000_000.0,
@@ -283,9 +282,7 @@ def run_arm(
     samples = model.predict(x0, None, wx, n_members, HORIZON_H, seed)
     elapsed = time.time() - t0
 
-    verdict = degeneracy_verdict(
-        arm.name, samples, x0, absolute_floor=SYNTHETIC_FLOOR_CELLS
-    )
+    verdict = degeneracy_verdict(arm.name, samples, x0, absolute_floor=SYNTHETIC_FLOOR_CELLS)
     # The head must move DOWNWIND. A model that grows the right amount in the
     # wrong direction is not a usable baseline either, and this is free to check.
     burned_any = samples[:, -1].max(axis=0) > 0
@@ -309,9 +306,7 @@ def run_arm(
         "burned_at_t0": int(np.count_nonzero(x0)),
         "cells_by_lead": [int(np.count_nonzero(samples[0, k] > 0)) for k in range(HORIZON_H)],
         "downwind_advance_cells": downwind_advance,
-        "samples_are_absorbing": bool(
-            np.all(np.diff(samples.astype(np.int16), axis=1) >= 0)
-        ),
+        "samples_are_absorbing": bool(np.all(np.diff(samples.astype(np.int16), axis=1) >= 0)),
         "verdict": verdict.as_dict(),
         "agrees_with_expectation": bool(verdict.degenerate == arm.expect_degenerate),
     }
@@ -356,8 +351,11 @@ def _determinism_check(*, n_members: int, seed: int, refine: int) -> dict[str, A
     outs = []
     for _ in range(2):
         grid = Grid(
-            x_min=-2_000_000.0, y_max=2_000_000.0,
-            nx=DOMAIN_CELLS, ny=DOMAIN_CELLS, cell_size_m=1000.0,
+            x_min=-2_000_000.0,
+            y_max=2_000_000.0,
+            nx=DOMAIN_CELLS,
+            ny=DOMAIN_CELLS,
+            cell_size_m=1000.0,
         )
         x0 = np.zeros(grid.shape, dtype=np.uint8)
         x0[IGNITION_ROWS, IGNITION_COLS] = 1
@@ -423,20 +421,14 @@ def real_fire_ab(
         for mode, crown in ((InputMode.NATIVE, True), (InputMode.LOBOTOMISED, False)):
             model = ElmfireNativeModel(
                 grid,
-                config=ElmfireConfig(
-                    mode=mode, refine=refine, crown_fire=crown, fire_year=year
-                ),
+                config=ElmfireConfig(mode=mode, refine=refine, crown_fire=crown, fire_year=year),
             )
             t_start = time.time()
-            samples = model.predict(
-                win.x0, win.static, win.weather, n_members, horizon_h, seed
-            )
+            samples = model.predict(win.x0, win.static, win.weather, n_members, horizon_h, seed)
             v = degeneracy_verdict(mode.value, samples, win.x0, truth_new=truth_new)
             entry["arms"][mode.value] = {
                 **v.as_dict(),
-                "ratio_to_truth": (
-                    round(v.median_new_cells / truth_new, 4) if truth_new else None
-                ),
+                "ratio_to_truth": (round(v.median_new_cells / truth_new, 4) if truth_new else None),
                 "elapsed_s": round(time.time() - t_start, 1),
                 "analysis_cell_size_m": model.last_run["analysis_cell_size_m"],
             }
@@ -474,9 +466,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     ap.add_argument("--out", default="reports/figures/playthrough_nondegeneracy.json")
     ap.add_argument("--real-tensor", default=None, help="also run the real-fire A/B")
     ap.add_argument("--real-windows", type=int, default=3)
-    ap.add_argument(
-        "--real-out", default="reports/figures/elmfire_degeneracy_verdict.json"
-    )
+    ap.add_argument("--real-out", default="reports/figures/elmfire_degeneracy_verdict.json")
     args = ap.parse_args(argv)
     if args.real_tensor:
         ab = real_fire_ab(
@@ -630,16 +620,21 @@ def render_verdict(
         f"REAL-FIRE VERDICT               : {ab['verdict']}",
         "   native ratio to truth        : "
         + ", ".join(
-            f"t0={w['t0']} {w['arms']['native']['ratio_to_truth']:.2f}x"
-            for w in ab["windows"]
+            f"t0={w['t0']} {w['arms']['native']['ratio_to_truth']:.2f}x" for w in ab["windows"]
         )
         + "   |  S3 mapping: "
         + ", ".join(f"{w['arms']['lobotomised']['ratio_to_truth']:.3f}x" for w in ab["windows"]),
         "NOT A G5 HEAD-TO-HEAD. No C6 metric is computed here and no other model is run.",
     ]
     ax.text(
-        0.0, 1.0, "\n".join(lines), va="top", ha="left", fontsize=8.5,
-        family="monospace", transform=ax.transAxes,
+        0.0,
+        1.0,
+        "\n".join(lines),
+        va="top",
+        ha="left",
+        fontsize=8.5,
+        family="monospace",
+        transform=ax.transAxes,
     )
     fig.suptitle(
         "S4 — ELMFIRE on NATIVE INPUTS, CONTRACT OUTPUTS (ADR-026 (3)): adapter validation",

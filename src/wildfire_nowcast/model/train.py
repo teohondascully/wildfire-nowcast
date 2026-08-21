@@ -671,9 +671,7 @@ def _elbo_terms(
         # against N(0, I) while sampling from N(mu_p(w), I) would charge the
         # posterior for the prior's own conditioning and make the activity gate
         # most expensive exactly in the hours where it is right.
-        mu_p = latent.prior_mean(
-            step_covariates(w_k) if latent.prior_net is not None else None
-        )
+        mu_p = latent.prior_mean(step_covariates(w_k) if latent.prior_net is not None else None)
         # [M6] Under AR(1) the sequence prior FACTORISES as
         # p(z_1) prod_k p(z_k | z_{k-1}), so the exact ELBO's KL for step k>1 is
         # against N(mu_p_k + rho(z_{k-1} - mu_p_{k-1}), (1 - rho^2) I) and NOT
@@ -988,9 +986,7 @@ def band_scores(
             y = batch["truth"]
             mask = batch["band"].unsqueeze(1).expand_as(b)
             p = torch.clamp(b, _PROB_EPS, 1.0 - _PROB_EPS)
-            nll_sum += float(
-                ((-(y * torch.log(p) + (1.0 - y) * torch.log1p(-p))) * mask).sum()
-            )
+            nll_sum += float(((-(y * torch.log(p) + (1.0 - y) * torch.log1p(-p))) * mask).sum())
             brier_sum += float((((b - y) ** 2) * mask).sum())
             n_cells += float(mask.sum())
             # Cells the truth burns beyond anything the kernel can reach.
@@ -1476,10 +1472,15 @@ def train_kernel(
     tail_start = int(cfg.steps * (1.0 - float(cfg.polyak_tail)))
     t_train = time.time()
     for step in range(int(cfg.steps)):
-        f = int(rng.integers(len(fires))) if cfg.fire_uniform_sampling else int(
-            rng.choice(len(fires), p=np.array([p.size for p in pools], dtype=float) / sum(
-                p.size for p in pools
-            ))
+        f = (
+            int(rng.integers(len(fires)))
+            if cfg.fire_uniform_sampling
+            else int(
+                rng.choice(
+                    len(fires),
+                    p=np.array([p.size for p in pools], dtype=float) / sum(p.size for p in pools),
+                )
+            )
         )
         pool, prob = pools[f], weights[f]
         take = min(cfg.batch_size, pool.size)
@@ -1551,15 +1552,22 @@ def train_kernel(
     final_scores = band_scores(model, fires, cfg.horizon_h, n_prior_samples=marginal_samples)
     collapse = train_ensemble_diagnostics(model, fires, cfg.horizon_h, seed=cfg.seed)
     sectors = wind_sector_report(
-        model, fires, cfg.horizon_h, n_prior_samples=marginal_samples,
-        max_windows_per_fire=48, seed=cfg.seed,
+        model,
+        fires,
+        cfg.horizon_h,
+        n_prior_samples=marginal_samples,
+        max_windows_per_fire=48,
+        seed=cfg.seed,
     )
     init_sectors = wind_sector_report(
         ContagionKernel(
             KernelConfig(radius=cfg.radius, susceptibility_mode=cfg.susceptibility_mode),
             ellipse_params=EllipseParams().scaled(cfg.ellipse_scale),
         ),
-        fires, cfg.horizon_h, max_windows_per_fire=48, seed=cfg.seed,
+        fires,
+        cfg.horizon_h,
+        max_windows_per_fire=48,
+        seed=cfg.seed,
     )
 
     scoring_after = scoring_code_fingerprint()
@@ -2497,14 +2505,11 @@ def run_matrix(
             n for n in named if not (results[n][key] is not None and 0.8 <= results[n][key] <= 1.25)
         ]
         selected = named[0]
-        note = (
-            f"PRE-DECLARED entries {list(named)}; none chosen by score. "
-            + (
-                f"SANITY CONDITION FAILED for {failing} (TRAIN {cfg0.horizon_h} h growth ratio "
-                "outside [0.8, 1.25]) — reported as failing, NOT replaced."
-                if failing
-                else "All declared entries meet the TRAIN growth-ratio sanity condition."
-            )
+        note = f"PRE-DECLARED entries {list(named)}; none chosen by score. " + (
+            f"SANITY CONDITION FAILED for {failing} (TRAIN {cfg0.horizon_h} h growth ratio "
+            "outside [0.8, 1.25]) — reported as failing, NOT replaced."
+            if failing
+            else "All declared entries meet the TRAIN growth-ratio sanity condition."
         )
         return {
             "kind": "contagion_kernel_matrix",
@@ -2517,16 +2522,12 @@ def run_matrix(
             "results": results,
         }
 
-    qualified = [
-        n for n, r in results.items() if r[key] is not None and 0.8 <= r[key] <= 1.25
-    ]
+    qualified = [n for n, r in results.items() if r[key] is not None and 0.8 <= r[key] <= 1.25]
     if qualified:
         selected = min(qualified, key=lambda n: results[n]["train_band_nll"])
         note = f"{len(qualified)} config(s) met the growth-ratio band; lowest TRAIN band NLL wins"
     else:
-        selected = min(
-            results, key=lambda n: abs(math.log(max(results[n][key] or 1e-9, 1e-9)))
-        )
+        selected = min(results, key=lambda n: abs(math.log(max(results[n][key] or 1e-9, 1e-9))))
         note = "NO config met the growth-ratio band — selected the closest ratio to 1"
     return {
         "kind": "contagion_kernel_matrix",
@@ -2554,8 +2555,7 @@ def _print_summary(payload: dict[str, Any]) -> None:
             if v["growth_ratio"] is not None
         )
         print(
-            f"{phase:<6} band_nll {s['band_nll']:.5f}  "
-            f"band_brier {s['band_brier']:.6f}  {horizons}"
+            f"{phase:<6} band_nll {s['band_nll']:.5f}  band_brier {s['band_brier']:.6f}  {horizons}"
         )
     s = d["final"]["scores"]
     print(
@@ -2681,7 +2681,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"{('--' if bearing is None else f'{bearing:.0f}'):>9}"
                 f"{r.get('barrier_multiplier', float('nan')):>10.2e}"
             )
-        for name, _, purpose in (M3_MATRIX if is_m3 else M2_MATRIX):
+        for name, _, purpose in M3_MATRIX if is_m3 else M2_MATRIX:
             print(f"    {name:<24}{purpose}")
         print(f"\nSELECTION RULE: {out['selection_rule']}")
         if out.get("declared_entries"):

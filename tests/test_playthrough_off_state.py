@@ -45,7 +45,6 @@ and one this file is built to report rather than to avoid.
 Nothing here reads a held-out fire, a tensor, or a gate metric.
 """
 
-
 from __future__ import annotations
 
 import sys
@@ -68,10 +67,10 @@ from wildfire_nowcast.model.latent import ACTIVITY_GATE, LATENT_COMPONENTS, Late
 # playthrough never requires editing another lead's file — the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
-PLAYTHROUGH_OWNER = 'infra (adopted from modelling)'
+PLAYTHROUGH_OWNER = "infra (adopted from modelling)"
 PLAYTHROUGH_NOTE = (
     "Can the kernel say 'nothing will happen this hour'? Three models with verdicts known in "
-    'advance; both halves of the verdict shown load-bearing.'
+    "advance; both halves of the verdict shown load-bearing."
 )
 
 SHAPE = (20, 20)
@@ -191,9 +190,7 @@ def run_scenario(kind: str, *, n_members: int = N_MEMBERS, seed: int = SEED) -> 
     rows = []
     for t0 in range(len(ACTIVE_HOURS) - 1):
         x0 = truth[t0]
-        samples = model.predict(
-            x0, static, weather[t0 + 1 : t0 + 2], n_members, 1, seed + t0
-        )
+        samples = model.predict(x0, static, weather[t0 + 1 : t0 + 2], n_members, 1, seed + t0)
         rows.append(window_ignition_counts(samples, truth[t0 + 1 : t0 + 2], x0))
     verdict = off_state_verdict(rows)
     verdict["model"] = kind
@@ -320,8 +317,13 @@ def test_MUTATION_a_scenario_with_no_dormant_hours_is_UNDEFINED_not_passed() -> 
     from wildfire_nowcast.eval.validity import off_state_verdict
 
     growing_only = [
-        {"mean_new_cells": 0.0, "max_new_cells": 0.0, "min_new_cells": 0.0,
-         "truth_new_cells": 5.0, "any_member_ignited": False}
+        {
+            "mean_new_cells": 0.0,
+            "max_new_cells": 0.0,
+            "min_new_cells": 0.0,
+            "truth_new_cells": 5.0,
+            "any_member_ignited": False,
+        }
     ]
     v = off_state_verdict(growing_only)
     assert not v["passed"], v
@@ -390,21 +392,24 @@ PLAYTHROUGH = PT.Playthrough(
     probes=(
         PT.Probe(
             "a_model_with_no_off_state_is_flagged",
-            lambda obs: not obs["always_on"]["passed"]
-            and obs["always_on"]["dormant_off_rate"] == 0.0,
+            lambda obs: (
+                not obs["always_on"]["passed"] and obs["always_on"]["dormant_off_rate"] == 0.0
+            ),
             note="`always_on` is the M5 candidate's latent structure; it must fail on CAPACITY.",
         ),
         PT.Probe(
             "the_planted_always_off_model_is_flagged",
-            lambda obs: not obs["always_off"]["passed"]
-            and obs["always_off"]["dormant_off_rate"] == 1.0,
+            lambda obs: (
+                not obs["always_off"]["passed"] and obs["always_off"]["dormant_off_rate"] == 1.0
+            ),
             note="THE NEGATIVE CONTROL. It scores a PERFECT dormant_off_rate, exactly as "
             "persistence does on the real corpus, and must still be rejected.",
         ),
         PT.Probe(
             "the_conditioned_architecture_passes",
-            lambda obs: bool(obs["oracle_gate"]["passed"])
-            and obs["oracle_gate"]["false_off_rate"] <= 0.2,
+            lambda obs: (
+                bool(obs["oracle_gate"]["passed"]) and obs["oracle_gate"]["false_off_rate"] <= 0.2
+            ),
             note="THE DECISIVE READING (ADR-032 (5)): the shipped architecture with the answer "
             "installed by hand. If this cannot pass, the blocker is the model class.",
         ),
@@ -417,18 +422,14 @@ PLAYTHROUGH = PT.Playthrough(
     defects=(
         PT.Defect(
             "verdict_drops_the_false_off_rate",
-            PT.data_defect(
-                lambda w: replace(w, verdict_kwargs=(("max_false_off_rate", 1.0),))
-            ),
+            PT.data_defect(lambda w: replace(w, verdict_kwargs=(("max_false_off_rate", 1.0),))),
             note="the single-line change anyone would make to simplify the metric. It disables "
             "the CONDITIONING half, and the model that ignites nothing ever immediately passes "
             "-- a metric that rewards silence, for the fourth time in this project.",
         ),
         PT.Defect(
             "verdict_drops_the_dormant_off_rate",
-            PT.data_defect(
-                lambda w: replace(w, verdict_kwargs=(("min_dormant_off_rate", 0.0),))
-            ),
+            PT.data_defect(lambda w: replace(w, verdict_kwargs=(("min_dormant_off_rate", 0.0),))),
             note="the mirror image: disabling the CAPACITY half lets `always_on` -- which has "
             "no route to zero expected ignition at all -- pass. Both rates have to be shown "
             "load-bearing, not just the one that was interesting to write about.",
@@ -480,7 +481,5 @@ def test_BOTH_rates_are_load_bearing_and_the_harness_says_which(
     """
     caught = {o.name: set(o.caught_by) for o in off_state_coverage.outcomes}
     assert "the_planted_always_off_model_is_flagged" in caught["verdict_drops_the_false_off_rate"]
-    assert (
-        "a_model_with_no_off_state_is_flagged" in caught["verdict_drops_the_dormant_off_rate"]
-    )
+    assert "a_model_with_no_off_state_is_flagged" in caught["verdict_drops_the_dormant_off_rate"]
     assert caught["member_count_quartered"] == set()

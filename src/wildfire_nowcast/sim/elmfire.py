@@ -282,14 +282,28 @@ def build(*, source_root: Path = VENDOR_ROOT) -> Path:
     ).stdout.strip()
     defines = ["-D_SMOKE", "-D_WUI", "-D_UMDSPOTTING", "-D_SUPPRESSION"]
     fflags = [
-        "-O3", "-frecord-marker=4", "-ffree-line-length-none", "-cpp",
-        "-march=native", "-ffpe-summary=none",
+        "-O3",
+        "-frecord-marker=4",
+        "-ffree-line-length-none",
+        "-cpp",
+        "-march=native",
+        "-ffpe-summary=none",
     ]
     objects = [
-        "elmfire_vars", "sort", "elmfire_init", "elmfire_namelists", "elmfire_subs",
-        "elmfire_spread_rate", "elmfire_ignition", "elmfire_io", "elmfire_spotting",
-        "elmfire_suppression", "elmfire_spotting_superseded", "elmfire_calibration",
-        "elmfire_level_set", "elmfire",
+        "elmfire_vars",
+        "sort",
+        "elmfire_init",
+        "elmfire_namelists",
+        "elmfire_subs",
+        "elmfire_spread_rate",
+        "elmfire_ignition",
+        "elmfire_io",
+        "elmfire_spotting",
+        "elmfire_suppression",
+        "elmfire_spotting_superseded",
+        "elmfire_calibration",
+        "elmfire_level_set",
+        "elmfire",
     ]
     for stem in objects:
         source = src / f"{stem}.f90"
@@ -532,7 +546,8 @@ class ElmfireNativeModel:
             raise ValueError("LOBOTOMISED mode needs the C5 `static` block")
         idx = {c: i for i, c in enumerate(STATIC_C5)}
         sub = np.asarray(static, dtype=np.float32)[
-            :, window.row0 : window.row0 + window.coarse.ny,
+            :,
+            window.row0 : window.row0 + window.coarse.ny,
             window.col0 : window.col0 + window.coarse.nx,
         ]
         asp = np.degrees(np.arctan2(sub[idx["aspect_sin"]], sub[idx["aspect_cos"]])) % 360.0
@@ -698,7 +713,8 @@ SCRATCH = 'null'
         adj = np.ones(analysis.shape, dtype=np.float32)
 
         wx_win = wx[
-            :, :,
+            :,
+            :,
             window.row0 : window.row0 + window.coarse.ny,
             window.col0 : window.col0 + window.coarse.nx,
         ]
@@ -731,9 +747,18 @@ SCRATCH = 'null'
                 data = work / "elmfire.data"
                 data.write_text(self._namelist(work, analysis, n_t, horizon_h))
                 proc = subprocess.run(
-                    ["mpirun", "-np", str(cfg.mpi_ranks), "--oversubscribe",
-                     str(self.binary), str(data)],
-                    cwd=work, capture_output=True, text=True, check=False,
+                    [
+                        "mpirun",
+                        "-np",
+                        str(cfg.mpi_ranks),
+                        "--oversubscribe",
+                        str(self.binary),
+                        str(data),
+                    ],
+                    cwd=work,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                     env={**os.environ, **cfg.env},
                 )
                 arrival = self._read_arrival(work / "outputs", analysis.shape)
@@ -746,18 +771,15 @@ SCRATCH = 'null'
                 for k in range(horizon_h):
                     reached = (arrival >= 0) & (arrival <= (k + 1) * 3600.0 + 1e-6)
                     burned_fine = reached | (x0_fine > 0)
-                    coarse = (
-                        coarsen_occupancy(burned_fine, refine)
-                        if refine > 1
-                        else burned_fine
-                    )
+                    coarse = coarsen_occupancy(burned_fine, refine) if refine > 1 else burned_fine
                     # Never lose a cell that was already burned at t0: the
                     # coarsening applies to what ELMFIRE ADDED, not to the state
                     # we handed it. Without this the rule could erase our own
                     # initial condition at a ragged perimeter.
                     coarse = coarse | (x0_win > 0)
                     out[
-                        member, k,
+                        member,
+                        k,
                         window.row0 : window.row0 + window.coarse.ny,
                         window.col0 : window.col0 + window.coarse.nx,
                     ] = coarse.astype(np.uint8)
@@ -766,9 +788,7 @@ SCRATCH = 'null'
                     {
                         "member": member,
                         "returncode": proc.returncode,
-                        "fine_new_cells": int(
-                            np.count_nonzero(reached & (x0_fine == 0))
-                        ),
+                        "fine_new_cells": int(np.count_nonzero(reached & (x0_fine == 0))),
                     }
                 )
             finally:
@@ -814,9 +834,7 @@ SCRATCH = 'null'
 
 
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
-    ap = argparse.ArgumentParser(
-        prog="python -m wildfire_nowcast.sim.elmfire", allow_abbrev=False
-    )
+    ap = argparse.ArgumentParser(prog="python -m wildfire_nowcast.sim.elmfire", allow_abbrev=False)
     ap.add_argument("--build", action="store_true", help="compile the vendored ELMFIRE")
     ap.add_argument("--tensor", default=None, help="a C1 tensor.zarr to smoke-run on")
     ap.add_argument("--mode", default="native", choices=[m.value for m in InputMode])
@@ -879,9 +897,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
         "burned_at_t0": burned0,
         "truth_new_cells": truth_new,
         "elmfire_new_cells_per_member": per_member,
-        "samples_are_absorbing": bool(
-            np.all(np.diff(samples.astype(np.int16), axis=1) >= 0)
-        ),
+        "samples_are_absorbing": bool(np.all(np.diff(samples.astype(np.int16), axis=1) >= 0)),
         "distinct_members": len({s.tobytes() for s in samples}),
         "build_notes": BUILD_NOTES,
         "run": model.last_run,

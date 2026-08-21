@@ -380,9 +380,7 @@ def verify_slice_equivalence(
             c0 = window.col0 * refine + delta
             if r0 < 0 or c0 < 0:
                 continue
-            cand = domain.layers[layer.stub][
-                r0 : r0 + window.fine.ny, c0 : c0 + window.fine.nx
-            ]
+            cand = domain.layers[layer.stub][r0 : r0 + window.fine.ny, c0 : c0 + window.fine.nx]
             if cand.shape == direct.shape:
                 shifted, how = cand, f"domain slice offset by {delta:+d} fine cells"
                 break
@@ -431,10 +429,7 @@ def window_t0s(fire_id: str, *, stride: int = STRIDE) -> list[int]:
     """
     ds = open_tensor(fire_tensor_path(fire_id))
     try:
-        return [
-            int(w.t0)
-            for w in iter_windows(ds, HORIZON_H, stride=stride, fire_id=fire_id)
-        ]
+        return [int(w.t0) for w in iter_windows(ds, HORIZON_H, stride=stride, fire_id=fire_id)]
     finally:
         ds.close()
 
@@ -530,9 +525,7 @@ def run_fire(
     if limit is not None:
         t0s = t0s[: int(limit)]
 
-    partial_path = (
-        None if out is None else Path(str(out).removesuffix(".json") + ".partial.jsonl")
-    )
+    partial_path = None if out is None else Path(str(out).removesuffix(".json") + ".partial.jsonl")
     done: dict[int, dict[str, Any]] = {}
     if partial_path is not None and partial_path.exists():
         for line in partial_path.read_text().splitlines():
@@ -547,9 +540,7 @@ def run_fire(
                 continue
             if int(row.get("n_members_run", members)) == int(members):
                 done[int(row["t0"])] = row
-    jobs = [
-        (i, t0, spatial_block_id) for i, t0 in enumerate(t0s) if t0 not in done
-    ]
+    jobs = [(i, t0, spatial_block_id) for i, t0 in enumerate(t0s) if t0 not in done]
     if progress and done:
         print(
             f"[E1] {fire_id}: resuming — {len(done)} of {len(t0s)} windows already "
@@ -562,6 +553,7 @@ def run_fire(
     rows: list[dict[str, Any]] = []
     sink = None if partial_path is None else partial_path.open("a")
     try:
+
         def _keep(row: dict[str, Any]) -> None:
             row["n_members_run"] = int(members)
             rows.append(row)
@@ -652,9 +644,7 @@ def _report(fire_id: str, done: int, total: int, started: float) -> None:
 # --------------------------------------------------------------------------
 
 
-def check_truth_pairing(
-    rows: list[dict[str, Any]], reference_rows_path: Path
-) -> dict[str, Any]:
+def check_truth_pairing(rows: list[dict[str, Any]], reference_rows_path: Path) -> dict[str, Any]:
     """Are our windows the SAME windows arm A was scored on, with the same truth?
 
     The whole comparison rests on this. ``stage_decay`` is computed per block
@@ -664,15 +654,19 @@ def check_truth_pairing(
     """
     ref = json.loads(Path(reference_rows_path).read_text())["rows"]
     ours = {(r["fire_id"], int(r["t0"])): r for r in rows}
-    theirs = {(r["fire_id"], int(r["t0"])): r for r in ref if r["fire_id"] in {
-        r2["fire_id"] for r2 in rows
-    }}
+    theirs = {
+        (r["fire_id"], int(r["t0"])): r
+        for r in ref
+        if r["fire_id"] in {r2["fire_id"] for r2 in rows}
+    }
     shared = sorted(set(ours) & set(theirs))
     disagreements = [
         {"key": list(k), "ours": ours[k]["truth_growth"], "reference": theirs[k]["truth_growth"]}
         for k in shared
         if not math.isclose(
-            float(ours[k]["truth_growth"]), float(theirs[k]["truth_growth"]), rel_tol=0.0,
+            float(ours[k]["truth_growth"]),
+            float(theirs[k]["truth_growth"]),
+            rel_tol=0.0,
             abs_tol=0.0,
         )
     ]
@@ -685,9 +679,7 @@ def check_truth_pairing(
         "n_only_in_reference": len(set(theirs) - set(ours)),
         "n_truth_disagreements": len(disagreements),
         "first_disagreements": disagreements[:5],
-        "paired": bool(
-            shared and not disagreements and len(shared) == len(ours) == len(theirs)
-        ),
+        "paired": bool(shared and not disagreements and len(shared) == len(ours) == len(theirs)),
     }
 
 
@@ -829,9 +821,7 @@ def score(
         if not sub:
             continue
         got = _stage_by_block(sub, "model_growth")
-        by_prefix[key] = {
-            str(b): (v.value if v.defined else None) for b, v in sorted(got.items())
-        }
+        by_prefix[key] = {str(b): (v.value if v.defined else None) for b, v in sorted(got.items())}
 
     scored = [b for b in blocks if per_block[str(b)]["elmfire"] is not None]
     n_pos = len(positives)
@@ -853,33 +843,26 @@ def score(
 
     if p1_held_under_every_completion:
         verdict = "E-P1_HELD_defect_belongs_to_the_model_class"
-        why = (
-            f"{n_pos} of {len(scored)} scored blocks are POSITIVE (accelerating)"
-            + (
-                ". ADR-064 (4): >=4/5 positive -> perimeter-proportional spread "
-                "models systematically fail to reproduce observed fire deceleration."
-                if complete
-                else (
-                    f", with {n_missing} block(s) not scored. The count can only "
-                    f"RISE, so the final tally is >= {n_pos}/5 under every possible "
-                    "completion and ADR-064 (4)'s >=4/5 threshold is met either way. "
-                    "The MAGNITUDE columns are still incomplete; only the sign count "
-                    "is determined."
-                )
+        why = f"{n_pos} of {len(scored)} scored blocks are POSITIVE (accelerating)" + (
+            ". ADR-064 (4): >=4/5 positive -> perimeter-proportional spread "
+            "models systematically fail to reproduce observed fire deceleration."
+            if complete
+            else (
+                f", with {n_missing} block(s) not scored. The count can only "
+                f"RISE, so the final tally is >= {n_pos}/5 under every possible "
+                "completion and ADR-064 (4)'s >=4/5 threshold is met either way. "
+                "The MAGNITUDE columns are still incomplete; only the sign count "
+                "is determined."
             )
         )
     elif p1_refuted_under_every_completion:
         verdict = "E-P1_REFUTED_the_defect_is_ours"
-        why = (
-            f"{n_neg} of {len(scored)} scored blocks are NEGATIVE (decelerating)"
-            + (
-                ". ADR-064 (4): >=4/5 negative -> E-P1 is REFUTED and the defect "
-                "is OURS specifically."
-                if complete
-                else (
-                    f", with {n_missing} block(s) not scored; the count can only "
-                    "RISE, so >=4/5 negative holds under every completion."
-                )
+        why = f"{n_neg} of {len(scored)} scored blocks are NEGATIVE (decelerating)" + (
+            ". ADR-064 (4): >=4/5 negative -> E-P1 is REFUTED and the defect is OURS specifically."
+            if complete
+            else (
+                f", with {n_missing} block(s) not scored; the count can only "
+                "RISE, so >=4/5 negative holds under every completion."
             )
         )
     elif not complete:
@@ -943,8 +926,7 @@ def score(
             else check_truth_pairing(rows, Path(reference_rows_path))
         ),
         "reference_values": {
-            k: {str(b): v for b, v in sorted(d.items())}
-            for k, d in REFERENCE_STAGE_DECAY.items()
+            k: {str(b): v for b, v in sorted(d.items())} for k, d in REFERENCE_STAGE_DECAY.items()
         },
         "verdict": verdict,
         "verdict_reason": why,
@@ -1004,8 +986,11 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     if args.prefetch:
         for f in fires:
             stack = build_domain_stack(f.fire_id)
-            print(f"{f.fire_id:<32} fine {stack.fine.shape} cached "
-                  f"{domain_stack_path(f.fire_id, stack.refine)}", flush=True)
+            print(
+                f"{f.fire_id:<32} fine {stack.fine.shape} cached "
+                f"{domain_stack_path(f.fire_id, stack.refine)}",
+                flush=True,
+            )
         return 0
     if args.verify_slice:
         for f in fires:
@@ -1030,11 +1015,22 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
         raise SystemExit("no e1_rows_*.json on disk; nothing to score")
     ref = Path(args.reference_rows)
     payload = score(paths, reference_rows_path=ref if ref.exists() else None, out=Path(args.out))
-    print(json.dumps(
-        {k: payload[k] for k in ("verdict", "verdict_reason", "blocks_scored",
-                                 "n_blocks_positive", "per_block")},
-        indent=1, default=float,
-    ))
+    print(
+        json.dumps(
+            {
+                k: payload[k]
+                for k in (
+                    "verdict",
+                    "verdict_reason",
+                    "blocks_scored",
+                    "n_blocks_positive",
+                    "per_block",
+                )
+            },
+            indent=1,
+            default=float,
+        )
+    )
     return 0
 
 

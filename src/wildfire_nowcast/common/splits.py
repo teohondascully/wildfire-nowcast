@@ -483,9 +483,7 @@ class SplitContext:
                     "'unchanged' this would assert is between two things that were never the "
                     "same. Close a run with the context that opened it."
                 )
-        now = assert_split_unchanged(
-            before, fires_root=self.fires_root, stats_path=self.stats_path
-        )
+        now = assert_split_unchanged(before, fires_root=self.fires_root, stats_path=self.stats_path)
         now[SPLIT_CONTEXT_KEY] = self.provenance()
         return now
 
@@ -526,9 +524,7 @@ def resolve_split_context(
             "file that does not exist would stamp a partition nothing was fitted on; C-1: "
             "unverifiable is a failure, not a pass."
         )
-    assert_fit_and_stamp_agree(
-        stats, context.fingerprint(), where=f"resolving {resolved_stats}"
-    )
+    assert_fit_and_stamp_agree(stats, context.fingerprint(), where=f"resolving {resolved_stats}")
     return context
 
 
@@ -697,7 +693,8 @@ def _add_c6_3_expectation_clauses(
         not undeclared,
         f"every c6_3_satisfied=false in this artifact is declared expected ({declared})"
         if not undeclared
-        else "C6.3 — c6_3_satisfied is FALSE and undeclared at: " + "; ".join(undeclared[:6])
+        else "C6.3 — c6_3_satisfied is FALSE and undeclared at: "
+        + "; ".join(undeclared[:6])
         + f". A fold holding out fewer than {MIN_HELDOUT_BLOCKS_FOR_G2} blocks legitimately "
         "reports false (ADR-062 (7): folds 0, 1 and 2 of the leave-fold-out partition do), but "
         "it must be stamped with the ruling that makes it expected — `stamp_c6_3_expected_false`"
@@ -824,9 +821,7 @@ def _member_from(label: str, node: object) -> tuple[CvMatrixMember | None, list[
         values[key] = value.strip()
     if problems:
         return None, problems
-    member = CvMatrixMember(
-        label=label, run=values["run"], fingerprint=values["split_fingerprint"]
-    )
+    member = CvMatrixMember(label=label, run=values["run"], fingerprint=values["split_fingerprint"])
     return member, []
 
 
@@ -1099,8 +1094,7 @@ def check_run_split(
         "C8",
         "stamped",
         bool(found) or bool(matrices),
-        f"split fingerprint stamped in {len(found)} location(s): "
-        f"{sorted(set(found.values()))}"
+        f"split fingerprint stamped in {len(found)} location(s): {sorted(set(found.values()))}"
         if found
         else f"a CV matrix declaring {len(member_fingerprints)} member fingerprint(s) "
         f"{member_fingerprints} (C8.1)"
@@ -1171,7 +1165,8 @@ def check_run_split(
                 "referenced run(s) agree with this artifact"
                 if not mismatched
                 else "C8 HARD FAIL — this run consumed artifacts stamped with a DIFFERENT "
-                "split: " + "; ".join(f"{k}={v}" for k, v in sorted(mismatched.items())[:6])
+                "split: "
+                + "; ".join(f"{k}={v}" for k, v in sorted(mismatched.items())[:6])
                 + f" vs this artifact's {sorted(accepted)}. A checkpoint trained under one split "
                 "and evaluated under another produces held-out numbers on trained-on fires",
                 severity=SEVERITY_FAIL,
@@ -1298,7 +1293,8 @@ def _add_cv_matrix_clauses(
         f"every declared member run is present: {present_total} of {declared_total}"
         if not count_problems
         else "C8.1 HARD FAIL — the declared member count does not match the member runs "
-        "present: " + "; ".join(count_problems[:6])
+        "present: "
+        + "; ".join(count_problems[:6])
         + ". A matrix missing a fold is a PARTIAL result that reads as a whole one, and the "
         "criterion it feeds is a count over folds (>= 11/14): a fold that silently does not "
         "exist changes the denominator without changing the report",
@@ -1311,7 +1307,8 @@ def _add_cv_matrix_clauses(
         f"all {checked} member run(s) stamp exactly the fingerprint the matrix claims for them"
         if not stamp_problems
         else "C8.1 HARD FAIL — a member run's OWN stamp differs from what this matrix claims "
-        "about it: " + "; ".join(stamp_problems[:6])
+        "about it: "
+        + "; ".join(stamp_problems[:6])
         + ". The claim is what a reader trusts and the run dir is what was actually trained, so "
         "a disagreement means the matrix is describing a split that produced none of its "
         "numbers — the ADR-015 defect with the aggregate as its subject",
@@ -1613,7 +1610,8 @@ def check_split_assignment(
         f"norm_stats.json declares {len(declared['train'])} train and "
         f"{len(declared['heldout'])} held-out fires BY ID"
         if declared["present"]
-        else "C3 VIOLATED — " + "; ".join(declared["problems"])
+        else "C3 VIOLATED — "
+        + "; ".join(declared["problems"])
         + ". A MISSING key is a FAILURE and not a skip: an absent check that reports green is "
         "the failure mode this project has hit most often (an all-NaN channel passed 56 checks; "
         "C1.5 sat unimplemented for two contract versions; the train/held-out intersection was "

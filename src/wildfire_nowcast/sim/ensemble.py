@@ -356,9 +356,7 @@ def render_ensemble(
     ax_at.imshow(
         np.where(censored, 1.0, np.nan), cmap="Greys", vmin=0, vmax=1.8, **geom.imshow_kwargs
     )
-    im = ax_at.imshow(
-        q50, cmap=ARRIVAL_CMAP, vmin=0.5, vmax=horizon_h + 0.5, **geom.imshow_kwargs
-    )
+    im = ax_at.imshow(q50, cmap=ARRIVAL_CMAP, vmin=0.5, vmax=horizon_h + 0.5, **geom.imshow_kwargs)
     _draw_barrier(ax_at, geom, fire.barrier)
     _truth_front(ax_at, geom, inp.truth[-1] > 0, lw=1.6)
     _map_axes(ax_at, geom, "median arrival (lead h); grey = censored, p(burn) < 0.5")

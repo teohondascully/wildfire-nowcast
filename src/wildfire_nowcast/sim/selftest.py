@@ -323,9 +323,7 @@ def test_c5_weather_starts_at_t0_plus_one() -> None:
         "weather[0] must be the hour that PRODUCES the first predicted state (t0+1). Taking t0 "
         "puts every fire an hour out of phase with its weather (C1.3, ADR-006)."
     )
-    assert np.array_equal(
-        inp.truth[0], np.asarray(ds["fire_state"].values, dtype=np.uint8)[t0 + 1]
-    )
+    assert np.array_equal(inp.truth[0], np.asarray(ds["fire_state"].values, dtype=np.uint8)[t0 + 1])
 
 
 def test_c5_refuses_to_run_past_the_last_hour() -> None:
@@ -419,7 +417,9 @@ def test_g3_readiness_reports_a_missing_calibration_criterion() -> None:
     assert "band_calibration_error_by_horizon" in ready["missing"]
 
     payload["pooled_heldout"]["m"]["growth_windows"]["band_calibration_error_by_horizon"] = {
-        "1": 0.04, "2": 0.05, "3": 0.06
+        "1": 0.04,
+        "2": 0.05,
+        "3": 0.06,
     }
     assert g3_readiness(payload)["adjudicable"] is True
 
@@ -442,9 +442,7 @@ def test_outward_normal_agrees_with_brute_force_nearest_burned_cell() -> None:
                 best = int(d2.min())
                 got = (ny[y, x], nx[y, x])
                 assert abs(np.hypot(*got) - 1.0) < 1e-9, got
-                ties = [
-                    (y - ys[j], x - xs[j]) for j in range(len(ys)) if int(d2[j]) == best
-                ]
+                ties = [(y - ys[j], x - xs[j]) for j in range(len(ys)) if int(d2[j]) == best]
                 assert any(
                     abs(got[0] - dy / np.hypot(dy, dx)) < 1e-9
                     and abs(got[1] - dx / np.hypot(dy, dx)) < 1e-9
@@ -475,12 +473,30 @@ def test_growth_split_is_exact_and_sums_to_the_pooled_total() -> None:
     from wildfire_nowcast.sim.growth import WindowGrowth, summarise
 
     rows = [
-        WindowGrowth("f", "m", 0, 0, truth_new=4.0, pred_new=6.0, truth_grew=True,
-                     wind_speed=3.0, truth_sector=[2.0, 1.0, 1.0],
-                     pred_sector=[3.0, 2.0, 1.0]),
-        WindowGrowth("f", "m", 1, 2, truth_new=0.0, pred_new=5.0, truth_grew=False,
-                     wind_speed=3.0, truth_sector=[0.0, 0.0, 0.0],
-                     pred_sector=[1.0, 3.0, 1.0]),
+        WindowGrowth(
+            "f",
+            "m",
+            0,
+            0,
+            truth_new=4.0,
+            pred_new=6.0,
+            truth_grew=True,
+            wind_speed=3.0,
+            truth_sector=[2.0, 1.0, 1.0],
+            pred_sector=[3.0, 2.0, 1.0],
+        ),
+        WindowGrowth(
+            "f",
+            "m",
+            1,
+            2,
+            truth_new=0.0,
+            pred_new=5.0,
+            truth_grew=False,
+            wind_speed=3.0,
+            truth_sector=[0.0, 0.0, 0.0],
+            pred_sector=[1.0, 3.0, 1.0],
+        ),
     ]
     s = summarise(rows)["m"]
     assert s["n_new_cells_predicted"] == 11.0
@@ -716,8 +732,7 @@ def test_e1_domain_slice_is_exact_and_a_one_cell_shift_is_not() -> None:
     fine = fine_grid(coarse, refine)
     rng = np.random.default_rng(0)
     layers = {
-        lay.stub: rng.integers(0, 200, size=fine.shape).astype(np.int16)
-        for lay in NATIVE_LAYERS
+        lay.stub: rng.integers(0, 200, size=fine.shape).astype(np.int16) for lay in NATIVE_LAYERS
     }
     domain = DomainStack("synthetic", coarse, fine, refine, layers, {"source": "synthetic"})
 
@@ -749,8 +764,12 @@ def test_e1_refuses_a_mismatched_refine_rather_than_misregistering() -> None:
 
     coarse = Grid(x_min=0.0, y_max=6_000.0, nx=6, ny=6, cell_size_m=1000.0, crs="EPSG:5070")
     domain = DomainStack(
-        "synthetic", coarse, fine_grid(coarse, 4), 4,
-        {"dem": np.zeros(fine_grid(coarse, 4).shape, dtype=np.int16)}, {},
+        "synthetic",
+        coarse,
+        fine_grid(coarse, 4),
+        4,
+        {"dem": np.zeros(fine_grid(coarse, 4).shape, dtype=np.int16)},
+        {},
     )
     x0 = np.zeros(coarse.shape, dtype=np.uint8)
     x0[3, 3] = 1
@@ -780,8 +799,7 @@ def test_e1_reads_the_verdict_off_the_pre_registered_rule_in_both_directions() -
             )
             got = score(_e1_write(Path(tmp), rows))
             assert got["verdict"] == expected, (
-                f"{expected} case returned {got['verdict']} "
-                f"({got['n_blocks_positive']}/5 positive)"
+                f"{expected} case returned {got['verdict']} ({got['n_blocks_positive']}/5 positive)"
             )
             assert got["complete"] is True
 
@@ -875,14 +893,24 @@ def test_e1_decides_only_what_the_missing_blocks_cannot_change() -> None:
     up = [1.0] * 6 + [4.0] * 6
     down = [4.0] * 6 + [1.0] * 6
     with tempfile.TemporaryDirectory() as tmp:
-        four_up = score(_e1_write(Path(tmp), _e1_rows({4: (down, up), 5: (down, up),
-                                                       6: (down, up), 7: (down, up)})))
+        four_up = score(
+            _e1_write(
+                Path(tmp), _e1_rows({4: (down, up), 5: (down, up), 6: (down, up), 7: (down, up)})
+            )
+        )
     with tempfile.TemporaryDirectory() as tmp:
-        three_up = score(_e1_write(Path(tmp), _e1_rows({4: (down, up), 5: (down, up),
-                                                        6: (down, up), 7: (down, down)})))
+        three_up = score(
+            _e1_write(
+                Path(tmp), _e1_rows({4: (down, up), 5: (down, up), 6: (down, up), 7: (down, down)})
+            )
+        )
     with tempfile.TemporaryDirectory() as tmp:
-        four_down = score(_e1_write(Path(tmp), _e1_rows({4: (down, down), 5: (down, down),
-                                                         6: (down, down), 7: (down, down)})))
+        four_down = score(
+            _e1_write(
+                Path(tmp),
+                _e1_rows({4: (down, down), 5: (down, down), 6: (down, down), 7: (down, down)}),
+            )
+        )
 
     assert four_up["complete"] is False
     assert four_up["verdict_determined_without_the_missing_blocks"] is True

@@ -268,9 +268,7 @@ def block_truth(
         top1_share=float(np.sort(sq)[-1] / sq.sum()) if sq.sum() > 0 else 0.0,
         top3_share=float(np.sort(sq)[-3:].sum() / sq.sum()) if sq.sum() > 0 else 0.0,
         n_merge_windows=int(sum(1 for w in growth if w.merged)),
-        mean_dominant_component_share=float(
-            np.mean([w.dominant_component_share for w in growth])
-        ),
+        mean_dominant_component_share=float(np.mean([w.dominant_component_share for w in growth])),
         max_band_growth=int(vals.max()),
     )
 
@@ -467,9 +465,7 @@ def decompose_record(
         p = pf["models"].get("persistence", {}).get("growth_windows")
         if not p:
             continue
-        rec_rms = math.hypot(
-            float(p["band_area_error_bias"]), float(p["band_area_error_scatter"])
-        )
+        rec_rms = math.hypot(float(p["band_area_error_bias"]), float(p["band_area_error_scatter"]))
         mine = truths[fire_id].truth_rms
         checks.append(
             {
@@ -483,9 +479,11 @@ def decompose_record(
             }
         )
 
-    names = list(models) if models else [
-        m for m in next(iter(per_fire.values()))["models"] if not m.endswith("__ABL")
-    ]
+    names = (
+        list(models)
+        if models
+        else [m for m in next(iter(per_fire.values()))["models"] if not m.endswith("__ABL")]
+    )
     rows: list[dict[str, Any]] = []
     for model in names:
         for fire_id, pf in per_fire.items():
@@ -615,18 +613,14 @@ def _pt_observe(world: Mapping[str, Any]) -> dict[str, Any]:
         zero_window = []
         flat_truth: list[float] = []
         for truth_row, member_row in zip(block["truth_areas"], block["member_areas"], strict=True):
-            truth = np.stack(
-                [_pt_field(order, a, shape) for a in truth_row]
-            ).astype(np.uint8)
+            truth = np.stack([_pt_field(order, a, shape) for a in truth_row]).astype(np.uint8)
             samples = np.stack(
                 [
                     np.stack([_pt_field(order, a, shape) for a in areas]).astype(np.uint8)
                     for areas in member_row
                 ]
             )
-            per_window.append(
-                evaluate(samples, truth, x0=x0, leads=tuple(_PT_LEADS))
-            )
+            per_window.append(evaluate(samples, truth, x0=x0, leads=tuple(_PT_LEADS)))
             zero_window.append(
                 evaluate(
                     np.repeat(x0[None, None], m, axis=0).repeat(len(_PT_LEADS), axis=1),
@@ -690,9 +684,7 @@ _PT_PROBES: tuple[Any, ...] = ()
 
 
 def _probe_identity(obs: Mapping[str, Any]) -> bool:
-    return all(
-        float(b["parts"]["identity_residual"]) < 1e-12 for b in obs["blocks"].values()
-    )
+    return all(float(b["parts"]["identity_residual"]) < 1e-12 for b in obs["blocks"].values())
 
 
 def _probe_truth_rms_is_the_zero_models_denominator(obs: Mapping[str, Any]) -> bool:
@@ -723,8 +715,7 @@ def _probe_member_sd_is_exact(obs: Mapping[str, Any]) -> bool:
     """``memberSD == c * sqrt(2.5) * sqrt(mean k^2)`` by construction."""
     scale = math.sqrt(sum(k * k for k in _PT_LEADS) / len(_PT_LEADS))
     return all(
-        abs(float(b["parts"]["member_sd"]) - float(b["designed_c"]) * math.sqrt(2.5) * scale)
-        < 1e-9
+        abs(float(b["parts"]["member_sd"]) - float(b["designed_c"]) * math.sqrt(2.5) * scale) < 1e-9
         for b in obs["blocks"].values()
     )
 

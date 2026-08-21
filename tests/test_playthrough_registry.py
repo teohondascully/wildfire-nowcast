@@ -93,6 +93,7 @@ def _sibling(name: str) -> ModuleType:
         sys.path.insert(0, str(TESTS_DIR))
     return importlib.import_module(name)
 
+
 # --------------------------------------------------------------------------
 # discovery
 # --------------------------------------------------------------------------
@@ -133,8 +134,7 @@ def discover_playthroughs() -> set[str]:
     """Every playthrough-shaped module in the repo, as a repo-relative path."""
     root = repo_root()
     found = {
-        str(p.relative_to(root))
-        for p in sorted((root / "tests").glob("test_playthrough_*.py"))
+        str(p.relative_to(root)) for p in sorted((root / "tests").glob("test_playthrough_*.py"))
     }
     found |= {
         str(p.relative_to(root))
@@ -427,10 +427,10 @@ def _register(rel_path: str) -> Registered:
         "ADR-030 makes a playthrough a load-bearing artifact, so it needs an owner, a reason, "
         "and a way to obtain its mutation-coverage report. **Add these to YOUR OWN FILE** — "
         "nothing in tests/ has to change, which is the entire point of the A14 mechanism fix:\n"
-        f"    {OWNER_ATTR} = \"<your lead name + task>\"\n"
-        f"    {NOTE_ATTR} = \"<what known answer it recovers and what defect it plants, "
+        f'    {OWNER_ATTR} = "<your lead name + task>"\n'
+        f'    {NOTE_ATTR} = "<what known answer it recovers and what defect it plants, '
         '40+ chars>"\n'
-        f"    {SLOW_ATTR} = \"<only if slow: the reason, in SECONDS>\"\n"
+        f'    {SLOW_ATTR} = "<only if slow: the reason, in SECONDS>"\n'
         f"...and expose ONE of {ENTRY_POINTS}. "
         f"Currently declared: {declared}."
     )
@@ -517,8 +517,7 @@ def test_PLANTED_an_UNDECLARED_playthrough_is_a_RED_BUILD_not_a_skip(tmp_path) -
     """
     orphan = tmp_path / "test_playthrough_orphan.py"
     orphan.write_text(
-        '"""A playthrough that declares nothing."""\n\n\n'
-        'def run_playthrough():\n    return {}\n'
+        '"""A playthrough that declares nothing."""\n\n\ndef run_playthrough():\n    return {}\n'
     )
     rel = str(orphan.relative_to(tmp_path))
 
@@ -610,9 +609,7 @@ def test_the_metadata_parser_never_imports_the_module() -> None:
 
 
 def test_every_registry_entry_states_an_owner_and_a_reason() -> None:
-    missing = [
-        n for n, e in PLAYTHROUGHS.items() if (e.report is None) == (e.obj is None)
-    ]
+    missing = [n for n, e in PLAYTHROUGHS.items() if (e.report is None) == (e.obj is None)]
     assert not missing, (
         f"{missing} supply neither a Playthrough object nor a report adapter (or both). "
         "Exactly one is required, so there is one way to obtain a coverage report."
@@ -658,9 +655,7 @@ def test_MUTATION_COVERAGE_is_total(name: str, playthrough_report) -> None:
             f"{name} cannot run in this environment ({reason}). DECLARED, not silent: see "
             "test_unavailable_playthroughs_are_declared_not_forgotten"
         )
-    report = (
-        playthrough_report(entry.obj()) if entry.obj is not None else entry.report()
-    )
+    report = playthrough_report(entry.obj()) if entry.obj is not None else entry.report()
     print(PT.format_report(report))
     report.assert_ok()
     assert report.mutation_coverage == 1.0, report.as_dict()
@@ -682,5 +677,7 @@ def test_unavailable_playthroughs_are_declared_not_forgotten() -> None:
         f"every registered playthrough is unavailable: {blocked}. A coverage audit in which "
         "nothing runs is the green-but-vacuous failure with the auditor as its subject"
     )
-    print(f"[registry] {len(PLAYTHROUGHS) - len(blocked)}/{len(PLAYTHROUGHS)} runnable here; "
-          f"declared unavailable: {blocked or 'none'}")
+    print(
+        f"[registry] {len(PLAYTHROUGHS) - len(blocked)}/{len(PLAYTHROUGHS)} runnable here; "
+        f"declared unavailable: {blocked or 'none'}"
+    )

@@ -172,9 +172,7 @@ def draw_perturbation(sev: Severity, rng: np.random.Generator) -> LabelPerturbat
     """One realisation. RNG consumption order matches the shipped sampler exactly."""
     if sev.is_identity:
         return LabelPerturbation()
-    magnitude = (
-        abs(rng.normal(0.0, sev.shift_sigma_cells)) if sev.shift_sigma_cells else 0.0
-    )
+    magnitude = abs(rng.normal(0.0, sev.shift_sigma_cells)) if sev.shift_sigma_cells else 0.0
     magnitude = min(magnitude, float(sev.max_shift_cells))
     angle = rng.uniform(0.0, 2.0 * math.pi)
     # Row index increases SOUTHWARD (C1.4 north-up), matching labelnoise.

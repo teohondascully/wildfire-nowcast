@@ -113,8 +113,7 @@ HEADLINE_CHANNELS: tuple[Channel, ...] = (
         "arrival_crps",
         True,
         False,
-        "Arrival-time CRPS. G2's supporting leg, and the channel ADR-049 (6) "
-        "left open.",
+        "Arrival-time CRPS. G2's supporting leg, and the channel ADR-049 (6) left open.",
     ),
     Channel(
         "calibration_error_3h",
@@ -170,9 +169,7 @@ def _get(row: Mapping[str, Any] | None, key: str) -> Any:
     return (row.get(base) or {}).get(index)
 
 
-def block_values(
-    per_fire: Mapping[str, Any], model: str, key: str, stratum: str
-) -> dict[str, Any]:
+def block_values(per_fire: Mapping[str, Any], model: str, key: str, stratum: str) -> dict[str, Any]:
     """Equal-block pooling of one headline key. STRICT first (C6.3).
 
     ``allow_missing_blocks=False`` is tried first because a block that
@@ -242,8 +239,9 @@ def channel_separation(
                 c, r = abs(c), abs(r)
                 lower_is_better = True
         pairs.append(
-            BlockPair(block_id=int(block), candidate=float(c), reference=float(r),
-                      label=f"block {block}")
+            BlockPair(
+                block_id=int(block), candidate=float(c), reference=float(r), label=f"block {block}"
+            )
         )
     return separation(pairs, lower_is_better=lower_is_better)
 

@@ -572,8 +572,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
     "C6": ClauseImpl(
         CLAUSE_EXTERNAL,
         where=("wildfire_nowcast.eval.metrics.evaluate",),
-        note="modelling owns it; the seven required keys are asserted by the adopted "
-        "self-tests.",
+        note="modelling owns it; the seven required keys are asserted by the adopted self-tests.",
     ),
     "C6.0": ClauseImpl(
         CLAUSE_ENFORCED,
@@ -1786,9 +1785,7 @@ def _check_fire_state_values(
         "C1",
         "fire_state_no_skip",
         not skips,
-        "no cell jumps 0 -> 2 without a burning hour (C1.1 guarantee)"
-        if not skips
-        else skips[0],
+        "no cell jumps 0 -> 2 without a burning hour (C1.1 guarantee)" if not skips else skips[0],
     )
 
 

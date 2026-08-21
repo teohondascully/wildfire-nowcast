@@ -396,8 +396,7 @@ def calibration_separation(
         ref = float(floor)
         if reference == "envelope":
             arms = [
-                _horizon_value(fire, arm, _ERROR_KEY, horizon, stratum)
-                for arm in degenerate_arms
+                _horizon_value(fire, arm, _ERROR_KEY, horizon, stratum) for arm in degenerate_arms
             ]
             scored = [float(v) for v in arms if _finite(v)]
             if scored:

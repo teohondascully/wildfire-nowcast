@@ -91,9 +91,7 @@ class ZeroedCovariateModel:
     ) -> np.ndarray:
         """C5 ``predict``, with the named channels zeroed. Seed-exact, like the wrapped model."""
         validate_predict_inputs(x0, static, weather, n_members, horizon_h, seed)
-        return self.model.predict(
-            x0, static, self._blank(weather), n_members, horizon_h, seed
-        )
+        return self.model.predict(x0, static, self._blank(weather), n_members, horizon_h, seed)
 
     def predict_proba(
         self, x0: np.ndarray, static: np.ndarray, weather: np.ndarray, horizon_h: int, **kwargs: Any

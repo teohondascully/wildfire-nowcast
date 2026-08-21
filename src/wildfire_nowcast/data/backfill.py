@@ -158,9 +158,7 @@ def backfill_manifest(
     # spatial_block_id are in here, and C8 makes a moved split a hard fail.
     after = {k: v for k, v in patched.items() if k not in _ADDED_ROOT_KEYS}
     moved = [
-        k
-        for k in set(before) | set(after)
-        if k != "provenance" and before.get(k) != after.get(k)
+        k for k in set(before) | set(after) if k != "provenance" and before.get(k) != after.get(k)
     ]
     prov_moved = [
         k

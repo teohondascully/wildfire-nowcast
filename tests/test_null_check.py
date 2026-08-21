@@ -188,22 +188,34 @@ def test_a_gate_eligible_metric_that_pays_for_nothing_is_a_HARD_failure() -> Non
     neither can drift into the other.
     """
     paying = N.MetricVerdict(
-        metric="m", mask="growth_band", verdict=N.VERDICT_OK, scores={},
-        gate_eligible=True, capture_verdict=N.VERDICT_PAYS_FOR_NOTHING,
+        metric="m",
+        mask="growth_band",
+        verdict=N.VERDICT_OK,
+        scores={},
+        gate_eligible=True,
+        capture_verdict=N.VERDICT_PAYS_FOR_NOTHING,
     )
     assert paying.is_failure and paying.is_flagged
 
     favouring = N.MetricVerdict(
-        metric="m", mask="growth_band", verdict=N.VERDICT_SILENCE_FAVOURING, scores={},
-        gate_eligible=True, capture_verdict=N.VERDICT_OK,
+        metric="m",
+        mask="growth_band",
+        verdict=N.VERDICT_SILENCE_FAVOURING,
+        scores={},
+        gate_eligible=True,
+        capture_verdict=N.VERDICT_OK,
     )
     assert not favouring.is_failure
     assert favouring.is_reporting_gap and favouring.is_flagged
 
     # A quarantined metric is expected to fail and must never break the build.
     assert not N.MetricVerdict(
-        metric="m", mask="growth_band", verdict=N.VERDICT_BROKEN, scores={},
-        gate_eligible=False, capture_verdict=N.VERDICT_PAYS_FOR_NOTHING,
+        metric="m",
+        mask="growth_band",
+        verdict=N.VERDICT_BROKEN,
+        scores={},
+        gate_eligible=False,
+        capture_verdict=N.VERDICT_PAYS_FOR_NOTHING,
     ).is_failure
 
 

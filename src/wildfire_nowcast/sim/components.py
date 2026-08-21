@@ -81,7 +81,12 @@ SEPARATE_IGNITION_KM: float = 10.0
 #: fire-state palette: these are different FIRES, not different states, and
 #: reusing the palette would invite reading component 2 as "more burned".
 COMPONENT_COLORS: tuple[str, ...] = (
-    "#b45309", "#1d4ed8", "#15803d", "#a21caf", "#0e7490", "#b91c1c",
+    "#b45309",
+    "#1d4ed8",
+    "#15803d",
+    "#a21caf",
+    "#0e7490",
+    "#b91c1c",
 )
 
 
@@ -207,8 +212,9 @@ def ignition_components(fire: FireFrames) -> dict[str, Any]:
         sep = min(comp.km_to_nearest_burning, comp.mutual_km_at_ignition)
         if comp.index == 1:
             comp.classification = "primary"
-        elif sep <= FRAGMENT_KM or (comp.hours_until_merge is not None
-                                    and comp.hours_until_merge <= 12):
+        elif sep <= FRAGMENT_KM or (
+            comp.hours_until_merge is not None and comp.hours_until_merge <= 12
+        ):
             comp.classification = "first_frame_fragment"
         elif sep >= SEPARATE_IGNITION_KM:
             comp.classification = "separate_ignition"
@@ -299,8 +305,18 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
     n = result["n_ignition_components"]
 
     fig = plt.figure(figsize=(15.4, 7.6))
-    gs = fig.add_gridspec(2, 3, width_ratios=[1.25, 1.0, 1.0], height_ratios=[1.0, 0.42],
-                          hspace=0.30, wspace=0.22, left=0.05, right=0.98, top=0.83, bottom=0.09)
+    gs = fig.add_gridspec(
+        2,
+        3,
+        width_ratios=[1.25, 1.0, 1.0],
+        height_ratios=[1.0, 0.42],
+        hspace=0.30,
+        wspace=0.22,
+        left=0.05,
+        right=0.98,
+        top=0.83,
+        bottom=0.09,
+    )
 
     # -- (1) final footprint, coloured by ignition component --------------
     ax = fig.add_subplot(gs[:, 0])
@@ -332,8 +348,13 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
         ax.annotate(
             f"ignition {c['index']}  h{c['ignition_hour']}  {c['final_area_km2']:.0f} km²\n"
             f"{_SHORT.get(c.get('classification', ''), '')}",
-            (x, y), textcoords="offset points", xytext=(11, dy), fontsize=8, color=col,
-            fontweight="bold", zorder=7,
+            (x, y),
+            textcoords="offset points",
+            xytext=(11, dy),
+            fontsize=8,
+            color=col,
+            fontweight="bold",
+            zorder=7,
         )
 
     # Annotate the component with the LARGEST finite separation, not comps[1].
@@ -346,7 +367,9 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
         src = comps[0]["seed_centroid_xy_m"]
         b = far["seed_centroid_xy_m"]
         ax.annotate(
-            "", xy=b, xytext=src,
+            "",
+            xy=b,
+            xytext=src,
             arrowprops={"arrowstyle": "<->", "color": COL_WARN, "lw": 1.6, "ls": "--"},
         )
         verdict = (
@@ -355,12 +378,21 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
             else "too far for 1 h of contagion — SPOT CANDIDATE, keep it"
         )
         ax.text(
-            (src[0] + b[0]) / 2, (src[1] + b[1]) / 2,
+            (src[0] + b[0]) / 2,
+            (src[1] + b[1]) / 2,
             f"  {far['km_to_nearest_burning']:.1f} km to the nearest burning cell\n"
             f"  at hour {far['ignition_hour']} — {verdict}",
-            color=COL_WARN, fontsize=9, fontweight="bold", va="center",
-            bbox={"facecolor": "white", "alpha": 0.82, "edgecolor": COL_WARN, "lw": 0.8,
-                  "boxstyle": "round,pad=0.3"},
+            color=COL_WARN,
+            fontsize=9,
+            fontweight="bold",
+            va="center",
+            bbox={
+                "facecolor": "white",
+                "alpha": 0.82,
+                "edgecolor": COL_WARN,
+                "lw": 0.8,
+                "boxstyle": "round,pad=0.3",
+            },
         )
     ax.set_xticks([])
     ax.set_yticks([])
@@ -427,8 +459,13 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
         ax.axvline(c["ignition_hour"], color=col, lw=1.2, ls="--")
     if result["merged_hour"] is not None:
         ax.axvline(result["merged_hour"], color=COL_WARN, lw=1.2)
-        ax.text(result["merged_hour"], max(counts) * 0.92, " components merge",
-                fontsize=7, color=COL_WARN)
+        ax.text(
+            result["merged_hour"],
+            max(counts) * 0.92,
+            " components merge",
+            fontsize=7,
+            color=COL_WARN,
+        )
     ax.set_xlabel("hour")
     ax.set_ylabel("connected\ncomponents")
     ax.set_ylim(0, max(counts) + 0.6)
@@ -440,8 +477,11 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
         "trains on GOFER's filing convention and G4 becomes meaningless",
         fontsize=11,
     )
-    stamp(fig, "C1 tensor only, channels by name; component = connected region of ever-burned "
-               "with no cell in the previous hour")
+    stamp(
+        fig,
+        "C1 tensor only, channels by name; component = connected region of ever-burned "
+        "with no cell in the previous hour",
+    )
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=140)
@@ -459,10 +499,16 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m wildfire_nowcast.sim.components", allow_abbrev=False
     )
     ap.add_argument("--tensor", action="append", required=True)
-    ap.add_argument("--outdir", default="reports/figures",
-                    help="directory for the figures + ignition_components.json")
-    ap.add_argument("--manifest-check", action="store_true",
-                    help="compare the detected count with C2 n_ignition_components")
+    ap.add_argument(
+        "--outdir",
+        default="reports/figures",
+        help="directory for the figures + ignition_components.json",
+    )
+    ap.add_argument(
+        "--manifest-check",
+        action="store_true",
+        help="compare the detected count with C2 n_ignition_components",
+    )
     args = ap.parse_args(argv)
 
     outdir = Path(args.outdir)
@@ -477,8 +523,9 @@ def main(argv: list[str] | None = None) -> int:
         manifest = Path(tensor).parent / "manifest.json"
         if manifest.is_file():
             m = json.loads(manifest.read_text())
-            declared = m.get("n_ignition_components", (m.get("provenance") or {}).get(
-                "n_ignition_components"))
+            declared = m.get(
+                "n_ignition_components", (m.get("provenance") or {}).get("n_ignition_components")
+            )
         entry = {k: v for k, v in result.items() if k != "assignment"}
         entry["c2_declared_n_ignition_components"] = declared
         entry["figure"] = str(fig)
@@ -487,8 +534,10 @@ def main(argv: list[str] | None = None) -> int:
             f"#{c['index']}@h{c['ignition_hour']} {c['km_to_nearest_burning']:.1f} km"
             for c in result["components"]
         )
-        print(f"[components] {fire.fire_id}: detected {result['n_ignition_components']} "
-              f"(C2 declares {declared})  [{gaps}]  -> {fig}")
+        print(
+            f"[components] {fire.fire_id}: detected {result['n_ignition_components']} "
+            f"(C2 declares {declared})  [{gaps}]  -> {fig}"
+        )
         if args.manifest_check and declared != result["n_ignition_components"]:
             print(
                 f"[components] CONTRACT: {fire.fire_id} manifest declares "

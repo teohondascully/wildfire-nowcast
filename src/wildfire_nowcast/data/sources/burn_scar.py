@@ -117,7 +117,9 @@ def mtbs_scar_image(
         scars = scars.filter(ee.Filter.stringContains("Incid_Name", token).Not())
     crs_transform = [CELL_SIZE_M, 0, grid.x_min, 0, -CELL_SIZE_M, grid.y_max]
     return (
-        ee.Image(0).byte().paint(scars, 1)
+        ee.Image(0)
+        .byte()
+        .paint(scars, 1)
         .reproject(crs=grid.crs, crsTransform=crs_transform)
         .rename("recent_burn_scar")
         .unmask(0)
@@ -305,9 +307,7 @@ def _nbr(collection: Any, region: Any, start: str, end: str) -> Any:
 
     def _mask(img: Any) -> Any:
         scl = img.select("SCL")
-        clear = (
-            scl.neq(3).And(scl.neq(8)).And(scl.neq(9)).And(scl.neq(10)).And(scl.neq(11))
-        )
+        clear = scl.neq(3).And(scl.neq(8)).And(scl.neq(9)).And(scl.neq(10)).And(scl.neq(11))
         return img.updateMask(clear)
 
     coll = (

@@ -133,7 +133,17 @@ RASTERISATION_HOLE_KM = SEED_MERGE_KM
 RIDGE_RELIEF_M = 100.0
 
 SENSITIVITY_MIN_GAP_KM: tuple[float, ...] = (
-    2.0, 2.25, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0, 10.0, 15.0,
+    2.0,
+    2.25,
+    2.5,
+    3.0,
+    3.5,
+    4.0,
+    5.0,
+    6.0,
+    8.0,
+    10.0,
+    15.0,
 )
 SENSITIVITY_MIN_CELLS: tuple[int, ...] = (1, 2, 3, 4, 5)
 
@@ -251,9 +261,7 @@ def barrier_evidence(
     line = supercover_line(*anchor, *landing)
     h, w = barrier.shape
     interior = [
-        (r, c)
-        for (r, c) in line
-        if (r, c) not in (anchor, landing) and 0 <= r < h and 0 <= c < w
+        (r, c) for (r, c) in line if (r, c) not in (anchor, landing) and 0 <= r < h and 0 <= c < w
     ]
     if not interior:  # adjacent-by-construction cannot happen for a detached body
         interior = [(r, c) for (r, c) in line if 0 <= r < h and 0 <= c < w]
@@ -275,9 +283,7 @@ def barrier_evidence(
     prof_rows = np.array([r for r, _ in on_grid], dtype=int)
     prof_cols = np.array([c for _, c in on_grid], dtype=int)
     endpoints = max(float(elevation[anchor]), float(elevation[landing]))
-    relief = (
-        float(elevation[prof_rows, prof_cols].max() - endpoints) if len(on_grid) else 0.0
-    )
+    relief = float(elevation[prof_rows, prof_cols].max() - endpoints) if len(on_grid) else 0.0
 
     n_barrier = int(bar.astype(bool).sum())
     if n_barrier > 0:
@@ -363,9 +369,7 @@ def detect_detached_bodies(fire_state: np.ndarray, *, cell_size_m: float) -> lis
                             merges_later=bool(int(final_labels[ys[0], xs[0]]) in parent_final),
                             landing=landing,
                             anchor=anchor,
-                            cells=tuple(
-                                (int(a), int(b)) for a, b in zip(ys, xs, strict=True)
-                            ),
+                            cells=tuple((int(a), int(b)) for a, b in zip(ys, xs, strict=True)),
                             n_prior_burned_cells=int(len(py)),
                             prior_centroid=(float(py.mean()), float(px.mean())),
                         )
@@ -462,9 +466,7 @@ def _wind_at(
     u = float(ds["features"].sel(channel=WIND_U_CHANNEL).values[hour, anchor[0], anchor[1]])
     v = float(ds["features"].sel(channel=WIND_V_CHANNEL).values[hour, anchor[0], anchor[1]])
     cos_anchor = _cosine(u, v, landing[0] - anchor[0], landing[1] - anchor[1])
-    cos_centroid = _cosine(
-        u, v, landing[0] - prior_centroid[0], landing[1] - prior_centroid[1]
-    )
+    cos_centroid = _cosine(u, v, landing[0] - prior_centroid[0], landing[1] - prior_centroid[1])
     return {
         "wind_u10_ms": round(u, 2),
         "wind_v10_ms": round(v, 2),
@@ -538,19 +540,19 @@ def _fire_events(
                     "landing_xy_5070": [round(east_land, 1), round(north_land, 1)],
                     "anchor_xy_5070": [round(east_anch, 1), round(north_anch, 1)],
                     "centroid_rowcol": [
-                        round(float(np.mean(rows)), 2), round(float(np.mean(cols)), 2)
+                        round(float(np.mean(rows)), 2),
+                        round(float(np.mean(cols)), 2),
                     ],
                     "bbox_rowcol": [min(rows), min(cols), max(rows), max(cols)],
                     "cells_rowcol": [list(c) for c in body.cells],
                     "n_prior_burned_cells": body.n_prior_burned_cells,
                     "replay_window_hours": [
-                        max(0, body.hour - 3), min(int(state.shape[0]) - 1, body.hour + 3)
+                        max(0, body.hour - 3),
+                        min(int(state.shape[0]) - 1, body.hour + 3),
                     ],
                     "tensor": f"data/fires/{fire_id}/tensor.zarr",
                 },
-                wind=_wind_at(
-                    ds, body.hour, body.anchor, body.landing, body.prior_centroid
-                ),
+                wind=_wind_at(ds, body.hour, body.anchor, body.landing, body.prior_centroid),
             )
         )
 
@@ -601,12 +603,15 @@ def positive_control() -> dict[str, Any]:
     everything could not pass either.
     """
     planted = detect_detached_bodies(_planted_fire(5, 3), cell_size_m=1000.0)
-    hits = [b for b in planted if classify_body(
-        b, min_gap_km=MIN_GAP_KM, min_cells=MIN_EVENT_CELLS) == "crossing"]
+    hits = [
+        b
+        for b in planted
+        if classify_body(b, min_gap_km=MIN_GAP_KM, min_cells=MIN_EVENT_CELLS) == "crossing"
+    ]
 
     contiguous = np.zeros((6, 9, 9), dtype=np.uint8)
     for t in range(6):
-        contiguous[t, 4, 2: 3 + t] = 1
+        contiguous[t, 4, 2 : 3 + t] = 1
     negative = detect_detached_bodies(contiguous, cell_size_m=1000.0)
 
     barrier = np.zeros((9, 20), dtype=np.float32)
@@ -654,7 +659,8 @@ def _sensitivity(
 
     def _hits(gap: float, cells: int) -> list[tuple[str, DetachedBody]]:
         return [
-            (f, b) for f, b in flat
+            (f, b)
+            for f, b in flat
             if classify_body(b, min_gap_km=gap, min_cells=cells) == "crossing"
         ]
 
@@ -735,6 +741,7 @@ def _evidence_quality(rows: list[dict[str, Any]]) -> dict[str, Any]:
     anything and none is proposed as one: they are reported so that whoever sets
     a bar can see the composition of the evidence first (ADR-040 (1)).
     """
+
     def _n(pred: Any) -> list[str]:
         return sorted(r["event_id"] for r in rows if pred(r))
 
@@ -745,23 +752,27 @@ def _evidence_quality(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "n_events": len(rows),
         "from_a_fire_smaller_than_10_cells": {
-            "n": len(barely), "event_ids": barely,
+            "n": len(barely),
+            "event_ids": barely,
             "why": "a jump from a barely-established fire is as consistent with a "
-                   "co-ignition the genealogy rule kept (because it merged) as it "
-                   "is with spotting",
+            "co-ignition the genealogy rule kept (because it merged) as it "
+            "is with spotting",
         },
         "in_a_multi_ignition_fire": {
-            "n": len(multi), "event_ids": multi,
+            "n": len(multi),
+            "event_ids": multi,
             "why": "C2 n_ignition_components > 1: GOFER files separate ignitions "
-                   "under one fire id (ADR-019)",
+            "under one fire id (ADR-019)",
         },
         "at_wind_below_3_ms": {
-            "n": len(calm), "event_ids": calm,
+            "n": len(calm),
+            "event_ids": calm,
             "why": "long-range ember transport at low 10 m wind is physically "
-                   "demanding; reported, not excluded",
+            "demanding; reported, not excluded",
         },
         "single_cell_bodies": {
-            "n": len(tiny), "event_ids": tiny,
+            "n": len(tiny),
+            "event_ids": tiny,
             "why": "1 km2 is below the label product's ~2 km resolution element",
         },
         "caveats": [
@@ -789,9 +800,7 @@ def build_index(
     bodies_by_fire: dict[str, list[DetachedBody]] = {}
     block_of: dict[str, int] = {}
     for man in manifests:
-        evs, qa, bodies = _fire_events(
-            man, min_gap_km=min_gap_km, min_cells=min_cells, split=split
-        )
+        evs, qa, bodies = _fire_events(man, min_gap_km=min_gap_km, min_cells=min_cells, split=split)
         events.extend(evs)
         fires.append(qa)
         bodies_by_fire[qa["fire_id"]] = bodies
@@ -910,15 +919,11 @@ def build_index(
         "events_per_fold": {str(k): per_fold[k] for k in sorted(per_fold)},
         "events_per_fire": dict(sorted(per_fire.items())),
         "events_per_barrier_kind": dict(sorted(per_barrier.items())),
-        "events_per_label_source": dict(
-            sorted(Counter(r["label_source"] for r in rows).items())
-        ),
+        "events_per_label_source": dict(sorted(Counter(r["label_source"] for r in rows).items())),
         "concentration": {
             "most_concentrated_fire": top_fire,
             "most_concentrated_fire_n": top_n,
-            "most_concentrated_fire_share": (
-                round(top_n / len(rows), 3) if rows else None
-            ),
+            "most_concentrated_fire_share": (round(top_n / len(rows), 3) if rows else None),
             "largest_block_n": max(per_block.values()) if per_block else 0,
             "largest_block_share": (
                 round(max(per_block.values()) / len(rows), 3) if rows else None
@@ -934,8 +939,7 @@ def build_index(
         "evidence_quality": _evidence_quality(rows),
         "heldout": {
             "heldout_fold": [
-                f for f in sorted(per_fold)
-                if f not in set(split.get("train_folds", []))
+                f for f in sorted(per_fold) if f not in set(split.get("train_folds", []))
             ],
             "n_events": len(heldout),
             "blocks": sorted({r["spatial_block_id"] for r in heldout}),

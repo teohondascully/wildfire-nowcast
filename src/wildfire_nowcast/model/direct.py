@@ -410,7 +410,7 @@ def check_direct_head_properties(seed: int = 11, horizon_h: int = 3) -> dict[str
         }
 
     # 4 — the near shell keeps accumulating
-    near = (distance == 1)
+    near = distance == 1
     near_lead1 = float(b[..., 0, :, :].detach().numpy()[near].mean())
     near_leadH = float(b[..., horizon_h - 1, :, :].detach().numpy()[near].mean())
 
@@ -428,40 +428,55 @@ def check_direct_head_properties(seed: int = 11, horizon_h: int = 3) -> dict[str
     }
     failures = []
     if directness_delta != 0.0:
-        failures.append(f"DIRECTNESS: hazard moved by {directness_delta:.3g} when the "
-                        "accumulated state was replaced by noise — this arm is not direct")
+        failures.append(
+            f"DIRECTNESS: hazard moved by {directness_delta:.3g} when the "
+            "accumulated state was replaced by noise — this arm is not direct"
+        )
     if worst_telescope > 1e-12:
-        failures.append(f"TELESCOPING: increments do not compose to the one-shot marginal "
-                        f"(max |delta| {worst_telescope:.3g})")
+        failures.append(
+            f"TELESCOPING: increments do not compose to the one-shot marginal "
+            f"(max |delta| {worst_telescope:.3g})"
+        )
     if monotone_violations:
-        failures.append(f"MONOTONICITY: {monotone_violations} cell-leads go BACKWARD; fire is "
-                        "absorbing and a non-monotone marginal is not a forecast")
+        failures.append(
+            f"MONOTONICITY: {monotone_violations} cell-leads go BACKWARD; fire is "
+            "absorbing and a non-monotone marginal is not a forecast"
+        )
     if negative_fraction != 0.0:
-        failures.append(f"the hazard increment was NEGATIVE on {negative_fraction:.3%} of "
-                        "cell-leads, so the clamp is binding and is hiding a real defect")
+        failures.append(
+            f"the hazard increment was NEGATIVE on {negative_fraction:.3%} of "
+            "cell-leads, so the clamp is binding and is hiding a real defect"
+        )
     for h, row in reach.items():
         if not row["within_budget"]:
-            failures.append(f"lead {h} reached {row['max_lit_chebyshev_cells']} cells against a "
-                            f"budget of {row['budget_cells']} — B is out-reaching arm A")
+            failures.append(
+                f"lead {h} reached {row['max_lit_chebyshev_cells']} cells against a "
+                f"budget of {row['budget_cells']} — B is out-reaching arm A"
+            )
         if not row["exceeds_previous_budget"]:
-            failures.append(f"lead {h} reached only {row['max_lit_chebyshev_cells']} cells, not "
-                            f"past {3 * (int(h) - 1)}: the reach check cannot fail as written")
+            failures.append(
+                f"lead {h} reached only {row['max_lit_chebyshev_cells']} cells, not "
+                f"past {3 * (int(h) - 1)}: the reach check cannot fail as written"
+            )
     if near_leadH <= near_lead1:
-        failures.append("the NEAR SHELL does not accumulate: a cell adjacent to the fire is no "
-                        "likelier at lead H than at lead 1, which is the crippled dilation-only "
-                        "stencil ADR-045's capacity constraint was NOT supposed to force on us")
+        failures.append(
+            "the NEAR SHELL does not accumulate: a cell adjacent to the fire is no "
+            "likelier at lead H than at lead 1, which is the crippled dilation-only "
+            "stencil ADR-045's capacity constraint was NOT supposed to force on us"
+        )
     if failures:
-        raise AssertionError("DirectHorizonKernel property check FAILED:\n  - " +
-                             "\n  - ".join(failures) + f"\nmeasured: {out}")
+        raise AssertionError(
+            "DirectHorizonKernel property check FAILED:\n  - "
+            + "\n  - ".join(failures)
+            + f"\nmeasured: {out}"
+        )
     return out
 
 
 def parameter_counts(model: ContagionKernel) -> dict[str, Any]:
     """Every parameter tensor, its size, and the totals. Model-agnostic."""
     per_tensor = {name: int(p.numel()) for name, p in model.named_parameters()}
-    trainable = {
-        name: int(p.numel()) for name, p in model.named_parameters() if p.requires_grad
-    }
+    trainable = {name: int(p.numel()) for name, p in model.named_parameters() if p.requires_grad}
     kernel_part = {k: v for k, v in per_tensor.items() if not k.startswith("latent.")}
     latent_part = {k: v for k, v in per_tensor.items() if k.startswith("latent.")}
     return {
@@ -499,9 +514,7 @@ def compare_parameter_counts(
         "challenger": b,
         "ratio_challenger_over_incumbent": ratio,
         "tolerance": tolerance,
-        "within_tolerance": (
-            ratio is not None and abs(ratio - 1.0) <= tolerance
-        ),
+        "within_tolerance": (ratio is not None and abs(ratio - 1.0) <= tolerance),
         "tensors_only_in_challenger": extra,
         "tensors_only_in_incumbent": missing,
         "n_offset_weights": {

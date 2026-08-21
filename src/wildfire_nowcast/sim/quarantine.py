@@ -271,9 +271,9 @@ def badge(status: MetricStatus, *, max_chars: int = 460) -> str:
         return f"REPORTED, not a gate criterion — {status.evidence}"[:max_chars]
     src = "MEASURED" if status.evidence else "registry"
     body = status.evidence or status.note
-    return (
-        f"QUARANTINED by {status.quarantined_by} — must not adjudicate. [{src}] {body}"
-    )[:max_chars]
+    return (f"QUARANTINED by {status.quarantined_by} — must not adjudicate. [{src}] {body}")[
+        :max_chars
+    ]
 
 
 def audit_plotted_keys(

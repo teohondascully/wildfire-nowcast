@@ -50,8 +50,15 @@ from wildfire_nowcast.common.zarr_io import channel_values, open_tensor  # noqa:
 from wildfire_nowcast.sim.c5 import STATIC_C5, WEATHER_C5  # noqa: E402
 from wildfire_nowcast.sim.style import BURN_PROB_CMAP, COL_TEXT, COL_WARN, stamp  # noqa: E402
 
-__all__ = ["ProbeConstants", "probe_from_tensor", "build_probe", "measure_stencil",
-           "wind_independent_offset", "render_stencils", "main"]
+__all__ = [
+    "ProbeConstants",
+    "probe_from_tensor",
+    "build_probe",
+    "measure_stencil",
+    "wind_independent_offset",
+    "render_stencils",
+    "main",
+]
 
 #: The burnable half of the C1.7 FBFM40 enumeration, taken from ``common`` so the
 #: probe cannot disagree with the contract about what "burnable" means.
@@ -176,11 +183,14 @@ def measure_stencil(
     because a row-index centroid would report every stencil as pointing south.
     """
     x0, static, weather = build_probe(
-        const, size=size, wind_speed_ms=wind_speed_ms, bearing_deg=bearing_deg,
+        const,
+        size=size,
+        wind_speed_ms=wind_speed_ms,
+        bearing_deg=bearing_deg,
         horizon_h=horizon_h,
     )
     samples = model.predict(x0, static, weather, int(n_members), int(horizon_h), int(seed))
-    burned = (np.asarray(samples)[:, -1] > 0)
+    burned = np.asarray(samples)[:, -1] > 0
     prob = burned.mean(axis=0).astype(np.float64)
     prob_new = prob.copy()
     prob_new[x0 > 0] = 0.0
@@ -238,8 +248,10 @@ def wind_independent_offset(
     with the still-air stencil beside it as an independent check: two estimators
     that disagree mean the probe is not isotropic and the number must not be used.
     """
-    sweep = [measure_stencil(model, const, wind_speed_ms=wind_speed_ms, bearing_deg=b, **kw)
-             for b in bearings]
+    sweep = [
+        measure_stencil(model, const, wind_speed_ms=wind_speed_ms, bearing_deg=b, **kw)
+        for b in bearings
+    ]
     still_kw = dict(kw)
     # A still-air stencil ignites far fewer cells than a windy one, so it needs
     # proportionally more members to reach the same event count. Scaling here
@@ -253,9 +265,7 @@ def wind_independent_offset(
     n_ok = int(ok.sum())
     se = (
         np.sqrt(
-            (
-                np.asarray([s["centroid_se_cells"] for s in sweep], dtype=float)[ok] ** 2
-            ).sum(axis=0)
+            (np.asarray([s["centroid_se_cells"] for s in sweep], dtype=float)[ok] ** 2).sum(axis=0)
         )
         / max(n_ok, 1)
         if n_ok
@@ -302,28 +312,44 @@ def wind_independent_offset(
 def _compass(bearing: float) -> str:
     if not np.isfinite(bearing):
         return "n/a"  # a model that ignites nothing has no bearing, and 0 deg is a lie
-    names = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW",
-             "W", "WNW", "NW", "NNW")
+    names = (
+        "N",
+        "NNE",
+        "NE",
+        "ENE",
+        "E",
+        "ESE",
+        "SE",
+        "SSE",
+        "S",
+        "SSW",
+        "SW",
+        "WSW",
+        "W",
+        "WNW",
+        "NW",
+        "NNW",
+    )
     return names[int((bearing % 360.0) / 22.5 + 0.5) % 16]
 
 
-def render_stencils(results: dict[str, dict[str, Any]], const: ProbeConstants,
-                    out: str | Path) -> Path:
+def render_stencils(
+    results: dict[str, dict[str, Any]], const: ProbeConstants, out: str | Path
+) -> Path:
     """One row per model: still air, four wind bearings, and the offset summary."""
     models = list(results)
     show = [0.0, 90.0, 180.0, 270.0]
     n_col = 1 + len(show) + 1
-    fig, axes = plt.subplots(len(models), n_col, figsize=(2.45 * n_col + 1.0, 2.85 * len(models)),
-                             squeeze=False)
+    fig, axes = plt.subplots(
+        len(models), n_col, figsize=(2.45 * n_col + 1.0, 2.85 * len(models)), squeeze=False
+    )
 
     for r, name in enumerate(models):
         res = results[name]
         panels = [("still air (0 m/s)", res["still"])]
         by_bearing = {s["bearing_deg"]: s for s in res["sweep"]}
         panels += [
-            (f"wind → {_compass(b)} ({b:.0f}°)", by_bearing[b])
-            for b in show
-            if b in by_bearing
+            (f"wind → {_compass(b)} ({b:.0f}°)", by_bearing[b]) for b in show if b in by_bearing
         ]
 
         for c, (title, s) in enumerate(panels):
@@ -331,13 +357,21 @@ def render_stencils(results: dict[str, dict[str, Any]], const: ProbeConstants,
             prob = s["prob"]
             size = prob.shape[0]
             half = size / 2.0
-            ax.imshow(prob, cmap=BURN_PROB_CMAP, vmin=0.0, vmax=max(s["max_prob"], 1e-6),
-                      extent=(-half, half, -half, half), origin="upper", interpolation="nearest")
+            ax.imshow(
+                prob,
+                cmap=BURN_PROB_CMAP,
+                vmin=0.0,
+                vmax=max(s["max_prob"], 1e-6),
+                extent=(-half, half, -half, half),
+                origin="upper",
+                interpolation="nearest",
+            )
             ax.plot(0, 0, marker="+", ms=9, color="#111827", mew=1.4)
             cx, cy = s["centroid_cells"]
             if np.isfinite(cx) and np.isfinite(cy):
-                ax.arrow(0, 0, cx, cy, color="#0f766e", width=0.06, length_includes_head=True,
-                         zorder=5)
+                ax.arrow(
+                    0, 0, cx, cy, color="#0f766e", width=0.06, length_includes_head=True, zorder=5
+                )
             span = min(9.0, half)
             ax.set_xlim(-span, span)
             ax.set_ylim(-span, span)
@@ -356,13 +390,18 @@ def render_stencils(results: dict[str, dict[str, Any]], const: ProbeConstants,
         ax = axes[r][-1]
         ax.set_aspect("equal")
         sweep_xy = np.asarray([s["centroid_cells"] for s in res["sweep"]], dtype=float)
-        ax.plot(sweep_xy[:, 0], sweep_xy[:, 1], "o", ms=4.5, color="#94a3b8",
-                label="centroid per wind bearing")
+        ax.plot(
+            sweep_xy[:, 0],
+            sweep_xy[:, 1],
+            "o",
+            ms=4.5,
+            color="#94a3b8",
+            label="centroid per wind bearing",
+        )
         mx, my = res["sweep_mean_centroid_cells"]
         ax.arrow(0, 0, mx, my, color=COL_WARN, width=0.012, length_includes_head=True, zorder=5)
         sx, sy = res["still_centroid_cells"]
-        ax.plot([sx], [sy], marker="*", ms=13, color="#0f766e", ls="",
-                label="still-air centroid")
+        ax.plot([sx], [sy], marker="*", ms=13, color="#0f766e", ls="", label="still-air centroid")
         lim = max(0.35, float(np.abs(sweep_xy).max()) * 1.25)
         ax.set_xlim(-lim, lim)
         ax.set_ylim(-lim, lim)

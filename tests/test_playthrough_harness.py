@@ -24,7 +24,6 @@ constructed cases before being pointed at anything: an instrument validated
 against the thing it measures has been calibrated, not tested.
 """
 
-
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
@@ -51,10 +50,10 @@ from wildfire_nowcast.common.playthrough import (
 # playthrough never requires editing another lead's file — the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
-PLAYTHROUGH_OWNER = 'infra'
+PLAYTHROUGH_OWNER = "infra"
 PLAYTHROUGH_NOTE = (
-    'the coverage harness run through its own protocol. If this cannot go red, nothing it '
-    'blesses can be trusted to go red either.'
+    "the coverage harness run through its own protocol. If this cannot go red, nothing it "
+    "blesses can be trusted to go red either."
 )
 
 # --------------------------------------------------------------------------
@@ -236,6 +235,7 @@ def test_a_blind_spot_that_CLOSES_is_also_a_failure() -> None:
     and it becomes detectable — which is good news about the instrument and must
     still break the build, because the record now says something false.
     """
+
     # An order-sensitive observation: the harness only ever sees `observe`'s
     # output, so order sensitivity has to enter there.
     def observe_with_order(world: World) -> dict[str, float]:
@@ -279,6 +279,7 @@ def test_a_probe_that_RAISES_counts_as_a_catch_and_the_message_is_kept() -> None
     That is a legitimate detection, but an ambiguous one, so the exception text is
     recorded and printed instead of being silently scored as a pass or a fail.
     """
+
     def explodes(obs: dict[str, float]) -> bool:
         if obs["variance"] < WANT_SAMPLE_VAR:
             raise ValueError("variance shrank")

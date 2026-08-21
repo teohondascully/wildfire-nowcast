@@ -105,9 +105,7 @@ def check_existing_blocks_unmoved(
     ADR-015 shape exactly — so this is asserted, not trusted.
     """
     return [
-        fid
-        for fid, v in existing.items()
-        if fid in blocks and blocks[fid] != v["spatial_block_id"]
+        fid for fid, v in existing.items() if fid in blocks and blocks[fid] != v["spatial_block_id"]
     ]
 
 
@@ -155,9 +153,7 @@ def additive_assignment(
     by_block: dict[int, list[str]] = {}
     for fid in new_fires:
         by_block.setdefault(blocks[fid], []).append(fid)
-    hours_of_block = {
-        b: sum(new_fires[f][1] for f in fids) for b, fids in by_block.items()
-    }
+    hours_of_block = {b: sum(new_fires[f][1] for f in fids) for b, fids in by_block.items()}
     out: dict[str, dict[str, int]] = {}
     for block in sorted(by_block, key=lambda b: (-hours_of_block[b], b)):
         if block in fold_of_block:  # joined an existing block: inherit its fold (C3.1)
@@ -204,9 +200,13 @@ def plan_extension(fires: list[WfigsFire], *, k: int = N_FOLDS) -> dict[str, dic
         # Hours are unknown until the algorithm runs; fold LOAD balancing only
         # needs a monotone proxy, and area is one. Blocks do not use it at all.
         new[fire_id] = (bbox, max(int(fire.area_km2), 1))
-        meta[fire_id] = {"name": fire.name, "year": fire.discovery_utc.year,
-                         "area_km2": round(fire.area_km2, 1), "irwin_id": fire.irwin_id,
-                         "reference_bbox_5070": [round(v, 1) for v in bbox]}
+        meta[fire_id] = {
+            "name": fire.name,
+            "year": fire.discovery_utc.year,
+            "area_km2": round(fire.area_km2, 1),
+            "irwin_id": fire.irwin_id,
+            "reference_bbox_5070": [round(v, 1) for v in bbox],
+        }
     assigned = additive_assignment(new, k=k)
     for fire_id, row in assigned.items():
         meta[fire_id].update(row)
@@ -231,8 +231,8 @@ def build_extension_fire(
     # WFIGS record, or the neighbour exclusion silently becomes a no-op —
     # which is exactly what happened on the first pass and is why no shipped
     # fire has been through it.
-    wfigs = wfigs_fire if wfigs_fire is not None else (
-        fire if isinstance(fire, WfigsFire) else None
+    wfigs = (
+        wfigs_fire if wfigs_fire is not None else (fire if isinstance(fire, WfigsFire) else None)
     )
     spec = fire if isinstance(fire, FireSpec) else spec_from_wfigs(fire)
     run = run_gofer_ext(spec, wfigs_fire=wfigs, verbose=verbose)

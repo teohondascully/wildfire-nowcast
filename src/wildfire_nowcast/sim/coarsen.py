@@ -409,8 +409,14 @@ SCENARIOS: tuple[Scenario, ...] = (
         ny=22,
         nx=22,
         build=lambda r: rotated_bar_mask(
-            22, 22, r, cx_km=11.0, cy_km=11.0,
-            length_km=_BAR_L, width_km=_BAR_W, angle_deg=30.0,
+            22,
+            22,
+            r,
+            cx_km=11.0,
+            cy_km=11.0,
+            length_km=_BAR_L,
+            width_km=_BAR_W,
+            angle_deg=30.0,
         ),
         area_km2=_BAR_L * _BAR_W,
         perimeter_km=2.0 * (_BAR_L + _BAR_W),
@@ -440,8 +446,14 @@ def resolution_limit_probe(refine: int = DEFAULT_REFINE) -> list[dict[str, Any]]
     rows: list[dict[str, Any]] = []
     for width in (0.5, 0.75, 1.0, 1.5, 2.0):
         fine = diagonal_finger_mask(
-            26, 26, refine, cx_km=13.0, cy_km=13.0,
-            length_km=_FINGER_L, width_km=width, angle_deg=20.0,
+            26,
+            26,
+            refine,
+            cx_km=13.0,
+            cy_km=13.0,
+            length_km=_FINGER_L,
+            width_km=width,
+            angle_deg=20.0,
         )
         coarse = coarsen_occupancy(fine, refine)
         true_area = _FINGER_L * width
@@ -566,9 +578,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     import json
     from pathlib import Path
 
-    ap = argparse.ArgumentParser(
-        prog="python -m wildfire_nowcast.sim.coarsen", allow_abbrev=False
-    )
+    ap = argparse.ArgumentParser(prog="python -m wildfire_nowcast.sim.coarsen", allow_abbrev=False)
     ap.add_argument("--refine", type=int, default=DEFAULT_REFINE)
     ap.add_argument("--out", default="reports/figures/playthrough_coarsening.json")
     args = ap.parse_args(argv)

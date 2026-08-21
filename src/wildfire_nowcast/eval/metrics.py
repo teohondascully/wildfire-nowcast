@@ -392,9 +392,7 @@ def evaluate(
         "crps_estimator": "fair" if crps_fair else "biased",
         "tolerance_cells": int(tolerance_cells),
         "band_radius_cells": (
-            int(band_radius_cells)
-            if band_radius_cells is not None
-            else default_band_radius(n_lead)
+            int(band_radius_cells) if band_radius_cells is not None else default_band_radius(n_lead)
         ),
         "by_mask": by_mask,
         "diagnostics": _diagnostics(member_event, truth_event, x0, n_members),
@@ -564,12 +562,9 @@ def _score_mask(
             # growth contributes nothing rather than contributing a zero.
             "silence_by_horizon_sum": list(iou["best_member_iou_silence_by_horizon"]),
             "shape_by_horizon_sum": list(iou["best_member_iou_shape_by_horizon"]),
-            "silent_floor_by_horizon_sum": list(
-                iou["best_member_iou_silent_floor_by_horizon"]
-            ),
+            "silent_floor_by_horizon_sum": list(iou["best_member_iou_silent_floor_by_horizon"]),
             "shape_masked_by_horizon_sum": [
-                0.0 if v is None else float(v)
-                for v in iou[f"{GATE_CRITERION_KEY}_by_horizon"]
+                0.0 if v is None else float(v) for v in iou[f"{GATE_CRITERION_KEY}_by_horizon"]
             ],
             "n_shape_masked_by_horizon": [
                 0 if v is None else 1 for v in iou[f"{GATE_CRITERION_KEY}_by_horizon"]
@@ -832,9 +827,7 @@ def _diagnostics(
     n_lead = member_event.shape[1]
     truth_final = truth_event[-1]
     burned0 = (np.asarray(x0) > 0) if x0 is not None else None
-    truth_growth = (
-        int(np.count_nonzero(truth_final & ~burned0)) if burned0 is not None else None
-    )
+    truth_growth = int(np.count_nonzero(truth_final & ~burned0)) if burned0 is not None else None
     member_growth = (
         [int(v) for v in np.count_nonzero(member_event[:, -1] & ~burned0[None], axis=(1, 2))]
         if burned0 is not None
@@ -1030,8 +1023,7 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
         # first-moment playthrough, which is the property a "pooled" ratio
         # usually does NOT have.
         **_first_moment_block(
-            sum_pred=_sum("area_dispersion", "sum_truth")
-            + _sum("area_dispersion", "sum_signed"),
+            sum_pred=_sum("area_dispersion", "sum_truth") + _sum("area_dispersion", "sum_signed"),
             sum_truth=_sum("area_dispersion", "sum_truth"),
             n=int(sum(int(b["area_dispersion"]["n"]) for b in blocks)),
         ),
@@ -1100,9 +1092,7 @@ def _pool_iou_terms(blocks: Sequence[Mapping[str, Any]], iou_n: float) -> dict[s
     floor = _stack("silent_floor_by_horizon_sum") / iou_n
     masked_sum = _stack("shape_masked_by_horizon_sum")
     masked_n = _stack("n_shape_masked_by_horizon")
-    masked = [
-        float(s / n) if n else None for s, n in zip(masked_sum, masked_n, strict=True)
-    ]
+    masked = [float(s / n) if n else None for s, n in zip(masked_sum, masked_n, strict=True)]
     return {
         "best_member_iou_silence": float(silence[-1]),
         "best_member_iou_shape": float(shape[-1]),

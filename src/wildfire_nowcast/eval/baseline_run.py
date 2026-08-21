@@ -247,9 +247,7 @@ def _headline(result: dict[str, Any], horizon_h: int) -> dict[str, Any]:
         "band_best_member_iou_silent_floor": band.get("best_member_iou_silent_floor"),
         "band_best_member_iou_gate_criterion": band.get("best_member_iou_gate_criterion"),
         # -- ADR-015 (3): the per-horizon block. G2 is adjudicated from THESE. --
-        "band_brier_by_horizon": {
-            str(h): band_brier.get(h) for h in range(1, horizon_h + 1)
-        },
+        "band_brier_by_horizon": {str(h): band_brier.get(h) for h in range(1, horizon_h + 1)},
         "band_best_member_iou_by_horizon": {
             str(h): (band_iou_h[h - 1] if len(band_iou_h) >= h else None)
             for h in range(1, horizon_h + 1)
@@ -299,8 +297,7 @@ def _headline(result: dict[str, Any], horizon_h: int) -> dict[str, Any]:
         # `growth_band`, and the domain value is DILUTED by cells nobody was ever
         # uncertain about.
         f"band_{CALIBRATION_GATE_KEY}_by_horizon": {
-            str(h): rel.get(str(h), {}).get(CALIBRATION_GATE_KEY)
-            for h in range(1, horizon_h + 1)
+            str(h): rel.get(str(h), {}).get(CALIBRATION_GATE_KEY) for h in range(1, horizon_h + 1)
         },
         f"band_{CALIBRATION_GATE_KEY}_bins_by_horizon": {
             str(h): rel.get(str(h), {}).get(f"{CALIBRATION_GATE_KEY}_bins")
@@ -315,8 +312,7 @@ def _headline(result: dict[str, Any], horizon_h: int) -> dict[str, Any]:
             for h in range(1, horizon_h + 1)
         },
         f"band_{CALIBRATION_GATE_KEY}_n_scored_by_horizon": {
-            str(h): rel.get(str(h), {}).get("calibration_n_scored")
-            for h in range(1, horizon_h + 1)
+            str(h): rel.get(str(h), {}).get("calibration_n_scored") for h in range(1, horizon_h + 1)
         },
         f"band_{CALIBRATION_GATE_KEY}": rel.get(str(horizon_h), {}).get(CALIBRATION_GATE_KEY),
         "calibration_gate_criterion": result.get("calibration_gate_criterion"),
@@ -351,9 +347,7 @@ def _headline(result: dict[str, Any], horizon_h: int) -> dict[str, Any]:
         "first_moment_truth_area_sum": domain_fm.get("truth_area_sum"),
         # -- [M5] ensemble diversity: the OTHER independent read on collapse.
         "band_mean_pairwise_member_iou": band.get("mean_pairwise_member_iou"),
-        "mean_pairwise_member_iou": result.get("diagnostics", {}).get(
-            "mean_pairwise_member_iou"
-        ),
+        "mean_pairwise_member_iou": result.get("diagnostics", {}).get("mean_pairwise_member_iou"),
     }
     assert_gate_criteria_present(out)
     return out
@@ -475,9 +469,9 @@ def run_baselines(
         "ellipse": EllipseBaseline(name="ellipse").with_calibration(calibration),
     }
     if not skip_barred_controls:
-        models["ellipse_brier_fit_all"] = EllipseBaseline(
-            name="ellipse_brier_fit_all"
-        ).with_fit(fit_all)
+        models["ellipse_brier_fit_all"] = EllipseBaseline(name="ellipse_brier_fit_all").with_fit(
+            fit_all
+        )
         models["ellipse_brier_fit_growth"] = EllipseBaseline(
             name="ellipse_brier_fit_growth"
         ).with_fit(fit_growth)
@@ -526,14 +520,10 @@ def run_baselines(
         for name, model in models.items():
             all_res, counts = _score(model, windows, n_members, horizon_h, seed)
             growth_res = [
-                r
-                for w, r in zip(windows, all_res, strict=True)
-                if w.truth_growth_cells() > 0
+                r for w, r in zip(windows, all_res, strict=True) if w.truth_growth_cells() > 0
             ]
             dormant_res = [
-                r
-                for w, r in zip(windows, all_res, strict=True)
-                if w.truth_growth_cells() == 0
+                r for w, r in zip(windows, all_res, strict=True) if w.truth_growth_cells() == 0
             ]
             pooled_all[name].extend(all_res)
             pooled_growth[name].extend(growth_res)
@@ -691,9 +681,7 @@ def run_baselines(
             ),
         },
         "g2_per_horizon": (
-            g2_per_horizon(
-                pooled, per_fire, horizon_h, candidates=list(dict(extra_models or {}))
-            )
+            g2_per_horizon(pooled, per_fire, horizon_h, candidates=list(dict(extra_models or {})))
             if extra_models
             else None
         ),
@@ -814,10 +802,14 @@ def g2_per_horizon(
             opponents = {n: score(n, key, h) for n in ellipse_names}
             valid = {n: v for n, v in opponents.items() if v is not None}
             envelope_name, envelope_value = (
-                (min(valid, key=lambda n: valid[n]), min(valid.values()))
-                if lower_better
-                else (max(valid, key=lambda n: valid[n]), max(valid.values()))
-            ) if valid else (None, None)
+                (
+                    (min(valid, key=lambda n: valid[n]), min(valid.values()))
+                    if lower_better
+                    else (max(valid, key=lambda n: valid[n]), max(valid.values()))
+                )
+                if valid
+                else (None, None)
+            )
             rule_value = opponents.get(rule_name)
             per_model: dict[str, Any] = {}
             for candidate in candidates:
@@ -833,9 +825,7 @@ def g2_per_horizon(
                 beats_env = (
                     None
                     if envelope_value is None
-                    else (
-                        value < envelope_value if lower_better else value > envelope_value
-                    )
+                    else (value < envelope_value if lower_better else value > envelope_value)
                 )
                 blocks = []
                 for fid, fire in per_fire.items():
@@ -990,6 +980,7 @@ _C6_3_MIN_BLOCKS = 4
 #: `"ellipse"` is a key, and the two drift.
 FIRST_MOMENT_REFERENCE_MODEL = "ellipse"
 
+
 #: [M9] ...but at the EVALUATION HORIZON, per C6.2 [v2.8] / ADR-015 (3), and this
 #: is not a detail. The ellipse's growth is strongly SUPER-LINEAR in the horizon
 #: while the labels' is linear, so the calibration horizon is worth ~4.7x in the
@@ -1021,6 +1012,7 @@ def first_moment_reference(per_fire: Mapping[str, Any], horizon_h: int) -> str:
     """The ellipse arm the first moment is measured against, at THIS horizon."""
     preferred = f"ellipse_cal{int(horizon_h)}h"
     return preferred if preferred in _ellipse_arms(per_fire) else FIRST_MOMENT_REFERENCE_MODEL
+
 
 #: [M9] The HEADLINE key the first-moment condition reads, WITH ITS MASK. The
 #: `band_` prefix is not decoration: `common.dispersion.GATE_MASK` is
@@ -1140,9 +1132,7 @@ def g3_summary(
             # the gap. The gap is not swallowed — `complete`, `dropped_blocks` and
             # `c6_3_satisfied` are emitted below, and the hard path is exercised
             # by the first-moment playthrough.
-            blockwise = equal_block_mean(
-                per_fire, model, key, stratum, allow_missing_blocks=True
-            )
+            blockwise = equal_block_mean(per_fire, model, key, stratum, allow_missing_blocks=True)
             pooled_value = row.get(key)
             eb = blockwise["equal_block_mean"]
             # [M9 / ADR-039 (4)] THE THREE-VALUED OUTCOME, from `common/`. The
@@ -1153,11 +1143,7 @@ def g3_summary(
             # model's own mean-area error), so the criterion goes unmeasurable
             # exactly as a model gets the first moment right. A `None` must never
             # be read as a pass.
-            outcome = (
-                g3.dispersion_condition(eb)
-                if key == "band_area_dispersion_ratio"
-                else None
-            )
+            outcome = g3.dispersion_condition(eb) if key == "band_area_dispersion_ratio" else None
             criteria[label] = {
                 "key": key,
                 "mask": mask,
@@ -1225,9 +1211,7 @@ def g3_summary(
                 "ablation_model": ablation,
                 "comparison": pairs,
                 "dispersion_ratio_model_over_ablation": (
-                    (model_disp / abl_disp)
-                    if model_disp and abl_disp and abl_disp > 0
-                    else None
+                    (model_disp / abl_disp) if model_disp and abl_disp and abl_disp > 0 else None
                 ),
                 "ablation_uninformative_for_clause_d": uninformative,
                 "ablation_uninformative_reason": (
@@ -1268,9 +1252,7 @@ def g3_summary(
         )
         combined = g3.combine(
             g3.dispersion_condition(
-                None
-                if dispersion_condition is None
-                else dispersion_condition.get("value")
+                None if dispersion_condition is None else dispersion_condition.get("value")
             ),
             g3.first_moment_condition(
                 first_moment.get("candidate_equal_block"),
@@ -1305,12 +1287,8 @@ def g3_summary(
             "g3_conditions": combined,
             "growth_calibration": {
                 "band_growth_calibration": row.get(f"band_{FIRST_MOMENT_KEY}"),
-                "band_first_moment_truth_area_sum": row.get(
-                    "band_first_moment_truth_area_sum"
-                ),
-                "band_first_moment_pred_area_sum": row.get(
-                    "band_first_moment_pred_area_sum"
-                ),
+                "band_first_moment_truth_area_sum": row.get("band_first_moment_truth_area_sum"),
+                "band_first_moment_pred_area_sum": row.get("band_first_moment_pred_area_sum"),
                 "band_area_error_bias": row.get("band_area_error_bias"),
                 "band_area_error_bias_fraction": row.get("band_area_error_bias_fraction"),
                 "band_area_dispersion_ratio_debiased": row.get(
@@ -1340,9 +1318,7 @@ def _num(value: Any, nd: int = 5) -> str:
     return "  --   " if value is None else f"{float(value):.{nd}f}"
 
 
-def _interpretation(
-    per_fire: dict[str, Any], validity: dict[str, Any] | None = None
-) -> list[str]:
+def _interpretation(per_fire: dict[str, Any], validity: dict[str, Any] | None = None) -> list[str]:
     """Caveats that must travel WITH the numbers, not in a status file."""
     fracs = [
         v["zero_growth_fraction"]
@@ -1423,8 +1399,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print("C5 BASELINES — LEAVE-FIRE-OUT, scored through C6")
     print("=" * 96)
     print(
-        f"train fires   : {', '.join(scope['train_fire_ids'])}  "
-        f"({scope['n_train_blocks']} blocks)"
+        f"train fires   : {', '.join(scope['train_fire_ids'])}  ({scope['n_train_blocks']} blocks)"
     )
     print(f"held-out fires: {', '.join(scope['heldout_fire_ids'])}")
     print(f"!! {scope['warning']}")
@@ -1461,9 +1436,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("-" * 96)
         print(f"{stratum.upper()}   (pooled over held-out; {scope['n_heldout_blocks']} block(s))")
         print("-" * 96)
-        print(f"{'model':<20}{'brier_1h':>11}{f'brier_{hz}h':>11}{'band_brier':>12}"
-              f"{'arr_crps':>11}{'GATE_shape':>11}{'band_iou*':>10}{'silence*':>10}"
-              f"{'floor*':>9}{'area_disp':>11}{'n_win':>8}")
+        print(
+            f"{'model':<20}{'brier_1h':>11}{f'brier_{hz}h':>11}{'band_brier':>12}"
+            f"{'arr_crps':>11}{'GATE_shape':>11}{'band_iou*':>10}{'silence*':>10}"
+            f"{'floor*':>9}{'area_disp':>11}{'n_win':>8}"
+        )
         for name in model_names:
             r = payload["pooled_heldout"][name][stratum]
             if r is None:
@@ -1546,8 +1523,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             print()
         print("VERDICT PER CANDIDATE (count, not a gate decision):")
         for name, v in g2["verdicts"].items():
-            print(f"  {name:<28} {v['verdict']}   ({v['n_won']} won / {v['n_lost']} lost "
-                  f"of {v['n_comparisons']} horizon x metric comparisons)")
+            print(
+                f"  {name:<28} {v['verdict']}   ({v['n_won']} won / {v['n_lost']} lost "
+                f"of {v['n_comparisons']} horizon x metric comparisons)"
+            )
         print()
 
     if payload.get("c8_split_match"):

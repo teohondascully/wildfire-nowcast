@@ -278,9 +278,7 @@ def _block_fraction(fine_mask: np.ndarray, factor: int) -> np.ndarray:
 def _block_any(fine_mask: np.ndarray, factor: int) -> np.ndarray:
     """``all_touched``-style reduction: a coarse cell is set if any sub-cell is."""
     t, ny, nx = fine_mask.shape
-    return (
-        fine_mask.reshape(t, ny // factor, factor, nx // factor, factor).any(axis=(2, 4))
-    )
+    return fine_mask.reshape(t, ny // factor, factor, nx // factor, factor).any(axis=(2, 4))
 
 
 def _crop_to(arr: np.ndarray, src: Grid, dst: Grid) -> np.ndarray:
@@ -319,9 +317,7 @@ def detection_window(
 
     ee = initialize_ee()
     minx, miny, maxx, maxy = aoi_bounds_5070
-    region = ee.Geometry.Rectangle(
-        coords=[minx, miny, maxx, maxy], proj=CRS_STRING, geodesic=False
-    )
+    region = ee.Geometry.Rectangle(coords=[minx, miny, maxx, maxy], proj=CRS_STRING, geodesic=False)
     start_ee = ee.Date(start.strftime("%Y-%m-%dT%H:%M:%S"))
     colls = [
         ee.ImageCollection(satellite_for(start, side).collection_id).select("Mask")
@@ -448,9 +444,7 @@ def run_gofer_ext(
     """Run GOFER-Combined for one fire and return fine-lattice masks."""
     coarse, fine = _compute_grids(spec.aoi_bounds_5070)
     if abs(fine.cell_size_m - fine_res_m) > 1e-9:
-        raise ValueError(
-            f"fine_res_m={fine_res_m} is not an exact refinement of {CELL_SIZE_M} m"
-        )
+        raise ValueError(f"fine_res_m={fine_res_m} is not an exact refinement of {CELL_SIZE_M} m")
 
     def _log(msg: str) -> None:
         if verbose:
@@ -516,8 +510,10 @@ def run_gofer_ext(
     foreign = _neighbour_exclusion(fine, reference, wfigs_fire)
     if foreign.any():
         perim &= ~foreign[None, :, :]
-        _log(f'[{spec.fire_id}] neighbour exclusion removed {int(foreign.sum())} fine cells '
-             'mapped to another incident and outside our own footprint')
+        _log(
+            f"[{spec.fire_id}] neighbour exclusion removed {int(foreign.sum())} fine cells "
+            "mapped to another incident and outside our own footprint"
+        )
     perim = _remove_stray(perim, fine, reference)
     fline &= perim
 
@@ -617,12 +613,20 @@ def _neighbour_exclusion(grid: Grid, reference: Any, fire: WfigsFire | None) -> 
     if not others:
         return np.zeros(grid.shape, dtype=bool)
     foreign = _rio_rasterize(
-        [(g, 1) for g in others], out_shape=grid.shape,
-        transform=grid.rasterio_transform(), fill=0, dtype="uint8", all_touched=True,
+        [(g, 1) for g in others],
+        out_shape=grid.shape,
+        transform=grid.rasterio_transform(),
+        fill=0,
+        dtype="uint8",
+        all_touched=True,
     ).astype(bool)
     ours = _rio_rasterize(
-        [(reference, 1)], out_shape=grid.shape,
-        transform=grid.rasterio_transform(), fill=0, dtype="uint8", all_touched=True,
+        [(reference, 1)],
+        out_shape=grid.shape,
+        transform=grid.rasterio_transform(),
+        fill=0,
+        dtype="uint8",
+        all_touched=True,
     ).astype(bool)
     return foreign & ~dilate(ours, 2)
 
@@ -933,6 +937,5 @@ def dump_run(run: GoferRun, path: Any) -> None:
     from pathlib import Path  # noqa: PLC0415
 
     Path(path).write_text(
-        json.dumps({"provenance": run.provenance, "diagnostics": run.diagnostics}, indent=2)
-        + "\n"
+        json.dumps({"provenance": run.provenance, "diagnostics": run.diagnostics}, indent=2) + "\n"
     )

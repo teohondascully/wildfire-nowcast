@@ -342,9 +342,7 @@ def gofer_footprint(fire_id: str) -> tuple[np.ndarray, Grid, dict[str, Any]]:
             "n_hours": int(state.shape[0]),
             "grid_shape": [int(v) for v in final.shape],
             "cell_size_m": float(grid.cell_size_m),
-            "monotone_final_is_max": bool(
-                int(final.sum()) == int((state.max(axis=0) > 0).sum())
-            ),
+            "monotone_final_is_max": bool(int(final.sum()) == int((state.max(axis=0) > 0).sum())),
         }
     finally:
         ds.close()

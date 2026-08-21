@@ -485,9 +485,7 @@ def positive_controls(fires: list[FireFields], *, seed: int = 11011) -> dict[str
             "abs_error_of_mean": gauss_err,
         },
         "fired": bool(
-            np.allclose(perfect, 1.0, atol=1e-12)
-            and max_graded_err < 1e-9
-            and gauss_err < 0.02
+            np.allclose(perfect, 1.0, atol=1e-12) and max_graded_err < 1e-9 and gauss_err < 0.02
         ),
     }
 
@@ -708,9 +706,11 @@ def _tail_composition(rows: list[dict[str, Any]], mask: str, frac: float) -> dic
     live.sort(key=lambda r: -float(r["leakage"]))
     k = max(1, int(round(frac * len(live))))
     top = live[:k]
+
     def share(key: str) -> list[list[Any]]:
         c = Counter(str(r[key]) for r in top)
         return [[name, n, round(n / k, 4)] for name, n in c.most_common()]
+
     return {
         "definition": f"top {frac:.0%} of {len(live)} non-degenerate rows, by rank",
         "k": k,
@@ -792,9 +792,7 @@ def build_report(*, verbose: bool = False) -> dict[str, Any]:
     summaries: dict[str, Any] = {}
     for mask in MASKS:
         live = [
-            float(r["leakage"])
-            for r in rows
-            if r["mask"] == mask and r.get("leakage") is not None
+            float(r["leakage"]) for r in rows if r["mask"] == mask and r.get("leakage") is not None
         ]
         deg = [r for r in rows if r["mask"] == mask and r.get("leakage") is None]
         per_fire_max = sorted(
@@ -883,9 +881,7 @@ def build_report(*, verbose: bool = False) -> dict[str, Any]:
             }
             for src, grp in _by_source(fires).items()
         },
-        "integrity": {
-            f.fire_id: f.integrity for f in fires
-        },
+        "integrity": {f.fire_id: f.integrity for f in fires},
         "summaries": summaries,
         "rows": rows,
     }

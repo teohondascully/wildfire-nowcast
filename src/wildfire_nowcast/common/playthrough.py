@@ -232,8 +232,10 @@ class Playthrough:
         ):
             duplicates = sorted({n for n in names if names.count(n) > 1})
             if duplicates:
-                problems.append(f"duplicate {label} names {duplicates}: the coverage map is keyed "
-                                "by name and would silently merge them")
+                problems.append(
+                    f"duplicate {label} names {duplicates}: the coverage map is keyed "
+                    "by name and would silently merge them"
+                )
         for defect in self.defects:
             if not defect.note.strip():
                 problems.append(
@@ -452,8 +454,7 @@ def format_report(report: PlaythroughReport) -> str:
         mark = "ok " if outcome.detected == outcome.expected_detected else "BAD"
         kind = "detected" if outcome.expected_detected else "BLIND SPOT (must NOT be caught)"
         lines.append(
-            f"  [{mark}] {outcome.name:<34} {kind:<30} "
-            f"caught_by={list(outcome.caught_by) or '-'}"
+            f"  [{mark}] {outcome.name:<34} {kind:<30} caught_by={list(outcome.caught_by) or '-'}"
         )
     for note in report.reporting:
         lines.append(f"  [report] {note}")
@@ -514,8 +515,10 @@ def coverage_from_caught_map(
                 "(ADR-030)"
             )
         if not outcome.expected_detected and outcome.detected:
-            failures.append(f"{name}: declared blind spot {outcome.name!r} was caught — update "
-                            "the record, do not delete the test")
+            failures.append(
+                f"{name}: declared blind spot {outcome.name!r} was caught — update "
+                "the record, do not delete the test"
+            )
     if not outcomes:
         failures.append(f"{name}: the foreign report declares NO planted defects at all")
     return PlaythroughReport(

@@ -53,14 +53,17 @@ def vector_qa(perims: gpd.GeoDataFrame) -> dict[str, Any]:
 
     # nesting: area present at t-1 that is absent at t ("un-burning")
     geoms = list(metric.geometry)
-    unburn = np.array(
-        [geoms[i - 1].difference(geoms[i]).area / 1e6 for i in range(1, len(geoms))]
-    ) if len(geoms) > 1 else np.array([0.0])
+    unburn = (
+        np.array([geoms[i - 1].difference(geoms[i]).area / 1e6 for i in range(1, len(geoms))])
+        if len(geoms) > 1
+        else np.array([0.0])
+    )
 
     cent = metric.geometry.centroid
     jump_km = (
         np.hypot(np.diff(cent.x.to_numpy()), np.diff(cent.y.to_numpy())) / 1000.0
-        if len(cent) > 1 else np.array([0.0])
+        if len(cent) > 1
+        else np.array([0.0])
     )
 
     return {
@@ -73,9 +76,14 @@ def vector_qa(perims: gpd.GeoDataFrame) -> dict[str, Any]:
         "multipart_timesteps": int(metric.geometry.geom_type.eq("MultiPolygon").sum()),
         "timesteps_with_holes": int(
             sum(
-                1 for x in metric.geometry
-                if (len(x.interiors) if x.geom_type == "Polygon"
-                    else sum(len(p.interiors) for p in x.geoms)) > 0
+                1
+                for x in metric.geometry
+                if (
+                    len(x.interiors)
+                    if x.geom_type == "Polygon"
+                    else sum(len(p.interiors) for p in x.geoms)
+                )
+                > 0
             )
         ),
         "final_area_km2": _f(area_km2[-1]),
@@ -114,10 +122,7 @@ def raster_qa(state: np.ndarray, grid: Grid) -> dict[str, Any]:
 
     # illegal transitions: anything that leaves the burned set, or 0 -> 2 directly.
     revert = int((ever[:-1] & ~ever[1:]).sum()) if st.shape[0] > 1 else 0
-    skip = (
-        int(((st[:-1] == UNBURNED) & (st[1:] == BURNED_OUT)).sum())
-        if st.shape[0] > 1 else 0
-    )
+    skip = int(((st[:-1] == UNBURNED) & (st[1:] == BURNED_OUT)).sum()) if st.shape[0] > 1 else 0
 
     # teleporting: new burned cells with no burned 8-neighbour at t-1.
     tele_cells = 0
@@ -152,9 +157,7 @@ def raster_qa(state: np.ndarray, grid: Grid) -> dict[str, Any]:
         "teleport_cells_total": tele_cells,
         "teleport_max_gap_km": _f(max_tele_km),
         "frames_with_no_burning_cell": int((burning_per_step == 0).sum()),
-        "frames_with_no_burning_cell_while_active": int(
-            ((burning_per_step == 0) & active).sum()
-        ),
+        "frames_with_no_burning_cell_while_active": int(((burning_per_step == 0) & active).sum()),
         "burning_cells_p50": _f(np.median(burning_per_step)),
         "burning_cells_max": int(burning_per_step.max()),
     }

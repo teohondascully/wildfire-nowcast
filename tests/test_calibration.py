@@ -443,15 +443,25 @@ def test_the_gate_key_and_mask_are_named_in_code_not_in_a_table(scenario) -> Non
 
 def test_check_raises_when_the_criterion_is_not_the_worst_family() -> None:
     good = K.CalibrationTerms(
-        error=0.4, bins=0.1, frontier=0.4, silent_floor=0.2,
-        n_scored=10, n_occupied_bins=2, n_occupied_rings=3,
+        error=0.4,
+        bins=0.1,
+        frontier=0.4,
+        silent_floor=0.2,
+        n_scored=10,
+        n_occupied_bins=2,
+        n_occupied_rings=3,
     )
     assert good.check() is good
 
     with pytest.raises(AssertionError, match="WORST subgroup family"):
         K.CalibrationTerms(
-            error=0.1, bins=0.1, frontier=0.4, silent_floor=0.2,
-            n_scored=10, n_occupied_bins=2, n_occupied_rings=3,
+            error=0.1,
+            bins=0.1,
+            frontier=0.4,
+            silent_floor=0.2,
+            n_scored=10,
+            n_occupied_bins=2,
+            n_occupied_rings=3,
         ).check()
 
 
@@ -459,8 +469,13 @@ def test_check_raises_when_a_term_is_not_a_probability() -> None:
     for bad in (1.5, -0.2, float("nan"), float("inf")):
         with pytest.raises(AssertionError, match="probability"):
             K.CalibrationTerms(
-                error=bad, bins=bad, frontier=None, silent_floor=None,
-                n_scored=10, n_occupied_bins=1, n_occupied_rings=0,
+                error=bad,
+                bins=bad,
+                frontier=None,
+                silent_floor=None,
+                n_scored=10,
+                n_occupied_bins=1,
+                n_occupied_rings=0,
             ).check()
 
 
@@ -534,9 +549,7 @@ def test_calibration_is_model_blind_by_construction() -> None:
         live_strings = [
             n.value
             for n in ast.walk(tree)
-            if isinstance(n, ast.Constant)
-            and isinstance(n.value, str)
-            and id(n) not in docstrings
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstrings
         ]
         assert not [s for s in live_strings if "runs/" in s or "checkpoint" in s], (
             f"{rel} names a run directory or a checkpoint in live code"

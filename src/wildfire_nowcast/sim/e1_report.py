@@ -70,21 +70,54 @@ def render(payload: dict[str, Any], path: Path) -> Path:
         if not drawn:
             continue
         ax.plot(
-            [d[0] for d in drawn], [d[1] for d in drawn],
-            marker=marker, ms=9, lw=1.1, ls="--", color=colour, label=label, zorder=3,
+            [d[0] for d in drawn],
+            [d[1] for d in drawn],
+            marker=marker,
+            ms=9,
+            lw=1.1,
+            ls="--",
+            color=colour,
+            label=label,
+            zorder=3,
         )
     ax.axhline(0.0, color=COL_WARN, lw=1.4, zorder=2)
     ax.text(
-        0.012, 0.0, " 0 = neither speeds up nor slows down", transform=ax.get_yaxis_transform(),
-        va="bottom", ha="left", color=COL_WARN, fontsize=8.5,
+        0.012,
+        0.0,
+        " 0 = neither speeds up nor slows down",
+        transform=ax.get_yaxis_transform(),
+        va="bottom",
+        ha="left",
+        color=COL_WARN,
+        fontsize=8.5,
     )
     # Right-aligned: the left edge is where block 0's markers sit, and a caption
     # sitting on top of a data point is a rendering defect, not a caption.
     plate = {"facecolor": "white", "alpha": 0.85, "edgecolor": "none", "pad": 1.6}
-    ax.text(0.985, 0.975, "ACCELERATES with age", transform=ax.transAxes, fontsize=9,
-            color=COL_WARN, va="top", ha="right", bbox=plate, zorder=4)
-    ax.text(0.985, 0.025, "DECELERATES with age", transform=ax.transAxes, fontsize=9,
-            color="#166534", va="bottom", ha="right", bbox=plate, zorder=4)
+    ax.text(
+        0.985,
+        0.975,
+        "ACCELERATES with age",
+        transform=ax.transAxes,
+        fontsize=9,
+        color=COL_WARN,
+        va="top",
+        ha="right",
+        bbox=plate,
+        zorder=4,
+    )
+    ax.text(
+        0.985,
+        0.025,
+        "DECELERATES with age",
+        transform=ax.transAxes,
+        fontsize=9,
+        color="#166534",
+        va="bottom",
+        ha="right",
+        bbox=plate,
+        zorder=4,
+    )
     # Room on the right for the two captions. Without it a caption sits on the
     # last block's marker, which is the same defect class as insight 45 (iv).
     ax.set_xlim(-0.35, (len(blocks) - 1) + 0.85 if blocks else 1.0)
@@ -93,7 +126,9 @@ def render(payload: dict[str, Any], path: Path) -> Path:
     ax.set_ylabel("stage_decay  =  log(late-half mean growth / early-half mean growth)")
     ax.set_title(
         "1. ELMFIRE is Rothermel, so it is perimeter-proportional too.\n"
-        "   Does it slow down as a fire ages?", fontsize=11, loc="left",
+        "   Does it slow down as a fire ages?",
+        fontsize=11,
+        loc="left",
     )
     ax.legend(fontsize=8.5, loc="lower left", framealpha=0.92)
     ax.grid(alpha=0.18)
@@ -111,8 +146,14 @@ def render(payload: dict[str, Any], path: Path) -> Path:
             if not ok:
                 continue
             ax.bar(
-                [o[0] for o in ok], [o[1] for o in ok], width=width, color=colour,
-                alpha=0.95 if j else 0.45, hatch=hatch, edgecolor="white", linewidth=0.6,
+                [o[0] for o in ok],
+                [o[1] for o in ok],
+                width=width,
+                color=colour,
+                alpha=0.95 if j else 0.45,
+                hatch=hatch,
+                edgecolor="white",
+                linewidth=0.6,
                 label=f"{'ELMFIRE' if k else 'truth'} {tag}",
             )
     ax.set_yscale("log")
@@ -120,8 +161,9 @@ def render(payload: dict[str, Any], path: Path) -> Path:
     ax.set_xticklabels([_BLOCK_NAMES.get(b, str(b)) for b in blocks], fontsize=9)
     ax.set_ylabel("mean new burned cells per 3 h window (log)")
     ax.set_title(
-        "2. The LEVELS behind the ratio.\n"
-        "   Same stage_decay can hide a 30x growth error.", fontsize=11, loc="left",
+        "2. The LEVELS behind the ratio.\n   Same stage_decay can hide a 30x growth error.",
+        fontsize=11,
+        loc="left",
     )
     ax.legend(fontsize=7.6, ncol=2, framealpha=0.92)
     ax.grid(alpha=0.18, axis="y")
@@ -133,14 +175,21 @@ def render(payload: dict[str, Any], path: Path) -> Path:
         ms = sorted(int(m) for m in sens if str(b) in sens[m] and sens[m][str(b)] is not None)
         if not ms:
             continue
-        ax.plot(ms, [sens[str(m)][str(b)] for m in ms], marker="o", ms=5, lw=1.2,
-                label=_BLOCK_NAMES.get(b, str(b)))
+        ax.plot(
+            ms,
+            [sens[str(m)][str(b)] for m in ms],
+            marker="o",
+            ms=5,
+            lw=1.2,
+            label=_BLOCK_NAMES.get(b, str(b)),
+        )
     ax.axhline(0.0, color=COL_WARN, lw=1.2)
     ax.set_xlabel("ensemble members used")
     ax.set_ylabel("stage_decay")
     ax.set_title(
         "3. The ensemble is OUR construction.\n   Does the member count set the sign?",
-        fontsize=11, loc="left",
+        fontsize=11,
+        loc="left",
     )
     if ax.get_legend_handles_labels()[0]:
         ax.legend(fontsize=8, framealpha=0.92)
@@ -153,7 +202,10 @@ def render(payload: dict[str, Any], path: Path) -> Path:
         f"E1 (ADR-064) — {payload.get('n_blocks_positive', '?')} of "
         f"{payload.get('n_blocks_scored', '?')} held-out blocks ACCELERATE under ELMFIRE   |   "
         f"verdict: {verdict}",
-        fontsize=13, x=0.008, ha="left", color=COL_TEXT,
+        fontsize=13,
+        x=0.008,
+        ha="left",
+        color=COL_TEXT,
     )
     stamp(
         fig,

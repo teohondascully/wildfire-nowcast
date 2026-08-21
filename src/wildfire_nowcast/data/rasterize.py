@@ -77,9 +77,7 @@ def polygon_coverage(
         dtype="uint8",
         all_touched=False,
     )
-    return (
-        fine.reshape(h, factor, w, factor).mean(axis=(1, 3)).astype(np.float32)
-    )
+    return fine.reshape(h, factor, w, factor).mean(axis=(1, 3)).astype(np.float32)
 
 
 def polygon_mask(

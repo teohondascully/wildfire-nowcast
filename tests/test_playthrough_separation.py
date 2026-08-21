@@ -54,7 +54,6 @@ and nothing else. That single line of the coverage map is the argument for
 reporting the relative margin beside every verdict, in a form that cannot rot.
 """
 
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -74,7 +73,7 @@ from wildfire_nowcast.common.separation import BlockPair, conditions, separation
 # playthrough never requires editing another lead's file — the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
-PLAYTHROUGH_OWNER = 'infra'
+PLAYTHROUGH_OWNER = "infra"
 PLAYTHROUGH_NOTE = (
     "G3's calibration half as a SEPARATION test (ADR-032 (7)): equal-block SD over a paired "
     "margin, with the degenerate arms' measured scores as the negative controls."
@@ -300,9 +299,9 @@ def test_the_envelope_reference_is_never_easier_than_the_arithmetic_floor() -> N
     values = {f"f{i}": 0.006 - 1e-4 * (i + 1) for i in range(4)}
     payload = _payload(values, floors)
     for fire in payload.values():
-        fire["models"]["persistence"]["growth_windows"][
-            "band_calibration_error_by_horizon"
-        ]["3"] = 0.99  # a terrible degenerate arm
+        fire["models"]["persistence"]["growth_windows"]["band_calibration_error_by_horizon"][
+            "3"
+        ] = 0.99  # a terrible degenerate arm
     env = S.calibration_separation(payload, "cand", 3, reference="envelope")
     floor = S.calibration_separation(payload, "cand", 3, reference="floor")
     assert env.mean_margin == pytest.approx(floor.mean_margin, rel=1e-12)
@@ -330,9 +329,7 @@ def _identity(pairs: list[BlockPair]) -> list[BlockPair]:
 
 
 def _shrink_1000x(pairs: list[BlockPair]) -> list[BlockPair]:
-    return [
-        replace(p, candidate=p.reference - (p.reference - p.candidate) / 1000.0) for p in pairs
-    ]
+    return [replace(p, candidate=p.reference - (p.reference - p.candidate) / 1000.0) for p in pairs]
 
 
 def _swap_candidate_and_reference(pairs: list[BlockPair]) -> list[BlockPair]:
@@ -405,8 +402,9 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Probe(
             "a_null_candidate_scores_exactly_zero",
-            lambda obs: obs["null"]["separation_sd"] == 0.0
-            and not obs["null"]["all_conditions_met"],
+            lambda obs: (
+                obs["null"]["separation_sd"] == 0.0 and not obs["null"]["all_conditions_met"]
+            ),
             note="the reference-free assertion: a forecast identical to the floor separates by "
             "exactly 0. persistence reproduces it bitwise on the real corpus.",
         ),
@@ -418,38 +416,47 @@ PLAYTHROUGH = PT.Playthrough(
         ),
         PT.Probe(
             "a_split_result_fails_unanimity",
-            lambda obs: obs["split"]["conditions"]["separation"]
-            and not obs["split"]["conditions"]["unanimity"],
+            lambda obs: (
+                obs["split"]["conditions"]["separation"]
+                and not obs["split"]["conditions"]["unanimity"]
+            ),
             note="6 wins and 1 loss over SEVEN blocks clears the SD bar and must still be "
             "refused. Seven and not four on purpose -- see "
             "test_unanimity_is_REDUNDANT_at_four_blocks_and_binding_at_six.",
         ),
         PT.Probe(
             "the_barred_degenerate_ellipse_fails_the_SD_bar_itself",
-            lambda obs: not obs["barred_ellipse"]["conditions"]["separation"]
-            and not obs["barred_ellipse"]["all_conditions_met"],
+            lambda obs: (
+                not obs["barred_ellipse"]["conditions"]["separation"]
+                and not obs["barred_ellipse"]["all_conditions_met"]
+            ),
             note="ADR-032 (7)'s motivating case with its real numbers: +0.697 SD against a bar "
             "of 2.0, where the ratio form passed it by 0.001. Interrogates the SEPARATION "
             "condition and not only the conjunction, so the bar itself is what is under test.",
         ),
         PT.Probe(
             "a_single_block_comparison_is_refused",
-            lambda obs: not obs["single_block"]["all_conditions_met"]
-            and obs["single_block"]["separation_sd"] is None,
+            lambda obs: (
+                not obs["single_block"]["all_conditions_met"]
+                and obs["single_block"]["separation_sd"] is None
+            ),
             note="C-3 verbatim, at the level of the statistic rather than of the reviewer.",
         ),
         PT.Probe(
             "three_blocks_is_refused_on_BLOCK_COUNT_alone",
-            lambda obs: obs["three_blocks"]["conditions"]["separation"]
-            and obs["three_blocks"]["conditions"]["unanimity"]
-            and not obs["three_blocks"]["conditions"]["block_count"],
+            lambda obs: (
+                obs["three_blocks"]["conditions"]["separation"]
+                and obs["three_blocks"]["conditions"]["unanimity"]
+                and not obs["three_blocks"]["conditions"]["block_count"]
+            ),
             note="3.0 SD, unanimous, and REFUSED -- because C6.3 requires >= 4 distinct held-out "
             "blocks. THE probe that makes the block minimum load-bearing rather than decorative.",
         ),
         PT.Probe(
             "a_zero_sd_is_refused_not_infinite",
-            lambda obs: obs["zero_sd"]["separation_sd"] is None
-            and not obs["zero_sd"]["all_conditions_met"],
+            lambda obs: (
+                obs["zero_sd"]["separation_sd"] is None and not obs["zero_sd"]["all_conditions_met"]
+            ),
             note="the denominator trap: a constant margin must not become infinite significance.",
         ),
         PT.Probe(

@@ -152,9 +152,7 @@ class CalibratedSkillful:
     n_hits_by_lead: tuple[int, ...]
     n_misses_by_lead: tuple[int, ...]
 
-    def __call__(
-        self, window: Window, n_members: int, rng: np.random.Generator
-    ) -> np.ndarray:
+    def __call__(self, window: Window, n_members: int, rng: np.random.Generator) -> np.ndarray:
         from wildfire_nowcast.common.states import dilate  # noqa: PLC0415
 
         burned = window.x0 > 0
@@ -257,9 +255,7 @@ class Climatology:
     band_radius: int
     n_windows_fitted: int
 
-    def __call__(
-        self, window: Window, n_members: int, rng: np.random.Generator
-    ) -> np.ndarray:
+    def __call__(self, window: Window, n_members: int, rng: np.random.Generator) -> np.ndarray:
         from wildfire_nowcast.eval.masks import growth_band  # noqa: PLC0415
 
         burned = window.x0 > 0
@@ -277,9 +273,7 @@ class Climatology:
         return _as_samples(out)
 
 
-def fit_climatology(
-    windows: Sequence[Window], *, band_radius: int | None = None
-) -> Climatology:
+def fit_climatology(windows: Sequence[Window], *, band_radius: int | None = None) -> Climatology:
     """Fit the one constant :class:`Climatology` has, from labels alone."""
     from wildfire_nowcast.eval.masks import default_band_radius, growth_band  # noqa: PLC0415
 

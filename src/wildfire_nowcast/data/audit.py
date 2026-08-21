@@ -137,8 +137,13 @@ def _finite_summary(values: np.ndarray) -> dict[str, Any]:
     finite = np.isfinite(arr)
     n_nonfinite = int(arr.size - finite.sum())
     if not finite.any():
-        return {"n": int(arr.size), "n_nonfinite": n_nonfinite,
-                "min": None, "max": None, "mean": None}
+        return {
+            "n": int(arr.size),
+            "n_nonfinite": n_nonfinite,
+            "min": None,
+            "max": None,
+            "mean": None,
+        }
     good = arr[finite]
     return {
         "n": int(arr.size),
@@ -193,17 +198,14 @@ def channel_audit(name: str, values: np.ndarray) -> dict[str, Any]:
         lo, hi = lo_hi
         report["range"] = [lo, hi]
         report["range_authority"] = (
-            "contract C1.7 (definitional)" if name in PHYSICAL_RANGES
+            "contract C1.7 (definitional)"
+            if name in PHYSICAL_RANGES
             else "data-side plausibility (advisory)"
         )
         if stats["min"] is None:
             findings.append("no finite cell — range is unverifiable, which is a finding")
         else:
-            n_out = int(
-                np.count_nonzero(
-                    np.isfinite(values) & ((values < lo) | (values > hi))
-                )
-            )
+            n_out = int(np.count_nonzero(np.isfinite(values) & ((values < lo) | (values > hi))))
             if n_out:
                 findings.append(
                     f"{n_out} cells outside [{lo}, {hi}] "
@@ -219,9 +221,7 @@ def channel_audit(name: str, values: np.ndarray) -> dict[str, Any]:
         illegal = sorted(present - {int(v) for v in domain})
         if illegal:
             findings.append(f"values outside the legal class set: {illegal}")
-        nonintegral = (
-            bool(np.any(arr[finite] != np.rint(arr[finite]))) if finite.any() else False
-        )
+        nonintegral = bool(np.any(arr[finite] != np.rint(arr[finite]))) if finite.any() else False
         if nonintegral:
             findings.append(
                 "non-integral values in an enumerated channel — a class raster was "
@@ -321,9 +321,7 @@ def burn_scar_leak_report(ds: xr.Dataset) -> dict[str, Any]:
         "scar_base_rate": round(base_rate, 6),
         "scar_cells_inside_final_footprint": overlap,
         "fraction_of_burned_cells_prescarred": round(frac_of_burned, 6),
-        "lift_over_base_rate": (
-            round(frac_of_burned / base_rate, 3) if base_rate > 0 else None
-        ),
+        "lift_over_base_rate": (round(frac_of_burned / base_rate, 3) if base_rate > 0 else None),
         "findings": findings,
         "verdict": "suspect" if findings else "ok",
         "estimand": (
@@ -419,9 +417,7 @@ def audit_built_fires(
             mpath.write_text(json.dumps(man, indent=2) + "\n")
 
     ns_path = Path(norm_stats_path())
-    ns_report = (
-        audit_norm_stats(json.loads(ns_path.read_text())) if ns_path.is_file() else None
-    )
+    ns_report = audit_norm_stats(json.loads(ns_path.read_text())) if ns_path.is_file() else None
     suspects = sorted(f for f, r in per_fire.items() if r["verdict"] == "suspect")
     return {
         "n_fires": len(per_fire),

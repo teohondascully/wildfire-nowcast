@@ -144,7 +144,9 @@ def build_fire_tensor(
     )
 
     bundle = ChannelBundle(
-        fire_id=fire_id, grid=grid, times=times,
+        fire_id=fire_id,
+        grid=grid,
+        times=times,
         gofer_version=label_version,
         ignition_time_utc=ignition_utc.strftime("%Y-%m-%dT%H:%M:%S"),
         cv_fold=cv_fold,
@@ -164,9 +166,7 @@ def build_fire_tensor(
         if arr.shape[0] != len(times):
             raise RuntimeError(f"{ch}: got {arr.shape[0]} hours, expected {len(times)}")
         bundle.add(ch, arr)
-    weather_qa = {
-        ch: missing_hours(weather[ch], w_hours) for ch in C1_WEATHER_CHANNELS
-    }
+    weather_qa = {ch: missing_hours(weather[ch], w_hours) for ch in C1_WEATHER_CHANNELS}
     _log(f"[{fire_id}] rtma {weather['temp_2m'].shape} ({timings.stages['rtma']}s)")
 
     # -- channels 5-8: 3DEP terrain -------------------------------------------
@@ -239,9 +239,7 @@ def build_fire_tensor(
 
     # -- C2 [v2.7] keys (ADR-014). Derived here, never defaulted. --------------
     bundle.fuel_vintage_lag_years = fire_year - int(LANDFIRE_VINTAGES[folder])
-    ignition_report = count_ignition_components(
-        labels.state, cell_size_m=grid.cell_size_m
-    )
+    ignition_report = count_ignition_components(labels.state, cell_size_m=grid.cell_size_m)
     bundle.n_ignition_components = ignition_report.n_ignition_components
     bundle.provenance["ignition_components"] = ignition_report.to_provenance()
     if ignition_report.n_ignition_components > 1:
@@ -301,14 +299,17 @@ def _static_qa(
         "canopy_cover_pct_mean": round(float(np.nanmean(canopy)), 2),
         "barrier_cell_fraction": round(float(barrier.mean()), 4),
         # channels 9 and 12 are deliberately separate; agreement is informative
-        "barrier_nonburnable_agreement": round(float((barrier & nonburn).sum()
-                                                     / max(barrier.sum(), 1)), 4),
+        "barrier_nonburnable_agreement": round(
+            float((barrier & nonburn).sum() / max(barrier.sum(), 1)), 4
+        ),
         "burn_scar_cell_fraction": round(float((scar > 0).mean()), 4),
         "burn_scar_overlapping_this_fire_frac": round(
             float(((scar > 0) & ever_burned).sum() / max(ever_burned.sum(), 1)), 4
         ),
-        "elevation_m_range": [round(float(terrain["elevation"].min()), 1),
-                              round(float(terrain["elevation"].max()), 1)],
+        "elevation_m_range": [
+            round(float(terrain["elevation"].min()), 1),
+            round(float(terrain["elevation"].max()), 1),
+        ],
         "slope_deg_max": round(float(terrain["slope"].max()), 2),
         "aspect_unit_circle_max_err": round(
             float(np.max(np.abs(terrain["aspect_sin"] ** 2 + terrain["aspect_cos"] ** 2 - 1))), 5

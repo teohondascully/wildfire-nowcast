@@ -68,7 +68,6 @@ than left undiscovered: a playthrough that quietly dropped the defect it failed
 to catch would be exactly the green-but-vacuous shape ADR-030 was written about.
 """
 
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -88,10 +87,10 @@ from wildfire_nowcast.eval.metrics import aggregate, evaluate
 # playthrough never requires editing another lead's file — the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
-PLAYTHROUGH_OWNER = 'infra (adopted from modelling)'
+PLAYTHROUGH_OWNER = "infra (adopted from modelling)"
 PLAYTHROUGH_NOTE = (
     "G3's dispersion half. Closed-form spread-skill identity; 7 defects, 3 of them planted in "
-    'eval/metrics.py itself.'
+    "eval/metrics.py itself."
 )
 
 # Grid big enough to hold every planted area with room to spare, and small
@@ -299,9 +298,7 @@ def plant_half_duplicated(windows: list[dict]) -> list[dict]:
     for w in windows:
         a = w["member_areas"]
         half = a[: a.size // 2]
-        out.append(
-            {"member_areas": np.concatenate([half, half]), "truth_area": w["truth_area"]}
-        )
+        out.append({"member_areas": np.concatenate([half, half]), "truth_area": w["truth_area"]})
     return out
 
 
@@ -314,8 +311,7 @@ def plant_area_bias(windows: list[dict], shift: int = 40) -> list[dict]:
     confusion M5's P19 was written to resolve.
     """
     return [
-        {"member_areas": w["member_areas"] + shift, "truth_area": w["truth_area"]}
-        for w in windows
+        {"member_areas": w["member_areas"] + shift, "truth_area": w["truth_area"]} for w in windows
     ]
 
 

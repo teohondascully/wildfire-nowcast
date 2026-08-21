@@ -192,10 +192,22 @@ def _badge_box(ax, text: str, *, y: float = -0.22, colour: str = COL_WARN) -> No
     if not text:
         return
     ax.text(
-        0.0, y, text, transform=ax.transAxes, fontsize=5.8, color=colour, va="top",
-        ha="left", fontweight="bold",
-        bbox={"facecolor": "white", "alpha": 0.95, "edgecolor": colour, "lw": 0.8,
-              "boxstyle": "round,pad=0.3"},
+        0.0,
+        y,
+        text,
+        transform=ax.transAxes,
+        fontsize=5.8,
+        color=colour,
+        va="top",
+        ha="left",
+        fontweight="bold",
+        bbox={
+            "facecolor": "white",
+            "alpha": 0.95,
+            "edgecolor": colour,
+            "lw": 0.8,
+            "boxstyle": "round,pad=0.3",
+        },
     )
 
 
@@ -224,8 +236,15 @@ def render_run_dashboard(
     # hspace is large on purpose: every quarantined panel reserves a strip under
     # its axes for its badge (see `_badge_box`).
     gs = fig.add_gridspec(
-        3, 3, height_ratios=[1.0, 1.0, 0.92], hspace=0.82, wspace=0.26,
-        left=0.05, right=0.987, top=0.885, bottom=0.065,
+        3,
+        3,
+        height_ratios=[1.0, 1.0, 0.92],
+        hspace=0.82,
+        wspace=0.26,
+        left=0.05,
+        right=0.987,
+        top=0.885,
+        bottom=0.065,
     )
 
     # -- (1) band Brier over lead time ------------------------------------
@@ -233,8 +252,16 @@ def render_run_dashboard(
     drawn["band_brier_by_horizon"] = ""
     for m in order:
         ys = _series(pooled, m, "band_brier_by_horizon", stratum)
-        ax.plot([1, 2, 3], ys, marker="o", ms=4.5, lw=1.6, color=_colour(m), label=m,
-                ls="--" if m in ("persistence", "kernel_init") else "-")
+        ax.plot(
+            [1, 2, 3],
+            ys,
+            marker="o",
+            ms=4.5,
+            lw=1.6,
+            color=_colour(m),
+            label=m,
+            ls="--" if m in ("persistence", "kernel_init") else "-",
+        )
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band Brier  (lower is better)")
@@ -249,10 +276,17 @@ def render_run_dashboard(
         if m == "persistence":
             continue
         ys = _series(pooled, m, "band_best_member_iou_by_horizon", stratum)
-        ax.plot([1, 2, 3], ys, marker="o", ms=4.5, lw=1.6, color=_colour(m), label=m,
-                ls="--" if m == "kernel_init" else "-")
-    ax.plot([1, 2, 3], floor, lw=2.4, color=COL_WARN, ls=":",
-            label="NULL FLOOR (persistence)")
+        ax.plot(
+            [1, 2, 3],
+            ys,
+            marker="o",
+            ms=4.5,
+            lw=1.6,
+            color=_colour(m),
+            label=m,
+            ls="--" if m == "kernel_init" else "-",
+        )
+    ax.plot([1, 2, 3], floor, lw=2.4, color=COL_WARN, ls=":", label="NULL FLOOR (persistence)")
     ax.fill_between([1, 2, 3], 0, floor, color=COL_WARN, alpha=0.12)
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
@@ -264,9 +298,13 @@ def render_run_dashboard(
     iou_status = classify("band_best_member_iou_by_horizon", evidence=evidence)
     iou_badge = _wrap(badge(iou_status), 88, 6)
     if np.isfinite(floor).any():
-        below = [m for m in order if m != "persistence" and np.nanmean(
-            _series(pooled, m, "band_best_member_iou_by_horizon", stratum)
-        ) < np.nanmean(floor)]
+        below = [
+            m
+            for m in order
+            if m != "persistence"
+            and np.nanmean(_series(pooled, m, "band_best_member_iou_by_horizon", stratum))
+            < np.nanmean(floor)
+        ]
         msg = (
             f"a member that ignites NOTHING scores {np.nanmean(floor):.3f} here\n"
             "(a lead where truth did not grow is empty-vs-empty = IoU 1.0)"
@@ -274,10 +312,21 @@ def render_run_dashboard(
         if below:
             msg += f"\nBELOW THE NULL FLOOR: {', '.join(below)}"
         ax.text(
-            0.03, 0.04, msg, transform=ax.transAxes, fontsize=6.4, color=COL_WARN,
-            va="bottom", fontweight="bold",
-            bbox={"facecolor": "white", "alpha": 0.85, "edgecolor": COL_WARN, "lw": 0.7,
-                  "boxstyle": "round,pad=0.28"},
+            0.03,
+            0.04,
+            msg,
+            transform=ax.transAxes,
+            fontsize=6.4,
+            color=COL_WARN,
+            va="bottom",
+            fontweight="bold",
+            bbox={
+                "facecolor": "white",
+                "alpha": 0.85,
+                "edgecolor": COL_WARN,
+                "lw": 0.7,
+                "boxstyle": "round,pad=0.28",
+            },
         )
     _badge_box(ax, iou_badge)
     drawn["band_best_member_iou_by_horizon"] = iou_badge
@@ -290,10 +339,24 @@ def render_run_dashboard(
     adr = [_scalar(pooled, m, "area_dispersion_ratio", stratum) for m in models]
     lo, hi = G3_DISPERSION_BAND
     ax.axhspan(lo, hi, color="#0f766e", alpha=0.10, zorder=0)
-    ax.bar(xs - 0.2, dr, width=0.38, color="#cbd5e1", edgecolor="#64748b", lw=0.6,
-           label="dispersion_ratio — QUARANTINED (C6.1)")
-    ax.bar(xs + 0.2, adr, width=0.38, color="#0f766e", edgecolor="#134e4a", lw=0.6,
-           label=f"area_dispersion_ratio — ADJUDICATES G3, bar [{lo}, {hi}]")
+    ax.bar(
+        xs - 0.2,
+        dr,
+        width=0.38,
+        color="#cbd5e1",
+        edgecolor="#64748b",
+        lw=0.6,
+        label="dispersion_ratio — QUARANTINED (C6.1)",
+    )
+    ax.bar(
+        xs + 0.2,
+        adr,
+        width=0.38,
+        color="#0f766e",
+        edgecolor="#134e4a",
+        lw=0.6,
+        label=f"area_dispersion_ratio — ADJUDICATES G3, bar [{lo}, {hi}]",
+    )
     ax.set_xticks(xs)
     ax.set_xticklabels(models, rotation=38, ha="right", fontsize=6.4)
     ax.axhline(1.0, color=COL_TEXT, lw=0.8, ls="--")
@@ -309,29 +372,44 @@ def render_run_dashboard(
 
     # -- (4) G3 HALF TWO: the calibration criterion, or a loud absence -----
     ax = fig.add_subplot(gs[1, 0])
-    cal_series = {
-        m: _series(pooled, m, CALIBRATION_HEADLINE_KEY, stratum) for m in order
-    }
+    cal_series = {m: _series(pooled, m, CALIBRATION_HEADLINE_KEY, stratum) for m in order}
     have_cal = any(np.isfinite(v).any() for v in cal_series.values())
     if have_cal:
         for m in order:
-            ax.plot([1, 2, 3], cal_series[m], marker="s", ms=4.2, lw=1.6,
-                    color=_colour(m), label=m,
-                    ls="--" if m in ("persistence", "kernel_init") else "-")
-        ax.axhline(G3_CALIBRATION_BAR, color=COL_WARN, lw=1.6, ls="--",
-                   label=f"G3 bar = {G3_CALIBRATION_BAR:.2f} (10 pts)")
+            ax.plot(
+                [1, 2, 3],
+                cal_series[m],
+                marker="s",
+                ms=4.2,
+                lw=1.6,
+                color=_colour(m),
+                label=m,
+                ls="--" if m in ("persistence", "kernel_init") else "-",
+            )
+        ax.axhline(
+            G3_CALIBRATION_BAR,
+            color=COL_WARN,
+            lw=1.6,
+            ls="--",
+            label=f"G3 bar = {G3_CALIBRATION_BAR:.2f} (10 pts)",
+        )
         floor_cal = _series(
             pooled, "persistence", "band_calibration_error_silent_floor_by_horizon", stratum
         )
         if np.isfinite(floor_cal).any():
-            ax.plot([1, 2, 3], floor_cal, lw=2.0, color="#6b7280", ls=":",
-                    label="silent floor = the base rate exactly")
+            ax.plot(
+                [1, 2, 3],
+                floor_cal,
+                lw=2.0,
+                color="#6b7280",
+                ls=":",
+                label="silent floor = the base rate exactly",
+            )
         ax.set_xticks([1, 2, 3])
         ax.set_xlabel("lead time (h)")
         ax.set_ylabel(f"{G3_KEYS['calibration']}  (probability points, lower better)")
         ax.set_title(
-            f"(4) G3 HALF TWO — {G3_KEYS['calibration']} on the "
-            f"{G3_KEYS['calibration_mask']} mask",
+            f"(4) G3 HALF TWO — {G3_KEYS['calibration']} on the {G3_KEYS['calibration_mask']} mask",
             fontsize=10,
         )
         ax.grid(alpha=0.25, lw=0.5)
@@ -340,7 +418,8 @@ def render_run_dashboard(
     else:
         ax.axis("off")
         ax.text(
-            0.5, 0.5,
+            0.5,
+            0.5,
             "G3'S CALIBRATION CRITERION IS NOT IN THIS RUN ARTIFACT\n\n"
             f"`{G3_KEYS['calibration']}` (ADR-020,\n"
             "common.calibration.GATE_CRITERION_KEY) is emitted by C6's\n"
@@ -351,17 +430,33 @@ def render_run_dashboard(
             "caught for C6.4 one gate ago (ADR-020 (6)).\n\n"
             "Verified by CALLING _headline, not by reading it.\n"
             "BLOCKER filed modelling. Nothing here is a G3 verdict.",
-            ha="center", va="center", fontsize=8.0, color=COL_WARN, fontweight="bold",
-            bbox={"facecolor": "white", "edgecolor": COL_WARN, "lw": 1.4,
-                  "boxstyle": "round,pad=0.5"},
+            ha="center",
+            va="center",
+            fontsize=8.0,
+            color=COL_WARN,
+            fontweight="bold",
+            bbox={
+                "facecolor": "white",
+                "edgecolor": COL_WARN,
+                "lw": 1.4,
+                "boxstyle": "round,pad=0.5",
+            },
         )
 
     # -- (4b) the RETIRED calibration family, badged, for contrast ---------
     ax = fig.add_subplot(gs[1, 1])
     for m in order:
         ys = _series(pooled, m, "band_ece_by_horizon", stratum)
-        ax.plot([1, 2, 3], ys, marker="s", ms=4.0, lw=1.5, color=_colour(m), label=m,
-                ls="--" if m in ("persistence", "kernel_init") else "-")
+        ax.plot(
+            [1, 2, 3],
+            ys,
+            marker="s",
+            ms=4.0,
+            lw=1.5,
+            color=_colour(m),
+            label=m,
+            ls="--" if m in ("persistence", "kernel_init") else "-",
+        )
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band ECE  (lower is better)")
@@ -375,16 +470,22 @@ def render_run_dashboard(
     ax = fig.add_subplot(gs[1, 2])
     for m in order:
         ys = _series(pooled, m, "band_reliability_by_horizon", stratum)
-        ax.plot([1, 2, 3], ys, marker="d", ms=4.0, lw=1.5, color=_colour(m), label=m,
-                ls="--" if m in ("persistence", "kernel_init") else "-")
+        ax.plot(
+            [1, 2, 3],
+            ys,
+            marker="d",
+            ms=4.0,
+            lw=1.5,
+            color=_colour(m),
+            label=m,
+            ls="--" if m in ("persistence", "kernel_init") else "-",
+        )
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band reliability (REL)")
     ax.set_title("(4c) DEMOTED — REL, G3's ORIGINAL bar. Do not quote.", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5)
-    rel_badge = _wrap(
-        badge(classify("band_reliability_by_horizon", evidence=evidence)), 88, 5
-    )
+    rel_badge = _wrap(badge(classify("band_reliability_by_horizon", evidence=evidence)), 88, 5)
     _badge_box(ax, rel_badge)
     drawn["band_reliability_by_horizon"] = rel_badge
 
@@ -393,8 +494,16 @@ def render_run_dashboard(
     drawn["band_resolution_by_horizon"] = ""
     for m in order:
         ys = _series(pooled, m, "band_resolution_by_horizon", stratum)
-        ax.plot([1, 2, 3], ys, marker="^", ms=4.4, lw=1.5, color=_colour(m), label=m,
-                ls="--" if m in ("persistence", "kernel_init") else "-")
+        ax.plot(
+            [1, 2, 3],
+            ys,
+            marker="^",
+            ms=4.4,
+            lw=1.5,
+            color=_colour(m),
+            label=m,
+            ls="--" if m in ("persistence", "kernel_init") else "-",
+        )
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band resolution  (higher is better)")
@@ -412,14 +521,27 @@ def render_run_dashboard(
     if decomposition:
         per_fire = decomposition.get("per_fire") or {}
         names = sorted({m for f in per_fire.values() for m in f})
-        sil = [float(np.nanmean([per_fire[f].get(m, {}).get("silence_term", np.nan)
-                                 for f in per_fire])) for m in names]
-        shp = [float(np.nanmean([per_fire[f].get(m, {}).get("shape_term", np.nan)
-                                 for f in per_fire])) for m in names]
+        sil = [
+            float(
+                np.nanmean([per_fire[f].get(m, {}).get("silence_term", np.nan) for f in per_fire])
+            )
+            for m in names
+        ]
+        shp = [
+            float(np.nanmean([per_fire[f].get(m, {}).get("shape_term", np.nan) for f in per_fire]))
+            for m in names
+        ]
         xs = np.arange(len(names))
         ax.bar(xs, sil, color="#cbd5e1", edgecolor="#64748b", lw=0.6, label="silence term")
-        ax.bar(xs, shp, bottom=sil, color="#0f766e", edgecolor="#134e4a", lw=0.6,
-               label="shape term (mode capture)")
+        ax.bar(
+            xs,
+            shp,
+            bottom=sil,
+            color="#0f766e",
+            edgecolor="#134e4a",
+            lw=0.6,
+            label="shape term (mode capture)",
+        )
         ax.set_xticks(xs)
         ax.set_xticklabels(names, rotation=38, ha="right", fontsize=6.4)
         ax.set_ylabel("band best-member IoU")
@@ -428,9 +550,15 @@ def render_run_dashboard(
         ax.grid(alpha=0.25, lw=0.5, axis="y")
     else:
         ax.axis("off")
-        ax.text(0.5, 0.5, "silence/shape decomposition not supplied\n"
-                          "(python -m wildfire_nowcast.sim.replay ...)",
-                ha="center", va="center", fontsize=8, color=COL_TEXT)
+        ax.text(
+            0.5,
+            0.5,
+            "silence/shape decomposition not supplied\n(python -m wildfire_nowcast.sim.replay ...)",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color=COL_TEXT,
+        )
 
     # -- (7) G3 READINESS + the badge audit, in words ----------------------
     ax = fig.add_subplot(gs[2, 0])
@@ -455,8 +583,14 @@ def render_run_dashboard(
     g = [k for k in drawn if classify(k, evidence=evidence).state == GATE]
     lines += [f"  - {k}" for k in g] or ["  (none)"]
     ax.text(
-        0.0, 1.0, "\n".join(lines), transform=ax.transAxes, fontsize=7.2,
-        va="top", ha="left", family="monospace",
+        0.0,
+        1.0,
+        "\n".join(lines),
+        transform=ax.transAxes,
+        fontsize=7.2,
+        va="top",
+        ha="left",
+        family="monospace",
         color=COL_TEXT if ready["adjudicable"] else COL_WARN,
     )
 
@@ -489,10 +623,12 @@ def render_run_dashboard(
         # Truncate hard. These strings run to ~300 chars and ran off the canvas.
         short = [w.split(" — ")[0][:96] + (" …" if len(w) > 96 else "") for w in warn[:3]]
         fig.text(
-            0.05, 0.030,
-            "C6.2 VALIDITY (a degenerate baseline VOIDS its gate):  "
-            + "  |  ".join(short),
-            fontsize=6.2, color=COL_WARN, va="top",
+            0.05,
+            0.030,
+            "C6.2 VALIDITY (a degenerate baseline VOIDS its gate):  " + "  |  ".join(short),
+            fontsize=6.2,
+            color=COL_WARN,
+            va="top",
         )
     stamp(
         fig,
@@ -508,17 +644,22 @@ def render_run_dashboard(
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(
-        prog="python -m wildfire_nowcast.sim.rundash", allow_abbrev=False
-    )
+    ap = argparse.ArgumentParser(prog="python -m wildfire_nowcast.sim.rundash", allow_abbrev=False)
     ap.add_argument("--run", required=True, help="runs/<id> or a results.json path")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--stratum", default="growth_windows",
-                    choices=("growth_windows", "all_windows"))
-    ap.add_argument("--decomposition", default=None,
-                    help="reports/figures/iou_decomposition.json from sim.replay")
-    ap.add_argument("--null-check", default=DEFAULT_NULL_CHECK,
-                    help="make null-check --json output; supplies MEASURED badge evidence")
+    ap.add_argument(
+        "--stratum", default="growth_windows", choices=("growth_windows", "all_windows")
+    )
+    ap.add_argument(
+        "--decomposition",
+        default=None,
+        help="reports/figures/iou_decomposition.json from sim.replay",
+    )
+    ap.add_argument(
+        "--null-check",
+        default=DEFAULT_NULL_CHECK,
+        help="make null-check --json output; supplies MEASURED badge evidence",
+    )
     args = ap.parse_args(argv)
 
     payload = load_run(args.run)
@@ -532,26 +673,38 @@ def main(argv: list[str] | None = None) -> int:
     floor = _series(pooled, "persistence", "band_best_member_iou_by_horizon", args.stratum)
     ready = g3_readiness(payload)
     print(f"[rundash] {fig}")
-    print(f"[rundash] badge evidence: {len(evidence)} metrics from "
-          f"{args.null_check if evidence else 'REGISTRY ONLY (null-check json absent)'}")
-    print(f"[rundash] G3 adjudicable from this artifact: {ready['adjudicable']}"
-          + ("" if ready["adjudicable"] else f"  MISSING {ready['missing']}"))
-    print(f"[rundash] NULL FLOOR (persistence band best-member IoU) by horizon: "
-          f"{', '.join(f'{v:.3f}' for v in floor)}")
+    print(
+        f"[rundash] badge evidence: {len(evidence)} metrics from "
+        f"{args.null_check if evidence else 'REGISTRY ONLY (null-check json absent)'}"
+    )
+    print(
+        f"[rundash] G3 adjudicable from this artifact: {ready['adjudicable']}"
+        + ("" if ready["adjudicable"] else f"  MISSING {ready['missing']}")
+    )
+    print(
+        f"[rundash] NULL FLOOR (persistence band best-member IoU) by horizon: "
+        f"{', '.join(f'{v:.3f}' for v in floor)}"
+    )
     lo, hi = G3_DISPERSION_BAND
     for m in model_order(pooled):
         dr = _scalar(pooled, m, "dispersion_ratio", args.stratum)
         adr = _scalar(pooled, m, "area_dispersion_ratio", args.stratum)
         cal = _series(pooled, m, CALIBRATION_HEADLINE_KEY, args.stratum)
         iou = _series(pooled, m, "band_best_member_iou_by_horizon", args.stratum)
-        in_band = "" if not np.isfinite(adr) else (
-            " [G3 dispersion IN BAND]" if lo <= adr <= hi else " [G3 dispersion OUT OF BAND]"
+        in_band = (
+            ""
+            if not np.isfinite(adr)
+            else (" [G3 dispersion IN BAND]" if lo <= adr <= hi else " [G3 dispersion OUT OF BAND]")
         )
-        print(f"    {m:26s} IoU(quarantined) {', '.join(f'{v:.3f}' for v in iou)}"
-              f"   dispersion_ratio {dr:.3f} (QUARANTINED)"
-              f"   area_dispersion_ratio {adr:.3f} (G3){in_band}")
-        print(f"    {'':26s} calibration_error(G3) "
-              f"{', '.join('n/a' if not np.isfinite(v) else f'{v:.4f}' for v in cal)}")
+        print(
+            f"    {m:26s} IoU(quarantined) {', '.join(f'{v:.3f}' for v in iou)}"
+            f"   dispersion_ratio {dr:.3f} (QUARANTINED)"
+            f"   area_dispersion_ratio {adr:.3f} (G3){in_band}"
+        )
+        print(
+            f"    {'':26s} calibration_error(G3) "
+            f"{', '.join('n/a' if not np.isfinite(v) else f'{v:.4f}' for v in cal)}"
+        )
     return 0
 
 

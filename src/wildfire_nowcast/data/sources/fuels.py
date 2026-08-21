@@ -91,7 +91,7 @@ class LandfireLayer:
 
     c1_channel: int
     c1_name: str
-    code: str          # e.g. "FBFM40"; the LFPS product code is "{yy}{code}"
+    code: str  # e.g. "FBFM40"; the LFPS product code is "{yy}{code}"
     dtype: str
 
 
@@ -172,7 +172,8 @@ def verify_fuels_catalog(timeout_s: float = 60.0) -> dict[str, Any]:
             continue
         names = {s["name"].split("/")[-1] for s in cat.get("services", [])}
         observed[folder] = sorted(
-            layer.code for layer in FUEL_LAYERS
+            layer.code
+            for layer in FUEL_LAYERS
             if f"{folder.replace('Landfire_', '')}_{layer.code}_CONUS" in names
         )
     publishing = {f for f, codes in observed.items() if len(codes) == len(FUEL_LAYERS)}
@@ -271,9 +272,7 @@ def fetch_lfps_layer(
     with rasterio.open(io.BytesIO(blob)) as src:
         arr = src.read(1).astype(np.float32)
     if arr.shape != grid.shape:
-        raise RuntimeError(
-            f"{layer.code}: LFPS returned {arr.shape}, expected {grid.shape}"
-        )
+        raise RuntimeError(f"{layer.code}: LFPS returned {arr.shape}, expected {grid.shape}")
     nodata = arr <= LFPS_NODATA + 1.0
     if nodata_out is not None:
         nodata_out["mask"] = nodata
@@ -283,9 +282,7 @@ def fetch_lfps_layer(
     return arr
 
 
-def nodata_report(
-    nodata_mask: Any, layer: LandfireLayer, water_mask: Any = None
-) -> dict[str, Any]:
+def nodata_report(nodata_mask: Any, layer: LandfireLayer, water_mask: Any = None) -> dict[str, Any]:
     """How much of a layer was LFPS NoData, and whether channel 12 calls it water.
 
     QA measures, it does not fix (the fix happened in :func:`fetch_lfps_layer`).

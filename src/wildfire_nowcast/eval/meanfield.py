@@ -50,9 +50,7 @@ def mean_field_scores(
     for closed-form models, not a comparison table.
     """
     radius = (
-        int(band_radius_cells)
-        if band_radius_cells is not None
-        else default_band_radius(horizon_h)
+        int(band_radius_cells) if band_radius_cells is not None else default_band_radius(horizon_h)
     )
     sse = nll_sum = n = 0.0
     pred_growth = obs_growth = 0.0
@@ -71,15 +69,19 @@ def mean_field_scores(
         n += count
         nll_sum += float(-(y * np.log(p) + (1 - y) * np.log1p(-p)).sum())
         raw = reliability(p, y)
-        bins = raw if not bins else [
-            {
-                **b,
-                "n": b["n"] + r["n"],
-                "sum_p": b["sum_p"] + r["sum_p"],
-                "sum_y": b["sum_y"] + r["sum_y"],
-            }
-            for b, r in zip(bins, raw, strict=True)
-        ]
+        bins = (
+            raw
+            if not bins
+            else [
+                {
+                    **b,
+                    "n": b["n"] + r["n"],
+                    "sum_p": b["sum_p"] + r["sum_p"],
+                    "sum_y": b["sum_y"] + r["sum_y"],
+                }
+                for b, r in zip(bins, raw, strict=True)
+            ]
+        )
         unburned0 = np.asarray(w.x0) == UNBURNED
         pg = float(prob[-1][unburned0].sum())
         og = float(truth[-1][unburned0].sum())

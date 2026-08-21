@@ -201,8 +201,9 @@ def _collect_growth(d: PageData) -> None:
     ga = _fig("growth_anatomy.json")
     val = rec["c6_2_validity"]
     # only the models the anatomy artifact actually replayed — never a default
-    models = [m for m in ("nbfix_s1", "nbfix_s2", "kernel_init", "ellipse_cal3h") if m in
-ga["summary"]]
+    models = [
+        m for m in ("nbfix_s1", "nbfix_s2", "kernel_init", "ellipse_cal3h") if m in ga["summary"]
+    ]
     d.growth = {
         "record": RECORD_G2,
         "anatomy": "reports/figures/growth_anatomy.json",
@@ -433,10 +434,17 @@ def fig_g2(d: PageData) -> Path:
     ax.bar(x, seed_env, 0.24, color="#5eead4", label="margin / seed SD (vs envelope)")
     ax.bar(x + 0.25, block_sd, 0.24, color=BAD, label="margin / SD ACROSS THE 4 BLOCKS")
     for j in range(3):
-        ax.text(x[j] - 0.25, seed_sd[j] + 0.4, f"+{seed_sd[j]:.1f}", ha="center", fontsize=9,
-color=GOOD)
-        ax.text(x[j] + 0.25, block_sd[j] + 0.4, f"+{block_sd[j]:.2f}", ha="center", fontsize=9,
-color=BAD)
+        ax.text(
+            x[j] - 0.25, seed_sd[j] + 0.4, f"+{seed_sd[j]:.1f}", ha="center", fontsize=9, color=GOOD
+        )
+        ax.text(
+            x[j] + 0.25,
+            block_sd[j] + 0.4,
+            f"+{block_sd[j]:.2f}",
+            ha="center",
+            fontsize=9,
+            color=BAD,
+        )
     ax.set_xticks(x)
     ax.set_xticklabels([f"{h} h" for h in hs])
     ax.set_ylim(0, 24)
@@ -540,8 +548,10 @@ def fig_dispersion(d: PageData) -> Path:
     names = [a["arm"] for a in arms]
     vals = [a["equal_block"] for a in arms]
     lo, hi = dd["geometric_interval"]
-    colors = [GOOD if lo
-<= v <= hi else (GREY if "__ABL" in n else BAD) for n, v in zip(names, vals, strict=True)]
+    colors = [
+        GOOD if lo <= v <= hi else (GREY if "__ABL" in n else BAD)
+        for n, v in zip(names, vals, strict=True)
+    ]
     ax.barh(range(len(vals)), vals, color=colors, height=0.78)
     ax.axvspan(lo, hi, color=GOOD, alpha=0.12, zorder=0)
     ax.axvline(1.0, color=INK, lw=0.8, ls="--")
@@ -580,8 +590,7 @@ def fig_dispersion(d: PageData) -> Path:
     ax.text(
         0.62,
         dd["n_ablation_strong"] - 0.15,
-        "below this line the latent buys almost nothing —\n"
-        "those arms were already near-collapsed",
+        "below this line the latent buys almost nothing —\nthose arms were already near-collapsed",
         fontsize=7.4,
         color=BAD,
         va="top",
@@ -695,15 +704,24 @@ def fig_overprediction_map(d: PageData) -> Path:
             yy0 = y0 + k * (wide + 0.045 * (yhi - ylo))
             ax.add_patch(
                 Rectangle(
-                    (x0, yy0), sides[k], sides[k],
-                    facecolor=col, edgecolor="black", linewidth=0.7, zorder=6,
+                    (x0, yy0),
+                    sides[k],
+                    sides[k],
+                    facecolor=col,
+                    edgecolor="black",
+                    linewidth=0.7,
+                    zorder=6,
                 )
             )
             ax.text(
-                x0 + wide + 0.03 * span, yy0,
+                x0 + wide + 0.03 * span,
+                yy0,
                 f"{lab}  {area_cells:.1f} km2",
-                fontsize=8.0, va="bottom", ha="left",
-                color=col if area_cells > 0 else MUTED, zorder=7,
+                fontsize=8.0,
+                va="bottom",
+                ha="left",
+                color=col if area_cells > 0 else MUTED,
+                zorder=7,
                 bbox={"facecolor": "white", "alpha": 0.82, "edgecolor": "none", "pad": 1.2},
             )
         # scale bar in DATA coordinates, so the equal-aspect padding cannot
@@ -711,10 +729,19 @@ def fig_overprediction_map(d: PageData) -> Path:
         bar_km = 10.0
         bx = xhi - 0.07 * span - bar_km * 1000.0
         by = yhi - 0.09 * (yhi - ylo)
-        ax.plot([bx, bx + bar_km * 1000.0], [by, by], color=INK, lw=2.4, zorder=7,
-                solid_capstyle="butt")
-        ax.text(bx + bar_km * 500.0, by - 0.012 * (yhi - ylo), f"{bar_km:.0f} km",
-                ha="center", va="top", fontsize=7.6, color=INK, zorder=7)
+        ax.plot(
+            [bx, bx + bar_km * 1000.0], [by, by], color=INK, lw=2.4, zorder=7, solid_capstyle="butt"
+        )
+        ax.text(
+            bx + bar_km * 500.0,
+            by - 0.012 * (yhi - ylo),
+            f"{bar_km:.0f} km",
+            ha="center",
+            va="top",
+            fontsize=7.6,
+            color=INK,
+            zorder=7,
+        )
         ax.set_xticks([])
         ax.set_yticks([])
         add_north_arrow(ax)
@@ -871,8 +898,9 @@ def fig_identity(d: PageData) -> Path:
     for r in rows:
         ax.plot([1, 2, 3, 4], r["cv"], "-o", ms=2.5, lw=0.8, color=COOL, alpha=0.55)
     ax.set_xticks([1, 2, 3, 4])
-    ax.set_xticklabels(["block 3\nbobcat", "block 4\ncreek", "block 5\nCZU", "block 6\ndolan"],
-fontsize=8)
+    ax.set_xticklabels(
+        ["block 3\nbobcat", "block 4\ncreek", "block 5\nCZU", "block 6\ndolan"], fontsize=8
+    )
     ax.set_ylabel("ensemble_CV\n(member SD / predicted mean)", fontsize=9)
     ax.set_title(
         "(2) ensemble_CV, EVERY TRAINED ARM — the honest version of 'near-constant'\n"
@@ -890,8 +918,9 @@ fontsize=8)
     ax.axhline(1.0, color=INK, lw=0.9, ls="--")
     ax.set_yscale("log")
     ax.set_xticks([1, 2, 3, 4])
-    ax.set_xticklabels(["block 3\nbobcat", "block 4\ncreek", "block 5\nCZU", "block 6\ndolan"],
-fontsize=8)
+    ax.set_xticklabels(
+        ["block 3\nbobcat", "block 4\ncreek", "block 5\nCZU", "block 6\ndolan"], fontsize=8
+    )
     ax.set_ylabel("growth_calibration\n(predicted mean area / truth mean area)", fontsize=9)
     ax.set_title(
         "(3) growth_calibration, THE SAME ARMS\n"
@@ -933,8 +962,16 @@ def fig_block5(d: PageData) -> Path:
         ("b6", "#334155", "block 6 — Dolan"),
         ("b5", BAD, "block 5 — CZU"),
     ):
-        ax.plot(xx, [a[key] for a in per], "-o", ms=2.6, lw=1.0, color=col, label=lab,
-                zorder=5 if key == "b5" else 2)
+        ax.plot(
+            xx,
+            [a[key] for a in per],
+            "-o",
+            ms=2.6,
+            lw=1.0,
+            color=col,
+            label=lab,
+            zorder=5 if key == "b5" else 2,
+        )
     ax.set_xticks(xx)
     ax.set_xticklabels([a["arm"] for a in per], rotation=90, fontsize=4.2)
     ax.tick_params(axis="x", pad=1)
@@ -1035,8 +1072,12 @@ def _shrink_gif(src: Path, dst: Path, *, max_width: int = 460, step: int = 2) ->
                 f = f.resize((max_width, int(f.height * max_width / f.width)), Image.LANCZOS)
             frames.append(f.convert("P", palette=Image.ADAPTIVE, colors=96))
         frames[0].save(
-            dst, save_all=True, append_images=frames[1:], loop=0,
-            duration=max(80, int(im.info.get("duration", 120)) * step), optimize=True,
+            dst,
+            save_all=True,
+            append_images=frames[1:],
+            loop=0,
+            duration=max(80, int(im.info.get("duration", 120)) * step),
+            optimize=True,
         )
     return dst
 
@@ -1045,7 +1086,7 @@ def figure_block(path: Path, caption: str, notestablishes: str, *, wide: bool = 
     uri = _data_uri(path, max_width=1750 if wide else 1100)
     return (
         f'<figure class="{"wide" if wide else ""}"><img src="{uri}" alt="{html.escape(path.name)}">'
-        f'<figcaption><b>Shows.</b> {caption}<br>'
+        f"<figcaption><b>Shows.</b> {caption}<br>"
         f'<span class="ne"><b>Does not establish.</b> {notestablishes}</span></figcaption></figure>'
     )
 
@@ -1062,9 +1103,7 @@ def build_html(d: PageData) -> Path:
     _shrink_gif(FIGDIR / "2019_kincade.gif", gif_small)
 
     map_fire = d.growth["map_fire"].replace("2020_", "").replace("_lightning_complex", "")
-    g, gr, idn, b5, dsp, em = (
-        d.g2, d.growth, d.identity, d.block5, d.dispersion, d.elmfire
-    )
+    g, gr, idn, b5, dsp, em = (d.g2, d.growth, d.identity, d.block5, d.dispersion, d.elmfire)
     h1, h2, h3 = (g["horizons"][k] for k in ("1", "2", "3"))
 
     old = (
@@ -1232,20 +1271,20 @@ empty prediction against an empty truth scores IoU 1.0.</p>
     A(f"""
 <div class="box fail">
 <h4>Where our own headline overstates itself — read this one</h4>
-<p>We have been quoting <b>+{h1['margin_seed_sd_vs_rule']:.1f} / +{h2['margin_seed_sd_vs_rule']:.1f}
-/ +{h3['margin_seed_sd_vs_rule']:.1f} SD</b>. I reproduced those numbers exactly from the run
+<p>We have been quoting <b>+{h1["margin_seed_sd_vs_rule"]:.1f} / +{h2["margin_seed_sd_vs_rule"]:.1f}
+/ +{h3["margin_seed_sd_vs_rule"]:.1f} SD</b>. I reproduced those numbers exactly from the run
 record, and the denominator is <b>the standard deviation across our own four training seeds</b>
-({h1['sd_across_seed']:.5f} at 1 h). That is a statement about how reproducible our training is.
+({h1["sd_across_seed"]:.5f} at 1 h). That is a statement about how reproducible our training is.
 It is <em>not</em> a statement about sampling variability across fires or landscapes.</p>
 <p>Recompute the same margin against variation across the four held-out spatial blocks — the
-units the contract itself calls independent — and it is <b>+{h1['margin_block_sd']:.2f} /
-+{h2['margin_block_sd']:.2f} / +{h3['margin_block_sd']:.2f} block-SD</b>
-(paired t = {h1['margin_block_t']:.1f} / {h2['margin_block_t']:.1f} / {h3['margin_block_t']:.1f}
+units the contract itself calls independent — and it is <b>+{h1["margin_block_sd"]:.2f} /
++{h2["margin_block_sd"]:.2f} / +{h3["margin_block_sd"]:.2f} block-SD</b>
+(paired t = {h1["margin_block_t"]:.1f} / {h2["margin_block_t"]:.1f} / {h3["margin_block_t"]:.1f}
 on n=4). Same data, same record, different and much more relevant denominator. The direction of
 the result is unchanged and every block agrees; the <em>size</em> of the claim shrinks by about
 an order of magnitude. Our own decision log even describes this statistic as an "equal-block SD",
 which it is not.</p>
-<p>Similarly, the "<b>{g['unanimity']['hits']}/{g['unanimity']['cells']} cells</b>" figure is real
+<p>Similarly, the "<b>{g["unanimity"]["hits"]}/{g["unanimity"]["cells"]} cells</b>" figure is real
 but was formally demoted in-project to corroboration: at four blocks, unanimity is nearly free.
 It is drawn here at the same weight as everything else and should carry no weight in your
 reading.</p>

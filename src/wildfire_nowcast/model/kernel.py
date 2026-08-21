@@ -470,9 +470,7 @@ class ContagionKernel(nn.Module):
         #: kernel and is BIT-IDENTICAL to the pre-M5 code path
         #: (:func:`check_latent_off_is_bit_identical`).
         self.latent: LatentHead | None = (
-            None
-            if latent_config is None or latent_config.dim == 0
-            else LatentHead(latent_config)
+            None if latent_config is None or latent_config.dim == 0 else LatentHead(latent_config)
         )
         #: How :meth:`predict` draws ``z_t``. An ATTRIBUTE, not an argument,
         #: because C5's six-parameter signature is fixed and the ablation must
@@ -593,9 +591,7 @@ class ContagionKernel(nn.Module):
         log_fuel = torch.einsum("g,g...->...", self.fuel_log_multiplier, fields.fuel_onehot)
         return log_fuel + self.barrier_log_multiplier * fields.barrier
 
-    def _reach_cells_per_hour(
-        self, speed: Tensor, fields: StaticFields, fm_pct: Tensor
-    ) -> Tensor:
+    def _reach_cells_per_hour(self, speed: Tensor, fields: StaticFields, fm_pct: Tensor) -> Tensor:
         """Head rate in cells/h. Susceptibility is EXCLUDED in amplitude mode.
 
         In ``"reach"`` mode (M2's defect, kept reproducible) susceptibility is
@@ -1275,9 +1271,7 @@ def susceptibility_gradient_report(
         return float(param.grad if index is None else param.grad[index])
 
     barrier_grad = _grad(model.barrier_log_multiplier)
-    fuel_grads = {
-        name: _grad(model.fuel_log_multiplier, i) for i, name in enumerate(_GROUP_ORDER)
-    }
+    fuel_grads = {name: _grad(model.fuel_log_multiplier, i) for i, name in enumerate(_GROUP_ORDER)}
     return {
         "susceptibility_mode": mode,
         "d_loss_d_barrier_log_multiplier": barrier_grad,

@@ -2376,9 +2376,7 @@ def check_stage_covariate_is_one_global_scalar_of_x_t() -> Check:
         field.reshape(1, -1)[0, : int(area)] = 1.0
         zs.append(float(head.covariate(field)[0]))
     monotone = all(a < b for a, b in zip(zs[:-1], zs[1:], strict=True))
-    empty_is_finite = bool(
-        zs[0] == (0.0 - STAGE_CENTRE) / STAGE_SCALE and all(v == v for v in zs)
-    )
+    empty_is_finite = bool(zs[0] == (0.0 - STAGE_CENTRE) / STAGE_SCALE and all(v == v for v in zs))
 
     # ... and the kernel calls it on the state each step actually reached.
     with torch.no_grad():

@@ -326,9 +326,7 @@ def _capture_verdict(
             "could not be evaluated. Reported, never silently passed.",
         )
     paid = [
-        float(v)
-        for v in by_seed[ZERO_CLAIM]
-        if v is not None and np.isfinite(v) and float(v) > 0.0
+        float(v) for v in by_seed[ZERO_CLAIM] if v is not None and np.isfinite(v) and float(v) > 0.0
     ]
     if not paid:
         return VERDICT_OK, ""
@@ -351,9 +349,11 @@ def _verdict_for(
     by_seed: Mapping[str, list[float | None]],
 ) -> MetricVerdict:
     means = {
-        name: (float(np.mean([v for v in vals if v is not None and np.isfinite(v)])) if any(
-            v is not None and np.isfinite(v) for v in vals
-        ) else None)
+        name: (
+            float(np.mean([v for v in vals if v is not None and np.isfinite(v)]))
+            if any(v is not None and np.isfinite(v) for v in vals)
+            else None
+        )
         for name, vals in by_seed.items()
     }
     capture, capture_detail = _capture_verdict(spec, by_seed)

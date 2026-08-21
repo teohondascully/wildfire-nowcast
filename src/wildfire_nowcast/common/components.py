@@ -47,9 +47,14 @@ __all__ = ["NEIGHBOURHOOD_8", "label_components"]
 #: not two. A 4-connected rule would split a diagonal fire front into a chain of
 #: separate "ignitions" and inflate every count this function feeds.
 NEIGHBOURHOOD_8: tuple[tuple[int, int], ...] = (
-    (-1, -1), (-1, 0), (-1, 1),
-    (0, -1), (0, 1),
-    (1, -1), (1, 0), (1, 1),
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
 )
 
 

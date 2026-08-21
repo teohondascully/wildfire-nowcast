@@ -296,9 +296,7 @@ def block_occupancy(arr: np.ndarray, refine: int = REFINE) -> np.ndarray:
     src = np.asarray(arr)
     if src.ndim == 2:
         return _occupancy_2d(src, refine).astype(np.float32)
-    return np.stack([_occupancy_2d(src[i], refine) for i in range(src.shape[0])]).astype(
-        np.float32
-    )
+    return np.stack([_occupancy_2d(src[i], refine) for i in range(src.shape[0])]).astype(np.float32)
 
 
 def modal_class(
@@ -630,8 +628,10 @@ def build_corpus(
     """Build every fire and return the per-fire QA reports."""
     src_root = Path(source_root) if source_root else Path(fires_dir())
     dst_root = Path(out_root) if out_root else two_km_dir()
-    ids = list(fire_ids) if fire_ids else sorted(
-        p.name for p in src_root.iterdir() if (p / "tensor.zarr").exists()
+    ids = (
+        list(fire_ids)
+        if fire_ids
+        else sorted(p.name for p in src_root.iterdir() if (p / "tensor.zarr").exists())
     )
     reports: dict[str, Any] = {}
     for fire_id in ids:

@@ -495,9 +495,7 @@ def render_small_multiples(
         band = band_of(w.x0, band_radius_cells)
         burned0 = w.x0 > 0
         truth_new = (w.truth[-1] > 0) & ~burned0
-        empty_leads = sum(
-            1 for k in range(horizon_h) if not np.any((w.truth[k] > 0) & band)
-        )
+        empty_leads = sum(1 for k in range(horizon_h) if not np.any((w.truth[k] > 0) & band))
 
         ax = axes[r][0]
         _draw_confusion(
@@ -516,12 +514,22 @@ def render_small_multiples(
         span = 0.11 * (geom.extent[1] - geom.extent[0])
         norm = max(np.hypot(u, v), 1e-6)
         ax.arrow(
-            cx, cy, span * u / norm, span * v / norm,
-            width=span * 0.06, color="#1f4e5f", zorder=6, length_includes_head=True,
+            cx,
+            cy,
+            span * u / norm,
+            span * v / norm,
+            width=span * 0.06,
+            color="#1f4e5f",
+            zorder=6,
+            length_includes_head=True,
         )
         ax.text(
-            cx, cy - span * 0.75, f"{np.hypot(u, v):.1f} m/s",
-            fontsize=6, ha="center", color="#1f4e5f",
+            cx,
+            cy - span * 0.75,
+            f"{np.hypot(u, v):.1f} m/s",
+            fontsize=6,
+            ha="center",
+            color="#1f4e5f",
         )
         add_north_arrow(ax)
         ax.set_ylabel(
@@ -568,9 +576,7 @@ def render_small_multiples(
         plt.Line2D([], [], marker="s", ls="", ms=7, color=COL_BARRIER, alpha=0.4, label="barrier"),
     ]
     fig.legend(handles=handles, loc="lower center", ncol=5, fontsize=8, frameon=False)
-    fig.suptitle(
-        f"{fire_id} — member vs truth, growth band only\n{subtitle}", fontsize=11, y=0.995
-    )
+    fig.suptitle(f"{fire_id} — member vs truth, growth band only\n{subtitle}", fontsize=11, y=0.995)
     fig.tight_layout(rect=(0.0, 0.045, 1.0, 0.965))
     stamp(
         fig,
@@ -606,14 +612,24 @@ def render_decomposition(
         shape = [stats.get(m, {}).get("shape_term", np.nan) for m in models]
         ax.bar(xs, silence, color="#cbd5e1", edgecolor="#64748b", lw=0.6, label="silence term")
         ax.bar(
-            xs, shape, bottom=silence, color="#0f766e", edgecolor="#134e4a", lw=0.6,
+            xs,
+            shape,
+            bottom=silence,
+            color="#0f766e",
+            edgecolor="#134e4a",
+            lw=0.6,
             label="shape term (mode capture)",
         )
         floor = floors.get(fire, float("nan"))
         ax.axhline(floor, color=COL_WARN, lw=1.4, ls="--")
         ax.text(
-            len(models) - 0.4, floor, f" null floor {floor:.3f}", color=COL_WARN,
-            fontsize=7, va="bottom", ha="right",
+            len(models) - 0.4,
+            floor,
+            f" null floor {floor:.3f}",
+            color=COL_WARN,
+            fontsize=7,
+            va="bottom",
+            ha="right",
         )
         for x, m in zip(xs, models, strict=True):
             total = stats.get(m, {}).get("band_best_member_iou", np.nan)
@@ -622,9 +638,11 @@ def render_decomposition(
                 rec = recorded[fire][m]
                 ok = abs(rec - total) < 5e-4
                 ax.text(
-                    x, -0.028,
+                    x,
+                    -0.028,
                     ("=" if ok else "≠") + f"{rec:.3f}",
-                    ha="center", fontsize=6,
+                    ha="center",
+                    fontsize=6,
                     color="#166534" if ok else COL_WARN,
                 )
         ax.set_xticks(xs)
@@ -649,19 +667,38 @@ def render_decomposition(
     xs = np.arange(len(models))
     ax.bar(xs, [pooled_s[m] for m in models], color="#cbd5e1", edgecolor="#64748b", lw=0.6)
     ax.bar(
-        xs, [pooled_h[m] for m in models], bottom=[pooled_s[m] for m in models],
-        color="#0f766e", edgecolor="#134e4a", lw=0.6,
+        xs,
+        [pooled_h[m] for m in models],
+        bottom=[pooled_s[m] for m in models],
+        color="#0f766e",
+        edgecolor="#134e4a",
+        lw=0.6,
     )
     ax.axhline(float(np.mean(list(floors.values()))), color=COL_WARN, lw=1.4, ls="--")
     for x, m in zip(xs, models, strict=True):
-        ax.text(x, pooled_s[m] + pooled_h[m] + 0.006, f"{pooled_s[m] + pooled_h[m]:.3f}",
-                ha="center", fontsize=7)
         ax.text(
-            x, pooled_s[m] / 2, f"{pooled_s[m]:.3f}", ha="center", fontsize=6.5,
+            x,
+            pooled_s[m] + pooled_h[m] + 0.006,
+            f"{pooled_s[m] + pooled_h[m]:.3f}",
+            ha="center",
+            fontsize=7,
+        )
+        ax.text(
+            x,
+            pooled_s[m] / 2,
+            f"{pooled_s[m]:.3f}",
+            ha="center",
+            fontsize=6.5,
             color="#334155",
         )
-        ax.text(x, pooled_s[m] + pooled_h[m] / 2, f"{pooled_h[m]:.3f}", ha="center",
-                fontsize=6.5, color="white")
+        ax.text(
+            x,
+            pooled_s[m] + pooled_h[m] / 2,
+            f"{pooled_h[m]:.3f}",
+            ha="center",
+            fontsize=6.5,
+            color="white",
+        )
     ax.set_xticks(xs)
     ax.set_xticklabels(models, fontsize=7, rotation=20, ha="right")
     ax.set_title("mean of the 4 held-out blocks", fontsize=9.5)
@@ -752,8 +789,13 @@ def main(argv: list[str] | None = None) -> int:
     for fire in fires:
         tensor = Path(args.fires_dir) / fire / "tensor.zarr"
         result = replay_fire(
-            fire, tensor, gate,
-            horizon_h=horizon, stride=stride, n_members=members, seed=seed,
+            fire,
+            tensor,
+            gate,
+            horizon_h=horizon,
+            stride=stride,
+            n_members=members,
+            seed=seed,
             band_radius_cells=radius,
         )
         ds = result.pop("ds")
@@ -791,9 +833,15 @@ def main(argv: list[str] | None = None) -> int:
         n = max(1, args.picks // 2)
         picks = [d[0] for d in deltas[:n]] + [d[0] for d in deltas[-n:]]
         render_small_multiples(
-            fire, ds, gate, picks,
+            fire,
+            ds,
+            gate,
+            picks,
             models=[m for m in (km, opp, "ellipse") if m in gate.models],
-            horizon_h=horizon, stride=stride, n_members=members, seed=seed,
+            horizon_h=horizon,
+            stride=stride,
+            n_members=members,
+            seed=seed,
             band_radius_cells=radius,
             out=outdir / f"iou_smallmultiples_{fire}.png",
             subtitle=(
@@ -801,8 +849,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"(bottom) on C6 band IoU  |  null floor for this fire = {floors[fire]:.3f}"
             ),
         )
-        print(f"[replay] {fire}: {result['n_windows_scored']} growth windows, "
-              f"floor={floors[fire]:.4f}")
+        print(
+            f"[replay] {fire}: {result['n_windows_scored']} growth windows, "
+            f"floor={floors[fire]:.4f}"
+        )
         for model, stats in per_fire[fire].items():
             print(
                 f"    {model:16s} IoU {stats['band_best_member_iou']:.4f} = "

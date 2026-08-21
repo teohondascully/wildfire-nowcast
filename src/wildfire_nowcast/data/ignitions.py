@@ -87,14 +87,16 @@ SPOT_RANGE_MAX_KM = 15.0
 # computing geometry through different code.
 
 
-def _min_gap_km(ys: np.ndarray, xs: np.ndarray, ty: np.ndarray, tx: np.ndarray,
-                res_km: float) -> float:
+def _min_gap_km(
+    ys: np.ndarray, xs: np.ndarray, ty: np.ndarray, tx: np.ndarray, res_km: float
+) -> float:
     """Closest approach, in km, between two sets of cell indices."""
     if not len(ys) or not len(ty):
         return float("inf")
-    return float(
-        min(float(np.hypot(ty - y, tx - x).min()) for y, x in zip(ys, xs, strict=True))
-    ) * res_km
+    return (
+        float(min(float(np.hypot(ty - y, tx - x).min()) for y, x in zip(ys, xs, strict=True)))
+        * res_km
+    )
 
 
 @dataclass(frozen=True)
@@ -118,8 +120,7 @@ class DetachedBirth:
             "n_cells": self.n_cells,
             "gap_km": round(self.gap_km, 2),
             "merges_later": self.merges_later,
-            "classified": "separate_ignition" if self.is_separate_ignition
-            else "spot_candidate",
+            "classified": "separate_ignition" if self.is_separate_ignition else "spot_candidate",
         }
 
 
@@ -146,8 +147,7 @@ class IgnitionReport:
         rule exists to prevent. P3 decides what to do with them.
         """
         return [
-            b for b in self.detached_births
-            if not b.merges_later and not b.is_separate_ignition
+            b for b in self.detached_births if not b.merges_later and not b.is_separate_ignition
         ]
 
     def to_provenance(self) -> dict[str, Any]:
@@ -155,8 +155,8 @@ class IgnitionReport:
         return {
             "n_ignition_components": self.n_ignition_components,
             "method": "derived from the shipped fire_state field by "
-                      "wildfire_nowcast.data.ignitions.count_ignition_components "
-                      "(not hand-entered)",
+            "wildfire_nowcast.data.ignitions.count_ignition_components "
+            "(not hand-entered)",
             "rule": (
                 "count = (a) 8-connected bodies in the FIRST burned frame, bodies "
                 f"closer than {SEED_MERGE_KM} km merged as rasterisation noise "
@@ -173,19 +173,13 @@ class IgnitionReport:
             "first_frame_seed_separations_km": [
                 round(v, 2) for v in self.first_frame_seed_separations_km
             ],
-            "separate_ignition_births": [
-                b.as_dict() for b in self.separate_ignition_births
-            ],
-            "spot_candidates_reported_not_counted": [
-                b.as_dict() for b in self.spot_candidates
-            ],
+            "separate_ignition_births": [b.as_dict() for b in self.separate_ignition_births],
+            "spot_candidates_reported_not_counted": [b.as_dict() for b in self.spot_candidates],
             "n_detached_births_total": len(self.detached_births),
         }
 
 
-def count_ignition_components(
-    fire_state: np.ndarray, *, cell_size_m: float
-) -> IgnitionReport:
+def count_ignition_components(fire_state: np.ndarray, *, cell_size_m: float) -> IgnitionReport:
     """Derive C2's ``n_ignition_components`` from a ``(T, H, W)`` state field.
 
     Relies only on the C1.1 guarantee that ``fire_state`` is absorbing, so the
@@ -241,9 +235,7 @@ def count_ignition_components(
                             hour=t,
                             n_cells=int(len(ys)),
                             gap_km=_min_gap_km(ys, xs, py, px, res_km),
-                            merges_later=bool(
-                                int(final_labels[ys[0], xs[0]]) in parent_final
-                            ),
+                            merges_later=bool(int(final_labels[ys[0], xs[0]]) in parent_final),
                         )
                     )
         prev = ever[t]

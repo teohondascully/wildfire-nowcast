@@ -221,9 +221,7 @@ def fit_response(
     if len(usable) <= len(covariates) + 1:
         return {"target": target, "n": len(usable), "insufficient": True}
 
-    y = np.array(
-        [math.log(float(r[target]) / float(r["_n_frontier_cells"])) for r in usable]
-    )
+    y = np.array([math.log(float(r[target]) / float(r["_n_frontier_cells"])) for r in usable])
     x_raw = _design(usable, covariates)
     x, mean, sd = _standardise(x_raw)
     design = np.column_stack([np.ones(len(usable)), x])
@@ -404,14 +402,10 @@ def explain_block_deficit(
             ]
         )
         log_truth = float(
-            np.mean(
-                [math.log(float(r[truth_key]) / float(r["_n_frontier_cells"])) for r in sub]
-            )
+            np.mean([math.log(float(r[truth_key]) / float(r["_n_frontier_cells"])) for r in sub])
         )
         log_model = float(
-            np.mean(
-                [math.log(float(r[model_key]) / float(r["_n_frontier_cells"])) for r in sub]
-            )
+            np.mean([math.log(float(r[model_key]) / float(r["_n_frontier_cells"])) for r in sub])
         )
         out.append(
             {
@@ -432,14 +426,10 @@ def explain_block_deficit(
     pred_level = float(np.mean([r["predicted_deficit_from_slopes"] for r in out]))
     for r in out:
         r["observed_deviation_from_level"] = r["observed_deficit"] - level
-        r["predicted_deviation_from_level"] = (
-            r["predicted_deficit_from_slopes"] - pred_level
-        )
+        r["predicted_deviation_from_level"] = r["predicted_deficit_from_slopes"] - pred_level
         r["residual"] = r["observed_deviation_from_level"] - r["predicted_deviation_from_level"]
         denom = abs(r["observed_deviation_from_level"])
-        r["explained_fraction"] = (
-            None if denom < 1e-9 else 1.0 - abs(r["residual"]) / denom
-        )
+        r["explained_fraction"] = None if denom < 1e-9 else 1.0 - abs(r["residual"]) / denom
     ss_obs = float(sum(r["observed_deviation_from_level"] ** 2 for r in out))
     ss_res = float(sum(r["residual"] ** 2 for r in out))
     return {
@@ -447,9 +437,7 @@ def explain_block_deficit(
         "kind": kind,
         "mean_deficit_level": level,
         "blocks": out,
-        "variance_explained_across_blocks": (
-            None if ss_obs <= 0 else 1.0 - ss_res / ss_obs
-        ),
+        "variance_explained_across_blocks": (None if ss_obs <= 0 else 1.0 - ss_res / ss_obs),
         "note": (
             "The LEVEL of the deficit is removed from both sides before the residual is "
             "taken: standardised covariate deviations are centred by construction, so a "

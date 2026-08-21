@@ -817,9 +817,7 @@ def test_create_run_dir_stamps_the_environment(tmp_path: Path) -> None:
     assert isinstance(meta["environment_before"].get("fingerprint"), str)
     assert "covers" in meta["environment_before"]
     # ...and it must NOT pollute the split stamp (see the A12 pre-emption above).
-    assert set(S.fingerprints_in(meta).values()) == {
-        meta["split_fingerprint"]["fingerprint"]
-    }
+    assert set(S.fingerprints_in(meta).values()) == {meta["split_fingerprint"]["fingerprint"]}
 
 
 # --------------------------------------------------------------------------
@@ -842,8 +840,7 @@ def _fold_run(runs_root: Path, name: str, fingerprint: str) -> None:
 def _matrix_payload(members: dict[str, str], *, n_members: int | None = None) -> dict[str, Any]:
     """An aggregate declaring ``{label: fingerprint}``, run dirs named ``s1-<label>``."""
     declared = {
-        label: {"run": f"runs/s1-{label}", "split_fingerprint": fp}
-        for label, fp in members.items()
+        label: {"run": f"runs/s1-{label}", "split_fingerprint": fp} for label, fp in members.items()
     }
     return {
         "arm": "S",

@@ -92,10 +92,14 @@ def rh_from_dewpoint(temp_c: Any, dewpoint_c: Any) -> Any:
         import ee  # noqa: PLC0415
 
         img = ee.Image(temp_c).rename("T").addBands(ee.Image(dewpoint_c).rename("Td"))
-        return img.expression(
-            "100 * exp(a*Td/(b+Td) - a*T/(b+T))", {"a": a, "b": b, "T": img.select("T"),
-                                                    "Td": img.select("Td")}
-        ).clamp(0, 100).rename("rh_2m")
+        return (
+            img.expression(
+                "100 * exp(a*Td/(b+Td) - a*T/(b+T))",
+                {"a": a, "b": b, "T": img.select("T"), "Td": img.select("Td")},
+            )
+            .clamp(0, 100)
+            .rename("rh_2m")
+        )
     t = np.asarray(temp_c, dtype=np.float64)
     td = np.asarray(dewpoint_c, dtype=np.float64)
     rh = 100.0 * np.exp(a * td / (b + td) - a * t / (b + t))
@@ -133,9 +137,7 @@ def rtma_hourly_stack(req: RtmaRequest) -> Any:
     for i, t in enumerate(hours):
         t0 = ee.Date(t.strftime("%Y-%m-%dT%H:%M:%S"))
         # RTMA is stamped on the hour; take the single image whose start_time is t.
-        img = ee.Image(
-            coll.filterDate(t0, t0.advance(1, "hour")).first()
-        )
+        img = ee.Image(coll.filterDate(t0, t0.advance(1, "hour")).first())
         img = ee.Image(ee.Algorithms.If(img, img, _masked_placeholder(ee)))
         u = img.select("UGRD").rename(f"wind_u10_{i:04d}")
         v = img.select("VGRD").rename(f"wind_v10_{i:04d}")
@@ -171,8 +173,7 @@ C1_WEATHER_CHANNELS = ("wind_u10", "wind_v10", "temp_2m", "rh_2m")
 FETCH_CHUNK_HOURS = 24
 
 
-def fetch_rtma(req: RtmaRequest, *, chunk_hours: int = FETCH_CHUNK_HOURS
-               ) -> dict[str, np.ndarray]:
+def fetch_rtma(req: RtmaRequest, *, chunk_hours: int = FETCH_CHUNK_HOURS) -> dict[str, np.ndarray]:
     """Pull one fire's weather block as ``{channel: (T, H, W) float32}``.
 
     Synchronous chunked fetch (ADR-004). Chunking is over **time**, and it is
@@ -195,9 +196,7 @@ def fetch_rtma(req: RtmaRequest, *, chunk_hours: int = FETCH_CHUNK_HOURS
         for ch in C1_WEATHER_CHANNELS:
             per_channel[ch].extend(flat[f"{ch}_{i:04d}"] for i in range(len(block)))
 
-    return {
-        ch: np.stack(per_channel[ch]).astype(np.float32) for ch in C1_WEATHER_CHANNELS
-    }
+    return {ch: np.stack(per_channel[ch]).astype(np.float32) for ch in C1_WEATHER_CHANNELS}
 
 
 def export_rtma(req: RtmaRequest, config: ExportConfig | None = None) -> Any:

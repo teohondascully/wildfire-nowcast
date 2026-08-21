@@ -160,11 +160,11 @@ def kernel_resolutions(aoi: Any, when: datetime) -> dict[str, int]:
     e_proj = ee.ImageCollection(east.collection_id).filterDate(stamp, nxt).first().projection()
     w_proj = ee.ImageCollection(west.collection_id).filterDate(stamp, nxt).first().projection()
 
-    e_rand = ee.Image.random(0).multiply(1e4).toInt().reproject(
-        crs=e_proj, scale=e_proj.nominalScale()
+    e_rand = (
+        ee.Image.random(0).multiply(1e4).toInt().reproject(crs=e_proj, scale=e_proj.nominalScale())
     )
-    w_rand = ee.Image.random(20).multiply(1e4).toInt().reproject(
-        crs=w_proj, scale=w_proj.nominalScale()
+    w_rand = (
+        ee.Image.random(20).multiply(1e4).toInt().reproject(crs=w_proj, scale=w_proj.nominalScale())
     )
 
     def _res(img: Any) -> Any:
@@ -205,9 +205,7 @@ def _hourly_confidence_image(side_choice: SatelliteChoice, start: datetime, n_ho
             return img.updateMask(img.lte(MASK_FIRE_MAX)).mod(10).add(1).toInt()
 
         best = ee.Image(
-            ee.Algorithms.If(
-                window.size().gt(0), window.map(_code).min().unmask(0), ee.Image(0)
-            )
+            ee.Algorithms.If(window.size().gt(0), window.map(_code).min().unmask(0), ee.Image(0))
         ).toInt()
         return best.remap(codes, values, 0).toFloat().rename("conf")
 
@@ -262,18 +260,14 @@ def _abi_scan_angles(
     return x, y
 
 
-def _abi_to_lonlat(
-    x: np.ndarray, y: np.ndarray, lon0_deg: float
-) -> tuple[np.ndarray, np.ndarray]:
+def _abi_to_lonlat(x: np.ndarray, y: np.ndarray, lon0_deg: float) -> tuple[np.ndarray, np.ndarray]:
     """ABI scan angles -> the ELLIPSOID lon/lat they intersect. Port of ``abi2latlon``.
 
     This is where parallax comes from: the satellite places every detection at
     the point where its line of sight crosses the ellipsoid, so a fire at
     elevation ``z`` is drawn at the wrong ground location.
     """
-    a = np.sin(x) ** 2 + np.cos(x) ** 2 * (
-        np.cos(y) ** 2 + (_REQ**2 / _RPOL**2) * np.sin(y) ** 2
-    )
+    a = np.sin(x) ** 2 + np.cos(x) ** 2 * (np.cos(y) ** 2 + (_REQ**2 / _RPOL**2) * np.sin(y) ** 2)
     b = -2.0 * _H * np.cos(x) * np.cos(y)
     c = _H**2 - _REQ**2
     rs = (-b - np.sqrt(np.maximum(b**2 - 4.0 * a * c, 0.0))) / (2.0 * a)

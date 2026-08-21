@@ -71,9 +71,7 @@ def format_report(report: NullCheckReport) -> str:
                 VERDICT_UNDECIDABLE: "n/a ",
                 CAPTURE_NOT_APPLICABLE: "  - ",
             }[v.capture_verdict]
-            scores = " ".join(
-                f"{_abbrev(k)}={_num(v.scores.get(k))}" for k in sorted(v.scores)
-            )
+            scores = " ".join(f"{_abbrev(k)}={_num(v.scores.get(k))}" for k in sorted(v.scores))
             lines.append(f"  [{flag}|{cap}] {v.metric:<32} {tag:<22} {scores}")
             if v.verdict in (VERDICT_BROKEN, VERDICT_BLIND, VERDICT_SILENCE_FAVOURING):
                 lines.append(f"       CMP -> {v.detail}")
@@ -201,9 +199,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         windows, scenario = synthetic_windows(horizon_h=args.horizon)
         if args.max_windows:
             windows = windows[: args.max_windows]
-    report = run_null_check(
-        windows, scenario, n_members=args.members, seeds=tuple(args.seeds)
-    )
+    report = run_null_check(windows, scenario, n_members=args.members, seeds=tuple(args.seeds))
     print(format_report(report))
     if args.json_out:
         Path(args.json_out).write_text(json.dumps(report.to_dict(), indent=2))

@@ -59,8 +59,9 @@ def _build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--buffer-m", type=float, default=DEFAULT_BUFFER_M)
         sp.add_argument("--variant", default="combined")
         if name == "labels":
-            sp.add_argument("--name", default="fire_state",
-                            help="output basename under data/interim/{fire_id}/")
+            sp.add_argument(
+                "--name", default="fire_state", help="output basename under data/interim/{fire_id}/"
+            )
 
     fp = sub.add_parser("folds")
     fp.add_argument("-k", type=int, default=5)
@@ -79,8 +80,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="corpus root (default: data/fires/). ADR-054's 2 km corpus lives elsewhere.",
     )
-    np_.add_argument("--train-folds", type=int, nargs="+", default=None,
-                     help="fold ids to train on (default: every fold that has a built fire)")
+    np_.add_argument(
+        "--train-folds",
+        type=int,
+        nargs="+",
+        default=None,
+        help="fold ids to train on (default: every fold that has a built fire)",
+    )
     np_.add_argument("--out", default=None)
 
     bf = sub.add_parser(
@@ -88,13 +94,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="add the C2 [v2.7] keys to manifests written before the clause existed",
     )
     bf.add_argument("fire_id", nargs="*", default=None)
-    bf.add_argument("--dry-run", action="store_true",
-                    help="derive and print, write nothing")
+    bf.add_argument("--dry-run", action="store_true", help="derive and print, write nothing")
 
     au = sub.add_parser("audit", help="physical-plausibility scan of every built fire")
     au.add_argument("fire_id", nargs="*", default=None)
-    au.add_argument("--no-patch", action="store_true",
-                    help="do not write the audit into each manifest's provenance.qa")
+    au.add_argument(
+        "--no-patch",
+        action="store_true",
+        help="do not write the audit into each manifest's provenance.qa",
+    )
     au.add_argument("--full", action="store_true", help="print every channel, not just findings")
     return p
 
@@ -245,9 +253,9 @@ def _cmd_norm_stats(
     # it can only be read AFTER the write. Stamping it from the pre-write state
     # would record the fingerprint of the split being replaced — the same
     # sampled-at-the-wrong-end defect C-4.2 names for code fingerprints.
-    stats["split_fingerprint"] = split_fingerprint(
-        fires_root=root, stats_path=path
-    ).get("fingerprint")
+    stats["split_fingerprint"] = split_fingerprint(fires_root=root, stats_path=path).get(
+        "fingerprint"
+    )
     path = write_norm_stats(stats, path)
     print(
         json.dumps(
@@ -274,9 +282,10 @@ def _cmd_backfill_c2_v27(fire_ids: Sequence[str] | None, *, dry_run: bool) -> in
     from wildfire_nowcast.common.paths import fires_dir  # noqa: PLC0415
     from wildfire_nowcast.data.backfill import backfill_manifest  # noqa: PLC0415
 
-    ids = list(fire_ids) if fire_ids else sorted(
-        p.name for p in Path(fires_dir()).iterdir()
-        if (p / "manifest.json").exists()
+    ids = (
+        list(fire_ids)
+        if fire_ids
+        else sorted(p.name for p in Path(fires_dir()).iterdir() if (p / "manifest.json").exists())
     )
     if not ids:
         print("no built fires found", file=sys.stderr)
@@ -289,8 +298,10 @@ def _cmd_backfill_c2_v27(fire_ids: Sequence[str] | None, *, dry_run: bool) -> in
             print(f"{fid:32s} REFUSED: {exc}", file=sys.stderr)
             rc = 1
             continue
-        mark = "would patch" if (dry_run and res.changed) else (
-            "patched" if res.changed else "already conformant"
+        mark = (
+            "would patch"
+            if (dry_run and res.changed)
+            else ("patched" if res.changed else "already conformant")
         )
         print(
             f"{fid:32s} fuel_vintage_lag_years={res.fuel_vintage_lag_years} "
@@ -324,8 +335,10 @@ def _cmd_audit(fire_ids: Sequence[str] | None, *, patch: bool, full: bool) -> in
                     print(f"    {name}: {finding}")
         ns = report.get("norm_stats")
         if ns:
-            print(f"{'norm_stats.json':32s} {ns['verdict']:8s} "
-                  f"n_train_blocks={ns['n_train_blocks']} folds={ns['train_folds']}")
+            print(
+                f"{'norm_stats.json':32s} {ns['verdict']:8s} "
+                f"n_train_blocks={ns['n_train_blocks']} folds={ns['train_folds']}"
+            )
             for finding in ns["findings"]:
                 print(f"    {finding}")
     print(f"-> {out}")
@@ -343,8 +356,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         arch = GoferArchive()
         tab = arch.fire_table()
         for _, row in tab.sort_values(["fyear", "fname"]).iterrows():
-            print(f"{row.fire_id:34s} {row.fname:24s} {row.fyear}  "
-                  f"{row.acres_official:>9,.0f} acres  ig {row.GOESIg_UTC}Z")
+            print(
+                f"{row.fire_id:34s} {row.fname:24s} {row.fyear}  "
+                f"{row.acres_official:>9,.0f} acres  ig {row.GOESIg_UTC}Z"
+            )
         return 0
 
     if args.cmd == "gee-probe":
@@ -356,9 +371,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.cmd in ("labels", "qa"):
         arch = GoferArchive(variant=args.variant)
-        build = build_fire_state(
-            args.fire_id, archive=arch, rule=args.rule, buffer_m=args.buffer_m
-        )
+        build = build_fire_state(args.fire_id, archive=arch, rule=args.rule, buffer_m=args.buffer_m)
         if args.cmd == "qa":
             print(json.dumps(build.qa, indent=2))
             return 0 if build.qa["verdict"]["pass"] else 1
