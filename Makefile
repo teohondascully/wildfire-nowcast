@@ -51,15 +51,23 @@ install: venv
 	VIRTUAL_ENV=$(CURDIR)/$(VENV) $(UV) pip install --python $(PY) -e ".[dev]"
 	@$(MAKE) --no-print-directory hooks
 
-## hooks: install the pre-commit AND commit-msg hooks (both types, see
-##         `default_install_hook_types` in .pre-commit-config.yaml). Run by
+## hooks: install the pre-commit, commit-msg AND pre-push hooks (all three types,
+##         see `default_install_hook_types` in .pre-commit-config.yaml), plus the
+##         AUTHORITATIVE half of the pre-push publication guard. Run by
 ##         `make install` rather than left as an instruction: a guard that only
 ##         works if someone remembers to install it is the guard that failed.
+##         The second command is not a duplicate of the first. pre-commit
+##         consumes git's pre-push stdin inside its own wrapper and exports only
+##         the FIRST ref of the push, so a hook wired through the config alone
+##         cannot see `git push --all` -- measured, see tools/push_guard.py.
+##         `--install` writes the full-ref-list hook into the slot pre-commit
+##         chains to, and exits NON-ZERO if that chain is not in place.
 ##         Skipped, loudly, outside a git checkout (a source tarball has no hooks
 ##         to install and that is not an error).
 hooks: | $(PY)
 	@if [ -d .git ]; then \
 	  $(VENV)/bin/pre-commit install; \
+	  $(PY) tools/push_guard.py --install; \
 	else \
 	  echo "not a git checkout: no hooks installed"; \
 	fi

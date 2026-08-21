@@ -13,7 +13,17 @@
 # the commit-message guard below would have to be installed by a second command
 # that someone has to know about. That is exactly the shape of the failure the
 # guard exists to close: a rule that works only if a human remembers a step.
-default_install_hook_types: [pre-commit, commit-msg]
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+
+# EVERY HOOK BELOW DECLARES ITS `stages`, AND THAT IS LOAD-BEARING, NOT TIDINESS.
+# A hook with no `stages` key runs at EVERY installed stage. Adding `pre-push` to
+# `default_install_hook_types` above therefore silently enlists the formatters
+# into `git push` -- measured, in a throwaway clone: one `git push` ran
+# `ruff-format` and REWROTE 88 tracked files across directories this repo fences
+# between four leads. A guard that edits another lead's module while they are
+# running an experiment is a worse defect than the one it was added to prevent.
+# Pinning each hook to `pre-commit` preserves exactly the behaviour these hooks
+# had when only `pre-commit` and `commit-msg` were installed.
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -21,7 +31,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
+        stages: [pre-commit]
       - id: ruff-format
+        stages: [pre-commit]
 
   # Guards against the accidents this repo is actually exposed to: the fire
   # tensors are ~700 MB and deliberately untracked, and `runs/` is another
@@ -32,11 +44,17 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=500]
+        stages: [pre-commit]
       - id: check-merge-conflict
+        stages: [pre-commit]
       - id: check-yaml
+        stages: [pre-commit]
       - id: check-toml
+        stages: [pre-commit]
       - id: check-json
+        stages: [pre-commit]
       - id: detect-private-key
+        stages: [pre-commit]
 
   # LAYER (a) OF THE ATTRIBUTION GUARD. This repository is single author and its
   # history carries no attribution on any commit; one commit that did was pushed
@@ -63,3 +81,32 @@ repos:
         language: script
         stages: [commit-msg]
         always_run: true
+
+  # LAYER (b) OF THE PUBLICATION GUARD. `refs/heads/pre-public-backup` is a
+  # LOCAL-ONLY branch holding the pre-public history: 52 commits, no merge base
+  # with `main`, and 25 files that name internal tooling in comments. One
+  # `git push --all` publishes it. `tools/push_guard.py` refuses any ref the
+  # remote does not already carry, deriving that set from `refs/remotes/<remote>/`
+  # rather than naming a branch.
+  #
+  # THIS LAYER IS PARTIAL BY MEASUREMENT, NOT BY CHOICE, AND THAT IS WHY THE
+  # AUTHORITATIVE ONE IS INSTALLED SEPARATELY. `pre-commit` reads git's pre-push
+  # stdin inside its own wrapper and exports only the FIRST pushable ref. On
+  # pre-commit 4.6.1 against a dummy remote, `git push --all` published TWO
+  # branches while a hook wired here saw `PRE_COMMIT_LOCAL_BRANCH=refs/heads/main`
+  # and an empty stdin -- so a guard built on this environment alone would have
+  # allowed the exact command it exists to stop. This hook therefore checks that
+  # the full-ref-list layer RAN during this push (it leaves a breadcrumb in the
+  # git dir) and refuses if it did not. Deleting the authoritative hook stops
+  # pushes; it does not silently unguard them.
+  #
+  # `make hooks` installs both, so `make install` is the only step.
+  - repo: local
+    hooks:
+      - id: push-guard
+        name: no ref is published that the remote does not already carry
+        entry: tools/push_guard.py --pre-commit-stage
+        language: script
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
