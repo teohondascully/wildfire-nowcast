@@ -73,6 +73,7 @@ import math
 import time
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -80,10 +81,16 @@ import torch
 from torch import Tensor
 
 from wildfire_nowcast.common.contract import UNBURNED
-from wildfire_nowcast.common.paths import fire_tensor_path, norm_stats_path
+from wildfire_nowcast.common.paths import fire_tensor_path
 from wildfire_nowcast.common.runs import create_run_dir
+from wildfire_nowcast.common.splits import (
+    C6_3_EXPECTED_FALSE_KEY,
+    LEAVE_FOLD_OUT_BLOCKS,
+    folds_expected_to_fail_c6_3,
+    stamp_c6_3_expected_false,
+)
 from wildfire_nowcast.common.states import dilate
-from wildfire_nowcast.common.zarr_io import get_channel, open_tensor, read_norm_stats
+from wildfire_nowcast.common.zarr_io import get_channel, open_tensor
 from wildfire_nowcast.eval.masks import default_band_radius, frontier
 from wildfire_nowcast.model.direct import DirectHorizonKernel, parameter_counts
 from wildfire_nowcast.model.inputs import (
@@ -1235,6 +1242,51 @@ def calibrate_alpha_to_growth(
     }
 
 
+def stamp_expected_c6_3(split: dict[str, Any]) -> dict[str, Any]:
+    """[v2.16 C6.3] Declare a ``c6_3_satisfied: false`` that the PARTITION predicts.
+
+    A leave-fold-out fold holding out fewer than four spatial blocks reports
+    ``c6_3_satisfied: false``. That is correct — C6.3's four-block minimum is
+    G2's, and a CV-matrix fold adjudicates nothing gate-shaped — but an
+    undeclared ``false`` in an artifact reads as a fault, which is what ADR-062
+    (7) asked to prevent.
+
+    **The expectation is DERIVED, never asserted.** The folds are taken from
+    ``folds_expected_to_fail_c6_3()``, which computes them from the partition; a
+    hand-written list would have reproduced ADR-062 (7)'s arithmetic slip (it
+    names folds 0 and 1; fold 2 holds out ``{3, 9, 13}``, three blocks, and is
+    also below the minimum — ADR-066 (2)). A ``false`` on a fold the partition
+    does NOT predict is left undeclared on purpose: that one IS a surprise and
+    must stay one.
+
+    The value never moves — ``stamp_c6_3_expected_false`` raises on anything that
+    is not exactly ``False`` and returns a copy whose ``c6_3_satisfied`` is
+    byte-identical.
+    """
+    if split.get("c6_3_satisfied") is not False:
+        return split
+    heldout_folds = {
+        fold
+        for fold, blocks in LEAVE_FOLD_OUT_BLOCKS.items()
+        if set(blocks) & set(split.get("heldout_blocks", []))
+    }
+    expected = set(folds_expected_to_fail_c6_3())
+    if not heldout_folds or not heldout_folds <= expected:
+        return split
+    return stamp_c6_3_expected_false(
+        split,
+        citation="ADR-062 (7), corrected by ADR-066 (2)",
+        why=(
+            f"leave-fold-out fold(s) {sorted(heldout_folds)} hold out "
+            f"{split.get('n_heldout_blocks')} spatial block(s) "
+            f"{split.get('heldout_blocks')}, below C6.3's minimum of four. This fold is one "
+            "cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, "
+            "so the shortfall is a property of the partition and not of this run. It stays "
+            "FALSE: no G2-shaped number may be quoted from this fold alone."
+        ),
+    )
+
+
 def train_kernel(
     config: TrainConfig | None = None,
     *,
@@ -1243,26 +1295,60 @@ def train_kernel(
     run_prefix: str = "kernel",
     log_every: int = 25,
     verbose: bool = True,
+    stats_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Fit the kernel on TRAIN fires. Returns the run payload; writes ``runs/``."""
+    """Fit the kernel on TRAIN fires. Returns the run payload; writes ``runs/``.
+
+    ``stats_path`` [v2.16, C8.2 / ADR-062 (5)] selects WHICH leave-fold-out
+    normalisation — and therefore which fold partition — this fit runs under.
+    ``None`` is the repo default and is today's behaviour: same train fires, same
+    fingerprint (``b3e5dadad01eaef9``), same weights.
+
+    **It is not threaded to three call sites, and that is the point.** ADR-062 (5)
+    required the one parameter to reach the FIT, the OPENING stamp and the CLOSING
+    stamp atomically; C8.2 discharges that by deleting the degree of freedom
+    instead of guarding it. The path is resolved ONCE into a frozen
+    :class:`~wildfire_nowcast.common.splits.SplitContext` whose ``norm_stats()``,
+    ``fingerprint()`` and ``assert_unchanged()`` take no path argument at all, so
+    a fit from one file and stamps from another cannot be expressed here. Do not
+    reintroduce a per-call path: that is exactly the leak the parameter was
+    approved to avoid.
+
+    Two consequences worth stating rather than leaving to be discovered:
+
+    * The stamps gain a ``split_context`` provenance block naming the stats file
+      (C8.2 requires it), so a reader of a fold's ``training.json`` can tell WHICH
+      of the five partitions produced it without re-deriving anything. The
+      fingerprint VALUE and the fitted parameters are unchanged at the default.
+    * ``run_meta.json`` is stamped from the SAME context. ``create_run_dir``
+      stamps the repo-default split structurally, which for a rotated fold would
+      put a second, different fingerprint in the run directory and hard-fail
+      ``C8.internally_consistent`` on the fold's own run — the checker being
+      right about a real inconsistency I would have created. Passing the context's
+      stamp through ``extra_meta`` (applied last by ``common.runs._provenance``)
+      keeps one run directory to exactly one split, without editing ``common/``.
+    """
     cfg = config or TrainConfig()
     check_torch_matches_numpy()  # C0: refuse to train a drifted physics path
     torch.manual_seed(cfg.seed)
 
+    from wildfire_nowcast.common.splits import resolve_split_context
     from wildfire_nowcast.eval.reporting import (
-        assert_split_unchanged,
         check_common_code_unchanged,
         common_code_fingerprint,
         scoring_code_fingerprint,
-        split_fingerprint,
     )
 
-    split = split_fingerprint()
+    # [v2.16 C8.2] ONE resolution point for the fit and both stamps. `split` and
+    # `stats` below cannot come from different files, because the object they come
+    # from has no path parameter to disagree about.
+    ctx = resolve_split_context(stats_path=stats_path)
+    split = stamp_expected_c6_3(ctx.fingerprint())
     code = common_code_fingerprint()
     # [v2.11 / C-4.2] BOTH ENDS, on the training side too. A checkpoint whose
     # scoring/model code moved mid-fit is as unattributable as a score whose did.
     scoring_before = scoring_code_fingerprint()
-    stats = read_norm_stats(norm_stats_path())
+    stats = ctx.norm_stats()
     train_folds = {int(f) for f in stats["train_folds"]}
     from wildfire_nowcast.eval.baseline_run import load_splits
 
@@ -1490,13 +1576,18 @@ def train_kernel(
             "norm_stats_n_train_blocks": stats.get("n_train_blocks"),
             "split_fingerprint": split["fingerprint"],
             "c6_3_satisfied": split["c6_3_satisfied"],
+            # [v2.16 C6.3] The declaration travels BESIDE the value, never
+            # instead of it: `stamp_c6_3_expected_false` refuses to stamp a
+            # `true`, so a reader who ignores this key still reads the truth.
+            C6_3_EXPECTED_FALSE_KEY: split.get(C6_3_EXPECTED_FALSE_KEY),
+            "split_context": ctx.provenance(),
             "warning": (
                 "TRAIN diagnostics only. No held-out fire was read during training and no "
                 "hyperparameter was selected on one; the step budget is fixed a priori."
             ),
         },
         "split_before": split,
-        "split_after": assert_split_unchanged(split),
+        "split_after": stamp_expected_c6_3(ctx.assert_unchanged(split)),
         "common_code_before": code,
         "common_code_after": check_common_code_unchanged(code),
         "scoring_code_before": scoring_before,
@@ -1581,7 +1672,14 @@ def train_kernel(
 
     if write_run:
         run = create_run_dir(
-            {"experiment": "contagion_kernel", **cfg.to_dict()}, prefix=run_prefix
+            {"experiment": "contagion_kernel", **cfg.to_dict()},
+            prefix=run_prefix,
+            # [v2.16 C8.2] `common.runs._split_stamp` stamps the REPO-DEFAULT
+            # split structurally. Under a rotated fold that would put a second,
+            # different fingerprint in this run directory and hard-fail
+            # C8.internally_consistent. `_provenance` applies `extra` last, so
+            # handing it this context's stamp keeps one run dir to one split.
+            extra_meta={"split_fingerprint": split},
         )
         model.save(run.path)
         (run.path / "training.json").write_text(json.dumps(payload, indent=2, default=float) + "\n")
