@@ -139,6 +139,23 @@ EQUIVALENT_MUTANTS: Final = {
         "tests/test_states_geometry.py::"
         "test_the_dilation_slice_survivor_is_an_EQUIVALENT_MUTANT_and_this_is_the_proof",
     ),
+    (
+        "src/wildfire_nowcast/common/states.py",
+        "prev_ever = np.zeros(masks.shape[1:], dtype=bool)",
+        0,
+        "1",
+        "2",
+    ): (
+        "The seed is read exactly once, at i == 0, as `cur_ever & ~prev_ever`, and is then "
+        "rebound to `cur_ever`, which is always full shape. So the question is whether an "
+        "all-false (W,) field and an all-false (H, W) field are distinguishable under `&` and "
+        "`~` against an (H, W) operand: they are not, because numpy broadcasts the trailing "
+        "axis and false is the identity of the operation either way. Proved by arithmetic "
+        "rather than by running the mutant, because ADR-084 showed that byte-identical output "
+        "with a mutant on disk is exactly what a stale .pyc also produces.",
+        "tests/unit/common/test_states.py::"
+        "test_the_prev_ever_seed_survivor_is_an_EQUIVALENT_MUTANT_and_this_is_the_proof",
+    ),
 }
 
 #: THE BUDGET, and it counts ``SURVIVED`` ALONE. Measured, not chosen; see
@@ -648,7 +665,18 @@ def run_one(
                 seconds=round(time.monotonic() - started, 1),
                 detail=equivalent[0],
             )
-    tail = [ln for ln in output.splitlines() if ln.startswith("FAILED ")][:1]
+    # `failing_tests` and NOT a grep for `FAILED `, which is what this line used to
+    # be. Two of the 58 kills in the I12 sweep were recorded with no attributable
+    # node, and neither was unattributable: `common/playthrough.py:240` is killed by
+    # a COLLECTION ERROR in `tests/test_playthrough_asymmetric_gate.py`, and
+    # `common/null_check/forecasters.py:82` by a fixture error in
+    # `tests/test_null_check.py::test_best_member_iou_is_flagged_in_the_growth_band`
+    # (a C1.3 phase guard raising `truth covers 3 steps but samples cover 40`).
+    # Both print an `ERROR ` line, the deselect path already read those, and this
+    # one threw the information away. Reporting it changes nothing about the
+    # verdict and everything about whether the verdict can be checked.
+    nodes = failing_tests(output)
+    tail = ["; ".join(nodes[:3])] if nodes else []
     return Result(
         rel,
         fraction,

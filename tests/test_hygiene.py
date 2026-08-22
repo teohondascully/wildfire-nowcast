@@ -2000,3 +2000,171 @@ def test_the_registry_tolerates_its_own_mutant_and_nothing_else() -> None:
                 mutation.equivalence_line_as_mutated((rel, line_text, wrong, old, new))
     with pytest.raises(ValueError, match="does not exist"):
         mutation.equivalence_line_as_mutated((rel, line_text, 99, old, new))
+
+
+# --------------------------------------------------------------------------
+# Plan Task 5.7 - A NAME-BASED ROUTE FROM A MODULE TO ITS TEST
+#
+# 29 test files against 119 source modules, and until this section existed only
+# 9 modules had a same-named test. The consequence is not a coverage number: it
+# is that a reader who wants to know what is asserted about `common/grid.py` has
+# no way to find out except to grep the whole suite, and a lead adding a module
+# has no place the next reader will look. The mutation survivors cluster in the
+# packages with no such route, which is the argument for building one.
+#
+# `common/` is the worked example and the only package under this rule today.
+# `model/`, `eval/` and `sim/` belong to other leads and are being edited in
+# parallel; the convention they can adopt is written down in tests/README.md
+# rather than imposed from here.
+# --------------------------------------------------------------------------
+
+#: The source package this rule covers, and the directory its tests mirror.
+_MIRRORED_PACKAGE = "common"
+_MIRROR_ROOT = "tests/unit/common"
+
+#: Modules under `common/` with no mirroring unit test yet. A BURN-DOWN LIST in
+#: the same two directions as the mypy exemptions and the survivor budget: a
+#: module that is NOT listed and has no mirror turns this red, and a module that
+#: IS listed and has gained one turns it red too. So an entry cannot outlive its
+#: reason, and the list can only shrink without a visible edit.
+#:
+#: `__init__.py` files are excluded by rule rather than by entry: they re-export
+#: and hold no behaviour, so a mirroring file for one would assert nothing.
+_COMMON_MODULES_WITHOUT_A_MIRRORING_TEST: frozenset[str] = frozenset(
+    {
+        "components.py",
+        "contract.py",
+        "dispersion.py",
+        "environment.py",
+        "iou_terms.py",
+        "null_check/registry.py",
+        "playthrough.py",
+        "seeds.py",
+        "separation.py",
+        "splits.py",
+        "synthetic.py",
+    }
+)
+
+
+def _common_modules() -> list[str]:
+    """Every tracked module under ``common/``, package-relative, minus ``__init__``."""
+    package = SRC / _MIRRORED_PACKAGE
+    return sorted(
+        path.relative_to(package).as_posix()
+        for path in package.rglob("*.py")
+        if path.name != "__init__.py" and "__pycache__" not in path.parts
+    )
+
+
+def mirror_test_path(module_relative: str) -> Path:
+    """``null_check/windows.py`` -> ``tests/unit/common/null_check/test_windows.py``.
+
+    Mechanical, with no special cases: the test file is ``test_`` prefixed onto
+    the module's own file name, in a directory that mirrors the module's own
+    directory. ``__main__.py`` therefore maps to ``test___main__.py``, which is
+    ugly and is kept anyway, because a convention with an exception in it is a
+    convention nobody can check.
+    """
+    source = Path(module_relative)
+    return repo_root() / _MIRROR_ROOT / source.parent / f"test_{source.name}"
+
+
+def test_every_common_module_either_has_a_mirroring_test_or_is_named_as_debt() -> None:
+    """The route exists, or the absence of it is written down. Not neither."""
+    modules = _common_modules()
+    assert len(modules) > 15, f"only {len(modules)} modules found; the walk is wrong"
+
+    missing_and_unlisted: list[str] = []
+    listed_but_present: list[str] = []
+    for module in modules:
+        has_mirror = mirror_test_path(module).is_file()
+        listed = module in _COMMON_MODULES_WITHOUT_A_MIRRORING_TEST
+        if not has_mirror and not listed:
+            missing_and_unlisted.append(module)
+        if has_mirror and listed:
+            listed_but_present.append(module)
+
+    assert not missing_and_unlisted, (
+        f"{missing_and_unlisted} have no {_MIRROR_ROOT}/... mirror and are not on the "
+        "burn-down list. Add the test, or add the module to "
+        "_COMMON_MODULES_WITHOUT_A_MIRRORING_TEST with the rest of the debt."
+    )
+    assert not listed_but_present, (
+        f"{listed_but_present} now have a mirroring test and are still listed as debt. "
+        "Remove them from _COMMON_MODULES_WITHOUT_A_MIRRORING_TEST: a burn-down entry that "
+        "outlives its reason is an allow-list."
+    )
+
+
+def test_the_burn_down_list_names_only_modules_that_exist() -> None:
+    """A stale entry would silently forgive a module that was renamed away."""
+    modules = set(_common_modules())
+    stale = sorted(_COMMON_MODULES_WITHOUT_A_MIRRORING_TEST - modules)
+    assert not stale, f"{stale} are on the burn-down list and are not modules under common/"
+
+
+def test_the_mirror_is_a_package_so_a_basename_can_repeat() -> None:
+    """``tests/unit/common/test_states.py`` and ``tests/test_states.py`` coexist.
+
+    Under pytest's default ``prepend`` import mode two test files with the same
+    basename and no ``__init__.py`` between them collide at import and the whole
+    suite errors. The ``__init__.py`` files are therefore load-bearing, not
+    decoration, and this is what says so.
+    """
+    root = repo_root() / _MIRROR_ROOT
+    assert root.is_dir()
+    for directory in [root, *[p for p in root.rglob("*") if p.is_dir()]]:
+        if directory.name == "__pycache__":
+            continue
+        assert (directory / "__init__.py").is_file(), f"{directory} is not a package"
+    assert (root.parent / "__init__.py").is_file(), "tests/unit is not a package"
+
+    repeated = [
+        path.name
+        for path in root.rglob("test_*.py")
+        if (repo_root() / "tests" / path.name).is_file()
+    ]
+    assert repeated, (
+        "no mirrored file shares a basename with a top-level test file, so the packaging "
+        "above is not currently being exercised by anything"
+    )
+
+
+def test_the_convention_is_written_down_where_another_lead_would_look() -> None:
+    """A convention that lives only in a test is a convention only its author knows."""
+    readme = repo_root() / "tests" / "README.md"
+    assert readme.is_file(), "tests/README.md is missing"
+    text = readme.read_text(encoding="utf-8")
+    for expected in (_MIRROR_ROOT, "tests/contract/", "burn-down"):
+        assert expected in text, f"tests/README.md does not mention {expected!r}"
+
+
+def test_a_kill_carries_the_node_that_caught_it_including_an_ERROR_node() -> None:
+    """Two of the I12 sweep's 58 kills named no test, and both were attributable.
+
+    ``common/playthrough.py:240`` is killed by a COLLECTION ERROR in
+    ``tests/test_playthrough_asymmetric_gate.py``, and
+    ``common/null_check/forecasters.py:82`` by a fixture error in
+    ``tests/test_null_check.py::test_best_member_iou_is_flagged_in_the_growth_band``,
+    which raises the C1.3 phase guard ``truth covers 3 steps but samples cover 40``.
+    Both print an ``ERROR`` line rather than a ``FAILED`` one. The deselect path
+    already read both; the reporting path grepped for ``FAILED`` alone and threw
+    the attribution away, so the sweep held the answer and printed nothing.
+    """
+    source = inspect.getsource(mutation.run_one)
+    assert "failing_tests(output)" in source, (
+        "run_one is back to grepping for FAILED alone, so a kill by a collection error or a "
+        "fixture error is recorded with no node again"
+    )
+    assert 'startswith("FAILED ")' not in source
+
+    error_only = (
+        "tests/test_x.py E                              [100%]\n"
+        "ERROR tests/test_x.py - ValueError: truth covers 3 steps but samples cover 40\n"
+        "1 error in 1.24s\n"
+    )
+    assert mutation.failing_tests(error_only) == ["tests/test_x.py"], (
+        "an ERROR-only run still reports no node, which is the case that produced the two "
+        "unattributable kills"
+    )
