@@ -132,9 +132,13 @@ test: | $(PY)
 test-all: | $(PY)
 	$(PYTEST)
 
-## lint: lint src, tests and tools (the CI gate)
+## lint: lint src, tests, tools and the tracked runs/ scripts (the CI gate).
+##         `runs` resolves to the five tracked analysis scripts and nothing
+##         else: ruff respects .gitignore, and /runs/* is ignored except for
+##         the negated entries. So the scope maintains itself - track a new
+##         runs/ script and it is linted, with no second list to update.
 lint: | $(PY)
-	$(RUFF) check src tests tools
+	$(RUFF) check src tests tools runs
 
 ## typecheck: mypy --strict over src, PLUS an audit of the burn-down list that
 ##         lets it pass. The audit is the half that cannot rot: it re-runs mypy
@@ -153,11 +157,11 @@ typecheck: | $(PY)
 ##         run artifact stamps at both ends. See .pre-commit-config.yaml.
 ##         Discharge the debt in its own commit, then this becomes a gate.
 format-check: | $(PY)
-	$(RUFF) format --check src tests tools
+	$(RUFF) format --check src tests tools runs
 
 ## format: autofix lint + formatting. Scope this to YOUR directory, e.g.
 ##         make format DIRS="src/wildfire_nowcast/data" - never reformat another lead's code.
-DIRS ?= src tests tools
+DIRS ?= src tests tools runs
 format: | $(PY)
 	$(RUFF) check --fix $(DIRS)
 	$(RUFF) format $(DIRS)

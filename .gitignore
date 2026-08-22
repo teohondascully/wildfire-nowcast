@@ -34,17 +34,31 @@ env/
 # They total 4,338,332 bytes, 4.5% of the directory. Tracking them also PINS
 # them, so a silent regeneration becomes a diff.
 #
-# NOTE the `/*` form, for the same reason `/data/*` uses it above: git cannot
-# re-include a file whose PARENT DIRECTORY is excluded, so `/runs/` plus a
-# `!` line would silently not work. `/runs/*` excludes each entry individually,
-# which leaves the negations below able to bite and leaves every subdirectory
-# (`runs/baselines-*/`, every per-run directory) excluded as a unit.
+# THE CLASS IS ENUMERATED BY `tools/cited_runs.py`, NOT BY A PATTERN TYPED HERE.
+# The list below was first built from `runs/[A-Za-z0-9_]*.json`, which cannot
+# match a subdirectory or a non-json extension and therefore found twelve of
+# twenty-one. `tools/cited_runs.py` walks every tracked file for every `runs/`
+# token, resolves it on disk and classifies it, so a citation cannot be missed
+# for having the wrong shape. `tests/test_cited_runs.py` runs it on every commit
+# and fails when a new citation appears with nowhere to resolve.
 #
-# THIS LIST IS NOT THE WHOLE CLASS AND SAYS SO. Nine further `runs/` paths are
-# cited by tracked source and remain unopenable: four `baselines-*/results.json`
-# (12.7 MB, ten times the budget these twelve cost) and five `runs/_*.py` scratch
-# scripts, which are a C0 problem rather than a size one. Adding a file here is
-# a deliberate edit, which is the intended cost.
+# THE FIVE `_*.py` ARE THE IMPORTANT HALF. They are the code that produced
+# published numbers, cited from public source and, until now, absent from the
+# repository. That is the C0 breach STATE.md records, not a size problem: 48 KB.
+#
+# DECLARED EXEMPTION, WITH ITS REASON. The four `baselines-*/results.json` are
+# cited and stay out. They carry 120 occurrences of an internal coordination role
+# name inside `note` strings that the scoring code emitted at run time, across
+# two distinct sentences. They are evidence and may not be edited to look
+# better; tracking them unedited would publish those 120 and require a
+# never-retireable entry in the burn-down list in `tests/test_hygiene.py`, which
+# is an exemption wearing a burn-down list's clothes. The tell count is pinned in
+# `tests/test_cited_runs.py`, so this reason fails the day it stops being true.
+# Their 12.7 MB is a secondary objection, not the reason.
+#
+# NOTE the `/*` form, for the same reason `/data/*` uses it above: git cannot
+# re-include a file whose PARENT DIRECTORY is excluded. Adding a file here is a
+# deliberate edit, which is the intended cost.
 /runs/*
 !/runs/e1.json
 !/runs/m6_innovation_autocorr.json
@@ -58,6 +72,11 @@ env/
 !/runs/s1_rows_a_s1.json
 !/runs/u0.json
 !/runs/u0b.json
+!/runs/_m9_response.py
+!/runs/_m9_scaling.py
+!/runs/_m10_bitidentity.py
+!/runs/_s1_bitidentity.py
+!/runs/_s1_score.py
 
 # Generated figures and the review page (32.8 MB, rebuilt by sim/review.py).
 # WARNING: these are only regenerable together with /runs/, which is ALSO
