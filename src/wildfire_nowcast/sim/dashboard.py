@@ -324,7 +324,7 @@ def _panel_members(ax: Any, runs: list[C6Run]) -> None:
             ymax = max(ymax, float(truth))
             n_above = int((m > float(truth)).sum())
             ax.annotate(
-                f"{n_above}/{m.size} members ≥ truth",
+                f"{n_above}/{m.size} members > truth",
                 (row, float(truth)),
                 textcoords="offset points",
                 xytext=(0, 6),
