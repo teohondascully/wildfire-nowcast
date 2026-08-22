@@ -45,7 +45,7 @@ OUT    ?= outputs/synthetic_fire/tensor.zarr
 TENSOR ?= outputs/synthetic_fire/tensor.zarr
 MOVIE  ?= outputs/fire.mp4
 
-.PHONY: help venv install relock hooks test test-all lint typecheck format-check format synth contract contract-reporting \
+.PHONY: help venv install relock hooks test test-all purge-bytecode lint typecheck format-check format synth contract contract-reporting \
         contract-real contract-split contract-all-fires null-check check ci ci-status movie clean-outputs \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
@@ -137,12 +137,24 @@ $(PY):
 ##         `slow` is one case today: the ELMFIRE playthrough runs a real Fortran
 ##         simulator six times (33 s). Nothing is hidden in a pytest default -
 ##         bare `pytest` still runs everything, and `make check` runs it too.
-test: | $(PY)
+test: purge-bytecode | $(PY)
 	$(PYTEST) -m "not slow"
 
 ## test-all: the whole suite INCLUDING slow playthroughs. What a release runs.
-test-all: | $(PY)
+test-all: purge-bytecode | $(PY)
 	$(PYTEST)
+
+## purge-bytecode: delete every __pycache__ under the source trees.
+##         The second half of the guard above, and it is not the same half.
+##         PYTHONDONTWRITEBYTECODE stops a `.pyc` being WRITTEN; it does not stop
+##         one already on disk being READ, and this tree had 11 such directories
+##         when the defect was found. So the caches are removed before the suite
+##         runs rather than trusted to be fresh. It costs nothing in steady
+##         state: with writing disabled none are created, so after the first run
+##         this finds nothing. Scoped to our own trees - the .venv is not ours to
+##         churn, and its packages do not move under us mid-edit.
+purge-bytecode:
+	@find src tests tools -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
 ## lint: lint src, tests, tools and the tracked runs/ scripts (the CI gate).
 ##         `runs` resolves to the five tracked analysis scripts and nothing

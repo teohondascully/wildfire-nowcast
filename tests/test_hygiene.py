@@ -1727,6 +1727,54 @@ def test_the_repo_test_path_disables_bytecode_writing() -> None:
             f"{target} now invokes pytest directly and routes around the setting: {body}"
         )
 
+    # The other half, and it is a different half. Disabling the WRITE does not
+    # stop a `.pyc` already on disk from being READ, and eleven such directories
+    # were live in this tree when the defect was found.
+    assert re.search(r"^purge-bytecode:\n\t.*__pycache__", makefile, re.M), (
+        "the purge target has gone or stopped naming __pycache__"
+    )
+    for target in ("test", "test-all"):
+        assert re.search(rf"^{re.escape(target)}: purge-bytecode\b", makefile, re.M), (
+            f"`make {target}` no longer clears stale bytecode before it runs, so a cache "
+            "written before the setting existed can still decide what executes"
+        )
+
+
+def test_the_purge_removes_a_real_cache_and_leaves_the_source_alone(tmp_path: Path) -> None:
+    """The purge is measured by running THE MAKEFILE'S OWN recipe on a cache it made.
+
+    Deleting directories by pattern is exactly the kind of line that reads correctly
+    and behaves otherwise, so it gets an execution rather than a reading. The
+    command is lifted out of the Makefile rather than copied into this file: a copy
+    would keep passing after the real one was changed.
+    """
+    makefile = (repo_root() / "Makefile").read_text()
+    recipe = re.search(r"^purge-bytecode:\n\t@?(.*)$", makefile, re.M)
+    assert recipe, "the purge recipe is gone"
+    command = recipe.group(1)
+
+    for name in ("src", "tests", "tools"):
+        (tmp_path / name).mkdir()
+    (tmp_path / "src" / "m.py").write_text("VALUE = 1\n")
+    keep = tmp_path / "src" / "keep.txt"
+    keep.write_text("not bytecode\n")
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONDONTWRITEBYTECODE"}
+    subprocess.run(
+        [sys.executable, "-c", "import sys; sys.path.insert(0, sys.argv[1]); import m", "x"],
+        check=True,
+        capture_output=True,
+        cwd=tmp_path / "src",
+        env={**env, "PYTHONPATH": str(tmp_path / "src")},
+    )
+    cache = tmp_path / "src" / "__pycache__"
+    assert cache.is_dir(), "the fixture never produced a cache, so the purge would prove nothing"
+
+    subprocess.run(command, shell=True, cwd=tmp_path, check=True)
+    assert not cache.exists(), f"`{command}` did not remove the cache"
+    assert (tmp_path / "src" / "m.py").read_text() == "VALUE = 1\n", "the purge edited a source"
+    assert keep.is_file(), "the purge deleted a file that is not bytecode"
+    subprocess.run(command, shell=True, cwd=tmp_path, check=True)
+
 
 def test_the_hazard_is_real_and_the_probe_the_sweep_uses_detects_it(tmp_path: Path) -> None:
     """The positive control. Reproduce the defect, then show the guard reports it.
