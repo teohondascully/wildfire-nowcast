@@ -124,7 +124,13 @@ select = ["E", "F", "I", "B", "UP", "W", "A", "TID", "LOG", "G", "INT"]
 #     the numpy/xarray/torch the code runs on.
 [tool.mypy]
 python_version = "3.12"
-files = ["src/wildfire_nowcast"]
+# `tools/` JOINS THE CHECKED SET [I11, ADR-079 (4)]. It held the five guards -
+# `ci_status`, `claimaudit`, `cited_runs`, `commit_guard`, `push_guard`,
+# `typecheck` - and every one of them was UNCHECKED while the code they police
+# was strict. The enforcement layer was the least verified layer in the tree,
+# which is the wrong way round: a guard that fails open is worse than no guard,
+# because it is also believed. Entry cost was two errors in one file.
+files = ["src/wildfire_nowcast", "tools"]
 strict = true
 # A per-module section that matches nothing is a stale exemption. This makes it
 # say so instead of sitting there looking like coverage.

@@ -174,11 +174,69 @@ def test_the_checker_is_strict_and_covers_the_package() -> None:
     )
     files = table.get("files") or []
     assert any("src/wildfire_nowcast" in str(f) for f in files), files
+    assert any(str(f).rstrip("/") == "tools" for f in files), (
+        "tools/ is outside the checked set, so the five guards that police this repository "
+        "are the least verified code in it: " + str(files)
+    )
     assert "ignore-without-code" in (table.get("enable_error_code") or []), (
         "a bare ignore is the one-line version of the blanket suppression this config exists "
         "to prevent"
     )
     assert table.get("ignore_errors") is not True, "the GLOBAL setting must never be ignore_errors"
+
+
+#: Every guard in ``tools/``, named individually. A directory in ``files`` is a
+#: claim about a set; this is the set. [I11]
+GUARD_MODULES = (
+    "ci_status",
+    "claimaudit",
+    "cited_runs",
+    "commit_guard",
+    "push_guard",
+    "typecheck",
+)
+
+
+def _checked_python_files() -> set[str]:
+    """Every ``*.py`` the configured ``files`` list actually reaches."""
+    root = repo_root()
+    table = typecheck.mypy_table(_config())
+    out: set[str] = set()
+    for entry in table.get("files") or []:
+        base = root / str(entry)
+        if base.is_dir():
+            out |= {
+                p.relative_to(root).as_posix()
+                for p in base.rglob("*.py")
+                if "__pycache__" not in p.parts
+            }
+        elif base.is_file():
+            out.add(base.relative_to(root).as_posix())
+    return out
+
+
+def test_every_guard_is_inside_the_checked_set() -> None:
+    """Named one by one, because ``files = [..., "tools"]`` is a claim, not a check."""
+    checked = _checked_python_files()
+    assert len(checked) >= 100, "the expansion of `files` found almost nothing"
+    for name in GUARD_MODULES:
+        rel = f"tools/{name}.py"
+        assert (repo_root() / rel).is_file(), f"{rel} is named here and does not exist"
+        assert rel in checked, f"{rel} exists and the type checker does not read it"
+
+
+def test_the_guard_coverage_check_can_actually_fail() -> None:
+    """A control: a guard that does not exist must not be reported as covered."""
+    assert "tools/no_such_guard.py" not in _checked_python_files()
+    assert not (repo_root() / "tools/no_such_guard.py").is_file()
+
+
+def test_no_guard_is_exempt_by_module_section() -> None:
+    """A directory in ``files`` is undone by a per-module exemption. Neither exists."""
+    exempt = typecheck.burn_down_modules(_config())
+    for name in GUARD_MODULES:
+        assert name not in exempt, f"{name} is inside `files` and exempted by name"
+        assert f"tools.{name}" not in exempt, name
 
 
 def test_the_burn_down_list_matches_its_pin() -> None:

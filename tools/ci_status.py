@@ -213,13 +213,19 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"\nGREEN: {sha} concluded {SUCCESS}.")
     if dirty or ahead:
+        # Built as a list of `str` rather than with `x and "text"`, whose type is
+        # `Literal[False] | str` - the two strict errors that kept `tools/` out
+        # of the type checker. The rewrite is also the readable form: an idiom
+        # that smuggles a bool into a list of strings is exactly what a reader
+        # skims past.
+        notes: list[str] = []
+        if dirty:
+            notes.append("uncommitted changes")
+        if ahead:
+            notes.append("unpushed commits")
         print(
             "  Note: that is a statement about the COMMIT, not about your working copy — "
-            "you have "
-            + " and ".join(
-                filter(None, [dirty and "uncommitted changes", bool(ahead) and "unpushed commits"])
-            )
-            + "."
+            "you have " + " and ".join(notes) + "."
         )
     return EXIT_OK
 
