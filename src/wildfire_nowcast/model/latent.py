@@ -154,14 +154,31 @@ N_PRIOR_COVARIATES = len(PRIOR_COVARIATES)
 #: [M7] THE LOW-RANK SPATIAL LATENT — extra dimensions of ``z_t`` whose effect is
 #: a FIELD rather than a scalar, so an ensemble can disagree about WHERE.
 #:
-#: **WHY THIS EXISTS, in one measured sentence (ADR-032 (3), restating my own
-#: pre-registered item 41 back at me): a GLOBAL SCALAR latent can only widen the
-#: ensemble by scaling the whole hazard field — i.e. by blurring the front
-#: everywhere — so every unit of spread it buys lands in the wrong places, and a
-#: proper score is CORRECT to decline it.** Measured at M6: the ``w_brier = 0``
-#: arm reached 0.5799 dispersion while being a 2.6x-worse forecast with 6.01x
-#: growth over-prediction. No reweighting of two objectives fixes an object with
-#: the wrong degrees of freedom.
+#: **WHY THIS WAS BUILT, AND WHY THAT REASON DID NOT SURVIVE ITS OWN TEST.**
+#: ADR-032 (3) diagnosed M6's dispersion failure as a missing degree of freedom:
+#: a GLOBAL SCALAR latent can only widen the ensemble by scaling the whole hazard
+#: field, i.e. by blurring the front everywhere, so every unit of spread it buys
+#: lands in the wrong places, and a proper score is CORRECT to decline it. That
+#: diagnosis is what authorised this module.
+#:
+#: **ADR-034 (2) SUPERSEDES IT, and does so on this module's own result.** The
+#: spatial latent was built as specified and then measured: 0.2468 +/- 0.0260
+#: dispersion against a 0.2331 +/- 0.0115 control, **+5.9%, inside seed noise**.
+#: A blind negative control that denies the encoder its basis-projected pooling
+#: lands at 0.2347, so the modes ARE being inferred; they are simply worth almost
+#: nothing for AREA. Spatial rank was not the missing degree of freedom.
+#: **What replaced it is SYMMETRIC vs ASYMMETRIC.** At this base rate, spread
+#: bought DOWNWARD is cheap and spread bought UPWARD is unboundedly expensive, so
+#: a symmetric latent pays the expensive side to buy the cheap one. The activity
+#: gate widens the SAME physical channel with an asymmetric mixture prior and
+#: reaches 0.75-0.80 with better Brier, CRPS and calibration.
+#:
+#: **THE M6 MEASUREMENTS ARE NOT RETRACTED** and ADR-034 (2) re-uses them: the
+#: ``w_brier = 0`` arm reached 0.5799 dispersion while being a 2.6x-worse forecast
+#: with 6.01x growth over-prediction. What was superseded is the MECHANISM they
+#: were read as supporting, not the numbers. This module stays because that
+#: negative result is load-bearing and because the basis it defines is pinned by a
+#: playthrough; ``spatial_modes = 0`` is the default and this is not a route to G3.
 #:
 #: Each mode multiplies the hazard by ``exp(c_m phi_m(x))`` where ``phi_m`` is a
 #: FIXED, FIRE-ANCHORED basis function (:func:`spatial_basis`) and ``c_m`` is one

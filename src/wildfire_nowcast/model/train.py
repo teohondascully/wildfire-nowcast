@@ -261,11 +261,16 @@ class TrainConfig:
     latent_rho: float = 0.0
     #: [M7] LOW-RANK SPATIAL modes appended to ``z_t``
     #: (:data:`~wildfire_nowcast.model.latent.SPATIAL_COMPONENTS`). **0 = M6,
-    #: bitwise**, and is the default. This is the degree of freedom ADR-032 (3)
-    #: identifies as missing: a global scalar latent can only widen the ensemble
-    #: by blurring it uniformly. It is NOT a per-pixel noise field — rank R, not
-    #: rank H*W — because CLAUDE.md records per-pixel-independent noise as
-    #: known-broken and admits it only as an ablation.
+    #: bitwise**, and is the default. It was added as the degree of freedom
+    #: ADR-032 (3) diagnosed as missing, on the reasoning that a global scalar
+    #: latent can only widen the ensemble by blurring it uniformly.
+    #: **ADR-034 (2) SUPERSEDES that diagnosis**: the arm was run, it moved
+    #: dispersion +5.9% against its control (inside seed noise), and the axis that
+    #: did move dispersion is SYMMETRIC vs ASYMMETRIC, not spatial rank. It stays
+    #: at 0 as a measured negative, not as a candidate.
+    #: It is NOT a per-pixel noise field: rank R, not rank H*W, because
+    #: CLAUDE.md records per-pixel-independent noise as known-broken and admits
+    #: it only as an ablation.
     spatial_modes: int = 0
     #: [M7] Give the inference network the innovation decomposition explicitly.
     #: **False = M6, bitwise.** MEASURED cause: on the shipped M6 gate checkpoint
@@ -2042,8 +2047,12 @@ M6B_DECLARED_ENTRIES: tuple[str, ...] = ("m6_fair", "m5_zt_repro")
 #: SPATIAL COSTUME** — growth happens at the frontier, where ``phi_radial ~ +1``
 #: by construction, so for AREA it is nearly a relabelled ``log_intensity``. It
 #: is therefore DECLARED EXPLORATORY here, before any number exists, and may
-#: never be promoted: passing G3 through it would be the uniform blur ADR-032 (3)
-#: rejects, wearing a new name.
+#: never be promoted. **That ban was stated on ADR-032 (3), which ADR-034 (2) has
+#: since SUPERSEDED, and it survives the supersession on the lever arithmetic
+#: alone:** a mode whose mean lever is 1.0034 IS the global mode relabelled, so
+#: promoting it would buy dispersion by scaling the whole hazard field under a
+#: name that says otherwise. That holds whether or not uniform blurring is why the
+#: global latent failed, and the latter is the half ADR-034 (2) took away.
 #: The two GRADIENT modes have mean lever ~0 and RMS ~0.30 — genuinely
 #: window-specific, which is what "the ensemble disagrees about WHERE" means.
 #: Geographic east/north is chosen over a WIND-FRAME basis for exactly this
@@ -2060,6 +2069,17 @@ M7_SPATIAL_LEVER_RMS: tuple[float, float, float] = (0.3013, 0.2953, 1.1451)
 #:  B. THE OFF STATE (ADR-032 (5)): measured one level below the brief's
 #:     diagnosis. It is not that ``p(z_t|weather)`` cannot be fitted — it is that
 #:     ``q`` never saw dormancy to hand it. ``m7_offstate`` fixes the encoder.
+#:
+#: **OUTCOME, APPENDED RATHER THAN EDITED IN: a pre-registration rewritten after
+#: the result is not a pre-registration.** The text above stands as written. What
+#: happened to it: **arm A's premise, ADR-032 (3), was SUPERSEDED by ADR-034 (2),
+#: and on arm A's own number.** ``m7_spatial`` reached 0.2468 +/- 0.0260
+#: dispersion against a 0.2331 +/- 0.0115 control, +5.9% and inside seed noise, so
+#: spatial rank was not the missing degree of freedom. The axis that did move
+#: dispersion was SYMMETRIC vs ASYMMETRIC: the activity gate widens the same
+#: physical channel with an asymmetric mixture prior and reaches 0.75-0.80 with
+#: better Brier, CRPS and calibration. This note is about arm A; ADR-034 (4)
+#: rules separately on arm B, and its verdict there is mixed rather than clean.
 #:
 #: `m6_fair` is the CONTROL and is NOT retrained: its four recorded seeds enter
 #: the scoring run unchanged, so the control cannot drift under the candidate.

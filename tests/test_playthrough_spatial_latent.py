@@ -1,11 +1,28 @@
 """PLAYTHROUGH (ADR-030) — does the LOW-RANK SPATIAL LATENT do what its name says?
 
-M7 adds spatial degrees of freedom to ``z_t`` because ADR-032 (3) measured that a
-GLOBAL SCALAR latent can only widen an ensemble by blurring it uniformly. That is
-a CAPABILITY CLAIM about a new model component, and this project's dominant
+M7 ADDED spatial degrees of freedom to ``z_t`` because ADR-032 (3) diagnosed that
+a GLOBAL SCALAR latent can only widen an ensemble by blurring it uniformly. That
+is a CAPABILITY CLAIM about a new model component, and this project's dominant
 failure mode is the green-but-vacuous check, so the claim ships with a scenario
 whose answers are known by construction rather than read back out of the code
 that implements it.
+
+**ADR-032 (3) HAS SINCE BEEN SUPERSEDED BY ADR-034 (2). SAYING SO IS THE POINT OF
+THIS PARAGRAPH; THE SECOND HALF IS THAT IT LEAVES THIS FILE STANDING.** The
+spatial latent was built, run, and measured at 0.2468 +/- 0.0260 dispersion
+against a 0.2331 +/- 0.0115 control: **+5.9%, inside seed noise.** A blind
+negative control that denies the encoder its basis-projected pooling lands at
+0.2347, so the modes ARE inferred and are simply worth almost nothing for AREA.
+Spatial rank was not the missing degree of freedom; the axis that moved
+dispersion was SYMMETRIC vs ASYMMETRIC, and ``spatial_modes`` stays at 0.
+
+What this file checks is untouched by that, deliberately. It asks whether the
+component does the GEOMETRIC thing its name says, in closed form, and it never
+asked whether the component earns a place in the model. Those are different
+questions and the second one now has a negative answer. A capability check that
+was allowed to read as a value claim is the harder failure to notice, because it
+never goes red, so the distinction is written here rather than left to be
+inferred from a green suite.
 
 WHAT IS KNOWN BY CONSTRUCTION
 -----------------------------

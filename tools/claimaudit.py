@@ -43,16 +43,37 @@ device ``tests/test_hygiene.py`` uses for its tells and for the same reason:
 exempting the scanner's own path would make the file most likely to acquire a
 defect the one file that could never report one.
 
-WHERE THIS LIVES, STATED RATHER THAN ASSUMED
---------------------------------------------
+WHERE THIS LIVES, AND WHY IT MOVED
+----------------------------------
 It is a repo-hygiene instrument, not a scoring instrument: it computes no
 quantity any gate reads, and :func:`main` returns an exit status rather than a
-number. It sits in ``eval/`` because that is the tracked directory its author
-owns, and the consequence is that ``scoring_code_fingerprint`` now covers it.
-That over-coverage is conservative in the only direction that matters -- it can
-make a fingerprint move for a harmless reason, never hold still for a harmful
-one -- but ``tools/`` is where the comparable guards live and re-homing it there
-is proposed, not performed.
+number. It SHIPPED in ``eval/`` because that was the tracked directory its author
+owns, and the consequence was that ``scoring_code_fingerprint`` covered it. That
+function walks ``eval/`` and ``model/`` WHOLE and is the one instrument binding a
+published number to the code that produced it, so every future edit to a
+documentation scanner would have moved the provenance stamp of every artifact
+minted after it, for a reason no reader of that stamp could tell apart from a
+real change to the scoring path. The original text here argued the over-coverage
+was conservative. It is not: a stamp that moves for harmless reasons is a stamp
+people learn to ignore, which is the harmful direction by a slower route.
+
+ADR-077 (3) ruled on it and ruled out the tempting repair. Exempting one path
+from the fingerprint would rebuild, with a single entry, the enumeration ADR-057
+deleted: an allow-list over provenance-critical code is a check that cannot
+discriminate. So the instrument's rule stays WHOLE and the TREE was made honest
+instead. This file now lives in ``tools/``, beside ``commit_guard.py`` and
+``push_guard.py``, which is where the comparable guards already were.
+
+Two consequences of the move, written down because a relocation that is only
+announced is a relocation nobody audits.
+
+1. ``tools/`` is not in mypy's ``files``, so this module is no longer
+   type-checked. It was clean under ``--strict`` in ``eval/`` and appears in no
+   exemption list, so nothing was hidden by moving it; the coverage is simply
+   gone until ``tools/`` is checked.
+2. ``tools/**/*.py`` is already in :data:`SCOPE_PATTERNS`, so the sweep still
+   scans its own source at the new path. The no-self-exemption property above is
+   therefore preserved by measurement rather than by assumption.
 """
 
 from __future__ import annotations
