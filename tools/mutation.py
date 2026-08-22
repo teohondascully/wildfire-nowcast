@@ -145,15 +145,27 @@ EQUIVALENT_MUTANTS: Final = {
 #: ``MEASURED_AT`` for the command. It may be lowered by a commit that kills a
 #: survivor; it may not be raised, and the gate fails in BOTH directions so that a
 #: stale over-estimate is as loud as a regression.
-SURVIVOR_BUDGET: Final = 62
+SURVIVOR_BUDGET: Final = 58
 
 #: How the number above was obtained, so that a reader can reproduce it rather
 #: than believe it.
 MEASURED_AT: Final = (
-    "126 mutants (42 modules x 3 fractions) over common/ and eval/, by "
-    "`python tools/mutation.py --pristine --workers 3`, suite `pytest -x -m 'not slow'`. "
-    "Baseline at cc82876 before this gate existed: 126 mutants, 55 killed, 62 survived, "
-    "0 unmeasured, no equivalence declared."
+    "`python tools/mutation.py --pristine --workers 3`, suite `pytest -x -m 'not slow'`, "
+    "42 modules x 3 fractions over common/ and eval/. "
+    "CURRENT, at 4071f6c: 126 rows, 9 with no mutable site, 117 mutants attempted, "
+    "58 KILLED, 58 SURVIVED, 1 EQUIVALENT, 0 unmeasured, 45.9 min. "
+    "PRIOR, at cc82876 before this gate existed: reported as 126 mutants / 55 killed / "
+    "62 survived, and that report was wrong twice. THREE of its kills were mutants that do "
+    "not parse (see mutable_sites), so the honest prior figure is 114 real mutants / "
+    "52 killed / 62 survived; and EQUIVALENT was unreachable, because the registry's own "
+    "integrity check failed on the line it pins. Both defects are fixed above, so the two "
+    "numbers are comparable in the survivor column only: 62 -> 58, the four killed by "
+    "Task 5.5. "
+    "ONE KNOWN COARSENESS, stated rather than hidden: the budget counts ROWS, and on a "
+    "module with few sites all three fractions can select the same one. Two sites are "
+    "selected three times each (common/paths.py:47, common/null_check/__main__.py:9), so "
+    "58 rows are 54 DISTINCT survivors. The gate is still correct in both directions; it "
+    "is simply coarser than the distinct debt."
 )
 
 _PYTEST_ARGS: Final = ("-x", "-q", "-m", "not slow", "-p", "no:randomly", "-p", "no:cacheprovider")
