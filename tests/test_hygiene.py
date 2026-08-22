@@ -586,6 +586,102 @@ def test_the_scan_reads_its_own_source_and_is_not_self_exempt() -> None:
 
 
 # --------------------------------------------------------------------------
+# [I11] No TRACKED file publishes an operator's home directory
+# --------------------------------------------------------------------------
+#
+# `test_no_absolute_path_literals_in_src` above is C7 and reads `src/*.py` only.
+# That scope was exactly wide enough to miss what happened: 64 absolute paths of
+# the form `<home>/<user>/Projects/wildfire-nowcast/...` were committed inside
+# twelve `runs/` RESULT ARTIFACTS, publishing a local account name and a
+# directory layout on a portfolio repository. Not one of them was in `src/`, so
+# not one of them was ever in front of a check.
+#
+# The scan below therefore reads the TRACKED TREE, which is the definition of
+# the public surface, and not a directory anyone chose. It is deliberately
+# narrower in what it matches than C7's regex: C7 bans a hardcoded path in CODE,
+# where `/tmp` and a bare `/Volumes` are still worth arguing about; this bans a
+# path that NAMES A PERSON, anywhere, which is a leak rather than a style
+# question. The two overlap and neither subsumes the other.
+#
+# Producer-side, `common.paths.repo_relative` is what an artifact writes; this is
+# what refuses to publish the ones that did not use it.
+
+#: A user home directory: the root, then a NAME, then a separator. The trailing
+#: separator is load-bearing - it is what makes this pattern skip the pattern
+#: DEFINITIONS in this file, which end at the root, while still catching every
+#: real path. Spelled in halves for the same reason the tell patterns are.
+_HOME_ROOTS = ("/U" + "sers", "/ho" + "me", "/Vol" + "umes")
+_HOME_PATH_RE = re.compile(
+    # `\\+` and not `\\`: a Windows path inside a Python or JSON string literal
+    # is written with its backslashes ESCAPED, so the bytes on disk carry two of
+    # them. A pattern that insists on one would read the source of the very leak
+    # it is looking for and see nothing.
+    "(?:" + "|".join(_HOME_ROOTS) + r")/[A-Za-z0-9._-]+/" + r"|[A-Za-z]:\\+U" + r"sers"
+)
+
+
+def scan_tracked_tree_for_home_paths() -> dict[str, int]:
+    """``{relative path: number of home-directory paths}``, tracked files only."""
+    counts: dict[str, int] = {}
+    for rel in _tracked_files():
+        path = repo_root() / rel
+        if not path.is_file():
+            continue
+        text = path.read_bytes().decode("utf-8", errors="replace")
+        n = len(_HOME_PATH_RE.findall(text))
+        if n:
+            counts[rel] = n
+    return counts
+
+
+def test_no_tracked_file_publishes_a_home_directory_path() -> None:
+    """The whole public surface, not `src/`. This is what the 64 escaped through."""
+    offenders = scan_tracked_tree_for_home_paths()
+    assert not offenders, (
+        "these tracked files publish an operator's home directory. Write paths into "
+        "artifacts with `wildfire_nowcast.common.paths.repo_relative`, which renders a path "
+        "inside the repository relative to it and leaves anything outside alone:\n"
+        + "\n".join(f"  {rel}: {n}" for rel, n in sorted(offenders.items()))
+    )
+
+
+def test_the_home_path_scan_can_actually_fire() -> None:
+    """Five shapes it must catch and three it must not, read as values.
+
+    Every specimen is BUILT at runtime rather than written out, for the reason
+    the test below asserts: this file is scanned by the check it is testing, so a
+    literal specimen would make the file its own first offender.
+    """
+    bs = chr(92)
+    must_catch = [
+        '"checkpoint": "/U' + 'sers/someone/Projects/wildfire-nowcast/runs/x"',
+        "path = '/ho" + "me/ci-runner/work/repo/data'",
+        "/Vol" + "umes/scratch2/fires/tensor.zarr",
+        # a Windows path as it looks, and as a source file has to escape it
+        "C:" + bs + "U" + "sers" + bs + "someone",
+        "C:" + bs * 2 + "U" + "sers" + bs * 2 + "someone",
+    ]
+    for specimen in must_catch:
+        assert _HOME_PATH_RE.search(specimen), f"NOT CAUGHT: {specimen}"
+
+    must_not_catch = [
+        "runs/s1.json",
+        "data/fires",
+        # the pattern definitions in this very file: a root with no name after it
+        "/U" + "sers/",
+    ]
+    for specimen in must_not_catch:
+        assert not _HOME_PATH_RE.search(specimen), f"FALSE POSITIVE: {specimen}"
+
+
+def test_the_home_path_scan_reads_this_file_and_is_not_self_exempt() -> None:
+    """Same rule as the tell scan: the file holding the pattern is scanned by it."""
+    rel = "tests/test_hygiene.py"
+    assert rel in _tracked_files()
+    assert rel not in scan_tracked_tree_for_home_paths()
+
+
+# --------------------------------------------------------------------------
 # [I4] No commit in this repository's history carries attribution
 # --------------------------------------------------------------------------
 #

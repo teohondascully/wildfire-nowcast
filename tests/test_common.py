@@ -453,3 +453,54 @@ def test_run_sub_creates_directories(tmp_path: Path) -> None:
     run = create_run_dir({}, run_id="sub", runs_root=tmp_path)
     figures = run.sub("figures")
     assert figures.is_dir() and figures.parent == run.path
+
+
+# --------------------------------------------------------------------------
+# [I11] `repo_relative` - how a path is written INTO an artifact
+# --------------------------------------------------------------------------
+#
+# 64 absolute paths carrying a local account name reached the public tree inside
+# twelve committed result artifacts. This is the producer-side half of the
+# repair; `tests/test_hygiene.py` holds the refusal-to-publish half.
+
+
+def test_repo_relative_renders_a_path_inside_the_repository() -> None:
+    from wildfire_nowcast.common.paths import repo_relative, repo_root
+
+    assert repo_relative(repo_root() / "runs" / "x") == "runs/x"
+    assert repo_relative(repo_root() / "data" / "fires") == "data/fires"
+    assert repo_relative(repo_root()) == "."
+
+
+def test_repo_relative_is_idempotent_on_an_already_relative_path() -> None:
+    """An artifact rewritten twice must not drift. Relative in, same out."""
+    from wildfire_nowcast.common.paths import repo_relative
+
+    assert repo_relative("runs/x") == "runs/x"
+    assert repo_relative(repo_relative("runs/x")) == "runs/x"
+
+
+def test_repo_relative_leaves_a_path_outside_the_repository_alone() -> None:
+    """The documented second half, and the reason the tracked-tree scan exists.
+
+    A checkpoint on another volume is genuinely elsewhere. Rendering it as a
+    chain of `..` would turn a readable location into a puzzle AND still leak the
+    layout, so it is returned unchanged and refused at publication time instead.
+    """
+    from wildfire_nowcast.common.paths import repo_relative
+
+    outside = "/Vol" + "umes/other/checkpoints/m1"
+    assert repo_relative(outside) == outside
+
+
+def test_repo_relative_output_does_not_trip_the_home_path_scan() -> None:
+    """The two halves agree: what the producer writes, the publisher accepts."""
+    from tests.test_hygiene import _HOME_PATH_RE  # noqa: PLC0415
+
+    from wildfire_nowcast.common.paths import repo_relative, repo_root
+
+    for path in (repo_root() / "runs" / "x", repo_root() / "data" / "fires"):
+        assert not _HOME_PATH_RE.search(repo_relative(path))
+    # ...and the control: the raw absolute form DOES trip it, so the assertion
+    # above is about `repo_relative` and not about a scan that never fires.
+    assert _HOME_PATH_RE.search(str(repo_root() / "runs" / "x"))

@@ -51,7 +51,7 @@ from wildfire_nowcast.common.contract import (
     SEVERITY_REPORTING,
     ContractReport,
 )
-from wildfire_nowcast.common.paths import fires_dir, norm_stats_path, runs_dir
+from wildfire_nowcast.common.paths import fires_dir, norm_stats_path, repo_relative, runs_dir
 
 __all__ = [
     "SplitChangedError",
@@ -420,6 +420,24 @@ def assert_fit_and_stamp_agree(
             )
 
 
+def _same_stats_path(a: str | Path, b: str | Path) -> bool:
+    """Do two recorded ``stats_path`` strings name the same file?
+
+    C8.2 asks whether a run OPENED and CLOSED on one partition. That question is
+    about a FILE, and two spellings of one file are not two partitions. Since
+    :meth:`SplitContext.provenance` now records the repo-relative form, a run
+    whose ``before`` stamp predates that change carries the absolute spelling and
+    its ``after`` stamp carries the relative one; comparing the raw strings would
+    report a fold rotation that never happened.
+
+    Both sides are normalised through :func:`repo_relative`, which is the exact
+    inverse of the representation change and nothing more. It does NOT compare
+    contents, and it does NOT resolve symlinks: two genuinely different files
+    still differ, which is the failure this guard exists to catch.
+    """
+    return repo_relative(a) == repo_relative(b)
+
+
 @dataclass(frozen=True)
 class SplitContext:
     """[v2.16] C8.2 - the fit and both stamps, resolved ONCE and inseparable.
@@ -476,7 +494,7 @@ class SplitContext:
         prior = before.get(SPLIT_CONTEXT_KEY)
         if isinstance(prior, Mapping):
             was = str(prior.get("stats_path", ""))
-            if was and was != str(self.stats_path):
+            if was and not _same_stats_path(was, self.stats_path):
                 raise SplitFitStampMismatchError(
                     f"C8.2 — this run OPENED under {was} and is CLOSING under "
                     f"{self.stats_path}. Two different fold partitions bracket one run, so the "
@@ -492,10 +510,22 @@ class SplitContext:
         return check_split_assignment(fires_root=self.fires_root, stats_path=self.stats_path)
 
     def provenance(self) -> dict[str, str]:
-        """What a reader needs to know which of the five folds a number came from."""
+        """What a reader needs to know which of the five folds a number came from.
+
+        Both paths are rendered REPO-RELATIVE (``repo_relative``). This block is
+        copied verbatim into every published run artifact, and ``fires_root``
+        defaults to ``fires_dir()``, which is absolute - so the default path
+        through this function used to stamp the operator's home directory into
+        the evidence. The identity a reader needs is *which partition*, and
+        ``data/fires`` says that exactly as well as a machine-specific prefix.
+
+        Comparisons against this block go through :func:`_same_stats_path`, so an
+        artifact stamped before this change still compares equal to one stamped
+        after it.
+        """
         return {
-            "stats_path": str(self.stats_path),
-            "fires_root": str(self.fires_root),
+            "stats_path": repo_relative(self.stats_path),
+            "fires_root": repo_relative(self.fires_root),
             "clause": "C8.2 [v2.16] (ADR-062 (5))",
         }
 

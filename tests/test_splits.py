@@ -1220,6 +1220,63 @@ def test_a_run_cannot_be_CLOSED_under_a_different_context_than_it_OPENED(
     assert str(stats_a) in str(excinfo.value) and str(stats_b) in str(excinfo.value)
 
 
+def test_the_context_provenance_is_written_repo_relative(
+    two_folds: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[I11] The stamp copied into every run artifact must not name a home directory.
+
+    ``fires_root`` defaults to ``fires_dir()``, which is absolute, so the DEFAULT
+    path through ``provenance()`` used to publish the operator's account name and
+    directory layout into every result artifact that carries this block. 64 such
+    paths reached the public tree before this was measured.
+    """
+    fires, stats_a, _stats_b = two_folds
+    monkeypatch.setenv("WILDFIRE_REPO_ROOT", str(fires.parent))
+    prov = S.resolve_split_context(stats_path=stats_a, fires_root=fires).provenance()
+    assert prov["fires_root"] == fires.name, prov
+    assert prov["stats_path"] == str(stats_a.relative_to(fires.parent)), prov
+    assert not prov["fires_root"].startswith("/"), prov
+
+
+def test_a_stamp_written_before_the_relative_rewrite_still_closes_its_own_run(
+    two_folds: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[I11] The representation changed; the partition did not.
+
+    C8.2 asks whether a run opened and closed on ONE partition. Comparing the raw
+    strings after the rewrite would answer "no" for a run that opened with the
+    absolute spelling and closed with the relative one, i.e. it would report a
+    fold rotation that never happened. The comparison is normalised through the
+    same function that produced the change and through nothing else.
+    """
+    fires, stats_a, _stats_b = two_folds
+    monkeypatch.setenv("WILDFIRE_REPO_ROOT", str(fires.parent))
+    ctx = S.resolve_split_context(stats_path=stats_a, fires_root=fires)
+    before = ctx.fingerprint()
+    assert not before[S.SPLIT_CONTEXT_KEY]["stats_path"].startswith("/")
+
+    # ...now age it: put back the ABSOLUTE spelling a pre-I11 run would carry.
+    aged = dict(before)
+    aged[S.SPLIT_CONTEXT_KEY] = dict(before[S.SPLIT_CONTEXT_KEY])
+    aged[S.SPLIT_CONTEXT_KEY]["stats_path"] = str(stats_a.resolve())
+    ctx.assert_unchanged(aged)  # must not raise
+
+
+def test_the_normalised_comparison_still_separates_two_different_files(
+    two_folds: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control for the test above. Tolerating a SPELLING is not tolerating a FILE."""
+    fires, stats_a, stats_b = two_folds
+    monkeypatch.setenv("WILDFIRE_REPO_ROOT", str(fires.parent))
+    assert S._same_stats_path(stats_a, str(stats_a.resolve()))
+    assert not S._same_stats_path(stats_a, stats_b)
+
+    opened = S.resolve_split_context(stats_path=stats_a, fires_root=fires).fingerprint()
+    closing = S.resolve_split_context(stats_path=stats_b, fires_root=fires)
+    with pytest.raises(S.SplitFitStampMismatchError):
+        closing.assert_unchanged(opened)
+
+
 def test_a_split_context_still_detects_the_ADR_015_defect(
     two_folds: tuple[Path, Path, Path],
 ) -> None:
