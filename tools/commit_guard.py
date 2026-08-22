@@ -123,7 +123,7 @@ import re
 import subprocess
 import sys
 import unicodedata
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -385,16 +385,25 @@ def is_shallow(repo: Path) -> bool:
     return _git(["rev-parse", "--is-shallow-repository"], repo).strip() == "true"
 
 
-def commit_messages(repo: Path) -> dict[str, str]:
-    """``{sha: message}`` for EVERY commit reachable from EVERY ref.
+def commit_messages(repo: Path, *, refs: Sequence[str] = ("--all",)) -> dict[str, str]:
+    """``{sha: message}`` for every commit reachable from ``refs``.
 
     Not a window, not a branch, not "since the last tag". The audit that missed
-    the original defect was scoped to the commits it expected to be dirty.
+    the original defect was scoped to the commits it expected to be dirty, so the
+    DEFAULT is `--all` and stays that way.
+
+    ``refs`` exists for one purpose and it is not narrowing the check [I11]: this
+    repository has commits reachable only from a LOCAL-ONLY archive ref, so the
+    corpus on the maintainer's disk and the corpus in a clone are different
+    corpora. A rule measured against the first and enforced against the second
+    is measured against a corpus that is not the one it gates, which is how a
+    debt list that was exact locally turned CI red. Passing ``("origin/main",)``
+    lets a test reproduce the clone's corpus without leaving the machine.
     """
     # `%x00` is expanded by git into a NUL in its OUTPUT. A printable separator
     # would be a string a commit message could contain, and the one record that
     # could hide inside another is the one an attacker (or a paste) would use.
-    raw = _git(["log", "--all", "--reverse", "--format=%x00%H%n%B"], repo)
+    raw = _git(["log", *refs, "--reverse", "--format=%x00%H%n%B"], repo)
     out: dict[str, str] = {}
     for chunk in raw.split("\x00"):
         if not chunk.strip():

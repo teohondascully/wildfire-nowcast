@@ -17,7 +17,7 @@ from __future__ import annotations
 import ast
 import re
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 import pytest
@@ -959,6 +959,28 @@ PUBLISHED_PUNCTUATION_DEBT: dict[str, dict[str, int]] = {
 #: subtracted: an attribution finding on a debt-listed commit still fails.
 _DEBT_RULES = ("em-dash", "typographic-punctuation")
 
+#: [I11] THE DEBT SHAS THAT A CLONE CANNOT SEE, AND WHY THIS DISTINCTION IS NOT
+#: A LOOPHOLE. Three of the eight are reachable only from
+#: `refs/archive/pre-public-backup`, a LOCAL-ONLY ref that is never pushed. On
+#: the maintainer's disk `git log --all` reaches 163 commits; in a clone it
+#: reaches 111. A staleness check that reads "the commit now carries 0" cannot
+#: tell "the message was rewritten" from "the commit is not in this corpus", and
+#: it read the second as the first: the list was exact locally and turned CI red
+#: on its first real run, which is this repository's "a local green is not
+#: evidence" rule catching its own guard.
+#:
+#: So the membership is DECLARED and then MEASURED against
+#: `origin/main` in both directions, rather than being inferred at run time from
+#: the absence that caused the problem. An entry that is absent and NOT declared
+#: local-only is still stale, loudly.
+LOCAL_ONLY_DEBT_SHAS = frozenset(
+    {
+        "56bf4e7bed0a99fdc92f6770971c2795ee11dd0e",
+        "8639910f89a5af17e73d4506cfb8c7c2c81764c9",
+        "f99f4870e21101bd28077198752f841fe2b60c83",
+    }
+)
+
 
 def unaccounted(
     offenders: Mapping[str, list[commit_guard.Finding]],
@@ -984,15 +1006,31 @@ def unaccounted(
 
 def stale_debt_entries(
     offenders: Mapping[str, list[commit_guard.Finding]],
+    *,
+    corpus: Iterable[str] | None = None,
 ) -> list[str]:
     """Debt entries whose commit no longer carries that many of that tell.
 
     A burn-down that only ever fails upward is an excuse. This history is
     immutable, so the only ways an entry can go stale are a rewrite or a typo in
     the list, and both are things the scan must say out loud rather than absorb.
+
+    ``corpus`` is every sha that was SCANNED, which is not the same set as the
+    shas that produced findings: a debt entry whose message was repaired would
+    vanish from ``offenders`` and has to be distinguished from one whose commit
+    was never in this corpus. Defaults to the keys of ``offenders``, which is the
+    conservative reading (absent means repaired) and is why it should be passed.
     """
+    known = set(offenders) if corpus is None else set(corpus)
     stale = []
     for sha, declared in sorted(PUBLISHED_PUNCTUATION_DEBT.items()):
+        if sha not in known:
+            if sha not in LOCAL_ONLY_DEBT_SHAS:
+                stale.append(
+                    f"{sha}: the debt list names it and this corpus does not contain it at all. "
+                    "Either the history was rewritten or the entry is a typo"
+                )
+            continue
         for rule, expected in sorted(declared.items()):
             actual = len([f for f in offenders.get(sha, []) if f.rule == rule])
             if actual != expected:
@@ -1019,15 +1057,18 @@ def test_the_punctuation_debt_is_exactly_what_it_declares() -> None:
     Without this, `unaccounted` would silently forgive a sha whose message was
     never scanned at all, which is the allow-list defect with a nicer name.
     """
-    offenders = _scan(commit_guard.commit_messages(repo_root()))
-    stale = stale_debt_entries(offenders)
+    messages = commit_guard.commit_messages(repo_root())
+    offenders = _scan(messages)
+    stale = stale_debt_entries(offenders, corpus=messages)
     assert not stale, "the punctuation debt list no longer describes this history:\n  " + (
         "\n  ".join(stale)
     )
 
     for rule in _DEBT_RULES:
         found = sum(len([f for f in findings if f.rule == rule]) for findings in offenders.values())
-        declared = sum(d.get(rule, 0) for d in PUBLISHED_PUNCTUATION_DEBT.values())
+        declared = sum(
+            d.get(rule, 0) for sha, d in PUBLISHED_PUNCTUATION_DEBT.items() if sha in messages
+        )
         assert found == declared, (
             f"the scan found {found} {rule} findings across all refs but the debt list declares "
             f"{declared}"
@@ -1042,6 +1083,64 @@ def test_the_punctuation_debt_is_exactly_what_it_declares() -> None:
         assert set(unaccounted(planted)) == {f"planted-{rule}"}, (
             f"a {rule} finding on a commit the debt list does not name was forgiven"
         )
+
+
+def test_the_debt_holds_on_THE_PUBLISHED_CORPUS_ALONE() -> None:
+    """[I11] The corpus CI reads, reproduced here. This is the test that was missing.
+
+    A clone reaches 111 commits from `origin/main`; this machine reaches 163 from
+    `--all`, because 52 live on a local-only archive ref. The debt list was exact
+    against the second and stale against the first, so it passed locally and
+    turned CI red on its first real run. Measuring the gating corpus is not
+    optional just because a bigger corpus is available.
+    """
+    published = commit_guard.commit_messages(repo_root(), refs=("origin/main",))
+    assert len(published) > 50, "the published corpus scan found almost nothing"
+    assert len(published) < len(commit_guard.commit_messages(repo_root())), (
+        "the two corpora are the same size, so this test is measuring nothing new"
+    )
+
+    offenders = _scan(published)
+    assert not stale_debt_entries(offenders, corpus=published), (
+        "the debt list does not describe the corpus a clone sees:\n  "
+        + "\n  ".join(stale_debt_entries(offenders, corpus=published))
+    )
+    assert not unaccounted(offenders)
+
+
+def test_the_local_only_debt_shas_are_exactly_the_unpublished_ones() -> None:
+    """Declared, then measured against git in BOTH directions.
+
+    Inferring this set at run time from "the commit is missing" would forgive the
+    exact defect the staleness check exists to catch, so it is written down and
+    then checked against what `origin/main` actually reaches.
+    """
+    published = set(commit_guard.commit_messages(repo_root(), refs=("origin/main",)))
+    assert LOCAL_ONLY_DEBT_SHAS <= set(PUBLISHED_PUNCTUATION_DEBT), (
+        "a local-only entry that is not in the debt list is a stale declaration"
+    )
+    measured = {sha for sha in PUBLISHED_PUNCTUATION_DEBT if sha not in published}
+    assert measured == LOCAL_ONLY_DEBT_SHAS, (
+        f"declared local-only {sorted(LOCAL_ONLY_DEBT_SHAS)} but git says {sorted(measured)}. "
+        "If one of these has since been published its entry must be asserted, not skipped."
+    )
+
+
+def test_a_debt_sha_that_is_absent_WITHOUT_being_declared_local_only_is_stale() -> None:
+    """The control for the skip. Absence must not become a free pass."""
+    present = {"481722de2e442a7b5f311196817eaa94f06dd3e2"}
+    stale = stale_debt_entries({}, corpus=present)
+    # the declared local-only three are skipped...
+    for sha in LOCAL_ONLY_DEBT_SHAS:
+        assert not any(sha in s for s in stale), sha
+    # ...and every other absent entry is reported.
+    for sha in PUBLISHED_PUNCTUATION_DEBT:
+        if sha in LOCAL_ONLY_DEBT_SHAS or sha in present:
+            continue
+        assert any(sha in s for s in stale), f"{sha} went absent and nothing said so"
+    # the one commit declared present carries no findings here, so its counts
+    # are stale in the ordinary direction rather than skipped.
+    assert any("481722de" in s and "carries 0" in s for s in stale), stale
 
 
 def test_a_dash_allowance_does_not_forgive_a_middle_dot_on_the_same_commit() -> None:
