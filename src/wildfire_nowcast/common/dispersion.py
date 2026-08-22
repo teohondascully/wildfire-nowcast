@@ -2,7 +2,7 @@
 
 This module is the single implementation (C0) of the two conditions G3 is
 adjudicated on, and of the one outcome type they are allowed to return. Nothing
-here decides G3 — that verdict is the maintainer's, exactly as in ``eval``'s
+here decides G3 - that verdict is the maintainer's, exactly as in ``eval``'s
 ``g3_summary``. What is decided here is *what a pass is allowed to mean*.
 
 THREE DEFECTS IN THE OLD BAR, ALL MEASURED, ALL CLOSED HERE
@@ -12,8 +12,8 @@ THREE DEFECTS IN THE OLD BAR, ALL MEASURED, ALL CLOSED HERE
 ``adr`` is a RATIO, so "equally wrong in both directions" means equally far in
 LOG space. ``1 / 0.8 = 1.25 > 1.2``: the old interval reached ~4% further into
 under-dispersion than into over-dispersion (in log units, ``|log 0.8| = 0.2231``
-against ``|log 1.2| = 0.1823`` — **22% more tolerance**, which is the number
-ADR-037 (6) quotes). **We have under-dispersed on every arm ever run** — 6 of 56
+against ``|log 1.2| = 0.1823`` - **22% more tolerance**, which is the number
+ADR-037 (6) quotes). **We have under-dispersed on every arm ever run** - 6 of 56
 arms inside the bar across four G3 attempts, all of them from below. So the
 looser side of the bar was the side we live on, and the bar was flattering the
 candidate.
@@ -21,11 +21,11 @@ candidate.
 The replacement is ``|log(adr)| <= log(BAR_RATIO)`` with ``BAR_RATIO = 1.2``,
 i.e. ``[1/1.2, 1.2] = [0.8333, 1.2]``. **Strictly harder, and harder only on the
 side we fail.** Bars only ever get harder (ADR-020's rule), and this one is
-tightened while no arm has been scored on the current corpus — nobody can see
+tightened while no arm has been scored on the current corpus - nobody can see
 which way it cuts.
 
 **2. A DISPERSION RATIO IS NOT INTERPRETABLE WITHOUT ITS FIRST MOMENT.**
-ADR-035 established, at a residual of 2.2e-16 (machine epsilon — an identity, not
+ADR-035 established, at a residual of 2.2e-16 (machine epsilon - an identity, not
 a fit)::
 
     adr = sqrt((M+1)/M) x ensemble_CV x growth_calibration x truth_shape x relief
@@ -41,7 +41,7 @@ only ``adr`` can therefore be passed by two errors cancelling.
 physics baseline and never as an absolute number**: the candidate's
 ``|log(growth_calibration)|`` must be no worse than the wind-advected ellipse's,
 on the same held-out blocks under the same equal-block weighting. Reference-based
-and threshold-free — there is no constant here fitted to anything, which is what
+and threshold-free - there is no constant here fitted to anything, which is what
 C-3 requires and what makes this admissible mid-gate.
 
 Stated in advance (ADR-039 (5)), because it is already known to FAIL: we
@@ -54,7 +54,7 @@ Found by sim by building a playthrough whose control arm was a perfectly
 calibrated ensemble and being unable to score it: the denominator is the model's
 own mean-area error, which is exactly 0 when the mean is perfect, so the metric
 returns ``None``. **A ``None`` must never be read as a pass.** That is not a
-hypothetical — ``None`` is falsy, ``None <= x`` raises, ``low <= None <= high``
+hypothetical - ``None`` is falsy, ``None <= x`` raises, ``low <= None <= high``
 raises, and a ``dict.get`` of a missing key is also ``None``, so the three ways to
 get here are indistinguishable at the call site.
 
@@ -115,7 +115,7 @@ UNDEFINED = "undefined"
 
 #: The dispersion bar, as a RATIO. ``|log(adr)| <= log(BAR_RATIO)``.
 #:
-#: C-3 (no threshold calibrated on n=1) — FITTING SAMPLE: **none, and that is the
+#: C-3 (no threshold calibrated on n=1) - FITTING SAMPLE: **none, and that is the
 #: point.** 1.2 is inherited unchanged from ADR-020's pre-fixed bar, which was
 #: itself set before any ensemble existed. A14 changed only the GEOMETRY of the
 #: interval, not its magnitude: the endpoint we were already held to (1.2) is
@@ -124,7 +124,7 @@ UNDEFINED = "undefined"
 #: and no arm's score participated in choosing it.
 BAR_RATIO = 1.2
 
-#: The bar as an interval, DERIVED — ``(1/1.2, 1.2) == (0.8333.., 1.2)``. Exposed
+#: The bar as an interval, DERIVED - ``(1/1.2, 1.2) == (0.8333.., 1.2)``. Exposed
 #: for printing only. Never hand-write the low endpoint: a second literal is how
 #: the asymmetry got in, and ``0.8333`` rounded into a table is not ``1/1.2``.
 BAR_INTERVAL: tuple[float, float] = (1.0 / BAR_RATIO, BAR_RATIO)
@@ -146,7 +146,7 @@ FIRST_MOMENT_KEY = "growth_calibration"
 
 #: WHOSE first moment the candidate is measured against. A physics baseline, and
 #: specifically the one C6.2 already requires to be growth-calibrated on train
-#: fires — so the reference is a number somebody else's method produced under a
+#: fires - so the reference is a number somebody else's method produced under a
 #: rule written before ours. Using the best physics baseline rather than a
 #: constant is what keeps this condition free of a fitted threshold.
 FIRST_MOMENT_REFERENCE_ROLE = "wind_ellipse"
@@ -164,7 +164,7 @@ class ConditionResult:
     only reliable way to stop ``UNDEFINED`` being read as a pass. ``None`` is
     falsy, so ``in_interval = low <= value <= high`` explodes while
     ``if in_interval:`` quietly takes the "not in bar" branch and
-    ``all([...])`` over a list containing ``None`` returns ``False`` — three
+    ``all([...])`` over a list containing ``None`` returns ``False`` - three
     different silent behaviours for the same missing measurement. Making the
     truth value an error forces every consumer to name which outcome it means.
     """
@@ -212,9 +212,9 @@ def _finite_positive(value: Any) -> float | None:
     """A ratio we may take a log of, or ``None``. Rejects bool, str, NaN, inf, <= 0.
 
     ``str`` is rejected rather than coerced ON PURPOSE, and it was caught by the
-    test that plants it: ``float("0.9")`` succeeds, so a stringified table cell —
+    test that plants it: ``float("0.9")`` succeeds, so a stringified table cell -
     the shape a value arrives in when it has been round-tripped through a report,
-    a CSV or a JSON field someone quoted — would be silently accepted as a
+    a CSV or a JSON field someone quoted - would be silently accepted as a
     measurement. ``bool`` is rejected for the same reason (``float(True) == 1.0``,
     a perfect dispersion score conjured out of a flag). Numpy scalars and anything
     else with ``__float__`` are accepted, because ``np.float32`` is not a
@@ -232,7 +232,7 @@ def _finite_positive(value: Any) -> float | None:
 
 
 def log_distance(ratio: Any) -> float | None:
-    """``|log(ratio)|`` — how wrong a ratio is, symmetrically. ``None`` if undefined.
+    """``|log(ratio)|`` - how wrong a ratio is, symmetrically. ``None`` if undefined.
 
     ``log_distance(r) == log_distance(1/r)`` exactly (up to float rounding), which
     is the property the old interval lacked and the whole reason for this module.
@@ -245,7 +245,7 @@ def growth_calibration(pred_mean_area: Any, truth_mean_area: Any) -> float | Non
     """``mean predicted area / mean truth area``, or ``None`` when undefined.
 
     Homed here under C0 so the first-moment condition and any diagnostic that
-    reports the same quantity cannot drift apart. Undefined — not 0, not inf —
+    reports the same quantity cannot drift apart. Undefined - not 0, not inf -
     when truth grew nothing: a calibration ratio against a zero denominator is
     the degenerate case, and the correct answer is that it cannot be measured.
     """
@@ -260,7 +260,7 @@ def growth_calibration(pred_mean_area: Any, truth_mean_area: Any) -> float | Non
 
 
 # --------------------------------------------------------------------------
-# condition 1 — dispersion, on a GEOMETRIC bar
+# condition 1 - dispersion, on a GEOMETRIC bar
 # --------------------------------------------------------------------------
 
 
@@ -305,7 +305,7 @@ def dispersion_condition(adr: Any, *, name: str = "dispersion") -> ConditionResu
 
 
 # --------------------------------------------------------------------------
-# condition 2 — the first moment, RELATIVE TO A PHYSICS BASELINE
+# condition 2 - the first moment, RELATIVE TO A PHYSICS BASELINE
 # --------------------------------------------------------------------------
 
 
@@ -324,7 +324,7 @@ def first_moment_condition(
     result (C-3) and it moves only when the opponent improves.
 
     Either side missing is :data:`UNDEFINED`. In particular a missing REFERENCE is
-    not a free pass — "we could not score the ellipse" must never read as "we beat
+    not a free pass - "we could not score the ellipse" must never read as "we beat
     the ellipse", which is the C6.2 VOID-not-passed rule applied one level up.
     """
     dc, dr = log_distance(candidate), log_distance(reference)
@@ -379,7 +379,7 @@ def first_moment_condition_from_blocks(
     """:func:`first_moment_condition` over per-block ratios, EQUAL-BLOCK weighted.
 
     Requires the two mappings to cover **exactly the same blocks**. A comparison
-    against a reference scored on a different set of blocks is not a comparison —
+    against a reference scored on a different set of blocks is not a comparison -
     ADR-021 (4) adopted equal-block weighting precisely because one block (Creek)
     was 47% of the window-pooled held-out mass, so a differing block set can move
     the answer more than the models do. A mismatch is :data:`UNDEFINED`.
@@ -387,11 +387,11 @@ def first_moment_condition_from_blocks(
     TWO POOLINGS ARE REPORTED, and the choice between them is stated rather than
     made silently:
 
-    * ``arithmetic`` (**the one adjudicated**) — mean of the RATIO over blocks,
+    * ``arithmetic`` (**the one adjudicated**) - mean of the RATIO over blocks,
       then ``|log(mean)|``. This is what ``equal_block_mean`` already does to every
       other criterion, so the first-moment condition pools identically to the
       dispersion condition beside it.
-    * ``log`` (reported) — mean of ``|log(ratio)|`` over blocks. Strictly the more
+    * ``log`` (reported) - mean of ``|log(ratio)|`` over blocks. Strictly the more
       natural pooling for a ratio, and it is NOT used, because adopting it would
       change the pooling rule for one criterion only, on infra's own
       judgement, mid-gate. Emitted so the maintainer can see whether the choice
@@ -479,12 +479,12 @@ def g3_conditions(
 
     ``G3 passes only if BOTH hold.`` The combined outcome is:
 
-    * :data:`PASS` — both conditions PASS.
-    * :data:`UNDEFINED` — either condition is UNDEFINED. "Not adjudicable" is a
+    * :data:`PASS` - both conditions PASS.
+    * :data:`UNDEFINED` - either condition is UNDEFINED. "Not adjudicable" is a
       distinct state from "failed", and reporting an unmeasurable gate as a
       failure is as much a misstatement as reporting it as a pass. G4 has already
       had to use this state once, at n=2 spot events.
-    * :data:`FAIL` — otherwise.
+    * :data:`FAIL` - otherwise.
 
     No verdict on G3 itself: that is the maintainer's, as it was for G2.
     """

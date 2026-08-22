@@ -10,7 +10,7 @@ It follows ``data/backfill.py``'s discipline exactly, for the same reason: it
 named provenance keys moved. A patch nobody verified is a rebuild you cannot
 reproduce.
 
-``data/interim/`` ONLY — the guard is structural, not a convention.
+``data/interim/`` ONLY - the guard is structural, not a convention.
 """
 
 from __future__ import annotations

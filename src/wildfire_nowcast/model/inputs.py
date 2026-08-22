@@ -1,4 +1,4 @@
-"""C5 input assembly — turning a C1 tensor into ``predict()`` arguments.
+"""C5 input assembly - turning a C1 tensor into ``predict()`` arguments.
 
 C5 fixes the *shapes* of ``predict``'s arguments but not their *content*::
 
@@ -15,10 +15,10 @@ warns you.
    retyped. Index them with :func:`static_index` / :func:`weather_index`; never
    with a literal integer. (The C1 store is two variables with
    ``channel_index_offset: 1``, so a literal is off by one *and* the split into
-   static/weather renumbers again — two independent ways to silently read the
+   static/weather renumbers again - two independent ways to silently read the
    wrong field.)
 
-2. **Units.** ``static`` and ``weather`` carry RAW C1 PHYSICAL UNITS — m/s, K,
+2. **Units.** ``static`` and ``weather`` carry RAW C1 PHYSICAL UNITS - m/s, K,
    %, degrees, FBFM40 class ids. They are NOT normalised. A baseline needs real
    wind speeds to compute a real rate of spread, and C3 says a model reads
    ``data/norm_stats.json`` itself, so normalisation belongs inside the model,
@@ -71,12 +71,12 @@ __all__ = [
     "growth_cells_per_step",
 ]
 
-#: ``C_s`` — the static half of C1's feature channels, in C1 index order.
+#: ``C_s`` - the static half of C1's feature channels, in C1 index order.
 #: (5 elevation, 6 slope, 7 aspect_sin, 8 aspect_cos, 9 fuel_model_id,
 #: 10 canopy_cover, 12 water_barrier_mask, 13 recent_burn_scar)
 STATIC_INPUT_CHANNELS: tuple[str, ...] = tuple(c for c in CHANNELS if c in STATIC_CHANNELS)
 
-#: ``C_w`` — the time-varying half, in C1 index order.
+#: ``C_w`` - the time-varying half, in C1 index order.
 #: (1 wind_u10, 2 wind_v10, 3 temp_2m, 4 rh_2m, 11 fuel_moisture_proxy)
 WEATHER_INPUT_CHANNELS: tuple[str, ...] = tuple(
     c for c in FEATURE_CHANNELS if c not in STATIC_CHANNELS
@@ -150,7 +150,7 @@ class ForecastWindow:
         return (int(self.x0.shape[0]), int(self.x0.shape[1]))
 
     def predict_args(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """``(x0, static, weather)`` — the first three C5 positional arguments."""
+        """``(x0, static, weather)`` - the first three C5 positional arguments."""
         return self.x0, self.static, self.weather
 
     def truth_growth_cells(self) -> int:
@@ -181,7 +181,7 @@ def static_from_dataset(ds: xr.Dataset, t_index: int = 0) -> np.ndarray:
 
 
 def weather_from_dataset(ds: xr.Dataset, t0: int, horizon_h: int) -> np.ndarray:
-    """``f32[horizon_h,C_w,H,W]`` — the hours that DRIVE steps ``0..horizon_h-1``.
+    """``f32[horizon_h,C_w,H,W]`` - the hours that DRIVE steps ``0..horizon_h-1``.
 
     Applies the C1.3 end-of-hour phase: ``weather[k]`` is ``features[t0+1+k]``.
     """

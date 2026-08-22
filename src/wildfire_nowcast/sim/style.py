@@ -6,7 +6,7 @@ these conventions are load-bearing and are enforced, not documented:
 
 **C1.4 orientation.** ``y`` DESCENDS and ``x`` ASCENDS in a C1 store, so array
 row 0 is the NORTHERNMOST row. Get this backwards and every fire renders
-mirrored — which looks plausible and survives review. :func:`plot_extent`
+mirrored - which looks plausible and survives review. :func:`plot_extent`
 therefore *derives* the extent from the coordinate values and raises on a store
 whose axes do not descend/ascend, instead of hardcoding an ``origin`` and
 hoping. The pairing ``origin="upper"`` + ``extent=(x0, x1, y0, y1)`` with
@@ -55,9 +55,9 @@ __all__ = [
 # what makes a dormant frame legible rather than blank, and (b) the three states
 # are distinguishable in greyscale print: light / bright / dark.
 STATE_COLORS: tuple[str, str, str] = (
-    "#e8e2d6",  # 0 unburned  — pale, recedes
-    "#ff5a1f",  # 1 burning   — the only saturated warm colour in the figure
-    "#3a3128",  # 2 burned-out — dark char, deliberately NOT background-coloured
+    "#e8e2d6",  # 0 unburned  - pale, recedes
+    "#ff5a1f",  # 1 burning   - the only saturated warm colour in the figure
+    "#3a3128",  # 2 burned-out - dark char, deliberately NOT background-coloured
 )
 STATE_LABELS: tuple[str, str, str] = ("unburned", "burning", "burned-out")
 
@@ -210,7 +210,7 @@ _NICE_KM = (1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 50.0, 100.0, 200.0)
 def add_scale_bar(ax: Any, geom: PlotGeometry, km: float | None = None) -> None:
     """Horizontal scale bar in km, drawn in data (metre) coordinates.
 
-    Snapped to a round number — "26 km" is a bar nobody can read a distance off.
+    Snapped to a round number - "26 km" is a bar nobody can read a distance off.
     """
     if km is None:
         target = geom.width_km / 5.0

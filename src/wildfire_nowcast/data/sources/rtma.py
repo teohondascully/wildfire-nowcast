@@ -1,7 +1,7 @@
 """C1 channels 1-4 + the inputs to channel 11: RTMA hourly weather.
 
 Source: ``NOAA/NWS/RTMA`` (GEE), 2.5 km, hourly, from 2011-01-01. This is the
-"truth weather" for training — no forecast, no reanalysis blend.
+"truth weather" for training - no forecast, no reanalysis blend.
 
 Two unit traps, both confirmed from the Earth Engine catalog entry and both
 places where a silent error would be invisible in training:

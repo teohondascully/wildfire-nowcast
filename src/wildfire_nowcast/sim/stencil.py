@@ -5,8 +5,8 @@
 
 A rollout on a real fire cannot separate what the model believes from what the
 landscape imposed. This module removes the landscape: it builds a C5 input that
-is perfectly uniform and flat — one burning cell, zero slope, one fuel class, no
-barrier, no scar — and asks ``predict()`` for one hour. The resulting
+is perfectly uniform and flat - one burning cell, zero slope, one fuel class, no
+barrier, no scar - and asks ``predict()`` for one hour. The resulting
 member-fraction field IS the transition kernel's stencil, measured entirely
 through the C5 signature. Nothing here reads a weight.
 
@@ -18,7 +18,7 @@ decomposes into a wind-driven part plus a constant::
     c(θ) = A(θ) ŵ(θ) + c_0
 
 Averaging ``c(θ)`` over wind bearings sampled uniformly on the circle cancels the
-first term exactly when ``A`` does not depend on ``θ`` — which it cannot here,
+first term exactly when ``A`` does not depend on ``θ`` - which it cannot here,
 because nothing in the domain distinguishes one bearing from another. What
 survives is ``c_0``: the part of the model's preferred direction that does not
 track the wind. It is reported in metres, with the still-air stencil measured
@@ -179,7 +179,7 @@ def measure_stencil(
     """Member-fraction field after ``horizon_h`` hours, plus its centroid in metres.
 
     The centroid is taken over NEW cells only (the ignition cell is excluded), in
-    grid metres with +y NORTH — the same orientation rule the renderers enforce,
+    grid metres with +y NORTH - the same orientation rule the renderers enforce,
     because a row-index centroid would report every stencil as pointing south.
     """
     x0, static, weather = build_probe(

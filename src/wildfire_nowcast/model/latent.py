@@ -1,10 +1,10 @@
-"""``z_t`` — the SHARED PER-STEP LATENT that makes the innovations correlated.
+"""``z_t`` - the SHARED PER-STEP LATENT that makes the innovations correlated.
 
 CLAUDE.md, ground truth, not re-litigated here::
 
     Pixels are conditionally independent Bernoulli ONLY given a shared per-step
     latent z_t (correlated innovations). Independent-per-pixel-noise-only models
-    are known-broken (ensemble collapse) — do not build them except as ablation.
+    are known-broken (ensemble collapse) - do not build them except as ablation.
 
 This module is the "ONLY given" clause, in code. :mod:`wildfire_nowcast.model.kernel`
 supplies ``p(x)`` from ``(x_t, features)``; everything here supplies the ONE draw
@@ -14,7 +14,7 @@ WHY A LOW-DIMENSIONAL GLOBAL LATENT AND NOT A NOISE FIELD
 ---------------------------------------------------------
 data measured the phenomenon this exists for (insights/data.md item 1):
 *"Growth is bursty and hour-locked: Kincade's whole run is 12 hours doing ~250
-of 347 km². Per-step Bernoulli rates are strongly non-stationary — this is
+of 347 km². Per-step Bernoulli rates are strongly non-stationary - this is
 precisely the case the shared per-step latent z_t exists for."* The innovation
 that is missing from the deterministic kernel is not per-pixel jitter, it is
 **this hour was three times hotter than the weather said**, and that is a
@@ -23,10 +23,10 @@ step-level forcing errors, and its three components are named physical
 quantities rather than anonymous features:
 
 ===========  ==============================================================
-``z[0]``     log-multiplier on the whole hazard field — burst intensity.
-``z[1]``     rotation (radians) of the effective head direction — the
+``z[0]``     log-multiplier on the whole hazard field - burst intensity.
+``z[1]``     rotation (radians) of the effective head direction - the
              direction error RTMA and the terrain resolution leave behind.
-``z[2]``     log-multiplier on the effective wind speed — reach AND
+``z[2]``     log-multiplier on the effective wind speed - reach AND
              length-to-breadth move together, because they do in the physics.
 ===========  ==============================================================
 
@@ -36,8 +36,8 @@ tuned against a dispersion score. Nothing in this module reads a gate metric.
 
 Consequences that are the point rather than side effects:
 
-* one draw moves the whole field COHERENTLY, so a member is a *scenario* — a
-  bigger fire, or one that ran further south — not speckle around a mean field;
+* one draw moves the whole field COHERENTLY, so a member is a *scenario* - a
+  bigger fire, or one that ran further south - not speckle around a mean field;
 * the ensemble's TOTAL AREA acquires spread that does not vanish as the grid
   grows. Independent per-pixel noise gives area spread ``O(sqrt(N))`` against a
   mean ``O(N)``, which is the collapse ``area_dispersion_ratio`` detects
@@ -48,7 +48,7 @@ THE ABLATION IS THE SAME OBJECT WITH ONE SWITCH
 :class:`LatentSampler` with ``mode="independent"`` fixes ``z = 0`` (the prior
 mean) and leaves the per-pixel Bernoulli draw alone. That is the
 known-broken model CLAUDE.md permits ONLY as an ablation, and G3 requires it to
-DEMONSTRATE collapse — i.e. it is a POSITIVE CONTROL for the ensemble machinery
+DEMONSTRATE collapse - i.e. it is a POSITIVE CONTROL for the ensemble machinery
 in this repo. If it fails to collapse, the finding is about the instrument, not
 about the model.
 
@@ -57,7 +57,7 @@ THE INFERENCE NETWORK
 ``q(z_k | b_{k-1}, y_k, p_k^0)`` is a small convolutional encoder that sees the
 model's own one-step probability field ``p_k^0`` (at ``z = 0``) alongside the
 observed outcome, i.e. it encodes the INNOVATION rather than the state. It is
-used ONLY during training — it reads ``y_k``, the future — and is never invoked
+used ONLY during training - it reads ``y_k``, the future - and is never invoked
 by :meth:`~wildfire_nowcast.model.kernel.ContagionKernel.predict`. That
 separation is asserted by a self-test, not left to discipline.
 
@@ -65,7 +65,7 @@ POSTERIOR COLLAPSE IS A REAL FAILURE MODE HERE, AND IT IS DETECTABLE
 ---------------------------------------------------------------------
 If ``q`` collapses to the prior, ``z`` carries no information, the reconstruction
 term gains nothing from a wider prior, and the fitted ``sigma_k`` are driven to
-ZERO — which reproduces the ablation while looking like a trained latent model.
+ZERO - which reproduces the ablation while looking like a trained latent model.
 :func:`latent_report` emits ``sigma``, the per-dimension KL and the fraction of
 the KL each dimension carries, so a collapsed latent is visible in the run
 artifact instead of being inferred from a disappointing dispersion number.
@@ -105,7 +105,7 @@ LATENT_COMPONENTS: tuple[str, ...] = (
     "log_intensity",  # multiplies the whole hazard field
     "head_rotation",  # rotates the effective head direction (radians)
     "log_wind_speed",  # scales the effective wind speed
-    "activity_gate",  # [M6] turns the WHOLE FIELD off — see below
+    "activity_gate",  # [M6] turns the WHOLE FIELD off - see below
 )
 
 #: [M6] THE ACTIVITY GATE, and why it belongs in ``z_t`` rather than beside it.
@@ -120,7 +120,7 @@ LATENT_COMPONENTS: tuple[str, ...] = (
 #: Mechanically it is a FOURTH dimension whose effect on the hazard is a
 #: log-multiplier like ``log_intensity``, but with a much larger admissible
 #: ``sigma`` and a NEGATIVE mean offset, so that a draw in the lower tail
-#: multiplies the whole field's hazard by ``e^-6`` or less — an OFF state, not a
+#: multiplies the whole field's hazard by ``e^-6`` or less - an OFF state, not a
 #: quiet one. The two are separated deliberately: ``log_intensity`` is the
 #: ordinary hour-to-hour variation of an ACTIVE fire and stays small and
 #: symmetric; ``activity_gate`` is the regime switch. Folding them into one
@@ -135,9 +135,9 @@ LATENT_COMPONENTS: tuple[str, ...] = (
 #: carry the diurnal cycle, so the signal is already in the tensor.
 ACTIVITY_GATE = "activity_gate"
 
-#: ``"latent"`` — draw ``z_t ~ p(z)`` once per member per step, then draw pixels
+#: ``"latent"`` - draw ``z_t ~ p(z)`` once per member per step, then draw pixels
 #: independently GIVEN it. This is the model.
-#: ``"independent"`` — hold ``z_t`` at the prior mean and draw pixels
+#: ``"independent"`` - hold ``z_t`` at the prior mean and draw pixels
 #: independently. **This is the known-broken ablation** and the G3 positive
 #: control; it is never a candidate.
 SAMPLER_MODES: tuple[str, ...] = ("latent", "independent")
@@ -151,7 +151,7 @@ SAMPLER_MODES: tuple[str, ...] = ("latent", "independent")
 PRIOR_COVARIATES: tuple[str, ...] = ("rh_2m", "temp_2m", "wind_speed")
 N_PRIOR_COVARIATES = len(PRIOR_COVARIATES)
 
-#: [M7] THE LOW-RANK SPATIAL LATENT — extra dimensions of ``z_t`` whose effect is
+#: [M7] THE LOW-RANK SPATIAL LATENT - extra dimensions of ``z_t`` whose effect is
 #: a FIELD rather than a scalar, so an ensemble can disagree about WHERE.
 #:
 #: **WHY THIS WAS BUILT, AND WHY THAT REASON DID NOT SURVIVE ITS OWN TEST.**
@@ -183,7 +183,7 @@ N_PRIOR_COVARIATES = len(PRIOR_COVARIATES)
 #: Each mode multiplies the hazard by ``exp(c_m phi_m(x))`` where ``phi_m`` is a
 #: FIXED, FIRE-ANCHORED basis function (:func:`spatial_basis`) and ``c_m`` is one
 #: scalar per draw. So the object is still a SHARED PER-STEP LATENT of a handful
-#: of numbers — every pixel of a member-step sees the same ``c``, and the field
+#: of numbers - every pixel of a member-step sees the same ``c``, and the field
 #: it induces is smooth by construction. **This is deliberately NOT a per-pixel
 #: noise field**, which CLAUDE.md records as known-broken and admits only as an
 #: ablation: a rank-``R`` expansion has ``R`` degrees of freedom, not ``H*W``.
@@ -235,7 +235,7 @@ class LatentConfig:
     #: wind speed) so the model can learn WHICH hours are dormant. With a fixed
     #: N(0, I) prior it cannot: that is the part of "CVAE-style" M5 skipped.
     conditional_prior: bool = False
-    #: [M6] MEAN-PRESERVING MULTIPLICATIVE LATENT — see the module docstring
+    #: [M6] MEAN-PRESERVING MULTIPLICATIVE LATENT - see the module docstring
     #: section "SPREAD MUST NOT MOVE THE MEAN". The log-multiplier dimensions
     #: (``log_intensity``, ``log_wind_speed``) carry ``-sigma_k^2 / 2`` so that
     #: ``E_z[e^effect] = 1`` exactly and ``sigma`` is a PURE spread parameter.
@@ -243,7 +243,7 @@ class LatentConfig:
     #: EXCLUDED: it is a regime switch whose whole purpose is an asymmetric
     #: prior, and mean-correcting it would compensate every OFF draw with a
     #: hotter ON draw, i.e. would undo the thing it exists to do.
-    #: **[M8] THAT EXEMPTION IS NOW A SWITCH — see `gate_mean_preserving`, which
+    #: **[M8] THAT EXEMPTION IS NOW A SWITCH - see `gate_mean_preserving`, which
     #: reverses this paragraph's decision on measured grounds.**
     mean_preserving: bool = False
     #: [M8] MEAN-PRESERVE THE ACTIVITY GATE TOO. **This reverses a decision I
@@ -264,7 +264,7 @@ class LatentConfig:
     #: sigma in the model.
     #:
     #: **WHAT IS CORRECTED, AND WHAT IS DELIBERATELY NOT.** The correction is
-    #: ``-(sigma_3 * gate_prior_mean + sigma_3^2 / 2)`` — the UNCONDITIONAL part
+    #: ``-(sigma_3 * gate_prior_mean + sigma_3^2 / 2)`` - the UNCONDITIONAL part
     #: only. So:
     #:  * ``E_z[e^gate] = 1`` exactly at the unconditional prior, making
     #:    ``sigma_3`` a PURE SPREAD PARAMETER like every other dimension;
@@ -277,7 +277,7 @@ class LatentConfig:
     #:    that too would delete the OFF-state route entirely rather than merely
     #:    failing to reach it, and would also make dims 0 and 3 differ only by a
     #:    cap.
-    #: Requires ``dim >= 4`` and RAISES otherwise — a silent no-op on a config
+    #: Requires ``dim >= 4`` and RAISES otherwise - a silent no-op on a config
     #: that asks for a correction to a dimension that does not exist is the
     #: green-but-vacuous shape this project keeps finding. ``False`` reproduces
     #: M7 BITWISE (asserted by `eval/selftest`).
@@ -285,7 +285,7 @@ class LatentConfig:
     #: [M7] Hand the inference network the INNOVATION DECOMPOSITION (realised new
     #: burn, expected new burn, and their difference) instead of the two large
     #: near-identical fields it is the difference of. **False reproduces M6
-    #: BITWISE.** Not a capacity change — same widths, one extra input channel —
+    #: BITWISE.** Not a capacity change - same widths, one extra input channel -
     #: it is a fix to a docstring's claim that the code did not implement. See
     #: :class:`_Encoder`; measured cause in `runs/m7_offstate_optimum.json` and
     #: the M6 gate checkpoint's own posterior.
@@ -316,7 +316,7 @@ class LatentConfig:
     #: standardised coordinate: ``u_k = rho u_{k-1} + sqrt(1 - rho^2) eps_k``.
     #: Every step's MARGINAL stays exactly ``N(mu_p_k, I)``, so the one-step
     #: model, the per-step KL and every M5 identity check are unchanged and only
-    #: the temporal dependence moves — which is what makes the intervention
+    #: the temporal dependence moves - which is what makes the intervention
     #: attributable. ``0.0`` is M5 (iid draws) and reproduces it bitwise;
     #: ``1.0`` is one draw held across the whole horizon.
     rho: float = 0.0
@@ -352,7 +352,7 @@ class LatentConfig:
         if self.spatial_modes and self.dim == 0:
             # A spatial mode multiplies `log_intensity`, which is global dim 0.
             # Allowing spatial modes with no global block would produce a model
-            # whose ONLY latent is mean-zero in space — a different object that
+            # whose ONLY latent is mean-zero in space - a different object that
             # must be asked for by name, not reached by leaving a field at 0.
             raise ValueError("spatial_modes requires dim >= 1 (they modulate log_intensity)")
         for name in ("spatial_init_sigma", "spatial_max_sigma"):
@@ -427,7 +427,7 @@ class LatentEffect:
 
     Held as an explicit object rather than as three loose tensors so that
     ``latent=None`` (no latent) and ``LatentEffect.identity()`` (latent present,
-    drawn at its mean) are DIFFERENT things a reader can tell apart — the second
+    drawn at its mean) are DIFFERENT things a reader can tell apart - the second
     is the ablation and the first is the G2 model.
     """
 
@@ -437,7 +437,7 @@ class LatentEffect:
     #: [M7] Sigma-scaled coefficients of the LOW-RANK SPATIAL modes, ``[..., R]``,
     #: or ``None`` when the model has none. The COEFFICIENTS live here and the
     #: FIELD is built by the kernel, which is the only object that holds the
-    #: burned state the basis is anchored to — the same split
+    #: burned state the basis is anchored to - the same split
     #: ``head_rotation`` already uses (the latent says how far to rotate, the
     #: kernel knows what it is rotating).
     spatial_intensity: Tensor | None = None
@@ -479,7 +479,7 @@ def spatial_basis(burned: Tensor, n_modes: int, *, clip: float = 3.0) -> Tensor:
 
     ``clip`` bounds the basis far from the fire. Without it a cell 20 radii away
     would see ``e^(20 sigma)``, which is not a correlated innovation but an
-    unbounded extrapolation of a linear model — and it would be applied where the
+    unbounded extrapolation of a linear model - and it would be applied where the
     hazard is numerically zero anyway, so the clip costs nothing real.
     """
     r = int(n_modes)
@@ -507,17 +507,17 @@ def spatial_basis(burned: Tensor, n_modes: int, *, clip: float = 3.0) -> Tensor:
 
 
 class _Encoder(nn.Module):
-    """``q(z_k | b_{k-1}, y_k, p_k^0)`` — amortised inference, TRAINING ONLY.
+    """``q(z_k | b_{k-1}, y_k, p_k^0)`` - amortised inference, TRAINING ONLY.
 
     Input channels, in order, all ``[..., H, W]``:
 
-    0. ``b_{k-1}``  — the burned mean field entering the step;
-    1. ``y_k``      — the OBSERVED burned field leaving it (the future);
-    2. ``p_k^0``    — the model's own step probability at ``z = 0``.
+    0. ``b_{k-1}``  - the burned mean field entering the step;
+    1. ``y_k``      - the OBSERVED burned field leaving it (the future);
+    2. ``p_k^0``    - the model's own step probability at ``z = 0``.
 
     **[M7] THAT LAST PARAGRAPH USED TO CLAIM A PROPERTY THIS CODE DID NOT HAVE,
     AND IT IS MEASURED.** It said channel 2 makes this "an innovation encoder"
-    because ``y_k - b_{k-1}`` against ``p_k^0`` is the residual — but the network
+    because ``y_k - b_{k-1}`` against ``p_k^0`` is the residual - but the network
     was never GIVEN that difference, only the two large fields it is the
     difference of, and it had to recover it through two ReLU convolutions and a
     GLOBAL MEAN. ``b_{k-1}`` and ``y_k`` are near-identical burned blobs of
@@ -525,12 +525,12 @@ class _Encoder(nn.Module):
     a ~1% perturbation on a large common mode and does not survive pooling.
     Measured on the shipped M6 gate checkpoint, 235 TRAIN windows: the posterior
     mean of the ACTIVITY GATE dimension differs between dormant and growing
-    windows by **+0.037 against a spread of 0.426 — under a tenth of an SD, and
+    windows by **+0.037 against a spread of 0.426 - under a tenth of an SD, and
     with the WRONG SIGN.** ``q`` cannot see dormancy, so the conditional prior has
     nothing to regress, which is why ADR-032 (5)'s "the blocker is the fit of
     ``p(z_t|weather)``" bottoms out one level further down than it looks.
     ``innovation_channels`` therefore hands the encoder the DECOMPOSITION
-    explicitly — realised new burn, expected new burn, and their difference —
+    explicitly - realised new burn, expected new burn, and their difference -
     instead of asking it to subtract two large fields. Same family as insights
     item 42 (a normalisation applied to one term of a comparison) and the M2
     zero-gradient defect: a quantity structurally unable to move, presenting as a
@@ -549,7 +549,7 @@ class _Encoder(nn.Module):
     dimensions, the reconstruction would gain nothing from them, and their fitted
     ``sigma`` would be a statement about my pooling rather than about fire.
     So when the model has ``R`` spatial modes the encoder gains ``R`` extra
-    pooled statistics, ``<h, phi_m> / <1, phi_m^2>`` — the projection of its own
+    pooled statistics, ``<h, phi_m> / <1, phi_m^2>`` - the projection of its own
     feature map onto the SAME basis the decoder uses. This is a symmetry
     requirement, not a capacity increase: it adds ``R * channels`` inputs to one
     linear head and nothing else.
@@ -671,7 +671,7 @@ class LatentHead(nn.Module):
             shift[3] = float(self.config.gate_prior_mean)
         self.register_buffer("log_multiplier_mask", mask, persistent=False)
         self.register_buffer("gate_prior_shift", shift, persistent=False)
-        # [M6] CONDITIONAL PRIOR — the part of "CVAE-style" M5 left out. With a
+        # [M6] CONDITIONAL PRIOR - the part of "CVAE-style" M5 left out. With a
         # fixed N(0, I) prior, z_t cannot know that a cold, humid, still hour is
         # a dormant hour, so no amount of sigma buys an OFF state IN THE RIGHT
         # HOURS. Zero-initialised, so training starts EXACTLY at the
@@ -684,7 +684,7 @@ class LatentHead(nn.Module):
 
     @property
     def dim(self) -> int:
-        """Length of ``z`` — GLOBAL dimensions plus [M7] spatial modes."""
+        """Length of ``z`` - GLOBAL dimensions plus [M7] spatial modes."""
         return self.config.total_dim
 
     @property
@@ -713,7 +713,7 @@ class LatentHead(nn.Module):
 
         Applied to ``log_intensity`` (0) and ``log_wind_speed`` (2), which are
         multiplicative errors. NOT to ``head_rotation`` (1), which is additive in
-        radians and already zero-mean, and — under ``mean_preserving`` alone —
+        radians and already zero-mean, and - under ``mean_preserving`` alone -
         NOT to ``activity_gate`` (3), whose asymmetric prior is the point of the
         dimension.
 
@@ -723,7 +723,7 @@ class LatentHead(nn.Module):
         parts must come off. The correction is therefore
         ``-(sigma_3 mu_gate + sigma_3^2 / 2)``, LINEAR plus QUADRATIC in sigma.
         The conditional prior's contribution to ``mu`` is deliberately left
-        uncorrected — see :attr:`LatentConfig.gate_mean_preserving`.
+        uncorrected - see :attr:`LatentConfig.gate_mean_preserving`.
         """
         sigma = self.sigma()
         return -0.5 * sigma * sigma * self.log_multiplier_mask - sigma * self.gate_prior_shift
@@ -741,8 +741,8 @@ class LatentHead(nn.Module):
         def take(i: int) -> Tensor:
             return scaled[..., i] if n_global > i else zero
 
-        # The ACTIVITY GATE acts on the SAME physical quantity as log_intensity —
-        # a global log-multiplier on the hazard — so it is ADDED to it rather
+        # The ACTIVITY GATE acts on the SAME physical quantity as log_intensity -
+        # a global log-multiplier on the hazard - so it is ADDED to it rather
         # than given its own entry point. What separates them is their scale and
         # their prior: log_intensity is a small symmetric forcing error on an
         # ACTIVE fire, the gate is a regime switch with a large sigma and a
@@ -769,7 +769,7 @@ class LatentHead(nn.Module):
         )
 
     def prior_mean(self, covariates: Tensor | None = None) -> Tensor:
-        """``mu_p`` — ``[dim]``, or ``[..., dim]`` when conditioned on weather."""
+        """``mu_p`` - ``[dim]``, or ``[..., dim]`` when conditioned on weather."""
         base = self.prior_mean_base
         if self.prior_net is None or covariates is None:
             return base
@@ -825,7 +825,7 @@ class LatentHead(nn.Module):
 
 
 def reparameterise(mu: Tensor, log_var: Tensor, generator: Any = None) -> Tensor:
-    """``mu + sigma * eps`` — gradients reach ``mu`` and ``log_var``, not ``eps``."""
+    """``mu + sigma * eps`` - gradients reach ``mu`` and ``log_var``, not ``eps``."""
     eps = torch.randn(mu.shape, dtype=mu.dtype, generator=generator, device=mu.device)
     return mu + torch.exp(0.5 * log_var) * eps
 
@@ -837,7 +837,7 @@ class LatentSampler:
     ``mode="latent"`` draws one ``z_t`` per member per step: pixels are
     conditionally independent GIVEN it, which is CLAUDE.md's model.
     ``mode="independent"`` holds ``z_t`` at the prior mean, so the only
-    randomness left is the per-pixel Bernoulli draw — CLAUDE.md's known-broken
+    randomness left is the per-pixel Bernoulli draw - CLAUDE.md's known-broken
     model, built here ONLY as the G3 ablation.
     """
 
@@ -924,7 +924,7 @@ class LatentPath:
 
     so **every step's marginal is exactly ``N(mu_p_k, I)``**. The one-step model,
     the per-step KL and every M5 identity check are therefore untouched, and the
-    ONLY thing this changes is the temporal dependence — which is what makes the
+    ONLY thing this changes is the temporal dependence - which is what makes the
     intervention attributable.
 
     WHY IT EXISTS. ``z_t`` carries the step-level forcing error (RTMA wind bias,
@@ -932,7 +932,7 @@ class LatentPath:
     multi-hour scale: it is a BIAS, not a fresh coin every hour. With iid draws
     the H-step ensemble spread of a cumulative quantity grows as
     ``sqrt(H) sigma`` while its mean grows as ``H``, so an iid per-step latent
-    UNDERSTATES multi-hour dispersion BY CONSTRUCTION — and G3 is adjudicated at
+    UNDERSTATES multi-hour dispersion BY CONSTRUCTION - and G3 is adjudicated at
     1/2/3 h.
 
     **It is STATEFUL AND INCREMENTAL rather than a batch call ON PURPOSE.**

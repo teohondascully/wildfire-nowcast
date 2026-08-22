@@ -1,4 +1,4 @@
-"""Which metrics may adjudicate, which are quarantined — sourced from the CONTRACT.
+"""Which metrics may adjudicate, which are quarantined - sourced from the CONTRACT.
 
 A dashboard that draws a quarantined metric next to a gate metric without saying
 so will get the quarantined one cited. That has already happened to this project
@@ -7,8 +7,8 @@ three times in the other direction (``dispersion_ratio`` at ADR-011,
 number was already on a chart before anyone knew it was blind.
 
 So the badge is not a caption I remember to write. It is looked up, per key, from
-:data:`wildfire_nowcast.common.null_check.C6_METRICS` — the registry infra
-owns and the maintainer rules on — and any run-artifact key this module cannot
+:data:`wildfire_nowcast.common.null_check.C6_METRICS` - the registry infra
+owns and the maintainer rules on - and any run-artifact key this module cannot
 classify raises. **An unclassified key is an unbadged key**, which is the failure
 mode, so it fails loudly rather than rendering plain.
 
@@ -27,7 +27,7 @@ Live evidence
 separation behind each quarantine. Where that file is supplied, the badge quotes
 today's number instead of a number I typed in once. This matters more than it
 sounds: my own S2 dashboard badge said ``dispersion_ratio`` scores "collapsed
-1.000, healthy 1.051" — the ADR-011 measurement — while the current harness
+1.000, healthy 1.051" - the ADR-011 measurement - while the current harness
 measures **collapsed 1.1921 vs healthy 1.1903, a paired advantage of -0.0019
 +- 0.0050 over seeds, i.e. inside its own seed noise**. Same verdict, different
 mechanism: it is not that the metric prefers collapse, it is that it cannot tell
@@ -195,7 +195,7 @@ def load_null_check(path: str | Path | None) -> dict[str, str]:
             continue
         # Prefer the FAILING evidence. `detail` carries the comparison verdict,
         # which for a quarantined metric is often the reassuring "every degenerate
-        # model ranks below genuine skill" line — true, and exactly the sentence a
+        # model ranks below genuine skill" line - true, and exactly the sentence a
         # badge must not quote. `capture_detail` is the zero-capture axiom's
         # finding (ADR-023) and is the one that survives a member-count change.
         parts = [

@@ -3,8 +3,8 @@
     python -m wildfire_nowcast.sim.ensemble --tensor outputs/synthetic_fire/tensor.zarr \
         --out reports/figures/synthetic_ensemble.png --t0 8 --horizon 3 --members 24
 
-Input is whatever a C5 ``predict()`` returns — ``uint8[n_members, horizon_h,
-H, W]`` — so a baseline, the learned model and (later) ELMFIRE all render
+Input is whatever a C5 ``predict()`` returns - ``uint8[n_members, horizon_h,
+H, W]`` - so a baseline, the learned model and (later) ELMFIRE all render
 identically and are therefore comparable by eye as well as through C6.
 
 Two things here are easy to get wrong and are handled explicitly.
@@ -12,7 +12,7 @@ Two things here are easy to get wrong and are handled explicitly.
 **Arrival-time quantiles are CENSORED.** A pixel that burns in 3 of 24 members
 has no median arrival time. Taking a ``nanquantile`` over only the members that
 did arrive reports a confident, early median for a pixel that almost never
-burns — the map then looks like a fast, certain fire everywhere the ensemble is
+burns - the map then looks like a fast, certain fire everywhere the ensemble is
 actually unsure. :func:`arrival_quantiles` treats "never arrived in the window"
 as ``+inf``, so the q-quantile is undefined (NaN) whenever fewer than a fraction
 ``q`` of members arrive at all, and the figure draws those cells as censored.
@@ -87,7 +87,7 @@ def arrival_quantiles(
     """Per-cell arrival-time quantiles in LEAD HOURS, honestly censored.
 
     Returns ``(q_maps, burn_prob)`` where ``q_maps[i]`` is NaN wherever fewer
-    than ``quantiles[i]`` of members ever burn the cell — i.e. where the
+    than ``quantiles[i]`` of members ever burn the cell - i.e. where the
     quantile genuinely does not exist inside the forecast window.
 
     Arrival is 1-based in lead hours: ``1`` means "burning by the first
@@ -118,7 +118,7 @@ def _iou(a: np.ndarray, b: np.ndarray) -> float:
 
 
 #: Below this, the ensemble is no more dispersed than independent pixel noise
-#: would make it — i.e. the shared latent is doing nothing. See
+#: would make it - i.e. the shared latent is doing nothing. See
 #: :func:`independence_dispersion_index`.
 COLLAPSE_INDEX_THRESHOLD = 1.5
 
@@ -132,7 +132,7 @@ def independence_dispersion_index(samples: np.ndarray, lead: int = -1) -> float:
 
         index = std(member areas) / sqrt(Σ p_i (1 − p_i))
 
-    ``index ≈ 1`` means the ensemble carries no correlated innovation at all —
+    ``index ≈ 1`` means the ensemble carries no correlated innovation at all -
     precisely the independent-per-pixel model this project treats as known-broken
     and keeps only as an ablation.
     ``index >> 1`` means a shared per-step latent is actually moving the whole
@@ -215,7 +215,7 @@ def ensemble_diagnostics(
                 ),
             }
         )
-        # A rank at either extreme means the truth falls outside the ensemble —
+        # A rank at either extreme means the truth falls outside the ensemble -
         # under-dispersion, the failure this whole viewer exists to expose.
         diag["truth_outside_envelope"] = not diag["truth_within_member_range"]
     return diag
@@ -453,7 +453,7 @@ def _resolve_predict(name: str) -> tuple[Any, str]:
     hazard, not a convenience. If ``load_model('ellipse')`` starts raising for a
     real reason during a gate run, a fallback renders a plausible figure from a
     caricature that ``stub_model``'s own docstring forbids from appearing in a
-    gate — and the only trace is a line of scrolled-past stdout. Failing is the
+    gate - and the only trace is a line of scrolled-past stdout. Failing is the
     safe behaviour; the stub is reachable only by asking for it BY NAME.
     """
     if name == "stub":

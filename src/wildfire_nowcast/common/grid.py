@@ -10,7 +10,7 @@ Conventions, fixed once here so nobody has to re-derive them:
 * ``x`` coordinates are cell **centres**, strictly ascending (east-positive).
 * ``y`` coordinates are cell **centres**, strictly descending (north-up), which
   is the GDAL/rasterio raster convention.
-* ``bounds`` are outer **edges** ``(xmin, ymin, xmax, ymax)`` — the same
+* ``bounds`` are outer **edges** ``(xmin, ymin, xmax, ymax)`` - the same
   convention as ``manifest["bbox_5070"]`` (C2) and ``rasterio``.
 * array axis 0 is ``y`` (north to south), axis 1 is ``x`` (west to east).
 """
@@ -61,7 +61,7 @@ class Grid:
 
     @property
     def shape(self) -> tuple[int, int]:
-        """``(ny, nx)`` — the array shape of one time slice."""
+        """``(ny, nx)`` - the array shape of one time slice."""
         return (self.ny, self.nx)
 
     @property

@@ -2,9 +2,9 @@
 
 Two halves:
 
-1. **Conformance** — the store under test (``--tensor-path``, default: a fresh
+1. **Conformance** - the store under test (``--tensor-path``, default: a fresh
    synthetic fire) must satisfy every clause of C1/C2/C3.
-2. **Teeth** — deliberately corrupted datasets must make the checker *fail*, and
+2. **Teeth** - deliberately corrupted datasets must make the checker *fail*, and
    fail on the specific clause that was broken. A contract test that cannot fail
    proves nothing, so these are as important as the conformance tests.
 
@@ -59,7 +59,7 @@ def _with_fire_state(ds: xr.Dataset, values: np.ndarray) -> xr.Dataset:
 
 
 # --------------------------------------------------------------------------
-# C1 — per-fire tensor store
+# C1 - per-fire tensor store
 # --------------------------------------------------------------------------
 
 
@@ -145,7 +145,7 @@ def test_c1_time_is_hourly_monotone_naive_utc(tensor_ds: xr.Dataset) -> None:
 
 
 def test_c1_3_time_convention_is_recorded(tensor_ds: xr.Dataset, tensor_path: Path) -> None:
-    """C1.3 — GOFER tUTC is end-of-hour and RTMA is lagged to match. Getting it
+    """C1.3 - GOFER tUTC is end-of-hour and RTMA is lagged to match. Getting it
     wrong trains every fire an hour out of phase and presents as a mediocre
     model, not as a bug, so the convention must be written down somewhere
     machine-readable."""
@@ -172,7 +172,7 @@ def test_c1_1_empty_burning_frames_are_not_a_violation(tensor_ds: xr.Dataset) ->
     """C1.1: state 1 is legitimately EMPTY in 6-37% of real frames, because
     after a long dormancy every cell is closed. A consumer must therefore treat
     the frontier of the burned region, not state 1 alone, as the contagion
-    source — this test exists to stop anyone re-adding a "burning cells in every
+    source - this test exists to stop anyone re-adding a "burning cells in every
     frame" assertion to the contract."""
     state = np.asarray(tensor_ds[C.FIRE_STATE].values)
     empty = ~(state == C.BURNING).any(axis=(1, 2))
@@ -214,7 +214,7 @@ def test_c1_7_physical_ranges_hold(tensor_ds: xr.Dataset, labels_only: bool) -> 
 
 
 # --------------------------------------------------------------------------
-# C2 — per-fire manifest
+# C2 - per-fire manifest
 # --------------------------------------------------------------------------
 
 
@@ -238,7 +238,7 @@ def test_c1_2_buffer_margin_holds(tensor_ds: xr.Dataset) -> None:
     """C1.2's 10 km buffer, asserted on the store under test.
 
     Ratified at v2 and unimplemented until A10: the checker enforced the lattice
-    snap and the cell size — the other two sentences of C1.2 — and never looked
+    snap and the cell size - the other two sentences of C1.2 - and never looked
     at the buffer.
     """
     rep = C.check_tensor(tensor_ds)
@@ -249,7 +249,7 @@ def test_rejects_a_domain_that_clips_the_fire(synthetic_ds: xr.Dataset) -> None:
     """A clipped domain passes every other clause.
 
     The fire simply stops growing at the boundary, which reads as a mediocre
-    model rather than as truncated data — the C1.3 failure mode in a different
+    model rather than as truncated data - the C1.3 failure mode in a different
     dress.
     """
     state = np.asarray(synthetic_ds[C.FIRE_STATE].values).copy()
@@ -272,7 +272,7 @@ def test_buffer_margin_is_unverifiable_not_vacuous_when_nothing_burned(
 @pytest.mark.parametrize("key", [C.MANIFEST_VINTAGE_LAG_KEY, C.MANIFEST_IGNITION_COMPONENTS_KEY])
 def test_c2_v27_keys_are_present_and_int(manifest_path: Path, labels_only: bool, key: str) -> None:
     """C2 [v2.7], ADR-014. ``n_ignition_components`` is the one that bites: GOFER
-    files separate lightning ignitions under one fire id (July Complex 2, SCU 2 —
+    files separate lightning ignitions under one fire id (July Complex 2, SCU 2 -
     ADR-019 corrected SCU from 3, and corrected the ESTIMAND, since the old count
     used final-footprint components which cannot see a merge), so an undeclared
     multi-ignition fire feeds a 46 km filing artifact into P3 crossings mining as
@@ -361,7 +361,7 @@ def test_rejects_provenance_missing_a_required_fact(
 ) -> None:
     """C2 [v2]: provenance MUST record the LANDFIRE vintage, state rule and fconf.
 
-    Ratified at v2, unimplemented until A10 — the checker asserted only that
+    Ratified at v2, unimplemented until A10 - the checker asserted only that
     ``provenance`` was a non-empty dict. None of the three facts is recoverable
     from the tensor, and a tensor built under the RETIRED provisional state rule
     is indistinguishable from a conformant one by inspection.
@@ -390,7 +390,7 @@ def test_c2_permits_extra_keys(manifest_path: Path, tmp_path: Path, labels_only:
 
 
 # --------------------------------------------------------------------------
-# C3 — normalization stats
+# C3 - normalization stats
 # --------------------------------------------------------------------------
 
 
@@ -417,7 +417,7 @@ def test_c3_norm_stats_shape(norm_stats_path: Path, labels_only: bool) -> None:
 def test_c3_4_rejects_a_train_mean_outside_a_definitional_range(
     norm_stats_path: Path, tmp_path: Path, labels_only: bool
 ) -> None:
-    """C3.4 — the shared file is checked as its own artifact.
+    """C3.4 - the shared file is checked as its own artifact.
 
     Measured case (ADR-010): CZU's ``-9999`` is 33.1% of train cell-hours and
     would have moved the TRAIN mean ``canopy_cover`` to **-492.13%** from
@@ -477,7 +477,7 @@ def test_contract_version_is_printed_on_every_report() -> None:
     **The equality itself is asserted ONCE, in
     ``tests/test_clause_registry.py::test_contract_version_matches_interfaces``,
     which PARSES INTERFACES.md.** A hardcoded literal used to live here too, and
-    a second place to update is a second place to forget — which is how a bump
+    a second place to update is a second place to forget - which is how a bump
     to v2.9 left the code on v2.8. One derived check beats two pinned ones.
     """
     report = C.ContractReport(target="x")
@@ -490,7 +490,7 @@ def test_the_checker_declares_the_clauses_it_does_not_enforce() -> None:
     """The version string alone can lie, so the gap must be machine-readable.
 
     A checker printing "enforcing v2.8" while skipping a v2.3 clause is the
-    stale-checker hazard wearing a current label — worse than an honestly old
+    stale-checker hazard wearing a current label - worse than an honestly old
     checker, because nobody thinks to look. This is C-1's corollary turned on
     the checker: declaring a weakness is a gate, omitting it is a failure.
     """
@@ -682,7 +682,7 @@ def test_rejects_non_1km_cells(synthetic_ds: xr.Dataset) -> None:
 
 
 def test_rejects_a_grid_off_the_continental_lattice(synthetic_ds: xr.Dataset) -> None:
-    """C1.2 — shift the whole grid by 300 m and cell (i, j) stops meaning the
+    """C1.2 - shift the whole grid by 300 m and cell (i, j) stops meaning the
     same ground in every fire, which silently breaks the C3.1 spatial blocking
     while every other check still passes."""
     broken = synthetic_ds.copy()
@@ -801,10 +801,10 @@ def test_rejects_interpolated_fuel_class_ids(synthetic_ds: xr.Dataset) -> None:
 
 
 # --------------------------------------------------------------------------
-# Teeth: C1.5 finite + C1.7 physical range — "structure is not plausibility"
+# Teeth: C1.5 finite + C1.7 physical range - "structure is not plausibility"
 #
 # R11/ADR-010. Every case below PASSED the v2.2 checker with a clean
-# `OK — 56 checks passed (reporting-ready)`. That is the whole point: each one
+# `OK - 56 checks passed (reporting-ready)`. That is the whole point: each one
 # satisfies every structural declaration C1.5 makes and is still nonsense.
 # --------------------------------------------------------------------------
 
@@ -819,7 +819,7 @@ def test_c1_7_rejects_the_lfps_nodata_sentinel_on_canopy(synthetic_ds: xr.Datase
     """The exact artifact ADR-010 was written about.
 
     data rebuilt a CZU tensor with LFPS's `-9999` restored and the v2.2
-    checker returned "OK — 42 checks passed (reporting-ready)" on a tensor whose
+    checker returned "OK - 42 checks passed (reporting-ready)" on a tensor whose
     mean canopy cover was -3085%. `-9999` is finite, integral and static, so it
     satisfied every C1.5 declaration. This is that tensor in miniature.
     """
@@ -851,7 +851,7 @@ def test_c1_7_canopy_cover_is_a_percentage(synthetic_ds: xr.Dataset, value: floa
 
 @pytest.mark.parametrize("value", [0.0, 4242.0, 100.0, 90.0, 205.0, 150.0])
 def test_c1_7_fuel_model_id_must_be_an_fbfm40_class(synthetic_ds: xr.Dataset, value: float) -> None:
-    """Integral is not enough — FBFM40 is an ENUMERATION, not a number line.
+    """Integral is not enough - FBFM40 is an ENUMERATION, not a number line.
 
     Every value here is finite, integral and static, so it satisfies C1.5
     completely. `0` is the one that matters most in practice: it is a common
@@ -879,7 +879,7 @@ def test_c1_7_accepts_every_legal_fbfm40_group(synthetic_ds: xr.Dataset, value: 
 
 
 def test_c1_7_accepts_the_documented_fill_policy(synthetic_ds: xr.Dataset) -> None:
-    """ADR-010's fill of record — FBFM40 98 (NB8 Open Water) + canopy 0 — passes.
+    """ADR-010's fill of record - FBFM40 98 (NB8 Open Water) + canopy 0 - passes.
 
     A range clause that rejected the ratified remedy would leave data with
     no legal way to represent a coastal domain.
@@ -899,7 +899,7 @@ def test_c1_5_rejects_non_finite_features(synthetic_ds: xr.Dataset, name: str, b
 
     Measured on the v2.2 checker: an all-NaN `rh_2m` passed all 56 checks
     because nothing looked. Worse, `+inf` was actively BLESSED by two existing
-    clauses — `inf == round(inf)` satisfies `class_channels_integral`, and an
+    clauses - `inf == round(inf)` satisfies `class_channels_integral`, and an
     all-inf slab is `array_equal` to itself so it satisfies
     `static_channels_constant`. One NaN NaNs that channel's C3 mean and hence
     every fire's normalisation of it (C3.4).
@@ -940,7 +940,7 @@ def test_infinite_fuel_model_id_no_longer_satisfies_the_integral_clause(
 #
 # "A diagnostic that fails to `ok` is worse than no diagnostic." sim
 # found a NaN falling through a `<`/`<=` ladder into the `ok` branch, printing
-# `cos: +nan [ok]` on 2 of 5 fires — hiding a good result AND passing a weak
+# `cos: +nan [ok]` on 2 of 5 fires - hiding a good result AND passing a weak
 # one. This checker is the project's most load-bearing verdict ladder.
 # --------------------------------------------------------------------------
 
@@ -991,7 +991,7 @@ def test_a_malformed_attribute_fails_its_clause_instead_of_crashing(
     """One bad attribute must not truncate the punch list.
 
     If it raises, every clause after it goes unreported and under `check_all`
-    the C2/C3 halves never run at all — one unparseable value turns into an
+    the C2/C3 halves never run at all - one unparseable value turns into an
     invisible tensor.
     """
     for bad in ("one thousand", None, float("nan"), [1000.0]):
@@ -1040,7 +1040,7 @@ def test_rejects_incomplete_manifest(tmp_path: Path) -> None:
 def test_rejects_manifest_without_spatial_block_id(
     manifest_path: Path, tmp_path: Path, labels_only: bool
 ) -> None:
-    """C3.1 — without a block id a fire cannot be assigned to a spatially
+    """C3.1 - without a block id a fire cannot be assigned to a spatially
     isolated fold, and leave-one-fire-out across an overlapping pair is
     landscape leakage."""
     if labels_only:
@@ -1081,7 +1081,7 @@ def test_rejects_zero_std(norm_stats_path: Path, tmp_path: Path) -> None:
 
 
 def test_rejects_standardised_categorical_channels(norm_stats_path: Path, tmp_path: Path) -> None:
-    """C3.2 — standardising an FBFM40 class id is meaningless arithmetic on a
+    """C3.2 - standardising an FBFM40 class id is meaningless arithmetic on a
     label; the identity transform is the contract, not a convention."""
     if not norm_stats_path.is_file():
         pytest.skip("no norm stats available for the target under test")
@@ -1164,7 +1164,7 @@ def test_an_incomparable_nested_value_is_a_conflict_not_an_agreement(
     """ADR-012 regression, found by auditing this module's own ladders.
 
     The old code skipped any nested entry that was not finite and fell through
-    to "does not contradict" — an UNVERIFIABLE comparison landing in the pass
+    to "does not contradict" - an UNVERIFIABLE comparison landing in the pass
     branch, which is the shape the policy forbids. An explicit `null` really is
     agreement (that is how a categorical channel is written) and must stay
     passing; a NaN is not.

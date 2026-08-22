@@ -1,4 +1,4 @@
-"""THE MODELS THE HARNESS SCORES — every one synthesised from labels alone.
+"""THE MODELS THE HARNESS SCORES - every one synthesised from labels alone.
 
 There is no checkpoint here, no import of ``model/`` and no run directory. The
 harness cannot see which model is "ours", because none of them is: that is what
@@ -6,7 +6,7 @@ lets a gate's instrument be fixed BEFORE the result exists.
 
 Three groups, and the membership of each is the argument:
 
-* the DEGENERATES that must never win — two do-nothing nulls, the fitted
+* the DEGENERATES that must never win - two do-nothing nulls, the fitted
   climatology (information-free rather than merely silent), and the collapse
   ablation;
 * the SKILL REFERENCES a degenerate must be measurably worse than;
@@ -39,7 +39,7 @@ def null_zero_ignition(window: Window, n_members: int, rng: np.random.Generator)
 
 
 def null_empty(window: Window, n_members: int, rng: np.random.Generator) -> np.ndarray:
-    """Predicts NOTHING AT ALL — not even the fire that is already burning."""
+    """Predicts NOTHING AT ALL - not even the fire that is already burning."""
     n_lead = int(window.truth.shape[0])
     return np.zeros((n_members, n_lead, *window.x0.shape), dtype=np.uint8)
 
@@ -73,8 +73,8 @@ def _skillful_members(
 
     ``shared_latent`` is the project's correlated-innovation structure: one
     per-member multiplier scales the whole increment, so members are different
-    SCENARIOS. With it off, members differ only by independent per-pixel noise —
-    individually calibrated, no scenario spread — which is the G3 ablation and
+    SCENARIOS. With it off, members differ only by independent per-pixel noise -
+    individually calibrated, no scenario spread - which is the G3 ablation and
     the degenerate case ``dispersion_ratio`` cannot see.
     """
     burned = window.x0 > 0
@@ -101,8 +101,8 @@ def skillful(window: Window, n_members: int, rng: np.random.Generator) -> np.nda
 
     **Read this before trusting a verdict that rests on it.** Those two constants
     were chosen against a generated fixture whose growth-band base rate is ~2%.
-    On a real fire the base rate is far lower — Kincade's growth band is 0.24% at
-    1 h — so a flat 10% false-alarm rate over a 3-cell reach makes this forecaster
+    On a real fire the base rate is far lower - Kincade's growth band is 0.24% at
+    1 h - so a flat 10% false-alarm rate over a 3-cell reach makes this forecaster
     over-predict by a factor of tens. It is informative but grossly OVER-CONFIDENT
     off-fixture, and a proper score is supposed to rank an over-confident forecast
     below silence. See :func:`fit_calibrated_skillful`.
@@ -118,19 +118,19 @@ class CalibratedSkillful:
 
     **This exists because the harness was not holding its own reference model to
     the project's own rule.** C6.2 [v2.8] says a baseline's scale must be
-    CALIBRATED TO REPRODUCE OBSERVED MEAN GROWTH, never left free — an
+    CALIBRATED TO REPRODUCE OBSERVED MEAN GROWTH, never left free - an
     uncalibrated baseline is not a distinct baseline, it is a broken one. The
     null check's ``skillful`` reference was never held to that, and off its
     fixture it over-predicts by tens of times. The consequence is a FALSE ALARM
     on every proper score: measured on CZU (60% zero-growth leads, growth-band
     base rate 0.06%), ``brier_1h`` flags SILENCE_FAVOURING with null 0.0005
-    against ``skillful`` 0.0007 — which is Brier working correctly on a forecast
+    against ``skillful`` 0.0007 - which is Brier working correctly on a forecast
     that claims tens of times too many cells, not Brier failing.
 
     A check whose reference model is unrealistic reports the reference's defects
     as the metric's. So this variant keeps the DISCRIMINATION of ``skillful``
     (the same recall on true growth cells, the same shared latent, so members are
-    still scenarios) and fits ONE constant — the false-alarm rate — so that the
+    still scenarios) and fits ONE constant - the false-alarm rate - so that the
     expected number of claimed cells equals the observed number of new cells,
     summed over all scored windows. It is fitted on the labels of the windows
     being scored, exactly as :class:`Climatology` is, and for the same reason: a
@@ -143,7 +143,7 @@ class CalibratedSkillful:
     #: calibration horizon is worth ~4.7x in over-prediction ratio: growth is not
     #: linear in the horizon, so a model calibrated in TOTAL is miscalibrated at
     #: every individual lead. Measured here on CZU, the truth's own band rate runs
-    #: 0.00055 / 0.00184 / 0.00540 at 1/2/3 h — a 10x ratio where linear phasing
+    #: 0.00055 / 0.00184 / 0.00540 at 1/2/3 h - a 10x ratio where linear phasing
     #: would give 3x, so a total-calibrated reference over-predicts ~3x at 1 h and
     #: a per-horizon calibration criterion correctly says so.
     false_alarm_by_lead: tuple[float, ...]
@@ -214,7 +214,7 @@ def collapse_indep_noise(window: Window, n_members: int, rng: np.random.Generato
     Members are individually calibrated per pixel and nearly identical in every
     aggregate, because independent noise averages out over thousands of cells.
     This is the ensemble G3 exists to reject, and ``dispersion_ratio`` scores it
-    as perfect — which is why it is in the DEGENERATE set here.
+    as perfect - which is why it is in the DEGENERATE set here.
     """
     return _skillful_members(
         window, n_members, rng, recall=0.55, false_alarm=0.10, shared_latent=False
@@ -228,7 +228,7 @@ class Climatology:
     **Why this belongs in the degenerate set, even though it "predicts
     something".** C6.0's literal text names a model that predicts nothing, and the
     two zero-ignition nulls are that. But the property those nulls actually
-    exploit is not silence — it is carrying NO INFORMATION about the situation,
+    exploit is not silence - it is carrying NO INFORMATION about the situation,
     and at a 1-7% base rate a silent forecast is very nearly the climatological
     one. Climatology is the exact, sharpened form: it knows where the fire is and
     what fraction of reachable cells burn on average, and nothing else. No wind,
@@ -238,13 +238,13 @@ class Climatology:
     It is the sharpest possible test of a CALIBRATION statistic, because it is
     perfectly calibrated marginally BY CONSTRUCTION, and any statistic it beats
     is a statistic that cannot tell information from its absence. The rate is
-    fitted on the labels of the very windows being scored — a free parameter the
+    fitted on the labels of the very windows being scored - a free parameter the
     degenerate is GIVEN. That is deliberate and is the conservative direction for
     a safety check, the same reasoning as :data:`NOISE_FLOOR_SD` being 2 and not
     1: a check like this should flag more, not fewer.
 
     Members are independent per pixel, so this is also collapsed. That is a
-    property of climatology, not a modelling choice — there is no scenario to
+    property of climatology, not a modelling choice - there is no scenario to
     vary.
     """
 
@@ -331,15 +331,15 @@ def forecasters_for(windows: Sequence[Window]) -> dict[str, Forecaster]:
 #: The information-free models of C6.0. Tested against every metric.
 #:
 #: ``null_zero_ignition`` / ``null_empty`` are C6.0's literal do-nothing nulls;
-#: ``null_climatology`` is the same idea sharpened — see :class:`Climatology`.
+#: ``null_climatology`` is the same idea sharpened - see :class:`Climatology`.
 NULLS: frozenset[str] = frozenset({"null_zero_ignition", "null_empty", CLIMATOLOGY})
 
-#: The collapse ablation. Tested against SPREAD metrics only — see FAMILY_SKILL.
+#: The collapse ablation. Tested against SPREAD metrics only - see FAMILY_SKILL.
 COLLAPSE = "collapse_indep_noise"
 
 #: Forecasters that never draw from the rng, so their score is IDENTICAL at every
 #: seed. Declared rather than detected, and verified by a test that runs each one
-#: under two different generators and asserts bit-equality — a mis-declaration
+#: under two different generators and asserts bit-equality - a mis-declaration
 #: must break the build, not silently cache a stochastic model at one seed.
 #:
 #: :func:`run_null_check` scores these ONCE and replicates, which is bitwise the
@@ -356,7 +356,7 @@ DETERMINISTIC: frozenset[str] = frozenset({"null_zero_ignition", "null_empty", "
 #: It is ``null_empty`` and NOT ``null_zero_ignition``, and that choice is
 #: load-bearing rather than cosmetic. Persistence reproduces the already-burned
 #: region, so on the DOMAIN mask it legitimately scores ``best_member_iou``
-#: 0.857 — capture it earned by making a correct claim. An axiom pointed at it
+#: 0.857 - capture it earned by making a correct claim. An axiom pointed at it
 #: would flag every capture metric in the table, which is a false-positive safety
 #: check, which is how safety checks get switched off (the argument that has kept
 #: C1.6 off the hard tier twice).
@@ -375,7 +375,7 @@ ORACLE = "oracle"
 #: silence-favouring, and the check then reports the REFERENCE's defect as the
 #: METRIC's. Requiring "the degenerate beats every skilful forecaster we can
 #: build" is both the conservative reading of C6.0 and the one that does not
-#: manufacture false alarms — and a false-positive safety check is the thing that
+#: manufacture false alarms - and a false-positive safety check is the thing that
 #: teaches people to disable safety checks (the argument that kept C1.6 off the
 #: hard tier twice). The BLIND comparison deliberately does NOT use this: collapse
 #: is compared against ``skillful`` specifically, because ``collapse_indep_noise``
@@ -393,7 +393,7 @@ def strongest_reference(spec: MetricSpec) -> str:
 
     For a skill metric that is the ORACLE: nothing may be as good as being
     exactly right. For a SPREAD metric it is ``skillful``, the healthy
-    shared-latent ensemble — a perfect forecast has zero error, so its
+    shared-latent ensemble - a perfect forecast has zero error, so its
     spread-skill ratio is undefined, and that is a property of the estimand
     rather than a defect of the metric.
     """

@@ -1,4 +1,4 @@
-"""PLAYTHROUGH (ADR-030) — does ``area_dispersion_ratio`` recover a KNOWN spread?
+"""PLAYTHROUGH (ADR-030) - does ``area_dispersion_ratio`` recover a KNOWN spread?
 
 This file exists because of a gap ADR-030 makes fatal: **G3 is adjudicated on
 ``area_dispersion_ratio`` and that metric had no known-answer test at all.** Every
@@ -33,7 +33,7 @@ reported the ensemble as "too narrow by ~2.1x in SD (1/sqrt(0.226))". That is
 wrong by a square root: 0.2147 IS the SD ratio, so the G3 candidate's ensemble is
 **~4.7x too narrow in SD**, and ADR-027's "roughly four times too narrow" was
 right for a reason its own supporting insight got backwards. Inverting the closed
-form, 0.2147 corresponds to ``c = 0.0435`` — the ensemble carries **4.4% of the
+form, 0.2147 corresponds to ``c = 0.0435`` - the ensemble carries **4.4% of the
 variance it needs**. A gate criterion nobody had ever run a known answer through
 was being quoted in the wrong units in the file that explains it.
 
@@ -47,11 +47,11 @@ A playthrough that cannot fail is the exact thing ADR-030 exists to prevent, so
 two real bugs are planted in a CORRECTLY-BUILT ensemble and the harness must
 reject both:
 
-1. ``silently_collapsed`` — every member replaced by member 0. This is the shape
+1. ``silently_collapsed`` - every member replaced by member 0. This is the shape
    of a real bug (an ensemble loop that reuses one draw), and it is invisible to
    every accuracy metric, because the ensemble MEAN is still a legitimate
    forecast field.
-2. ``area_biased`` — a correctly-dispersed ensemble whose areas are all shifted.
+2. ``area_biased`` - a correctly-dispersed ensemble whose areas are all shifted.
    The reading collapses for a reason that has NOTHING to do with width, and the
    harness must both reject it and ATTRIBUTE it, via
    ``area_error_decomposition.bias_fraction``. That distinction is the one M5's
@@ -60,7 +60,7 @@ reject both:
 
 AND ONE DEFECT THE METRIC CANNOT SEE, ASSERTED AS A LIMITATION
 --------------------------------------------------------------
-``half_duplicated`` — half the members are exact copies of the other half — moves
+``half_duplicated`` - half the members are exact copies of the other half - moves
 the reading only from 1.00 to ``sqrt(((M-2)/(M-1))((M+1)/M)/((M+2)/M))`` = 0.939
 at M=16, because duplication barely changes the SAMPLE VARIANCE and only inflates
 the ensemble mean's own error. It is asserted here as a known blind spot rather
@@ -84,7 +84,7 @@ from wildfire_nowcast.eval.metrics import aggregate, evaluate
 # [A14] SELF-DECLARATION, read by tests/test_playthrough_registry.py.
 # Registration is AUTOMATIC and these constants are how this module identifies
 # itself. They live HERE, beside the playthrough, so that adding or changing a
-# playthrough never requires editing another lead's file — the mechanism fix for
+# playthrough never requires editing another lead's file - the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
 PLAYTHROUGH_OWNER = "infra (adopted from modelling)"
@@ -115,7 +115,7 @@ TOLERANCE = 0.10
 
 
 def closed_form_ratio(c: float, n_members: int) -> float:
-    """``sqrt(c (M+1) / (c + M))`` — the spread-skill identity, from the definition.
+    """``sqrt(c (M+1) / (c + M))`` - the spread-skill identity, from the definition.
 
     The square root is part of the definition of `area_dispersion_ratio`, not a
     convenience: the criterion is in SD units. See the module docstring.
@@ -162,8 +162,8 @@ def build_scenario(
 def _fields(member_areas: np.ndarray, truth_area: int) -> tuple[np.ndarray, np.ndarray]:
     """Turn planted AREAS into a C5 ``samples``/``truth`` pair, horizon 1.
 
-    Cells are filled in raster order, so the area — the only quantity this
-    playthrough is about — is exactly the number planted.
+    Cells are filled in raster order, so the area - the only quantity this
+    playthrough is about - is exactly the number planted.
     """
     n_members = int(member_areas.size)
     samples = np.zeros((n_members, 1, N_CELLS), dtype=np.uint8)
@@ -235,7 +235,7 @@ def test_over_dispersed_ensemble_is_above_the_g3_bar() -> None:
 
 
 def test_under_dispersed_ensemble_reads_as_half_width_in_sd_units() -> None:
-    """c = 1/4 — a HALF-WIDTH ensemble — must read ~0.51, not ~0.26 and not ~1.
+    """c = 1/4 - a HALF-WIDTH ensemble - must read ~0.51, not ~0.26 and not ~1.
 
     This is the case that pins the UNITS, and the units are what ADR-027's
     "~4x too narrow" rests on. Our own G3 candidate read 0.2147, which is BELOW
@@ -282,7 +282,7 @@ def test_one_window_matches_the_definition_to_machine_precision() -> None:
 
 
 def plant_silent_collapse(windows: list[dict]) -> list[dict]:
-    """Every member becomes member 0 — an ensemble loop that reused one draw."""
+    """Every member becomes member 0 - an ensemble loop that reused one draw."""
     return [
         {
             "member_areas": np.full_like(w["member_areas"], w["member_areas"][0]),
@@ -306,7 +306,7 @@ def plant_area_bias(windows: list[dict], shift: int = 40) -> list[dict]:
     """A correctly-DISPERSED ensemble put in the wrong PLACE.
 
     Spread is untouched; every member's area is shifted by a constant. The
-    reading must fall, and the harness must say WHY — otherwise "too narrow" and
+    reading must fall, and the harness must say WHY - otherwise "too narrow" and
     "systematically wrong" are indistinguishable, which is precisely the
     confusion M5's P19 was written to resolve.
     """
@@ -359,7 +359,7 @@ def test_member_duplication_is_a_DOCUMENTED_BLIND_SPOT_of_this_metric() -> None:
 
     Duplicating half the members leaves the sample variance almost unchanged and
     only inflates the ensemble mean's own error, so the reading moves from 1.00 to
-    a closed-form 0.939 at M=16 — inside any tolerance anyone would choose.
+    a closed-form 0.939 at M=16 - inside any tolerance anyone would choose.
     **`area_dispersion_ratio` is therefore near-blind to member duplication**, and
     that belongs in the record next to the gate it adjudicates.
     """
@@ -383,21 +383,21 @@ def test_the_harness_rejects_a_wrongly_specified_expectation() -> None:
 
 
 # --------------------------------------------------------------------------
-# 3. MUTATION TESTS — defects planted in the INSTRUMENT, not in the data.
+# 3. MUTATION TESTS - defects planted in the INSTRUMENT, not in the data.
 #
 # The maintainer's challenge, and it is the right one: *a collapsed-member-set
 # defect that the metric would catch anyway is not a test of the metric.* Section
 # 2 plants defects in the FORECAST. These plant them in `metrics.py` itself and
-# ask whether this file notices — which is the only way to answer "can this
+# ask whether this file notices - which is the only way to answer "can this
 # playthrough actually fail".
 #
 # It also shows exactly WHICH assertion earns its keep, and two of the answers
 # are uncomfortable:
 #   * dropping the (M+1)/M finite-ensemble factor moves the calibrated reading by
-#     only 3%, INSIDE the sampling tolerance — the statistical cases cannot see
+#     only 3%, INSIDE the sampling tolerance - the statistical cases cannot see
 #     it and ONLY the 1e-12 single-window assertion catches it;
 #   * dropping the square root leaves the CALIBRATED case at exactly 1.000 and is
-#     invisible to it — only scoring a RANGE catches it.
+#     invisible to it - only scoring a RANGE catches it.
 # A playthrough with one regime and one tolerance would have missed both.
 # --------------------------------------------------------------------------
 
@@ -419,7 +419,7 @@ def _no_sqrt(numerator: float, denominator: float) -> float | None:
 
 
 def _biased_variance(member_event, truth_event, mask, n_members):
-    """ddof=0 — the population variance. A one-character change, and a real bug."""
+    """ddof=0 - the population variance. A one-character change, and a real bug."""
     areas = member_event[:, :, mask].sum(axis=2).astype(np.float64)
     truth_area = truth_event[:, mask].sum(axis=1).astype(np.float64)
     mean_area = areas.mean(axis=0)
@@ -528,13 +528,13 @@ def test_MUTATION_a_metric_that_always_returns_one_fails_this_file() -> None:
 
 
 # --------------------------------------------------------------------------
-# 4. MUTATION COVERAGE — the assertions above, declared to the shared harness
+# 4. MUTATION COVERAGE - the assertions above, declared to the shared harness
 #    so that DELETING one of them breaks the build (A13, ADR-030).
 #
 # Everything in sections 1-3 is correct and none of it is changed here. What was
 # missing is a guarantee that it STAYS correct: the comments say "only the RANGE
 # catches a missing square root" and "only the exact case catches (M+1)/M", and
-# those sentences are the most valuable thing in this file — but a sentence
+# those sentences are the most valuable thing in this file - but a sentence
 # cannot fail. Removing `test_over_dispersed_...` today leaves a green suite and
 # silently removes the square root from coverage.
 #
@@ -546,7 +546,7 @@ def test_MUTATION_a_metric_that_always_returns_one_fails_this_file() -> None:
 #
 # SCENARIO SIZE, stated rather than tuned: the harness scores 8 worlds where a
 # single test scores one, so its scenarios use 400 windows instead of 600. The
-# accuracy cost is MEASURED, not assumed — over 6 seeds at M=16 the worst
+# accuracy cost is MEASURED, not assumed - over 6 seeds at M=16 the worst
 # deviation from the closed form is 0.038 at c=1 (tolerance 0.10, 2.6x margin)
 # and 0.089 at c=4 (relative tolerance 0.184, 2.1x margin). The full-precision
 # statements remain the tests above; this section is about coverage.
@@ -713,7 +713,7 @@ def test_the_sole_catchers_are_the_ones_the_record_claims(
     """Pins ADR-032 (4) to the actual measurement rather than to its retelling.
 
     If a future change makes the calibrated case able to see a missing square
-    root, this fails and the record gets updated — which is the right outcome and
+    root, this fails and the record gets updated - which is the right outcome and
     the opposite of a comment quietly going stale.
     """
     caught = {o.name: set(o.caught_by) for o in coverage_report.outcomes}

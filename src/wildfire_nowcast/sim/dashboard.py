@@ -8,7 +8,7 @@ member-vs-truth growth small multiples.
 
 Four things here are deliberate, and three of them are refusals.
 
-**1. C6 JSON only — no model, no tensor, no samples.** This module imports
+**1. C6 JSON only - no model, no tensor, no samples.** This module imports
 nothing from ``wildfire_nowcast.model``. If a quantity is not in the C6 dict it
 does not appear on the figure; it is not recomputed from a side channel. That is
 what makes the same dashboard fair for the learned kernel, for persistence, for
@@ -19,7 +19,7 @@ the picture afterwards.
 
 **2. C6's own ``notes`` are printed on the figure, verbatim.** C6 currently
 emits two, and both are load-bearing warnings about the very numbers this
-dashboard plots — that the headline mask is dominated by far-field cells no
+dashboard plots - that the headline mask is dominated by far-field cells no
 model was ever uncertain about, and that ``dispersion_ratio`` on a binary field
 is algebraically a calibration statistic and *cannot detect ensemble collapse*.
 A dashboard that plotted ``dispersion_ratio`` as "the" spread metric without
@@ -36,7 +36,7 @@ because a screenshot of a dashboard is exactly how a plumbing-only number gets
 quoted in a gate. (This reads a JSON status, not model internals.)
 
 **Not here: raster member-vs-truth small multiples.** Those need the member
-rasters, which C6 does not emit and — per the rule above — this module will not
+rasters, which C6 does not emit and - per the rule above - this module will not
 reach for. They live in :mod:`wildfire_nowcast.sim.ensemble`, which receives
 ``samples`` legitimately as the return value of a C5 ``predict()``. What C6
 *does* expose is ``diagnostics.member_growth_cells`` against
@@ -220,7 +220,7 @@ def _panel_spread(ax: Any, runs: list[C6Run]) -> None:
 
     Brier genuinely varies with lead. ``dispersion_ratio`` as C6 emits it is a
     single number per run, so it is written as text rather than drawn as a line
-    over lead — a flat line across three leads would imply a measurement per
+    over lead - a flat line across three leads would imply a measurement per
     lead that was never made.
     """
     for run in runs:

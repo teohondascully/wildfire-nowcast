@@ -5,14 +5,14 @@ THE QUESTION, AND WHY IT OUTRANKS THE NEXT MODEL
 M10 (ADR-049 (6)) reported that three of five headline channels returned
 ``not_a_verdict`` because they could not separate their own control: 3 h band
 Brier **+0.80** block-SD, arrival-time CRPS **+0.91**, ``calibration_error``
-**+1.20**, against a 2.0 bar — while the control predicted **3.60x less area**.
+**+1.20**, against a 2.0 bar - while the control predicted **3.60x less area**.
 That is a statement about the INSTRUMENT, not about that experiment, and it
 applies to every verdict those channels have ever carried.
 
 This module turns that observation into a measurement. Given a set of arms whose
 TRUE degradation is known and ordered, it reports, per channel:
 
-* the separation curve — block-SD as a function of true severity;
+* the separation curve - block-SD as a function of true severity;
 * the **minimum detectable effect** at the 2.0 bar with 5 blocks, read off it;
 * whether the channel is MONOTONE in true severity.
 
@@ -39,7 +39,7 @@ SEVERITY MUST NOT BE MEASURED BY THE CHANNEL UNDER TEST
 Every rung declares its severity in a unit the scored channels do not compute:
 the DESIGNED area ratio for the area family, and the measured increment IoU
 against the undegraded arm for the shape family. Otherwise the curve is circular
-— a channel would be being characterised against itself. The one place that
+- a channel would be being characterised against itself. The one place that
 caveat still bites is ``growth_calibration``, which IS an area ratio by
 construction; it is reported with that stated, and it is the reason the ladder
 carries a SHAPE family at exactly fixed area.
@@ -96,7 +96,7 @@ class Channel:
 
 #: The channels a gate in this project can turn on, plus the two quarantined ones
 #: that a reader will still find in a table. Declared as a table so a channel
-#: cannot be characterised without naming the key it was read from — three
+#: cannot be characterised without naming the key it was read from - three
 #: separate defects in this repo were a gate criterion missing from the artifact
 #: its gate is adjudicated from.
 HEADLINE_CHANNELS: tuple[Channel, ...] = (
@@ -175,8 +175,8 @@ def block_values(per_fire: Mapping[str, Any], model: str, key: str, stratum: str
     ``allow_missing_blocks=False`` is tried first because a block that
     contributes nothing is a hard failure, not a silently smaller sample. A gap
     is still REPORTED rather than raised out, because ``area_dispersion_ratio``
-    is legitimately UNDEFINED at perfect mean calibration (C6.5) — so an arm can
-    lose a block for a reason that belongs to the metric — but it travels into
+    is legitimately UNDEFINED at perfect mean calibration (C6.5) - so an arm can
+    lose a block for a reason that belongs to the metric - but it travels into
     the artifact, so partial coverage cannot read as full coverage.
     """
     if "." in key:
@@ -212,8 +212,8 @@ def channel_separation(
     """Paired equal-block separation of ``candidate`` from ``reference``.
 
     Ratio channels are differenced in LOG space (C6.5). For a POWER question the
-    sign is not the point — the question is whether the channel registers a
-    difference at all — so callers read ``abs(separation_sd)``; the signed value
+    sign is not the point - the question is whether the channel registers a
+    difference at all - so callers read ``abs(separation_sd)``; the signed value
     travels beside it so a direction is never lost.
 
     ``absolute_ratio`` switches a ratio channel from *"did it MOVE"*

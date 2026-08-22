@@ -3,14 +3,14 @@
 **Finding that changes the plan (2026-08-07).** The original design assumed
 FBFM40 and canopy come from GEE. They do not. The Earth Engine public catalog
 carries only
-LANDFIRE ``v1.2.0``/``v1.4.0`` — EVC, EVH, EVT, BPS, ESP and the fire-regime
+LANDFIRE ``v1.2.0``/``v1.4.0`` - EVC, EVH, EVT, BPS, ESP and the fire-regime
 products. There is **no FBFM40 and no canopy-cover asset**, and v1.4.0
 represents circa-2014 conditions, i.e. 5-7 years stale for 2019-2021 fires. That
 is worse than the "LANDFIRE lags reality by 1-2 years" premise the mandatory
 MTBS/NIFC correction was sized for.
 
 The authoritative source is instead the **LANDFIRE Product Service (LFPS)** at
-``lfps.usgs.gov`` — a public USGS REST/ArcGIS ImageServer service, no OAuth, no
+``lfps.usgs.gov`` - a public USGS REST/ArcGIS ImageServer service, no OAuth, no
 Cloud project (an email string is requested for usage statistics only). It
 serves every LANDFIRE vintage including ``FBFM40``, ``CC``, ``CH``, ``CBD``,
 ``CBH`` for CONUS. Like GOFER on Zenodo, this decouples two more channels from
@@ -21,7 +21,7 @@ release published after a fire has that fire's own burn scar baked into its
 fuels, so training on it leaks the label. :func:`vintage_for_fire` therefore
 picks the newest vintage whose *effective year* is strictly before the fire's
 ignition year, and the residual staleness is closed forward with MTBS and
-current-season NIFC perimeters (:mod:`.burn_scar`) — the MTBS/NIFC correction the
+current-season NIFC perimeters (:mod:`.burn_scar`) - the MTBS/NIFC correction the
 feature spec in ``README.md`` makes mandatory rather than optional.
 """
 
@@ -65,8 +65,8 @@ LANDFIRE_VINTAGES: dict[str, int] = {
 #:
 #: **This is not the same set as** :data:`LANDFIRE_VINTAGES`, and assuming it was
 #: is how every 2021 fire broke. ``Landfire_LF2020`` exists as a folder and is
-#: therefore a legitimate-looking vintage, but it serves exactly ONE product —
-#: ``LF2020_BPS_CONUS`` — and no fuel model or canopy layer at all. A 2021 fire
+#: therefore a legitimate-looking vintage, but it serves exactly ONE product -
+#: ``LF2020_BPS_CONUS`` - and no fuel model or canopy layer at all. A 2021 fire
 #: selects LF2020 by the vintage-precedes-ignition rule (ADR-005) and then gets
 #: an HTTP 404 from a URL that is correctly formed against a folder that is
 #: genuinely there. Enumerated from the live LFPS REST catalog on 2026-08-08;
@@ -106,12 +106,12 @@ FBFM40_NONBURNABLE: frozenset[int] = frozenset({91, 92, 93, 98, 99})
 
 #: LFPS returns this where LANDFIRE has no data. For a CONUS fire that is the
 #: OCEAN: LANDFIRE stops at the coastline. Measured on CZU (Santa Cruz Mtns),
-#: 15.7% of the buffered domain — every one of those cells already flagged water
+#: 15.7% of the buffered domain - every one of those cells already flagged water
 #: by channel 12, at elevation 0.0, and never burned.
 LFPS_NODATA = -9999.0
 
 #: Where LFPS has no data, encode the ground truth rather than the sentinel:
-#: FBFM40 class 98 is "NB8 — Open Water", an EXISTING class, not an invented one,
+#: FBFM40 class 98 is "NB8 - Open Water", an EXISTING class, not an invented one,
 #: and open water carries no canopy. Leaving -9999 in place is not an option:
 #: it is finite and integral, so it passes every C1.5 declaration, while dragging
 #: the channel-10 train mean to -492 % and poisoning every normalisation.
@@ -128,11 +128,11 @@ def vintage_for_fire(fire_year: int) -> str:
        is label leakage (ADR-005). This raises rather than reaching forward.
     2. The folder must actually serve FBFM40 and CC
        (:data:`FUELS_PUBLISHING_FOLDERS`). Selecting a folder that exists but
-       publishes neither layer produces a 404 from a well-formed URL — which is
+       publishes neither layer produces a 404 from a well-formed URL - which is
        what ``Landfire_LF2020`` does to every 2021 fire.
 
     Consequence worth stating out loud rather than burying: because LFPS skips
-    fuels for LF2020, a 2021 fire falls back to **LF2016 — five years stale**,
+    fuels for LF2020, a 2021 fire falls back to **LF2016 - five years stale**,
     not the one-to-two years the MTBS correction is sized for. That is still
     the correct choice (it is the newest *legal* vintage), and the staleness is
     recorded in provenance as ``fuels_staleness_years`` and partly corrected by
@@ -157,7 +157,7 @@ def verify_fuels_catalog(timeout_s: float = 60.0) -> dict[str, Any]:
     """Re-probe LFPS and report drift against :data:`FUELS_PUBLISHING_FOLDERS`.
 
     Keeps the hardcoded set honest. Network call, so it is never on the build
-    path — run it when a build 404s, or before extending to a new fire year.
+    path - run it when a build 404s, or before extending to a new fire year.
     """
     import json as _json  # noqa: PLC0415
     from urllib.request import urlopen  # noqa: PLC0415
@@ -287,7 +287,7 @@ def nodata_report(nodata_mask: Any, layer: LandfireLayer, water_mask: Any = None
 
     QA measures, it does not fix (the fix happened in :func:`fetch_lfps_layer`).
     ``nodata_cells_not_water`` is the number that matters: NoData that channel 12
-    does NOT call water is NoData we have coded as ocean without evidence — a
+    does NOT call water is NoData we have coded as ocean without evidence - a
     defect rather than a coastline, and it must be visible in the manifest.
     """
     import numpy as np  # noqa: PLC0415

@@ -1,6 +1,6 @@
 # Shared settings every experiment inherits (C7). Compose with `defaults: [base]`.
 #
-# Scope note: this file holds only infrastructure-level settings — grid, paths,
+# Scope note: this file holds only infrastructure-level settings - grid, paths,
 # seeding, run bookkeeping. Model, training and evaluation sections are owned by
 # modelling and simulation/figure sections by sim; they add their own
 # blocks in their own experiment configs rather than editing this one.
@@ -11,7 +11,7 @@ seed: 0
 # It is STAMPED into every resolved config by `common.config.load_config` from
 # `contract.CONTRACT_VERSION`, which is itself derived from INTERFACES.md line 1.
 # It used to be a literal, which made this the third place one fact was recorded
-# and the third place it could go stale — and because a test pinned them equal, a
+# and the third place it could go stale - and because a test pinned them equal, a
 # contract bump by the maintainer turned the build red until infra edited
 # this file. Two sources of truth for one fact force a boundary crossing
 # (ADR-033 (1)); the fix is to delete the copy, not to keep it correct.

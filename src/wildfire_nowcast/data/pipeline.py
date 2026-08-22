@@ -55,11 +55,11 @@ from wildfire_nowcast.data.sources.terrain import fetch_terrain, terrain_provena
 
 __all__ = ["weather_hours", "BuildTimings", "build_fire_tensor"]
 
-#: C1.3 — GOFER tUTC is end-of-hour, so weather is lagged by exactly this much.
+#: C1.3 - GOFER tUTC is end-of-hour, so weather is lagged by exactly this much.
 WEATHER_LAG = timedelta(hours=1)
 
 #: C1 channel 11 asks for the formula to be documented; the implementation is
-#: `common.derive.dead_fuel_moisture_simard` (C0 — one implementation).
+#: `common.derive.dead_fuel_moisture_simard` (C0 - one implementation).
 FUEL_MOISTURE_FORMULA = (
     "Simard (1968) equilibrium moisture content of fine dead fuels, as used by NFDRS 1-h "
     "timelag fuels and the Fosberg index; inputs are RTMA TMP + RH (RH derived from RTMA "
@@ -80,7 +80,7 @@ def weather_hours(times: pd.DatetimeIndex) -> pd.DatetimeIndex:
 
 @dataclass
 class BuildTimings:
-    """Wall-clock per stage — the input to any honest ETA."""
+    """Wall-clock per stage - the input to any honest ETA."""
 
     stages: dict[str, float] = field(default_factory=dict)
 
@@ -108,7 +108,7 @@ def build_fire_tensor(
     :func:`~wildfire_nowcast.data.gofer_ext.to_label_build` (the 2022-2025
     extension). Everything downstream of channel 0 reads the label build's
     PROVENANCE rather than the GOFER archive, so the two sources travel the
-    identical code path from here on — which is the only way a 2022 fire and a
+    identical code path from here on - which is the only way a 2022 fire and a
     2019 fire can end up in the same table without a second implementation
     quietly diverging.
     """

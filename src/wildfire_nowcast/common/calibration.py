@@ -1,4 +1,4 @@
-"""G3's calibration criterion — STRATIFIED calibration error (ADR-020).
+"""G3's calibration criterion - STRATIFIED calibration error (ADR-020).
 
 WHY THE OLD ONE HAD TO GO
 -------------------------
@@ -15,14 +15,14 @@ Two independent mechanisms, and BOTH have to be closed:
    0.0050, while a forecast that ventures a confident probability and is
    sometimes wrong contributes ``n_b · dev_b²`` from its confident bins. Under a
    squared aggregation, never venturing an opinion is cheap. Under the LINEAR
-   aggregation the bar is actually written in — mean ``|forecast − observed|``,
-   i.e. ECE — the same measurement reverses: null 0.071 vs skill 0.034. The
+   aggregation the bar is actually written in - mean ``|forecast − observed|``,
+   i.e. ECE - the same measurement reverses: null 0.071 vs skill 0.034. The
    metric did not even have the units of the bar it was adjudicating.
 2. **Calibration against the forecast's own bins is satisfied exactly by
    CLIMATOLOGY.** This is not a defect of any particular estimator; it is what
    calibration means. A forecast that says ``p = base_rate`` on every reachable
    cell is perfectly calibrated, carries zero information, and drives ECE and REL
-   to zero — it issues only one probability, so its whole reliability diagram is
+   to zero - it issues only one probability, so its whole reliability diagram is
    one point sitting on the diagonal. At a 1-7% base rate the do-nothing null is
    a crude approximation to that forecast, which is why it wins in the first
    place. Measured, growth band at 3 h, ``null_climatology`` vs ``skillful``::
@@ -34,7 +34,7 @@ Two independent mechanisms, and BOTH have to be closed:
        REL skill    0.0105  0.0163  0.0158  0.0154
 
    Note the trap in the first column: at 8 members the ensemble MEAN is a noisy
-   probability estimate, and that noise — uncorrelated with the truth — inflates
+   probability estimate, and that noise - uncorrelated with the truth - inflates
    climatology's ECE enough to hide the whole problem. **A cheap ensemble makes a
    calibration statistic look sound.** By 32 members a zero-information forecast
    beats genuine skill on ECE, and by 512 it is indistinguishable from the
@@ -44,7 +44,7 @@ Two independent mechanisms, and BOTH have to be closed:
 
 THE ESTIMAND, AND WHAT IT FORCES
 --------------------------------
-G3 asks: *when the ensemble says 30%, does it happen 30% of the time — on the
+G3 asks: *when the ensemble says 30%, does it happen 30% of the time - on the
 cells where the outcome was in doubt?* Mechanism 1 says: measure the deviation in
 points. Mechanism 2 says: it is not enough to be calibrated against the
 forecast's own bins, because a forecast can choose bins so coarse that the claim
@@ -57,9 +57,9 @@ over a small, declared family of subgroup partitions of the scored set:
 
 ``calibration_error_bins``
     the classical reliability diagram: strata are the forecast's own probability
-    bins. Identical to ECE. **On the path C6 actually uses** — where C6 bins the
+    bins. Identical to ECE. **On the path C6 actually uses** - where C6 bins the
     forecast once for its diagram and hands the sufficient statistics to
-    :func:`terms_from_strata` — this is asserted BITWISE equal to
+    :func:`terms_from_strata` - this is asserted BITWISE equal to
     ``eval.metrics._reliability_summary``'s ``ece``, not assumed. The standalone
     :func:`bin_strata` convenience path sums by ``bincount`` where C6 sums in a
     loop, so it agrees to floating point (measured 6.9e-17) and NOT bitwise; that
@@ -69,8 +69,8 @@ over a small, declared family of subgroup partitions of the scored set:
     because the number that GATES comes from a single binning.]
 ``calibration_error_frontier``
     strata are distance-from-the-``t0``-frontier rings, in cells. This partition
-    is computed from ``x0`` ALONE — the same provenance as the ``growth_band``
-    mask itself, never from the outcome — and it is the dominant covariate of
+    is computed from ``x0`` ALONE - the same provenance as the ``growth_band``
+    mask itself, never from the outcome - and it is the dominant covariate of
     burn probability, so a forecast with the wrong radial profile is
     miscalibrated in the way that matters for a spread nowcast.
 ``calibration_error``  (**THE GATE CRITERION**, :data:`GATE_CRITERION_KEY`)
@@ -83,7 +83,7 @@ oracle **0.0000** exactly, genuine skill **0.0484**, do-nothing null **0.0712**
 (= the base rate of the scored set, exactly), climatology **0.1097**. Lower is
 better, and the value is a probability in the bar's own units. Every one of those
 numbers is FLAT in the member count (climatology moves 0.1094 -> 0.1098 between 8
-and 512 members) — which is the property a gate criterion needs and which the
+and 512 members) - which is the property a gate criterion needs and which the
 forecast-bin term does not have.
 
 WHY "GROWTH-MASKED" IS THE BAND AND NOT THE OUTCOME
@@ -92,13 +92,13 @@ C6.4 rescued ``best_member_iou`` by dropping leads where truth did not grow. Tha
 move does NOT transfer here, and the reason is about the estimand rather than
 about convenience: IoU is genuinely UNDEFINED on empty truth, so dropping those
 leads removes nothing. A calibration statistic is perfectly well defined on a
-lead where nothing burned — the observed frequency there is 0 — and selecting
+lead where nothing burned - the observed frequency there is 0 - and selecting
 leads BY THE OUTCOME biases the comparison it makes. Keep only the leads where
 the event happened and every well-calibrated forecast looks under-confident, by
 construction, because you selected the realisations that came in above
 expectation. **A well-calibrated ensemble would be penalised for the property G3
-exists to certify.** So the mask is the ``growth_band`` — unburned cells within
-reach of the ``t0`` frontier, computed from ``x0`` alone — and the strata are
+exists to certify.** So the mask is the ``growth_band`` - unburned cells within
+reach of the ``t0`` frontier, computed from ``x0`` alone - and the strata are
 likewise from ``x0`` alone. Nothing here conditions on the answer.
 
 THE DECLARED BLIND SPOT
@@ -117,7 +117,7 @@ MODEL-AGNOSTIC BY CONSTRUCTION
 Everything here consumes a probability field, a label field, a mask and ``x0``.
 Nothing in this module can see which model produced the probabilities, whether it
 was trained, or what it scored. There is no import of ``model/``, no checkpoint
-load and no read of ``runs/`` in this file or in ``tests/test_calibration.py`` —
+load and no read of ``runs/`` in this file or in ``tests/test_calibration.py`` -
 that is checkable by grep, which is the point. It was written and validated
 against constructed cases with known answers before being pointed at anything.
 
@@ -153,7 +153,7 @@ __all__ = [
 ]
 
 #: The key G3's calibration half is adjudicated on (ADR-020). Written down once,
-#: in code, so a downstream table cannot pick a different one by accident — the
+#: in code, so a downstream table cannot pick a different one by accident - the
 #: same guard C6.4 put on ``best_member_iou_shape_masked``.
 GATE_CRITERION_KEY = "calibration_error"
 
@@ -176,7 +176,7 @@ class Stratum:
     """Poolable sufficient statistics for one subgroup at one lead.
 
     Sums rather than means, so strata from many windows and many fires pool
-    EXACTLY — and so the deviation is computed once, after pooling. That order
+    EXACTLY - and so the deviation is computed once, after pooling. That order
     matters: ``|mean p − mean y|`` inside a stratum of 3 cells is dominated by
     sampling noise even for a perfect forecast, so a per-window number is noisy
     upward while the pooled number is not. Pool first, then deviate.
@@ -234,7 +234,7 @@ def strata_stats(index: np.ndarray, p: np.ndarray, y: np.ndarray, n_strata: int)
 
 
 def weighted_abs_deviation(strata: Sequence[Stratum | Mapping[str, Any]]) -> float | None:
-    """``sum_k n_k |mean p_k − mean y_k| / sum_k n_k`` — the deviation, in POINTS.
+    """``sum_k n_k |mean p_k − mean y_k| / sum_k n_k`` - the deviation, in POINTS.
 
     ``None`` when nothing was scored: an empty set has no calibration, and
     returning 0.0 there would score an unevaluated forecast as perfect (C-1's
@@ -270,7 +270,7 @@ def frontier_rings(x0: np.ndarray, max_radius: int) -> np.ndarray:
     """Ring index per cell: 0 = burned at ``t0``, ``r`` = ``r`` cells out, cap + 1 = beyond.
 
     Chebyshev rings grown by successive 8-connected dilations, which is the SAME
-    stencil ``eval.masks.growth_band`` uses to build the band — so ring ``r`` for
+    stencil ``eval.masks.growth_band`` uses to build the band - so ring ``r`` for
     ``r`` in ``1..max_radius`` partitions the band exactly, and the "beyond"
     bucket is exactly its complement. Depends on ``x0`` only.
     """
@@ -426,7 +426,7 @@ def bin_strata(
     C6 already bins the forecast for its reliability diagram, so the C6 path
     passes those sufficient statistics straight in and this is used only by
     callers that have not. Same edges and same right-open convention as
-    ``eval.metrics.reliability`` — asserted by a test that puts values exactly ON
+    ``eval.metrics.reliability`` - asserted by a test that puts values exactly ON
     the bin edges and requires identical occupancy, which is what an off-by-one
     in ``digitize`` would break. The resulting deviation agrees with C6's ``ece``
     to floating point, not bitwise: see the module docstring.

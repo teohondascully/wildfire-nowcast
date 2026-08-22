@@ -126,7 +126,7 @@ def synthetic_ds(default_synthetic: SyntheticFire) -> xr.Dataset:
 
 
 # --------------------------------------------------------------------------
-# ADR-030 / A13 — one mutation-coverage report per playthrough per session
+# ADR-030 / A13 - one mutation-coverage report per playthrough per session
 # --------------------------------------------------------------------------
 
 
@@ -145,8 +145,8 @@ def playthrough_report(_playthrough_reports: dict[str, object]):
     is the same waste A12 removed from the null-check fixture.
 
     Memoised BY NAME and only within one session. Stated because A12 refused a
-    disk cache for a good reason — *a cache that misses a dependency makes the
-    controls pass on stale numbers* — and this is deliberately the weaker,
+    disk cache for a good reason - *a cache that misses a dependency makes the
+    controls pass on stale numbers* - and this is deliberately the weaker,
     safe version: nothing is persisted, nothing survives the process, and a
     playthrough is a pure function of code that cannot change mid-session.
     """

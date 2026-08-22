@@ -1,4 +1,4 @@
-"""``python -m wildfire_nowcast.common.null_check`` — see :mod:`.cli`."""
+"""``python -m wildfire_nowcast.common.null_check`` - see :mod:`.cli`."""
 
 from __future__ import annotations
 

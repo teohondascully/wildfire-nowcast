@@ -1,7 +1,7 @@
 """[M9] The CONDITIONAL RESPONSE: how truth's spread rate moves with covariates,
 and how the model's does.
 
-ADR-037 (2) established that no GLOBAL lever reaches the growth mis-calibration —
+ADR-037 (2) established that no GLOBAL lever reaches the growth mis-calibration -
 a 30x change in the latent's mean bought 0.3%, a 2x2 factorial killed both
 candidate mechanisms, and the ONE-PARAMETER wind ellipse loses the same 16%
 train->held-out that we do. What no arm sweep has ever measured is the thing
@@ -10,8 +10,8 @@ covariates, beside the slope of the realised rate against the same covariates.**
 
 THE ESTIMAND
 ------------
-Growth is very nearly ``frontier_length x rate x horizon``, so the rate — not the
-growth — is the quantity a covariate acts on::
+Growth is very nearly ``frontier_length x rate x horizon``, so the rate - not the
+growth - is the quantity a covariate acts on::
 
     y = log( new burned cells in the growth band / frontier cells at t0 )
 
@@ -27,7 +27,7 @@ item 1: 51-91% dataset-wide). Adding an epsilon would make every slope a functio
 of the epsilon. So the regression is fitted on the GROWTH stratum, which ADR-026
 already makes the reporting standard, and the dormant stratum is reported
 separately in absolute cells because a rate is not defined there. **This means
-the slope comparison CANNOT speak to the missing OFF state** — that is a
+the slope comparison CANNOT speak to the missing OFF state** - that is a
 different measurement on a different stratum, and conflating them is what made
 "we over-predict 2.66-3.06x" survive for weeks as a statement about spread rate.
 
@@ -35,7 +35,7 @@ UNCERTAINTY IS ACROSS BLOCKS, NOT ACROSS WINDOWS
 -------------------------------------------------
 Windows overlap in time and within a fire, so a window-level standard error is a
 fiction with a plausible-looking magnitude. Every slope is therefore fitted
-INDEPENDENTLY PER BLOCK and reported as mean +/- SD over blocks — the same
+INDEPENDENTLY PER BLOCK and reported as mean +/- SD over blocks - the same
 equal-block convention ADR-021 (4) adopted for every other criterion, for the
 same reason (Creek alone is 47% of the window-pooled held-out mass). The pooled
 fit is emitted beside it and is never the headline.
@@ -92,7 +92,7 @@ _EVENT_UNBURNED = 0
 
 
 def _band(x0: np.ndarray, radius: int) -> np.ndarray:
-    """Unburned cells within ``radius`` of the t0 frontier — the same mask C6 scores on.
+    """Unburned cells within ``radius`` of the t0 frontier - the same mask C6 scores on.
 
     Imported behaviour, not re-derived: ``eval.masks.growth_band`` is the single
     definition and this calls it. A second spelling of the scoring region is how
@@ -159,7 +159,7 @@ def window_row(
     ``samples`` is ``uint8[M, L, H, W]`` straight from :meth:`predict`, i.e. the
     same array C6 scores, so the model-side response is measured on the same
     quantity the gate is. ``None`` gives the truth-side row alone, which needs no
-    model at all — that half of this measurement is a property of the DATA.
+    model at all - that half of this measurement is a property of the DATA.
     """
     x0 = np.asarray(window.x0)
     band = _band(x0, band_radius)
@@ -200,7 +200,7 @@ def fit_response(
     """OLS of ``log(target / frontier cells)`` on STANDARDISED covariates.
 
     Slopes are per one standard deviation OF THIS SAMPLE's covariate, so a truth
-    slope and a model slope fitted on the SAME rows are directly comparable — the
+    slope and a model slope fitted on the SAME rows are directly comparable - the
     standardisation is shared, which is the only reason the ratio between them
     means anything.
 

@@ -3,7 +3,7 @@
 **Why this is a separate artifact from C2's ``n_ignition_components``, which is
 the whole point (ADR-019 / P19).** ``IgnitionReport.spot_candidates`` reports
 only detached bodies that NEVER merge with the region preceding them. That is
-CORRECT for counting ignitions — a body that merges was never a second fire —
+CORRECT for counting ignitions - a body that merges was never a second fire -
 and it is WRONG for counting spot events, because merging is the normal fate of
 a real spot fire: an ember lands ahead of the front, ignites, and the front
 overruns it an hour later. Read off the same field, the corpus holds 2 spot
@@ -52,14 +52,14 @@ SPOT_EVENTS_PATH = interim_dir() / "_events" / "spot_events.json"
 def _tensor_dirs() -> list[Path]:
     """Every built fire, ONCE, with ``data/fires/`` winning any duplicate.
 
-    The dedupe is not defensive tidiness — it is a defect that shipped. After
+    The dedupe is not defensive tidiness - it is a defect that shipped. After
     the D6 corpus swap COPIED the nine extension fires into ``data/fires/``
     while leaving the originals in ``data/interim/``, this function returned
     both and the index reported **16 events over 30 fires** for a 21-fire corpus
     holding 12 events: every swapped fire counted twice, and a G4 verdict would
     have been computed on duplicated evidence with an inflated event count. It
     was caught by ``n_fires`` reading 30, i.e. by a number nobody could
-    misread — which is the whole argument for printing denominators.
+    misread - which is the whole argument for printing denominators.
     """
     by_id: dict[str, Path] = {}
     for root in (interim_dir(), fires_dir()):  # fires_dir LAST so it overwrites
@@ -130,7 +130,7 @@ def collect_spot_events() -> dict[str, Any]:
     blocks = sorted(by_block)
     folds = sorted({e["cv_fold"] for e in events})
     # C8. Every event carries a cv_fold and a spatial_block_id, and BOTH are
-    # properties of the split, not of the fire — so this index goes stale the
+    # properties of the split, not of the fire - so this index goes stale the
     # moment the corpus changes, silently, while still looking authoritative.
     # It went stale exactly once (the D6 swap re-derived folds and six fires
     # moved). Stamping the fingerprint makes staleness a one-line comparison

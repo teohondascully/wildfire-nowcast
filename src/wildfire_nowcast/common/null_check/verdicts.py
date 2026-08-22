@@ -1,7 +1,7 @@
 """SCORING AND ADJUDICATION: run every forecaster, then judge each metric.
 
 Every forecaster is scored on identical windows, with an identical member count,
-under identical seeds, so the only thing that varies is the forecast — which is
+under identical seeds, so the only thing that varies is the forecast - which is
 what makes each verdict a property of the METRIC rather than of the sample.
 
 Two verdicts per metric, deliberately not collapsed into one string: the
@@ -65,7 +65,7 @@ def _c6_scorer() -> Callable[[np.ndarray, np.ndarray, np.ndarray], Mapping[str, 
     return score
 
 
-#: Scalars a ``by_mask`` block carries that are BOOKKEEPING, not scores — counts,
+#: Scalars a ``by_mask`` block carries that are BOOKKEEPING, not scores - counts,
 #: denominators and censoring caps. Everything else numeric is treated as a
 #: metric and must be registered in :data:`C6_METRICS`, so a metric added
 #: tomorrow breaks this check loudly instead of passing by omission. That is the
@@ -109,7 +109,7 @@ def _flatten(block: Mapping[str, Any]) -> dict[str, float | None]:
 #: How a comparison came out, once seed noise is accounted for.
 #: How many seed SDs a paired difference must exceed to count as real. A noise
 #: floor measured from this run's own seeds, not a constant fitted to any sample
-#: of fires — so C-3's "state the fitting sample" has nothing to bind to here,
+#: of fires - so C-3's "state the fitting sample" has nothing to bind to here,
 #: and that is deliberate: the alternative is a magic separation threshold.
 NOISE_FLOOR_SD = 2.0
 
@@ -137,7 +137,7 @@ def compare(
 
     Paired, because every forecaster is scored on identical windows with the same
     seed, so the difference has far less variance than either score. And
-    seed-aware, because the alternative is a threshold — and a threshold here
+    seed-aware, because the alternative is a threshold - and a threshold here
     would be a constant deciding a pass/fail, which C-3 makes expensive for good
     reason. The noise floor is MEASURED from the same experiment: a difference
     smaller than its own seed-to-seed standard deviation is not a finding.
@@ -145,14 +145,14 @@ def compare(
     That distinction is not academic. Measured on this fixture,
     ``dispersion_ratio`` prefers the COLLAPSED ensemble on 4 of 5 seeds and the
     healthy one on the 5th, all within 1%: reporting the 4/5 as a direction would
-    be reporting a coin flip. ADR-018 quotes 100-159 seed SD for a real effect —
+    be reporting a coin flip. ADR-018 quotes 100-159 seed SD for a real effect -
     this is the same discipline applied to the instruments.
 
     :data:`NOISE_FLOOR_SD` is a NOISE FLOOR, not a fitted threshold: the scale it
     is measured against is estimated from this run's own seeds, and it states no
     claim about any sample of fires (C-3). It is set to 2 rather than 1 because a
     5-seed SD carries ~35% relative error, and because the conservative direction
-    for a SAFETY check is to flag more, not fewer — an undecided comparison here
+    for a SAFETY check is to flag more, not fewer - an undecided comparison here
     resolves to "the metric cannot tell these apart", which is a finding.
     """
     # The parameters are `float | None` because the filter below already admits
@@ -183,7 +183,7 @@ class MetricVerdict:
     ``verdict`` is the COMPARISON (beatable in principle by genuine skill?) and
     ``capture_verdict`` is the ZERO-CAPTURE AXIOM (does it pay for an empty
     forecast?). They are separate fields because they are separate questions and
-    they measurably disagree — see the module docstring. ``is_flagged`` is the
+    they measurably disagree - see the module docstring. ``is_flagged`` is the
     disjunction, for callers that only need "did anything fire".
     """
 
@@ -221,7 +221,7 @@ class MetricVerdict:
         Printed unconditionally and non-zero under ``--strict``, but not a hard
         failure, because a proper score at a 1% base rate legitimately prefers
         silence to a sub-coin-flip predictor (R14). Making that a hard fail would
-        be a false positive that teaches people to disable the check — the exact
+        be a false positive that teaches people to disable the check - the exact
         argument that kept C1.6 off the hard tier.
         """
         return self.gate_eligible and self.verdict == VERDICT_SILENCE_FAVOURING
@@ -257,7 +257,7 @@ class NullCheckReport:
         return [v for v in self.verdicts if v.capture_verdict == VERDICT_PAYS_FOR_NOTHING]
 
     def quarantined_confirmed(self) -> list[MetricVerdict]:
-        """Known-broken metrics this run reproduced — the positive controls.
+        """Known-broken metrics this run reproduced - the positive controls.
 
         Reads BOTH verdicts (``is_flagged``). Before A12 it read only the
         comparison, so when the refit raised the reference above the null floor
@@ -309,7 +309,7 @@ def _best_skill_reference(means: Mapping[str, float | None], spec: MetricSpec) -
 def _capture_verdict(
     spec: MetricSpec, by_seed: Mapping[str, list[float | None]]
 ) -> tuple[str, str]:
-    """THE ZERO-CAPTURE AXIOM — no reference model, no threshold, no member count.
+    """THE ZERO-CAPTURE AXIOM - no reference model, no threshold, no member count.
 
     A ``higher_is_better`` capture metric must pay :data:`ZERO_CLAIM` the minimum
     of its range. Every such metric registered here has minimum 0 and every sound
@@ -411,7 +411,7 @@ def _verdict_for(
         return base
 
     # A degenerate must be worse than the BEST skilful forecaster, not than an
-    # arbitrary one — see SKILL_REFERENCES for why this is two models and not one.
+    # arbitrary one - see SKILL_REFERENCES for why this is two models and not one.
     skill_ref = _best_skill_reference(means, spec)
     favoured = {}
     for name in degenerate:
@@ -441,7 +441,7 @@ def _verdict_for(
 #: difference that is a coin flip, and the harness would publish it.
 DEFAULT_SEEDS: tuple[int, ...] = (0, 1, 2, 3, 4)
 
-#: Members per forecast. **Not a performance knob — it changes verdicts**, and it
+#: Members per forecast. **Not a performance knob - it changes verdicts**, and it
 #: changes them in the flattering direction when it is small.
 #:
 #: Measured on this fixture (growth band, 3 h, ``null_climatology`` vs
@@ -457,7 +457,7 @@ DEFAULT_SEEDS: tuple[int, ...] = (0, 1, 2, 3, 4)
 #: zero. Raising ``M`` does not create the pathology, it stops masking it. 32 is
 #: the smallest power of two at which the masking is gone here (climatology
 #: already beats genuine skill), and it costs ~12 s. Terms that pool many cells
-#: per stratum — the frontier term, Brier, CRPS — are flat in ``M`` (0.1094 ->
+#: per stratum - the frontier term, Brier, CRPS - are flat in ``M`` (0.1094 ->
 #: 0.1098), which is precisely the property a gate criterion needs: a bar that
 #: moves with the member count is not a bar.
 DEFAULT_MEMBERS = 32
@@ -477,7 +477,7 @@ def run_null_check(
     Identical windows, an identical member count and identical seeds for every
     forecaster: the only thing that varies is the forecast, which is what makes
     each verdict a property of the METRIC rather than of the sample. Comparisons
-    are PAIRED across seeds — see :func:`compare`.
+    are PAIRED across seeds - see :func:`compare`.
     """
     if not windows:
         raise ValueError("run_null_check needs at least one window")
@@ -510,7 +510,7 @@ def run_null_check(
         for seed in seeds:
             # A forecaster that never draws produces the same score at every
             # seed, so scoring it once and replicating is bitwise identical, not
-            # an approximation. See DETERMINISTIC — declared, and asserted by a
+            # an approximation. See DETERMINISTIC - declared, and asserted by a
             # test that runs each one under two generators.
             if runs and name in DETERMINISTIC:
                 runs.append(runs[0])

@@ -1,4 +1,4 @@
-"""WHICH CODE produced a number — DISCOVERED from the tree, never enumerated.
+"""WHICH CODE produced a number - DISCOVERED from the tree, never enumerated.
 
 C-4.2 requires a code fingerprint at both ends of a run so that "was the scoring
 code edited while this ran" is answerable. The fingerprint is only as good as its
@@ -9,7 +9,7 @@ COVERAGE, and coverage used to be a hand-written tuple in ``eval/reporting.py``.
 version of the scoring code", the omitted module was edited AFTER the run
 finished, and an artifact was read as though produced by code that no longer
 existed. Nothing was red at any point. **The defect is not a check that cannot
-FAIL — it is a check that cannot DISCRIMINATE**, because what it covered was a
+FAIL - it is a check that cannot DISCRIMINATE**, because what it covered was a
 list that silently omitted new files. This is the THIRD member of that family
 (C8 cannot distinguish the 1 km and 2 km corpora; the public-tell allowlist; the
 scoring-module list), so the repair is structural: the set is derived by walking
@@ -60,7 +60,7 @@ DIGEST_CHARS = 16
 
 #: Subtrees of the package whose code a REPORTED NUMBER is computed through.
 #: ``common/`` is the whole of C-4's frozen shared surface; ``eval/`` + ``model/``
-#: are the scoring code. Whole subtrees, not curated files — curation is the
+#: are the scoring code. Whole subtrees, not curated files - curation is the
 #: defect this module removes.
 COMMON_SUBTREES: tuple[str, ...] = ("common",)
 SCORING_SUBTREES: tuple[str, ...] = ("eval", "model")
@@ -90,7 +90,7 @@ def discover_modules(subtrees: Sequence[str], *, root: Path | None = None) -> tu
 
     Sorted and de-duplicated so the result is an order-independent identity.
     Raises :class:`EmptyFingerprintScanError` if a subtree is absent or if the
-    whole walk finds nothing — a fingerprint over zero files hashes the empty
+    whole walk finds nothing - a fingerprint over zero files hashes the empty
     dict and looks exactly like agreement.
     """
     base = package_root() if root is None else Path(root)
@@ -126,7 +126,7 @@ def fingerprint_modules(modules: Sequence[str], *, root: Path | None = None) -> 
     reader and every equality check saw a complete answer, and a module that had
     moved or become a package was recorded as though it had been read. The
     decision is to refuse the payload rather than to mark it, because a mark
-    inside a dict of 28 hashes is exactly the thing a reader skims past — and it
+    inside a dict of 28 hashes is exactly the thing a reader skims past - and it
     is the reason ``contract.py`` could not be split (ADR-047 (6)).
 
     Reachable only two ways now that the set is discovered rather than declared:

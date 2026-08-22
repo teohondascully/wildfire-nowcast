@@ -1,11 +1,11 @@
-"""PLAYTHROUGH (ADR-030) — the MEAN-PRESERVING ASYMMETRIC ACTIVITY GATE (M8).
+"""PLAYTHROUGH (ADR-030) - the MEAN-PRESERVING ASYMMETRIC ACTIVITY GATE (M8).
 
 M8 reverses a decision I documented at M6: the activity gate was deliberately
 EXEMPTED from the log-normal mean correction, on the argument that correcting it
 "would compensate every OFF draw with a hotter ON draw, i.e. would undo the thing
-it exists to do". ADR-034 (4) falsified that premise — ``dormant_off_rate`` is
+it exists to do". ADR-034 (4) falsified that premise - ``dormant_off_rate`` is
 0.0000 on every gate arm ever trained and the ceiling from C1's covariates is
-0.143 — so the exemption protects nothing measured while costing the ensemble
+0.143 - so the exemption protects nothing measured while costing the ensemble
 mean.
 
 **REVERSING MY OWN DESIGN DECISION IS EXACTLY WHEN A KNOWN-ANSWER SCENARIO IS
@@ -34,7 +34,7 @@ With ``z ~ N(mu, 1)`` and gate effect ``s z + c``:
    that is **0.7422**, so 74% of members sit below the ensemble mean and the mean
    is carried by a thin upper tail. A symmetric innovation gives 0.5, and
    ``log_intensity`` at its fitted 0.28 gives 0.5557. **That gap is the
-   quantified sense in which the gate is the asymmetric channel** — and it is why
+   quantified sense in which the gate is the asymmetric channel** - and it is why
    ADR-034 (2) reads "spread bought downward is cheap, upward is unboundedly
    expensive".
 5. **THE CONDITIONAL ROUTE IS DELIBERATELY LEFT UNCORRECTED.** Only the
@@ -66,7 +66,7 @@ from wildfire_nowcast.model.latent import LatentConfig, LatentHead
 # [A14] SELF-DECLARATION, read by tests/test_playthrough_registry.py.
 # Registration is AUTOMATIC and these constants are how this module identifies
 # itself. They live HERE, beside the playthrough, so that adding or changing a
-# playthrough never requires editing another lead's file — the mechanism fix for
+# playthrough never requires editing another lead's file - the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
 PLAYTHROUGH_OWNER = "modelling (M8)"
@@ -90,7 +90,7 @@ DRAW_SEED = 8
 
 #: Bound at import: every mutation below patches `LatentHead.mean_correction`, so
 #: a defect reaching for the class attribute at call time would call ITSELF. The
-#: M7 playthrough learned this the hard way — an infinitely recursing mutation is
+#: M7 playthrough learned this the hard way - an infinitely recursing mutation is
 #: a defect that cannot run, which is worse than one that is not caught.
 _REAL_CORRECTION = LatentHead.mean_correction
 
@@ -134,7 +134,7 @@ def _observe(world: GateWorld) -> dict[str, Any]:
     # The CONDITIONAL route is configured FIRST, before any correction is read.
     # My first draft set it afterwards, so `mean_correction()` had already been
     # evaluated against a zero-initialised prior net and the defect that folds the
-    # conditional term into the correction became invisible — a mutation that
+    # conditional term into the correction became invisible - a mutation that
     # cannot bite is a mutation that is not tested.
     with torch.no_grad():
         head.prior_net.weight.zero_()
@@ -155,7 +155,7 @@ def _observe(world: GateWorld) -> dict[str, Any]:
     corr = head.mean_correction()
 
     # The gate's log-multiplier under the prior, by Monte Carlo, from the SAME
-    # standardised draws for both arms — so the two differ by the correction and
+    # standardised draws for both arms - so the two differ by the correction and
     # by nothing else, which is what makes probe 3 a comparison and not a race.
     gen = torch.Generator().manual_seed(DRAW_SEED)
     eps = torch.randn(N_DRAWS, generator=gen, dtype=torch.float64)
@@ -214,7 +214,7 @@ def _near(x: float, want: float, tol: float) -> bool:
 
 
 # --------------------------------------------------------------------------
-# the planted defects — instrument mutations of `LatentHead.mean_correction`
+# the planted defects - instrument mutations of `LatentHead.mean_correction`
 # --------------------------------------------------------------------------
 
 
@@ -226,7 +226,7 @@ def _only_quadratic(self: LatentHead) -> torch.Tensor:
 
 
 def _only_linear(self: LatentHead) -> torch.Tensor:
-    """Forget the ``sigma^2 / 2`` term — the other half of the same slip."""
+    """Forget the ``sigma^2 / 2`` term - the other half of the same slip."""
     sigma = self.sigma()
     return -sigma * self.gate_prior_shift
 
@@ -250,7 +250,7 @@ def _also_corrects_the_conditional_term(self: LatentHead) -> torch.Tensor:
 
     Modelled here by folding the prior net's bias into the correction. It leaves
     ``E[m] = 1`` for every hour, which is arithmetically tidier and deletes the
-    OFF-state route entirely — the gate would no longer be able to say that a
+    OFF-state route entirely - the gate would no longer be able to say that a
     quiet hour is quieter than an active one.
     """
     sigma = self.sigma()
@@ -273,7 +273,7 @@ def _mean_fixed_by_shrinking_sigma(self: LatentHead) -> torch.Tensor:
     The most dangerous defect available to this change, and the one ADR-034 (2)
     is a warning about: shrink ``sigma_gate`` until ``E[m]`` comes back to ~1.
     The growth number is repaired, every artifact still says the gate is on, and
-    the ASYMMETRY — the thing that makes the arm score at all — is gone.
+    the ASYMMETRY - the thing that makes the arm score at all - is gone.
     Applied only to the corrected arm, which is exactly how a real "fix" would
     have been written.
     """
@@ -294,7 +294,7 @@ def _prior_is_silently_unconditional(
 
     `M7`'s `spatial_modes_silently_do_nothing` in a new place: `prior_net` still
     exists, still trains, still serialises, and the artifact still prints
-    `conditional_prior: true` — but every hour gets the same prior mean, so the
+    `conditional_prior: true` - but every hour gets the same prior mean, so the
     OFF-state route is dead while looking alive. No mean-based probe can see it,
     because the UNCONDITIONAL mean is exactly what the correction pins to 1.
     """

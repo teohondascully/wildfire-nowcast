@@ -8,7 +8,7 @@ only thing that changes is which callable gets passed in.
 
 Read the following as a warning label:
 
-* It is a caricature — a wind-biased contagion with a shared per-step latent.
+* It is a caricature - a wind-biased contagion with a shared per-step latent.
   It has no Rothermel physics, no fuels response beyond a barrier mask, and no
   calibration of any kind. **It must never appear in a gate, a report, a figure
   intended for anyone outside this repo, or a comparison against ELMFIRE.**

@@ -1,8 +1,8 @@
-"""D11 — the per-channel C1.6 leakage DISTRIBUTION over the 21-fire corpus.
+"""D11 - the per-channel C1.6 leakage DISTRIBUTION over the 21-fire corpus.
 
 **REPORT ONLY. This module proposes no threshold and contains no pass/fail bar.**
 ADR-040 (4) P5 ruled that the C1.6 bar is set from the observed distribution, by
-the maintainer, after seeing it — so a number chosen here, beside the data it was
+the maintainer, after seeing it - so a number chosen here, beside the data it was
 derived from, would be a bar fitted to a result. Nothing in this file compares a
 measured value against a constant, and `write_report` has no verdict field.
 
@@ -14,7 +14,7 @@ of one fire, over one cell mask:
 where ``AUC = P(x_burned > x_unburned) + 0.5 * P(x_burned == x_unburned)`` is the
 tie-corrected Mann-Whitney statistic of that channel's values against the fire's
 FINAL ever-burned footprint. The unit of aggregation is the (fire, channel, mask)
-triple; there is one value per triple and they are NOT independent draws — the
+triple; there is one value per triple and they are NOT independent draws - the
 eight channels of one fire share one landscape, and fires sharing a spatial block
 share terrain. Every summary below therefore names its unit and its set.
 
@@ -25,8 +25,8 @@ symmetric, so a channel that predicts UNBURNED scores the same as one predicting
 BURNED. See docs/interfaces.md, clause C1.6.
 
 **Two masks, both reported, neither privileged.**
-``all_cells``  — the clause exactly as written in docs/interfaces.md.
-``burnable``   — cells whose FBFM40 class is burnable. This was the proposed
+``all_cells``  - the clause exactly as written in docs/interfaces.md.
+``burnable``   - cells whose FBFM40 class is burnable. This was the proposed
                  remedy for coastal fires, where canopy and elevation separate
                  ocean from land definitionally rather than leakily. It is
                  reported because it was proposed, NOT because it works: it
@@ -54,14 +54,14 @@ NEGATIVE, expected to read zero:
      tie structure are preserved exactly, so anything above sampling error is an
      estimator defect;
   5. an iid uniform field.
-DIAGNOSTIC — **classified as a diagnostic in this docstring BEFORE it was run,**
+DIAGNOSTIC - **classified as a diagnostic in this docstring BEFORE it was run,**
 because ADR-047 records a control being reclassified after it failed:
   6. the SPATIAL NULL. A smooth random field, independent of the fire by
      construction, scored against a compact blob footprint. Its expectation is 0
      by symmetry but its spread is NOT small, because a smooth field over a
      landscape has few effective degrees of freedom. This is a property of the
      estimand and the geometry, not of the estimator, so it can neither validate
-     nor invalidate the measure — which is exactly why it is not a pass/fail
+     nor invalidate the measure - which is exactly why it is not a pass/fail
      control. It is here because it is the single most decision-relevant number
      for reading the distribution's tail.
 
@@ -139,7 +139,7 @@ if set(STATIC_ORDER) != set(STATIC_CHANNELS):  # pragma: no cover - import-time 
 MASKS: tuple[str, ...] = ("all_cells", "burnable")
 
 #: Degeneracy reasons. A degenerate triple is EXCLUDED from every distribution
-#: and COUNTED, never allowed to average in as a zero — a constant channel does
+#: and COUNTED, never allowed to average in as a zero - a constant channel does
 #: not "score 0 leakage", it has no leakage statistic at all.
 DEGENERATE_CONSTANT = "constant_over_mask"
 DEGENERATE_NO_BURNED = "no_burned_cells_in_mask"
@@ -153,7 +153,7 @@ _SPATIAL_NULL_DRAWS = 200
 
 
 def leakage_path() -> Path:
-    """``data/leakage/c1_6_channel_leakage.json`` — the one file D11 writes."""
+    """``data/leakage/c1_6_channel_leakage.json`` - the one file D11 writes."""
     return data_dir() / "leakage" / "c1_6_channel_leakage.json"
 
 
@@ -210,8 +210,8 @@ def score_field(
 ) -> LeakageScore:
     """``|2*AUC-1|`` of ``values`` against ``burned``, restricted to ``mask``.
 
-    Every number in this report — corpus rows, positive controls, negative
-    controls and the spatial null — comes through this one function. A control
+    Every number in this report - corpus rows, positive controls, negative
+    controls and the spatial null - comes through this one function. A control
     that exercises a different code path from the measurement it validates is
     not a control.
     """
@@ -264,7 +264,7 @@ def _normal_cdf(z: float) -> float:
 
 
 # --------------------------------------------------------------------------
-# corpus loading — READ ONLY
+# corpus loading - READ ONLY
 # --------------------------------------------------------------------------
 
 
@@ -299,7 +299,7 @@ def load_fire(fire_dir: Path) -> FireFields:
         ds.close()
 
     # Footprint. C1.4 enforces fire_state non-decreasing, so the final frame IS
-    # the ever-burned set — but READ THE VALUE rather than trusting the clause:
+    # the ever-burned set - but READ THE VALUE rather than trusting the clause:
     # the two definitions are computed separately and their disagreement is
     # counted into the artifact.
     final = state[-1] > 0
@@ -672,8 +672,8 @@ def _group(rows: list[dict[str, Any]], key: str, mask: str) -> dict[str, Any]:
 
 def _cross_group(rows: list[dict[str, Any]], mask: str) -> dict[str, Any]:
     """channel x label_source. The marginal split of the two label sources is
-    confounded by channel composition only if the channels differ between them —
-    they do not — but a crossed table lets a reader see a per-channel gofer vs
+    confounded by channel composition only if the channels differ between them -
+    they do not - but a crossed table lets a reader see a per-channel gofer vs
     gofer_ext difference directly instead of inferring it from two margins."""
     buckets: dict[tuple[str, str], list[float]] = defaultdict(list)
     for r in rows:
@@ -733,7 +733,7 @@ def _matched_null_table(
 
     This is a SIDE-BY-SIDE, not a test. Three limits, stated because they bound
     what the comparison can mean: (a) the null is a Gaussian random field matched
-    on one summary of autocorrelation, not on a channel's real structure — terrain
+    on one summary of autocorrelation, not on a channel's real structure - terrain
     has ridges and a Gaussian field does not; (b) ``fuel_model_id`` is categorical,
     so a continuous-field analogue is rough at best; (c) the e-fold estimator
     cannot resolve below ~2 cells, so the shortest-range channels are matched to a

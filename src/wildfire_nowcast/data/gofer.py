@@ -1,4 +1,4 @@
-"""GOFER hourly perimeters — Zenodo record 14638647.
+"""GOFER hourly perimeters - Zenodo record 14638647.
 
 GOFER is a *published file archive*, not a GEE asset: a single ``GOFER.zip``
 containing shapefiles in EPSG:4326. It therefore needs no Earth Engine
@@ -17,7 +17,7 @@ Archive layout (v0.12)::
 
 ``Combined`` fuses GOES-East and GOES-West and is the default label source;
 ``East`` and ``West`` are kept because their disagreement is a *direct*
-observation of viewing-geometry (parallax) label noise — see
+observation of viewing-geometry (parallax) label noise - see
 docs/decisions.md.
 """
 

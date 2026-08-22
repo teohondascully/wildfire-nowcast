@@ -12,7 +12,7 @@ Two standing constraints, both enforced in :mod:`.gee`:
   hardcoded, never defaulted, and never written into a committed file.
 * Exports default to **Drive**, not Cloud Storage. Earth Engine compute on a
   noncommercial-registered project is free, but a GCS bucket bills for storage
-  and egress independently of Earth Engine — so ``toCloudStorage`` is the one
+  and egress independently of Earth Engine - so ``toCloudStorage`` is the one
   route that can put real charges on a project with live billing. The target is
   configurable (``$WILDFIRE_GEE_EXPORT_TARGET``) so this can be revisited
   without a rewrite, and the bucket name likewise comes from the environment.

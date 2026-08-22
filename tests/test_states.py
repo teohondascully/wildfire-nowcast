@@ -1,4 +1,4 @@
-"""C1.1 — the one implementation of the ``fireline_v2`` state rule (C0).
+"""C1.1 - the one implementation of the ``fireline_v2`` state rule (C0).
 
 These tests are written against the rule as INTERFACES states it, on tiny hand
 built masks where the answer can be checked by eye. They are the reason

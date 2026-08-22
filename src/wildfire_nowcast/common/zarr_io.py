@@ -13,7 +13,7 @@ rather than by vigilance. Anything produced here passes
 :mod:`wildfire_nowcast.common.contract`; if it ever does not, the contract test
 is right and this module is wrong.
 
-Store layout (C1, v2 — ADR-006 P2)::
+Store layout (C1, v2 - ADR-006 P2)::
 
     fire_state  uint8    (time, y, x)              values {0,1,2}
     features    float32  (time, channel, y, x)     C1 channels 1-13
@@ -22,7 +22,7 @@ A zarr array holds exactly one dtype, so v1's single "float32 except fire_state
 uint8" array was unsatisfiable. Consumers that want the old per-channel view use
 :func:`get_channel` / :func:`to_channel_dataset`; consumers that want the model
 view use :func:`stack_channels`. Nobody should index ``features`` by a hardcoded
-integer — ``channel_index_offset`` exists so the v1 indices still hold, and
+integer - ``channel_index_offset`` exists so the v1 indices still hold, and
 :func:`get_channel` applies it for you.
 """
 
@@ -150,7 +150,7 @@ def build_tensor_dataset(
     ----------
     channels
         Channel name -> array, keyed by the C1 names (not by index). Each array
-        is either ``(time, y, x)`` or, for a static channel, ``(y, x)`` — 2-D
+        is either ``(time, y, x)`` or, for a static channel, ``(y, x)`` - 2-D
         input is broadcast over time for you ("static, repeated over time", C1).
     grid
         Spatial grid; supplies ``x``/``y`` coordinates and the CRS attrs.
@@ -430,8 +430,8 @@ def build_manifest(
 
     ``fuel_vintage_lag_years`` and ``n_ignition_components`` (v2.7, ADR-014) are
     required and have NO DEFAULT, deliberately. A default of 1 component would
-    be silently wrong on exactly the two fires the clause exists for —
-    ``2020_july_complex`` (2) and SCU (3) — and a wrong number a reader trusts
+    be silently wrong on exactly the two fires the clause exists for -
+    ``2020_july_complex`` (2) and SCU (3) - and a wrong number a reader trusts
     is worse than a ``TypeError`` at build time. Same argument as
     ``spatial_block_id`` at A3: C2 compliance is structural, so a non-conformant
     manifest cannot be constructed through the one implementation (C0).
@@ -481,7 +481,7 @@ def build_norm_stats(
     """Build a C3 norm-stats dict: TOP-LEVEL ``channel_order``/``mean``/``std``.
 
     Categorical channels (0 and 9) are forced to the identity transform, and
-    ``n_train_blocks`` is mandatory — with ``< 2`` the file is additionally
+    ``n_train_blocks`` is mandatory - with ``< 2`` the file is additionally
     marked ``bootstrap: true`` so a consumer reading only the JSON can tell that
     it is plumbing-grade, not reporting-grade (C3.2, C3.3).
     """
@@ -537,7 +537,7 @@ def compute_norm_stats(
 
     ``spatial_block_ids`` is the block id of each dataset; the count of distinct
     ids becomes ``n_train_blocks`` (C3.3). Omit it only when every dataset comes
-    from one landscape — the result is then explicitly a bootstrap file.
+    from one landscape - the result is then explicitly a bootstrap file.
 
     Categorical channels are emitted as the identity transform. Degenerate
     channels get ``std = max(std, min_std)`` so downstream division is safe.

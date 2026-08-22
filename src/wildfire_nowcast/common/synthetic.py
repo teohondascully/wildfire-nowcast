@@ -1,4 +1,4 @@
-"""C4 — the synthetic fire generator, i.e. the parallelism unlock.
+"""C4 - the synthetic fire generator, i.e. the parallelism unlock.
 
 ``make_synthetic_fire`` produces a complete, C1/C2/C3-conformant fire on disk in
 well under five seconds and with no network, no credentials and no GEE. Model
@@ -10,7 +10,7 @@ paths rather than the easy ones:
 
 * all three states ``{0, 1, 2}`` occur, and the perimeter -> state mapping is
   the ratified C1.1 rule ``fireline_v2``, applied through the single canonical
-  implementation in :mod:`wildfire_nowcast.common.states` — the same function
+  implementation in :mod:`wildfire_nowcast.common.states` - the same function
   the real ingestion path calls, so the fixture cannot drift from the labels;
 * fire is absorbing, so ``fire_state`` never decreases in time, and no cell
   jumps 0 -> 2 without a burning hour;
@@ -27,7 +27,7 @@ paths rather than the easy ones:
   *the model has two components*), so every
   downstream consumer needs a fixture where it actually happens.
 
-Physics here is a caricature — an anisotropic wind/slope-driven dilation with
+Physics here is a caricature - an anisotropic wind/slope-driven dilation with
 correlated noise. It is *not* a baseline and must never be scored as one.
 
 CLI::
@@ -85,14 +85,14 @@ MIN_HOURS = 3
 MIN_CELLS = 32
 MAX_DEFAULT_CELLS = 320
 
-#: C1.2 — the fixture reserves this many cells of unburnable-by-construction
+#: C1.2 - the fixture reserves this many cells of unburnable-by-construction
 #: frame around the domain, so the final footprint always sits at least the
 #: mandated 10 km inside every edge.
 #:
 #: A10 measured what the docstring below used to merely assert: at 48 h the fire
 #: reached within 2-3 cells of the east edge, at 96 h and 168 h it touched it,
 #: and at 168 h the north edge too. Every one of those fixtures passed the whole
-#: contract, because C1.2's buffer sentence had never been implemented — a fire
+#: contract, because C1.2's buffer sentence had never been implemented - a fire
 #: that stops growing because it ran out of domain is exactly the artefact this
 #: fixture exists NOT to teach. Reserving the frame is the same construction as
 #: sizing the domain to the final perimeter plus 10 km, applied from the other
@@ -110,7 +110,7 @@ def default_grid_for(n_hours: int) -> Grid:
     downwind head rate plus margin), staying at the documented 128 km box for
     the 24 h default.
 
-    This sizing is a *budget*, not a guarantee — it was wrong above ~30 h. The
+    This sizing is a *budget*, not a guarantee - it was wrong above ~30 h. The
     guarantee is :data:`EDGE_RESERVE_CELLS`, enforced during simulation and
     asserted against the finished tensor.
     """
@@ -419,7 +419,7 @@ def _simulate_perimeters(
 ) -> tuple[np.ndarray, np.ndarray, SyntheticGeometry]:
     """Grow a perimeter hour by hour and emit a matching active fire line.
 
-    Returns ``(perimeters, fire_lines, geometry)`` — the two inputs C1.1 takes.
+    Returns ``(perimeters, fire_lines, geometry)`` - the two inputs C1.1 takes.
     The fire line stands in for GOFER ``cfireLine``: the band of cells around
     the hour's advance, i.e. where a satellite would still see flaming front. It
     is EMPTY through the scripted dormancy, which is what makes ``fireline_v2``
@@ -596,7 +596,7 @@ def make_synthetic_fire(
     cv_fold: int = -1,
     with_norm_stats: bool = True,
 ) -> SyntheticFire:
-    """C4 — write one synthetic fire and return its paths.
+    """C4 - write one synthetic fire and return its paths.
 
     Parameters
     ----------

@@ -6,7 +6,7 @@ downstream may treat a fire built here as if it came out of ``GOFER.zip``, so
 every artifact this module produces carries ``gofer_version =
 "gofer-ext-<algo>-<date>"`` and a ``label_source`` of ``"gofer_ext"``. The
 algorithm is a faithful port of the published one (github.com/tianjialiu/GOFER,
-ESSD 2024) — the *code* is theirs, the *execution* is ours, and the difference
+ESSD 2024) - the *code* is theirs, the *execution* is ours, and the difference
 between those two is exactly what the fidelity measurement below exists to
 quantify.
 
@@ -41,7 +41,7 @@ EPSG:4326, and both are *improvements* rather than shortcuts:
 The one approximation that is NOT free: GOFER smooths and thresholds on a 50 m
 lattice before vectorising, and this module works on a 250 m lattice. That is a
 1.4 % difference in the effective boxcar half-width. It is measured rather than
-argued — see :func:`validate_against_published`, which scores this
+argued - see :func:`validate_against_published`, which scores this
 implementation against the *published* perimeters on fires GOFER did publish.
 """
 
@@ -186,7 +186,7 @@ def _box1d(a: np.ndarray, half_cells: float) -> np.ndarray:
 
     FRACTIONAL on purpose. An integer-cell box quantises the kernel width to the
     lattice, and at a 250 m lattice a 1,702 m radius rounds to a 1,875 m
-    half-width — 10 % too wide, which over-smooths and shrinks every perimeter
+    half-width - 10 % too wide, which over-smooths and shrinks every perimeter
     by ~11 % (measured before this was fixed). Weighting the two partially
     covered cells by their overlap makes the effective half-width exactly
     ``radius``, which is what Earth Engine's 50 m evaluation delivers to within
@@ -368,11 +368,11 @@ def next_overlapping_fire_hours(
     detection window straight through Gifford, and stray removal cannot save
     you: it keeps components that TOUCH the reference footprint, and an adjacent
     fire touches. Madre's derived area came out at **726.5 km² against a mapped
-    326.9 km²** — 2.2x, i.e. two fires in one label set. The `_crop_to` guard
+    326.9 km²** - 2.2x, i.e. two fires in one label set. The `_crop_to` guard
     caught it (the C1 domain no longer fit the compute domain) rather than a
     contaminated tensor shipping.
 
-    GOFER solves this by hand — `AOIsmall` / `AOIsmallTS` and a manually chosen
+    GOFER solves this by hand - `AOIsmall` / `AOIsmallTS` and a manually chosen
     `end` per fire. This derives the same bound: the scan stops when another
     WFIGS large fire whose footprint comes within ``buffer_m`` of ours is
     discovered. Returns ``None`` when no such fire exists.
@@ -587,7 +587,7 @@ def _neighbour_exclusion(grid: Grid, reference: Any, fire: WfigsFire | None) -> 
 
     The companion to the temporal cap. The cap stops the scan before the *next*
     fire starts; this removes ground belonging to a fire that started *earlier*
-    and was still burning when ours began — which the cap cannot reach, because
+    and was still burning when ours began - which the cap cannot reach, because
     it is already inside hour 1's cumulative maximum.
 
     Only cells OUTSIDE our own WFIGS reference are ever removed, so a genuine
@@ -823,7 +823,7 @@ def validate_against_published(
 
     This is the only thing that entitles anyone to put a 2022-2025 fire and a
     2019-2021 fire in the same table. Returns per-hour IoU on the C1 lattice,
-    the final-area ratio, and the centroid offset — the same quantities used to
+    the final-area ratio, and the centroid offset - the same quantities used to
     quantify GOFER-East vs GOFER-West label noise, so the port's error can be
     read directly against the product's own known noise floor.
     """

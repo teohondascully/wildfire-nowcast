@@ -8,7 +8,7 @@ check loudly instead of passing by omission.
 ``gate_eligible`` records the CONTRACT's ruling, never a judgement made here.
 Changing an entry is a maintainer ruling; see C6.1, C6.4 and C6.6.
 
-**[v2.15] C6.6 — FOUR METRICS BECAME NON-ADJUDICATING (ADR-053 (1)(2)).** Brier,
+**[v2.15] C6.6 - FOUR METRICS BECAME NON-ADJUDICATING (ADR-053 (1)(2)).** Brier,
 arrival-time CRPS, ``calibration_error`` and reliability have NEGATIVE Spearman
 against ``|log(area error)|`` on M11's degradation ladder, so on those channels a
 forecast that is 40x TOO SMALL beats a 3%-correct one by 17% on Brier. They MAY
@@ -19,7 +19,7 @@ restating it: ``area_dispersion_ratio``, ``growth_calibration`` and
 
 **Ask the registry, do not remember.** :func:`assert_may_adjudicate` RAISES on a
 flagged channel. It raises rather than warning because the failure this repairs
-is a human reading a number and forgetting a ruling made two weeks earlier — a
+is a human reading a number and forgetting a ruling made two weeks earlier - a
 warning is read by the same person who forgot.
 """
 
@@ -41,11 +41,11 @@ VERDICT_UNDECIDABLE = "undecidable"
 
 #: The zero-capture axiom does not apply to this metric's orientation. Reported
 #: as its own token rather than as ``ok``, so "the axiom passed" and "the axiom
-#: was never evaluated" can never be read as the same result — the absent-clause-
+#: was never evaluated" can never be read as the same result - the absent-clause-
 #: reads-as-passing-clause failure this project has now hit four times.
 CAPTURE_NOT_APPLICABLE = "n/a"
 
-#: Metric directions. ``target`` means "closer to ``target`` is better" — the
+#: Metric directions. ``target`` means "closer to ``target`` is better" - the
 #: shape that hid the ``dispersion_ratio`` pathology, because a collapsed
 #: ensemble sat exactly ON the target.
 HIGHER = "higher_is_better"
@@ -60,7 +60,7 @@ LABEL_STATISTIC = "label_statistic"  #: must be IDENTICAL for every model
 #:
 #: This scoping is a real judgement and is argued here rather than buried. A
 #: COLLAPSED ensemble legitimately beats an over-dispersed one on a proper score
-#: — that is a sharpness trade, not a pathology — so testing Brier against
+#: - that is a sharpness trade, not a pathology - so testing Brier against
 #: collapse produces a verdict about dispersion tuning and says nothing about
 #: silence. But a SPREAD metric that prefers collapse is measuring the opposite
 #: of what it is named after, which is exactly ADR-011's `dispersion_ratio`
@@ -91,9 +91,9 @@ class MetricSpec:
 
 #: Every numeric metric C6 emits, with its orientation. **A metric absent from
 #: this table cannot be null-checked, and the harness says so rather than
-#: skipping it** — an unregistered metric is an unchecked metric, which is the
+#: skipping it** - an unregistered metric is an unchecked metric, which is the
 #: C-2 lesson one level down.
-#: [v2.15] C6.6 — the citation carried on every channel the ladder disqualified.
+#: [v2.15] C6.6 - the citation carried on every channel the ladder disqualified.
 #: Stated once so four entries cannot drift apart, and so the number a reader
 #: needs (the Spearman, and what produced it) travels with the ruling.
 _ANTI_MONOTONE = (
@@ -187,7 +187,7 @@ C6_METRICS: dict[str, MetricSpec] = {
     },
     # --- G3's FORMER calibration criterion, retired by ADR-020 -------------
     # Already non-gating since v2.10; C6.6 adds a SECOND, independent reason at
-    # v2.15 and it is the stronger one — reliability's Spearman is -0.80, the
+    # v2.15 and it is the stronger one - reliability's Spearman is -0.80, the
     # worst of the four. Both citations are kept: a clause retired for one reason
     # can be revisited on that reason, and the reader must see the other.
     "reliability_1h": MetricSpec(
@@ -269,7 +269,7 @@ C6_METRICS: dict[str, MetricSpec] = {
 
 
 # --------------------------------------------------------------------------
-# [v2.15] C6.6 — ask the registry whether a channel may decide anything
+# [v2.15] C6.6 - ask the registry whether a channel may decide anything
 # --------------------------------------------------------------------------
 
 

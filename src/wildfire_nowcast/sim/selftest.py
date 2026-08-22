@@ -7,7 +7,7 @@ writing outside its own directory. Proposed to infra in
 ``docs/decisions.md``.
 
 Each test targets a defect that would render as plausible-but-wrong rather than
-as a crash — the class this package exists to prevent.
+as a crash - the class this package exists to prevent.
 """
 
 from __future__ import annotations
@@ -236,7 +236,7 @@ def test_teleport_threshold_separates_fast_front_from_jump() -> None:
 def test_ignition_hour_is_not_reported_as_a_teleport() -> None:
     """First appearance has no prior region, so there is nothing to jump FROM.
 
-    Regression: this reported `max_front_gap_km = 24` for BOTH Zogg and CZU —
+    Regression: this reported `max_front_gap_km = 24` for BOTH Zogg and CZU -
     the fires' ignition hours measured against an empty `ever[t-1]`, surfacing in
     the movie summary as a domain-scale spot event. A false positive that scales
     with the domain rather than with the fire is worse than no detector, because
@@ -258,7 +258,7 @@ def test_wind_alignment_never_passes_on_a_non_finite_statistic() -> None:
     `ever[t-1]` made a centroid NaN, `nan < 1e-9` is False so the guard let it
     through, and every subsequent comparison being False landed the verdict on
     the trailing `else: ok`. It reported `area_weighted_cos: +nan` AND `ok` on
-    two of five fires — hiding a good CZU result and passing a weak Zogg one.
+    two of five fires - hiding a good CZU result and passing a weak Zogg one.
     Per INTERFACES C-1, unverifiable is a FAIL.
     """
     from wildfire_nowcast.sim.diagnostics import wind_alignment  # noqa: PLC0415
@@ -390,7 +390,7 @@ def test_every_key_the_dashboard_plots_is_classified() -> None:
     # follows `common/null_check.C6_METRICS`, so this line tracks the ruling
     # rather than restating it; asserted in the QUARANTINED direction so a quiet
     # reversal of the ruling is still caught here. Edited by infra under the I1
-    # contract-bump directive and declared in status/infra.md — one line, no
+    # contract-bump directive and declared in status/infra.md - one line, no
     # behaviour, in a package infra does not own.
     assert classify("band_calibration_error_by_horizon").state == QUARANTINED
     for key in ("dispersion_ratio", "band_ece_by_horizon", "band_reliability_by_horizon"):
@@ -884,7 +884,7 @@ def test_e1_records_the_registry_refusing_stage_decay_a_gate() -> None:
 
 def test_e1_decides_only_what_the_missing_blocks_cannot_change() -> None:
     """ADR-064 (4)'s rule is a COUNT with a threshold, so 4 positive of 4 scored
-    already meets >=4/5 whatever the fifth does — and 3 of 4 does not. Both
+    already meets >=4/5 whatever the fifth does - and 3 of 4 does not. Both
     directions must be right, or the rule is either timid or over-claiming."""
     import tempfile  # noqa: PLC0415
 

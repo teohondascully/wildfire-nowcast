@@ -1,6 +1,6 @@
 """Physical-plausibility diagnostics that a rendering suggests but cannot prove.
 
-Everything here is computed from a C1 tensor alone — no model, no metrics — and
+Everything here is computed from a C1 tensor alone - no model, no metrics - and
 exists to answer questions a movie raises but the eye cannot settle:
 
 * Does the fire actually run DOWNWIND? A sign error on ``wind_v10``, or a y-axis
@@ -225,7 +225,7 @@ def time_lag_consistency(fire: FireFrames, *, span: int = 3, min_cells: int = 2)
 
     C1.3 says GOFER ``tUTC`` is END-OF-HOUR and RTMA must be lagged an hour to
     match; ADR-006 records that getting it wrong "presents as a mediocre model,
-    not as a bug". Nothing in the project verifies it — the contract can only
+    not as a bug". Nothing in the project verifies it - the contract can only
     check that an attribute *says* the right thing, which is not the same claim.
 
     This tests it from the data. Re-scoring the downwind alignment with the
@@ -347,8 +347,8 @@ def barrier_effect(fire: FireFrames) -> Finding:
 
     Compares, among cells that were EXPOSED to the front (adjacent to burned
     ground at some point), the fraction that eventually burn inside vs outside
-    the mask. A ratio near 1 means the channel is decorative for this fire — the
-    exact defect already found once in this project — and a model can only learn
+    the mask. A ratio near 1 means the channel is decorative for this fire - the
+    exact defect already found once in this project - and a model can only learn
     to ignore it.
     """
     if not fire.barrier.any():

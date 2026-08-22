@@ -1,4 +1,4 @@
-"""D10 — is the SUB-THRESHOLD detached-body pool isotropic, or does it skew downwind?
+"""D10 - is the SUB-THRESHOLD detached-body pool isotropic, or does it skew downwind?
 
 **Pre-registered in ADR-046 (7)** before any result existed. The maintainer's
 recorded prediction: ISOTROPIC, mean cosine within +/-0.05 of 0.
@@ -25,7 +25,7 @@ must concentrate in high-growth hours, dilate/erode jitter must not.
 **Independence.** The 636 bodies are emphatically not 636 independent draws.
 They nest: body < (fire, hour) < fire < spatial block. Every interval in this
 module is a CLUSTER BOOTSTRAP and every one names its unit. The naive iid
-interval is computed too, and reported ONLY as the overstatement it would be —
+interval is computed too, and reported ONLY as the overstatement it would be -
 the wrong-denominator error that cost this project its G2 headline magnitude
 (ADR-042).
 
@@ -38,7 +38,7 @@ biased POSITIVE even for pure jitter). If they disagree, the anchor choice is
 doing the work.
 
 **Code path.** The bodies come from :func:`crossings.detect_detached_bodies` and
-every cosine from :func:`crossings._cosine` — the SAME functions that produced
+every cosine from :func:`crossings._cosine` - the SAME functions that produced
 ``crossings.json``, imported rather than reimplemented (C0). The fast wind path
 here is differential-tested against :func:`crossings._wind_at` on a random
 sample before any statistic is computed.
@@ -115,7 +115,7 @@ WIND_SPEED_BANDS: tuple[tuple[float, float], ...] = (
 
 #: Planted downwind concentrations for the positive control (von Mises kappa).
 #: Swept so the report states a MINIMUM DETECTABLE EFFECT rather than a single
-#: pass/fail — a null from a statistic never observed to fire is not evidence.
+#: pass/fail - a null from a statistic never observed to fire is not evidence.
 PLANTED_KAPPAS: tuple[float, ...] = (0.02, 0.05, 0.10, 0.20, 0.40, 0.80)
 
 
@@ -149,7 +149,7 @@ class BodyRecord:
     cos_centroid: float | None
     #: Anchor averaged over ALL prior cells achieving the minimum distance.
     #: ``nearest_pair`` breaks ties with ``np.argmin``, which selects the first
-    #: prior cell in row-major order — i.e. the NORTHERNMOST, then WESTERNMOST.
+    #: prior cell in row-major order - i.e. the NORTHERNMOST, then WESTERNMOST.
     #: That is a systematic tie-break and it biases the displacement toward
     #: south/east. This estimand removes it.
     cos_anchor_tie_avg: float | None
@@ -197,7 +197,7 @@ def _offsets_at_radius(radius: float, reach: int = 4) -> list[tuple[int, int]]:
 
 
 def _ceiling(u: float, v: float, radius: float) -> float | None:
-    """Best cosine reachable at this lattice radius — the quantisation cap.
+    """Best cosine reachable at this lattice radius - the quantisation cap.
 
     A gap-2.000 body can only point N/S/E/W, so even a perfectly wind-following
     process scores a mean cosine of ~0.90, not 1.0. Comparing a 4-direction
@@ -481,7 +481,7 @@ def cluster_bootstrap(
     ``values`` and ``clusters`` are aligned 1-D arrays. Whole clusters are drawn
     with replacement and the mean is taken over the pooled resample, so a large
     cluster carries its weight exactly as it does in the point estimate. Returns
-    ``{}`` -style keys with ``None`` interval when fewer than 2 clusters exist —
+    ``{}`` -style keys with ``None`` interval when fewer than 2 clusters exist -
     an interval computed on one cluster is not an interval.
     """
     values = np.asarray(values, dtype=float)
@@ -609,7 +609,7 @@ def _cos_from_unit(u: float, v: float, east: float, north: float) -> float | Non
 def positive_control(pool: list[BodyRecord], *, seed: int = 4242) -> dict[str, Any]:
     """Plant a downwind-skewed pool of the SAME size and cluster structure.
 
-    Real winds, real fires, real (fire, hour) grouping — only the DIRECTIONS are
+    Real winds, real fires, real (fire, hour) grouping - only the DIRECTIONS are
     synthetic, drawn von Mises about each body's own wind direction. Sweeping
     kappa turns the control into a POWER CURVE: it states the smallest planted
     mean cosine this design detects, which is the number that decides whether a
@@ -745,14 +745,14 @@ def negative_controls(pool: list[BodyRecord], *, seed: int = 909) -> dict[str, A
         "the reference an isotropic verdict is measured against"
     )
     # WHICH OF THESE IS AN ESTIMATOR CONTROL, AND A CORRECTION I MADE AFTER
-    # SEEING A NUMBER — declared rather than quietly applied.
+    # SEEING A NUMBER - declared rather than quietly applied.
     #
     # The first version of this function gated `passed` on all three being flat,
     # including the crosswind rotations. The rotations came back at -0.090 with
     # an interval that just excludes zero, and I reclassified them. The reason is
     # not the number, it is that I had mis-specified them: a control's job is to
     # show the INSTRUMENT returns zero when there is nothing to find.
-    # `uniform_random_directions` and `wind_permuted_across_corpus` do that — the
+    # `uniform_random_directions` and `wind_permuted_across_corpus` do that - the
     # first imposes isotropy, the second destroys the body<->wind pairing, and
     # under both the estimator MUST return zero. The 90-degree rotation tests
     # something else entirely: whether the displacement distribution is
@@ -799,8 +799,8 @@ def _lattice_realisable_gaps(lo: float, hi: float, reach: int = 8) -> list[float
 def _fixed_frame(pool: list[BodyRecord]) -> dict[str, Any]:
     """Displacement directions in the COMPASS frame, with no wind involved.
 
-    If the pool were anisotropic in a fixed frame — a lattice or label-geometry
-    artifact rather than a wind response — it would show up here as a preferred
+    If the pool were anisotropic in a fixed frame - a lattice or label-geometry
+    artifact rather than a wind response - it would show up here as a preferred
     compass direction. A wind-driven skew should look roughly uniform here,
     because the wind itself is not fixed.
     """
@@ -898,7 +898,7 @@ def _contiguous_reference(
     An ordinary contiguous new cell of a fire spreading downwind lands downwind
     of the front. So does an under-resolved 2 km advance. If the sub-threshold
     pool's alignment merely MATCHES ordinary growth, the pool is the label
-    product failing to paint an intervening cell during fast frontal spread —
+    product failing to paint an intervening cell during fast frontal spread -
     not transport past the front. Only an alignment materially ABOVE the
     contiguous baseline is evidence of a distinct mechanism.
 

@@ -1,6 +1,6 @@
 """G3's calibration criterion as a SEPARATION TEST (ADR-032 (7)).
 
-THE RULING, AND WHY IT IS RIGHT — MEASURED, NOT ASSUMED
+THE RULING, AND WHY IT IS RIGHT - MEASURED, NOT ASSUMED
 -------------------------------------------------------
 modelling proposed replacing G3's absolute calibration bar with
 ``calibration_error / silent_floor < 1`` and **disclosed against itself** that
@@ -8,7 +8,7 @@ the barred degenerate Brier-fit ellipse scores 0.999 and would pass by 0.001.
 A margin was needed and C-3 forbids inventing one on a single observation.
 
 The maintainer ruled: *do not mint a constant; convert the criterion to a
-SEPARATION TEST in the G2 style — the candidate must beat the best
+SEPARATION TEST in the G2 style - the candidate must beat the best
 degenerate/null arm by a stated number of equal-block SD.* That ruling is
 implemented here, and the first thing this module did was check it. Measured on
 the 30 arms of ``runs/baselines-20260809-035037/results.json`` (see
@@ -22,7 +22,7 @@ the 30 arms of ``runs/baselines-20260809-035037/results.json`` (see
 separates them by a factor of 5.6 with an empty region in between.** The ruling
 is vindicated by measurement, not by preference.
 
-TWO REFERENCES, BOTH REQUIRED — THE G2 SHAPE, REUSED
+TWO REFERENCES, BOTH REQUIRED - THE G2 SHAPE, REUSED
 -----------------------------------------------------
 G2 was adjudicated against a ``rule`` opponent AND an ``envelope`` (the best
 score ANY calibrated ellipse reached at that horizon), because *the rule is what
@@ -35,7 +35,7 @@ rule is read*. The same two references exist here and both must be cleared:
     set exactly, i.e. what a forecast that claims nothing scores. Verified on the
     fitting sample: ``persistence``'s ``calibration_error`` equals its
     ``silent_floor`` BITWISE at every block and every horizon. Using it removes
-    the free parameter "which arm counts as the degenerate one" — and a ranking's
+    the free parameter "which arm counts as the degenerate one" - and a ranking's
     opponent is a free parameter someone will eventually turn.
 ``envelope``
     the best (lowest) ``calibration_error`` any DECLARED degenerate/null arm
@@ -46,7 +46,7 @@ rule is read*. The same two references exist here and both must be cleared:
 
 WHAT IS AND IS NOT A CONSTANT HERE
 ----------------------------------
-* :data:`MIN_SEPARATION_SD` = 2.0 — the ONE fitted constant. Its sample is stated
+* :data:`MIN_SEPARATION_SD` = 2.0 - the ONE fitted constant. Its sample is stated
   in :data:`FITTING_SAMPLE` and registered in ``contract.THRESHOLD_PROVENANCE``
   so ``test_every_threshold_states_its_fitting_sample`` covers it (C-3).
 * UNANIMITY across blocks is threshold-free and separates the fitting sample
@@ -61,7 +61,7 @@ THE RESIDUAL HAZARD, STATED BECAUSE IT IS REAL
 ----------------------------------------------
 **Statistical separation is not magnitude.** A forecast that beats the floor by
 0.001 in every block with almost no block-to-block variation would score a large
-``separation_sd`` while being useless — the 0.999 case, wearing a different hat.
+``separation_sd`` while being useless - the 0.999 case, wearing a different hat.
 Three things answer it and none of them is a constant: the ENVELOPE reference
 (against which such an arm scores <= 0, because it IS the envelope), the
 ``relative_margin`` reported beside every verdict, and the pre-fixed absolute bar
@@ -77,7 +77,7 @@ THIS MODULE DOES NOT ADJUDICATE G3
 ----------------------------------
 It returns numbers and per-condition booleans. The gate verdict is the
 maintainer's, on the same division of labour as ``eval/baseline_run.g3_summary``
-— *a lead's own code should never contain the word that closes a gate*.
+- *a lead's own code should never contain the word that closes a gate*.
 
 C0: one implementation, model-agnostic. Nothing here imports ``model/`` or
 ``eval/``, reads a checkpoint, or knows which arm is ours.
@@ -110,7 +110,7 @@ __all__ = [
 #: :data:`FITTING_SAMPLE`): the highest non-candidate scores -0.23 and the lowest
 #: candidate +3.95, so any threshold in that interval separates the sample
 #: perfectly and 2.0 is 2.2 SD above the one and 2.0 below the other.
-#: It also reuses a precedent already in this repo — ``null_check.NOISE_FLOOR_SD``
+#: It also reuses a precedent already in this repo - ``null_check.NOISE_FLOOR_SD``
 #: is 2 SD, for the related reason that a small-sample SD carries large relative
 #: error (at n = 4 blocks, ~41%).
 MIN_SEPARATION_SD = 2.0
@@ -152,7 +152,7 @@ class BlockPair:
 
 @dataclass(frozen=True)
 class Separation:
-    """A paired, equal-block separation. Never a verdict — see the module doc."""
+    """A paired, equal-block separation. Never a verdict - see the module doc."""
 
     n_blocks: int
     mean_margin: float | None
@@ -168,7 +168,7 @@ class Separation:
         return self.n_blocks > 0 and self.blocks_favouring == self.n_blocks
 
     def check(self) -> Separation:
-        """Invariants, raised rather than warned — ``CalibrationTerms.check``'s
+        """Invariants, raised rather than warned - ``CalibrationTerms.check``'s
         standard: if these stop holding the statistic has changed shape and every
         caller must be re-derived rather than quietly reading something else."""
         if self.n_blocks != len(self.per_block):
@@ -287,7 +287,7 @@ def conditions(
     min_sd: float | None = None,
     min_blocks: int | None = None,
 ) -> dict[str, Any]:
-    """Per-condition booleans. **NOT a gate verdict** — see the module docstring.
+    """Per-condition booleans. **NOT a gate verdict** - see the module docstring.
 
     The two bars default to ``None`` and are resolved from the module constants
     AT CALL TIME rather than being bound as default arguments. That is not a
@@ -367,8 +367,8 @@ def calibration_separation(
     """G3's calibration half for one model at one horizon, per spatial block.
 
     ``reference``
-        ``"floor"``    — the arithmetic silent floor (a forecast claiming nothing).
-        ``"envelope"`` — the best score any ``degenerate_arms`` member reaches in
+        ``"floor"``    - the arithmetic silent floor (a forecast claiming nothing).
+        ``"envelope"`` - the best score any ``degenerate_arms`` member reaches in
                          that block, floored by the arithmetic value so a missing
                          arm can never make the reference EASIER. Default,
                          because it is ADR-032 (7)'s literal text and strictly

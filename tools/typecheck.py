@@ -9,10 +9,10 @@ excuses will rot into a permanent exemption.
 
 So this runs mypy TWICE:
 
-**the gate** — mypy with the project configuration. Red if any module that is
+**the gate** - mypy with the project configuration. Red if any module that is
 NOT exempt fails. That is the direction everybody expects.
 
-**the audit** — mypy again with the exemptions REMOVED, and then:
+**the audit** - mypy again with the exemptions REMOVED, and then:
 
 * every exempt module must STILL fail. One that has become clean is reported as
   ``RETIRE``, and the audit exits non-zero. This is the direction that rots: a

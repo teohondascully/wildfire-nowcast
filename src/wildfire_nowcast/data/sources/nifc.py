@@ -1,17 +1,17 @@
-"""WFIGS interagency fire perimeters — the fire CATALOG for the 2022-2025 extension.
+"""WFIGS interagency fire perimeters - the fire CATALOG for the 2022-2025 extension.
 
 GOFER hand-curated its 28 fires; an extension needs a source of record for
 "which fires exist, how big, and when did they start". This module reads the
 public NIFC **WFIGS Interagency Perimeters** ArcGIS service (no auth, no Cloud
-project — the same "plain published endpoint" logic as ADR-003/ADR-005).
+project - the same "plain published endpoint" logic as ADR-003/ADR-005).
 
 Two distinct jobs, deliberately kept apart:
 
-1. :func:`large_fires` — CANDIDATE SELECTION. Which CA wildfires cleared GOFER's
+1. :func:`large_fires` - CANDIDATE SELECTION. Which CA wildfires cleared GOFER's
    own inclusion rule (>50,000 acres / 202 km2, since GOES cannot resolve the
    progression of anything smaller) in a year range, with their discovery time
    and initial point.
-2. :func:`final_perimeter` — the STRAY-REMOVAL reference. GOFER's
+2. :func:`final_perimeter` - the STRAY-REMOVAL reference. GOFER's
    ``Export_FireProgQA.js`` keeps only perimeter parts that intersect the FRAP
    ground-truth footprint for that incident. That step is not cosmetic and it is
    not optional **for G4 specifically**: without it, a second fire burning 30 km
@@ -21,7 +21,7 @@ Two distinct jobs, deliberately kept apart:
 
 MTBS is NOT usable for either job here, and that is measured rather than
 assumed: querying the GEE MTBS burned-area boundaries for California returns 48
-records for 2021, 29 for 2022, 34 for 2023, **7 for 2024 and 0 for 2025** —
+records for 2021, 29 for 2022, 34 for 2023, **7 for 2024 and 0 for 2025** -
 MTBS's assessment lag means the two most recent seasons are essentially
 unmapped. It stays the right source for channel 13 on older fires and the wrong
 one for anything recent.

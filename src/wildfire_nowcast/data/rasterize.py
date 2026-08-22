@@ -10,7 +10,7 @@ Two rules, deliberately different:
 * **Lines** (active fire lines) are converted with ``all_touched=True``, because
   a line has zero area and any fractional rule would erase it.
 
-Grid geometry comes from :class:`wildfire_nowcast.common.grid.Grid` — this module
+Grid geometry comes from :class:`wildfire_nowcast.common.grid.Grid` - this module
 places vectors on a grid, it does not define one (C0, ADR-007). Binary dilation
 lives in :mod:`wildfire_nowcast.common.states` because it is part of the
 contract-adjudicated C1.1 state rule.

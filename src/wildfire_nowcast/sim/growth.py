@@ -8,7 +8,7 @@ changes what the fix has to be:
 
 *speed*
     the kernel advances too fast wherever it advances. Then the remedy is a scale
-    — a smaller reach, a lower amplitude — and it costs nothing but calibration.
+    - a smaller reach, a lower amplitude - and it costs nothing but calibration.
 *silence*
     the kernel advances at roughly the right rate when the fire is running, and
     keeps advancing when the fire has stopped. Then a scale is the WRONG remedy:
@@ -27,7 +27,7 @@ Everything below is arithmetic on C6.2's OWN quantity. ``eval.validity`` defines
 the ratio as ``sum over windows of (mean over members of new cells at the final
 lead, relative to x0)`` divided by the same sum for truth. That total is a SUM over
 windows, so it splits exactly, and this module asserts the split reconstructs the
-run's recorded ``growth_ratio`` before reporting any of it — the same standard the
+run's recorded ``growth_ratio`` before reporting any of it - the same standard the
 S2 IoU decomposition was held to.
 
 ``dormancy``
@@ -36,7 +36,7 @@ S2 IoU decomposition was held to.
     forecaster with no OFF state pays for it 953 times before it says anything
     about a fire that is moving.
 ``sector``
-    every predicted and observed new cell is assigned an OUTWARD NORMAL — the unit
+    every predicted and observed new cell is assigned an OUTWARD NORMAL - the unit
     vector from its nearest ``t0``-burned cell, from the exact Euclidean distance
     transform, so the classification is LOCAL and does not assume the fire is
     round. Cells are binned head / flank / rear by that normal's angle to the mean
@@ -110,7 +110,7 @@ def snapshot_checkpoint(run_dir: str | Path, dest_root: str | Path) -> tuple[Pat
     """Copy a run directory, proving the source did not move under the copy.
 
     Returns ``(snapshot_dir, sha256_of_model_json)``. Raises if the source hash
-    changes across the copy or the copy does not match — which is exactly the
+    changes across the copy or the copy does not match - which is exactly the
     condition C-4 exists for, and a hazard I filed against ``eval/selftest.py``
     before it was mine to trip over.
     """
@@ -168,7 +168,7 @@ def outward_normals(
     index), which for a C1.4 y-descending store is SOUTHWARD. Callers converting
     to a compass frame must flip the sign of ``ny``; :func:`sector_of` does.
 
-    The normal is LOCAL — nearest burned cell, not the fire centroid. A
+    The normal is LOCAL - nearest burned cell, not the fire centroid. A
     centroid-based direction is biased on an elongated or crescent fire, which is
     most of them after a few hours, and the bias points along the very axis this
     module is trying to measure.
@@ -319,7 +319,7 @@ def summarise(rows: list[WindowGrowth]) -> dict[str, Any]:
         t_sec = [sum(r.truth_sector[s] for r in rs) for s in range(3)]
         p_sec = [sum(r.pred_sector[s] for r in rs) for s in range(3)]
         # The all-windows sector ratio is INFLATED by the dormancy effect in
-        # exactly the way finding (19) describes — truth is 0 in every sector of
+        # exactly the way finding (19) describes - truth is 0 in every sector of
         # every dormant window, so the ratio there is driven by the same missing
         # off state and says nothing about geometry. The growth-window form is
         # the one that isolates SHAPE, and it is the one to read.
@@ -462,8 +462,8 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
     width = 0.8 / max(len(order), 1)
     base = np.arange(len(SECTORS))
     # SECOND defect found by looking: this plotted the ALL-WINDOWS sector ratio,
-    # which is inflated by the dormancy effect panel (2) is about — truth is 0 in
-    # every sector of every dormant window — so the panel asking "is it the head
+    # which is inflated by the dormancy effect panel (2) is about - truth is 0 in
+    # every sector of every dormant window - so the panel asking "is it the head
     # or the flanks" was answering with the same number panel (1) already
     # answered. The GROWTH-WINDOW form isolates shape, and it inverts the
     # reading: on all windows the kernel looks rear-heavy AND head-heavy; on

@@ -4,8 +4,8 @@ WHAT THIS ANSWERS, AND WHAT IT DOES NOT
 ---------------------------------------
 ADR-064 promotes ELMFIRE from "a benchmark we owe" to the experiment that decides
 whether this project's negative result is about OUR kernel or about the whole
-model class. The reasoning is one sentence: **ELMFIRE is Rothermel — rate of
-spread applied along a perimeter — so it is perimeter-proportional too.** If it
+model class. The reasoning is one sentence: **ELMFIRE is Rothermel - rate of
+spread applied along a perimeter - so it is perimeter-proportional too.** If it
 also accelerates as a fire ages, "a contagion kernel cannot decelerate" stops
 being a defect report about us and becomes a statement about the field's standard
 tool. If it decelerates, the defect is ours and we know what to copy.
@@ -22,8 +22,8 @@ HOW THE COMPARISON IS KEPT HONEST (ADR-064 (6))
    becomes two different measurements.
 2. **The same windows.** Windows come from
    :func:`wildfire_nowcast.model.inputs.iter_windows` at ``horizon_h=3``,
-   ``stride=2`` — the identical call ``runs/_s1_score.py`` made for arm A and
-   arm S — and rows are built by the identical
+   ``stride=2`` - the identical call ``runs/_s1_score.py`` made for arm A and
+   arm S - and rows are built by the identical
    :func:`wildfire_nowcast.eval.response.window_row`. ``truth_growth`` therefore
    comes out bit-identical to the arm A/S rows, which is checked rather than
    hoped (:func:`check_truth_pairing`).
@@ -40,7 +40,7 @@ WHY A WHOLE-DOMAIN FUEL FETCH
 every ``t0`` has a different window, so scoring 1372 windows the naive way is
 ~11k LFPS requests and tens of GB of cache. This module fetches each fire's
 WHOLE domain once at 30.303 m and slices it per window. That is exact, not an
-approximation — ``fine_grid`` shares the north-west corner and refines by an
+approximation - ``fine_grid`` shares the north-west corner and refines by an
 integer, and ``window_grids`` snaps to whole 1 km cells, so each window's fine
 grid is a sub-grid at offset ``(row0 * refine, col0 * refine)``.
 :func:`verify_slice_equivalence` is the positive control: it re-fetches one
@@ -126,7 +126,7 @@ SEED: Final = 20260807
 #: construction (ws/wd/moisture perturbed from a declared PDF), which is recorded
 #: in ``MAPPING_COMPROMISES``. 4 is a COST choice, not a scientific one, so every
 #: run also reports ``stage_decay`` recomputed on the nested member prefixes
-#: 1, 2, ... M — if the verdict moved with the member count we would have to say
+#: 1, 2, ... M - if the verdict moved with the member count we would have to say
 #: so, and that is cheaper to measure than to argue about.
 DEFAULT_MEMBERS: Final = 4
 
@@ -698,7 +698,7 @@ def score(
 
     Self-identifying by construction: the payload names exactly which fires
     exist, and it says ``not_a_verdict`` unless all five currently held-out
-    blocks are present — a half-run that a later reader mistakes for a finished
+    blocks are present - a half-run that a later reader mistakes for a finished
     one is the expensive failure mode (ADR-064).
 
     ``member_prefix`` fixes the ensemble size EVERY block is read at. Fires may
@@ -747,7 +747,7 @@ def score(
             # ELMFIRE's MAX_RUNTIME is WALL-CLOCK and its abort is SILENT
             # (elmfire_level_set.f90:1263 sets T = TSTOP + 1 and dumps). A capped
             # window under-reports growth, and it under-reports it on exactly the
-            # late, large windows — which moves stage_decay toward deceleration.
+            # late, large windows - which moves stage_decay toward deceleration.
             per_fire[blob["fire_id"]]["refused"] = (
                 f"{n_near} window(s) reached >= {TRUNCATION_FRACTION:.0%} of the "
                 f"{cap:.0f} s wall-clock MAX_RUNTIME, where ELMFIRE stops the "
@@ -758,7 +758,7 @@ def score(
         if not complete:
             # REFUSED, not truncated. `stage_decay` splits a block's windows at
             # their own median age, so scoring the first 60% of a fire's life
-            # computes a DIFFERENT estimand — an early-vs-earlier contrast — and
+            # computes a DIFFERENT estimand - an early-vs-earlier contrast - and
             # would read as a block that decelerates less than it does.
             per_fire[blob["fire_id"]]["refused"] = (
                 f"{n_have} of {n_want} windows. stage_decay is a late-half vs "

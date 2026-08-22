@@ -1,4 +1,4 @@
-"""PLAYTHROUGH (ADR-030) — does the LOW-RANK SPATIAL LATENT do what its name says?
+"""PLAYTHROUGH (ADR-030) - does the LOW-RANK SPATIAL LATENT do what its name says?
 
 M7 ADDED spatial degrees of freedom to ``z_t`` because ADR-032 (3) diagnosed that
 a GLOBAL SCALAR latent can only widen an ensemble by blurring it uniformly. That
@@ -28,7 +28,7 @@ WHAT IS KNOWN BY CONSTRUCTION
 -----------------------------
 The scenario is a 3x3 burned block placed OFF-CENTRE in a 15x21 domain, so a
 basis anchored to the DOMAIN and one anchored to the FIRE give different answers
-— which is the whole design of :func:`~wildfire_nowcast.model.latent.spatial_basis`
+- which is the whole design of :func:`~wildfire_nowcast.model.latent.spatial_basis`
 and would be untestable on a centred fire.
 
 1. **THE BASIS, in closed form.** For a ``k x k`` block of unit weight the radius
@@ -38,7 +38,7 @@ and would be untestable on a centred fire.
    exactly ``1 / 1.1547 = 0.8660``, and ``phi_east`` AT the centroid is exactly 0.
    Both are written here from the definition, not obtained from the module.
 2. **THE BASIS IS MEAN-ZERO UNDER THE FIRE'S OWN WEIGHT.** ``<phi_east>_b`` and
-   ``<phi_north>_b`` are exactly 0 and ``<phi_radial>_b`` is exactly 0 — the last
+   ``<phi_north>_b`` are exactly 0 and ``<phi_radial>_b`` is exactly 0 - the last
    is what makes the radial mode something other than a relabelled global
    intensity mode, and it holds only because of the gyration normalisation.
 3. **THE FIELD IS A GRADIENT, NOT A BLUR.** A one-SD draw on ``intensity_grad_east``
@@ -51,7 +51,7 @@ and would be untestable on a centred fire.
    is the FIELD ``-0.5 sum_m sigma_m^2 phi_m(x)^2``, so ``E_z[exp(effect)] = 1``
    at EVERY cell, not merely on average over the domain. A domain-average version
    would move the mean hazard around inside the field while looking correct in
-   aggregate — the exact shape of insights item 42.
+   aggregate - the exact shape of insights item 42.
 5. **IT IS LOW-RANK, NOT A NOISE FIELD.** Per-pixel-independent noise is
    known-broken here (it collapses the ensemble; see ``README.md``). With ``R``
    modes the induced log-field lies in an
@@ -86,7 +86,7 @@ from wildfire_nowcast.model.latent import LatentConfig, LatentHead, LatentSample
 # [A14] SELF-DECLARATION, read by tests/test_playthrough_registry.py.
 # Registration is AUTOMATIC and these constants are how this module identifies
 # itself. They live HERE, beside the playthrough, so that adding or changing a
-# playthrough never requires editing another lead's file — the mechanism fix for
+# playthrough never requires editing another lead's file - the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
 PLAYTHROUGH_OWNER = "modelling (M7)"
@@ -109,7 +109,7 @@ SIGMA = 0.4
 
 #: The REAL implementation, bound at import. Every instrument mutation below
 #: patches `latent_mod.spatial_basis`, so a defect that reached for the module
-#: attribute would call ITSELF — a self-referential mutation that recurses rather
+#: attribute would call ITSELF - a self-referential mutation that recurses rather
 #: than mutating, and a playthrough whose defects cannot run is worse than one
 #: whose defects are not caught.
 _REAL_BASIS = latent_mod.spatial_basis
@@ -164,7 +164,7 @@ def _observe(world: SpatialWorld) -> dict[str, Any]:
     # The induced field splits EXACTLY into an ODD part (the gradient, which is
     # what M7 adds) and an EVEN part (the pointwise mean-preserving correction).
     # Reading them separately gives two independent closed forms instead of one
-    # ratio that mixes them — and the ratio was the first version of this probe,
+    # ratio that mixes them - and the ratio was the first version of this probe,
     # which failed on the clean world because the two are not separable that way.
     east_cell, west_cell = (cy, cx + 2), (cy, cx - 2)
     spatial_e = float(f_spatial[east_cell]) if f_spatial is not None else 0.0
@@ -228,7 +228,7 @@ def _near(x: float, want: float, tol: float) -> bool:
 
 
 # --------------------------------------------------------------------------
-# the planted defects — INSTRUMENT mutations
+# the planted defects - INSTRUMENT mutations
 # --------------------------------------------------------------------------
 
 
@@ -277,7 +277,7 @@ def _wide_clip_basis(burned: torch.Tensor, n_modes: int, *, clip: float = 3.0):
     """DECLARED BLIND SPOT: widen the far-field clip from 3 to 12.
 
     Every probe here is evaluated within two gyration radii of the fire, where the
-    clip never binds — so this playthrough provably cannot see it, and says so
+    clip never binds - so this playthrough provably cannot see it, and says so
     rather than pretending otherwise. It is a real choice with real consequences
     far from the fire, and if a probe is ever added that reaches out there, this
     assertion goes red and the record gets updated instead of quietly drifting.
@@ -289,7 +289,7 @@ def _field_without_mean_correction(burned: torch.Tensor, latent):
     """DEFECT: drop the pointwise log-normal correction.
 
     ``sigma`` then moves the ensemble MEAN as well as its spread, which lands in
-    ``area_dispersion_ratio``'s DENOMINATOR as bias — the confound M6 removed for
+    ``area_dispersion_ratio``'s DENOMINATOR as bias - the confound M6 removed for
     the global modes and which returns here in field form.
     """
     if latent is None or latent.spatial_intensity is None:
@@ -454,7 +454,7 @@ def test_the_gradient_probe_is_the_capability_claim_and_is_load_bearing(
 def test_a_global_only_latent_fails_the_gradient_probe() -> None:
     """The NEGATIVE ARM, stated as a scenario rather than as a mutation.
 
-    M6's own model — three global dimensions, no spatial modes — must fail the
+    M6's own model - three global dimensions, no spatial modes - must fail the
     probe that defines M7's capability. If it passed, the probe would be
     measuring something every previous model already had.
     """
@@ -492,7 +492,7 @@ def test_the_encoder_cannot_be_asked_to_infer_what_it_cannot_see() -> None:
 
     If the spatial modes existed and the encoder were handed no basis, ``q``
     would collapse to the prior on exactly those dimensions and the run would
-    report "the spatial latent did not help" — a statement about my pooling
+    report "the spatial latent did not help" - a statement about my pooling
     dressed as a statement about fire. It raises instead.
     """
     head = LatentHead(LatentConfig(dim=3, spatial_modes=2))

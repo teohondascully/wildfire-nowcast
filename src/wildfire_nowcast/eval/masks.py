@@ -13,8 +13,8 @@ cells. A Brier score averaged over the domain is therefore ~99% agreement on
 cells nobody was ever uncertain about, and it compresses the difference between
 a good model and a useless one into the third decimal place.
 
-Combine that with insights/data item 1 — 51-91% of hours have BITWISE zero
-growth, median ~0.79 — and a domain-wide, all-hours score is a measurement of
+Combine that with insights/data item 1 - 51-91% of hours have BITWISE zero
+growth, median ~0.79 - and a domain-wide, all-hours score is a measurement of
 how often nothing happened. Persistence maximises it.
 
 So C6 computes every metric under at least two masks:
@@ -22,7 +22,7 @@ So C6 computes every metric under at least two masks:
 ``domain``
     Every cell. Unambiguous, reproducible, and the number that is comparable
     across models on the same fire. It is the contract's headline because it
-    cannot be gamed by a mask choice — not because it is the informative one.
+    cannot be gamed by a mask choice - not because it is the informative one.
 ``growth_band``
     Cells UNBURNED at ``t0`` and within ``band_radius_cells`` of the burned
     frontier: the cells where the forecast is actually a decision. This mask is
@@ -53,7 +53,7 @@ __all__ = [
 #: Binary events a state field can be scored on.
 #:
 #: ``burned`` is the default and the only one that should carry a headline. It
-#: is the monotone, absorbing quantity — "has the fire arrived here yet" — which
+#: is the monotone, absorbing quantity - "has the fire arrived here yet" - which
 #: is what a nowcast is for. ``burning`` (state 1) is tempting and wrong as a
 #: target: under C1.1 state 1 tracks whether GOES could SEE a fire line, so
 #: scoring it measures satellite visibility as much as fire behaviour, and it is
@@ -80,7 +80,7 @@ def event_field(state: np.ndarray, event: str = DEFAULT_EVENT) -> np.ndarray:
 
 
 def frontier(x0: np.ndarray) -> np.ndarray:
-    """Burned cells adjacent to an unburned cell — the contagion source (C1.1).
+    """Burned cells adjacent to an unburned cell - the contagion source (C1.1).
 
     Explicitly NOT ``state == 1``. C1.1 records that state 1 is legitimately
     empty in 6-37% of frames (Kincade: 43 of 134, every one of them while the
@@ -110,7 +110,7 @@ def growth_band(x0: np.ndarray, radius_cells: int) -> np.ndarray:
     """Unburned cells within ``radius_cells`` of the ``t0`` burned frontier.
 
     Depends on ``x0`` only. If nothing is burned at ``t0`` the band is empty and
-    the caller should skip the window — nowcasting starts from an observed fire.
+    the caller should skip the window - nowcasting starts from an observed fire.
     """
     burned = np.asarray(x0) > UNBURNED
     seed = frontier(x0)
@@ -129,7 +129,7 @@ def scoring_masks(
     """``{"domain": ..., "growth_band": ...}``; band omitted when ``x0`` is None.
 
     ``x0`` is not part of the C6 signature, so a caller that does not supply it
-    gets the domain mask only — with the metrics dict recording that the band
+    gets the domain mask only - with the metrics dict recording that the band
     was unavailable, rather than silently reporting domain numbers as if they
     were band numbers.
     """

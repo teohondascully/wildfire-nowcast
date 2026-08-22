@@ -1,4 +1,4 @@
-"""Per-run gate dashboard — the standard readout after a modelling gate attempt.
+"""Per-run gate dashboard - the standard readout after a modelling gate attempt.
 
     python -m wildfire_nowcast.sim.rundash --run runs/baselines-20260808-064738 \
         --decomposition reports/figures/iou_decomposition.json \
@@ -22,8 +22,8 @@ caption and a screenshot outlives both.**
 
 2. ``band_best_member_iou`` is drawn ONLY with its null floor. Measured on this
    project's own numbers, a silent ensemble scores 0.200-0.262 on the growth
-   stratum and **0.829 on all windows** — up to ~90% of the value the gate is
-   adjudicated on — because the metric averages over leads and an empty-vs-empty
+   stratum and **0.829 on all windows** - up to ~90% of the value the gate is
+   adjudicated on - because the metric averages over leads and an empty-vs-empty
    lead scores 1.0. Where ``sim.replay``'s silence/shape decomposition is
    supplied, the bar is stacked so the two parts are separately visible.
 
@@ -32,7 +32,7 @@ caption and a screenshot outlives both.**
 Both rules above were hand-written captions, and a hand-written caption is a
 promise about a file I might not re-read. Every key this module plots now goes
 through :mod:`wildfire_nowcast.sim.quarantine`, which classifies it against
-``common.null_check.C6_METRICS`` — infra's registry, the maintainer's ruling —
+``common.null_check.C6_METRICS`` - infra's registry, the maintainer's ruling -
 and supplies the badge text from ``make null-check``'s MEASURED output. A key the
 registry does not know RAISES rather than rendering plain.
 
@@ -44,12 +44,12 @@ on it), and it is NOT G3's criterion. **G3's calibration half is
 ``common.calibration.GATE_CRITERION_KEY``) and G3's dispersion half is
 ``area_dispersion_ratio`` in [0.8, 1.2] (ADR-011). Both are drawn here; the
 retired ``reliability`` and ``ece`` families are drawn beside them, badged, so a
-reader can see that the demoted numbers move differently — which is the argument
+reader can see that the demoted numbers move differently - which is the argument
 for the demotion, not a decoration.
 
 ``dispersion_ratio``'s badge also changed, and the change is the point. The old
 text quoted ADR-011's "collapsed 1.000, healthy 1.051". Today's harness measures
-**collapsed 1.1921 vs healthy 1.1903 — a paired advantage of -0.0019 +- 0.0050
+**collapsed 1.1921 vs healthy 1.1903 - a paired advantage of -0.0019 +- 0.0050
 over seeds, inside its own seed noise.** Same verdict, different mechanism: the
 metric does not prefer collapse, it cannot SEE it. A hardcoded badge decays into
 a false claim about a true conclusion, so the badge is now read from the report.
@@ -112,7 +112,7 @@ def g3_readiness(payload: dict[str, Any]) -> dict[str, Any]:
     G2 was nearly adjudicated on a table that did not contain its own gate
     criterion, because ``eval/baseline_run._headline`` is a curated allow-list
     (infra's blocker, ADR-020 §6). The same allow-list currently carries no
-    ``calibration_*`` key, so this check is not hypothetical — it is that defect,
+    ``calibration_*`` key, so this check is not hypothetical - it is that defect,
     one gate later, and a dashboard that silently drew an empty panel would hide
     it exactly as the last one did.
     """
@@ -148,7 +148,7 @@ def load_run(run_dir: str | Path) -> dict[str, Any]:
 
 
 def model_order(pooled: dict[str, Any]) -> list[str]:
-    """Candidates first, then opponents, then the null model — reading order."""
+    """Candidates first, then opponents, then the null model - reading order."""
     names = list(pooled)
     kernels = [m for m in names if m.startswith("kernel") and m != "kernel_init"]
     init = [m for m in names if m == "kernel_init"]
@@ -184,7 +184,7 @@ def _badge_box(ax, text: str, *, y: float = -0.22, colour: str = COL_WARN) -> No
 
     Second defect found by looking at the render: badges drawn INSIDE the axes at
     the top-left overprinted the legends of panels (2) and (3), so the quarantine
-    text and the model names were mutually illegible — a badge nobody can read is
+    text and the model names were mutually illegible - a badge nobody can read is
     a badge that is not there, which is the whole failure mode this module exists
     to prevent. A reserved strip cannot collide with data or a legend by
     construction; the previous version could, and did, the moment the text grew.

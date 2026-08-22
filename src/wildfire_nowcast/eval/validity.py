@@ -1,4 +1,4 @@
-"""C6.2 — baseline validity. A degenerate baseline VOIDS its gate.
+"""C6.2 - baseline validity. A degenerate baseline VOIDS its gate.
 
 INTERFACES C6.2 (ADR-011), binding:
 
@@ -19,8 +19,8 @@ What it measures, and why these three and not one
     posted a BETTER Brier than persistence while igniting nothing at all.
 ``growth_ratio``
     Predicted / observed new cells. A baseline can ignite a non-zero but absurd
-    number of cells — 1 cell against 782 is not zero and is not a baseline
-    either — so "not exactly zero" is a necessary condition, never a sufficient
+    number of cells - 1 cell against 782 is not zero and is not a baseline
+    either - so "not exactly zero" is a necessary condition, never a sufficient
     one. The verdict ladder therefore has a DEGENERATE band between VOID and OK.
 ``n_windows_with_any_ignition``
     Localisation of the previous two. One window igniting 800 cells and 300
@@ -55,7 +55,7 @@ VOID = "VOID"
 DEGENERATE = "DEGENERATE"
 OK = "OK"
 #: The scored set contains NO truth growth at all, so ``growth_ratio`` is 0/0.
-#: The check has not passed — it has not run. Added after this ladder was found
+#: The check has not passed - it has not run. Added after this ladder was found
 #: crashing on ``f"{None:.3g}"`` in its own OK branch: the None case fell
 #: through to the verdict that says "usable as a gate floor", so with one fewer
 #: format specifier it would have reported a PASS on a sample that contained
@@ -69,13 +69,13 @@ UNDEFINED = "UNDEFINED"
 #: (``null_model=True``); the check never infers it, because inferring it from
 #: a zero count is exactly how the clause would be talked out of firing on the
 #: baseline it was written for. Measured and worth keeping: the Brier-fitted
-#: ellipse landed 0.005x of truth's growth — i.e. it had converged to within a
+#: ellipse landed 0.005x of truth's growth - i.e. it had converged to within a
 #: rounding error of the null model, which is the finding behind ADR-011.
 NULL_MODEL = "NULL_MODEL"
 
 #: Predicted/observed growth outside this band is reported as DEGENERATE: not a
 #: hard VOID (only zero is), but not a baseline anyone should be scored against
-#: either. An order of magnitude either way is deliberately generous — the
+#: either. An order of magnitude either way is deliberately generous - the
 #: measured failure was a factor of infinity, and a tight band here would turn a
 #: validity check into a second calibration rule, which is not its job.
 DEGENERATE_RATIO_BAND: tuple[float, float] = (0.1, 10.0)
@@ -90,8 +90,8 @@ def window_ignition_counts(
 ) -> dict[str, Any]:
     """New-cell counts for ONE window: ``(mean over members, max, truth)``.
 
-    "New" is relative to ``x0``, so already-burned cells — which every model
-    reproduces for free because fire is absorbing — cannot inflate the count.
+    "New" is relative to ``x0``, so already-burned cells - which every model
+    reproduces for free because fire is absorbing - cannot inflate the count.
     """
     pred = np.asarray(samples)
     if pred.ndim != 4:
@@ -114,7 +114,7 @@ def _off_state(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
     sim's S3 decomposed our 2.66-3.06x held-out over-prediction and found
     it is **not a spread-rate error**: on the 446 windows where truth grew, the
-    trained kernel scores 0.984 / 0.874 — better calibrated than the calibrated
+    trained kernel scores 0.984 / 0.874 - better calibrated than the calibrated
     ellipse's 0.845, which UNDER-predicts. The whole excess is bought in the 953
     windows where truth did nothing, and the kernel ignites in **953 of 953** of
     them while its own untrained initialisation manages 863 and the ellipse 885.
@@ -123,7 +123,7 @@ def _off_state(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     That is a different defect with a different remedy, and the distinction is
     load-bearing: dividing the rate by ~3 would drive the growth-window ratio
     from 0.98 to ~0.33, and ADR-020 (4)(b) fixed G3's calibration criterion on
-    the GROWTH-MASKED subset — decided blind, before this was measured. A global
+    the GROWTH-MASKED subset - decided blind, before this was measured. A global
     scale would break the gate it appears to help.
 
     Computed here, inside C6.2's own instrument and from the same per-window
@@ -189,16 +189,16 @@ def off_state_verdict(
     rates, and carrying both is the whole point:
 
     ``dormant_off_rate``
-        fraction of ZERO-GROWTH windows where the ensemble expects nothing —
+        fraction of ZERO-GROWTH windows where the ensemble expects nothing -
         CAPACITY. Every kernel this project has trained scores **0.0000** here.
     ``false_off_rate``
-        fraction of GROWING windows where the ensemble expects nothing —
+        fraction of GROWING windows where the ensemble expects nothing -
         CONDITIONING. A model that is switched off at random hours buys a high
         ``dormant_off_rate`` and pays for it here.
 
     **A one-rate test would PASS the exact model M6 already measured as not
     solving this.** The activity gate raised the train member-area variance ratio
-    1.19 -> 10.04 at no NLL cost — the ensemble CONTAINS dormant members — while
+    1.19 -> 10.04 at no NLL cost - the ensemble CONTAINS dormant members - while
     ``dormant_off_rate`` stayed at 0.0000, because a mixture whose mixing weight
     does not depend on the hour never drives the ensemble MEAN to zero. Capacity
     is not knowledge, and this verdict is built so the two cannot be confused.
@@ -252,7 +252,7 @@ def baseline_validity(
     print next to any gate that rests on this baseline.
 
     ``null_model`` must be declared by the caller for a baseline whose zero
-    ignition is definitional (persistence). It is never inferred — see
+    ignition is definitional (persistence). It is never inferred - see
     :data:`NULL_MODEL`.
     """
     rows = list(counts)

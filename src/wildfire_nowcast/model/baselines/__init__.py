@@ -1,4 +1,4 @@
-"""C5 baselines — the floor and the debugging oracle.
+"""C5 baselines - the floor and the debugging oracle.
 
 CLAUDE.md fixes three non-negotiable baselines: persistence, wind-advected
 ellipse, and ELMFIRE Monte Carlo with default Rothermel parameters. The first

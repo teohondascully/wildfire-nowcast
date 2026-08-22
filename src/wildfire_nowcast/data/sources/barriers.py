@@ -7,15 +7,15 @@ definition has to be stable before crossings are mined.
 
 Sources, all GEE:
 
-* ``JRC/GSW1_4/GlobalSurfaceWater`` band ``occurrence`` — permanent water. Chosen
+* ``JRC/GSW1_4/GlobalSurfaceWater`` band ``occurrence`` - permanent water. Chosen
   over NHD because NHD is not a first-class GEE raster and GSW is a single
   global, temporally consistent, well-validated layer. Lakes and wide rivers
   come out of this.
-* ``TIGER/2016/Roads`` filtered to primary/secondary (``rttyp`` in S/U/I) —
+* ``TIGER/2016/Roads`` filtered to primary/secondary (``rttyp`` in S/U/I) -
   highways wide enough to hold a fire, rasterised as lines.
 * Narrow rivers are the gap: at 1 km a 60 m river is 6% of a cell and vanishes
   under any area threshold. They are captured by the *line* rasterisation of
-  GSW's skeleton rather than by its area fraction — otherwise every documented
+  GSW's skeleton rather than by its area fraction - otherwise every documented
   river jump would have no river in the tensor to jump over.
 
 A cell is a barrier when it is >= ``WATER_FRACTION_THRESHOLD`` water by area, OR

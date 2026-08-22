@@ -1,9 +1,9 @@
-"""Native 30 m LANDFIRE for ELMFIRE — the input half of ADR-026 (3).
+"""Native 30 m LANDFIRE for ELMFIRE - the input half of ADR-026 (3).
 
 ELMFIRE is built for ~30 m LANDFIRE. The original G5 playbook told me to map OUR
 1 km tensor into its inputs, which lobotomises it: ADR-026 (3) retired that and
 ruled **native inputs, contract outputs**. This module is the native input path.
-It touches nothing in ``data/`` — it pulls the same public LFPS service
+It touches nothing in ``data/`` - it pulls the same public LFPS service
 ``data/sources/fuels.py`` documents, onto a FINER grid, into a cache under
 ``vendor/`` which simviz owns.
 
@@ -25,7 +25,7 @@ raster       LFPS service                       why ELMFIRE needs it
 ``ch``/``cbh``/``cbd`` are the three C1 does not carry, and their absence is what
 switched ELMFIRE's crown fire model OFF in S3. **They are fetched here rather
 than added to C1**: ADR-026 (3) forbids growing the tensor contract to feed a
-baseline, and this module honours that literally — nothing here can write to
+baseline, and this module honours that literally - nothing here can write to
 ``data/``.
 
 ENCODINGS ARE LEFT NATIVE ON PURPOSE
@@ -40,7 +40,7 @@ ADR-026 (3)'s direction: the simulator was designed around these products.
 
 VINTAGE
 -------
-Fuels vintage is chosen by ``data.sources.fuels.vintage_for_fire`` — the same
+Fuels vintage is chosen by ``data.sources.fuels.vintage_for_fire`` - the same
 leakage rule as C1 channel 9, imported rather than re-derived, so the baseline
 cannot end up on a *newer* fuels layer than the model it is compared against.
 Topography has one published vintage (``LF2020``) and is time-invariant to the
@@ -78,7 +78,7 @@ __all__ = [
 ]
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-#: simviz owns ``vendor/``. Never ``data/`` — that is frozen to this lead.
+#: simviz owns ``vendor/``. Never ``data/`` - that is frozen to this lead.
 CACHE_ROOT = REPO_ROOT / "vendor" / "landfire_cache"
 
 
@@ -109,7 +109,7 @@ NATIVE_LAYERS: tuple[NativeLayer, ...] = (
 
 #: The one topographic vintage LFPS publishes. Terrain is time-invariant, so the
 #: fuels leakage rule does not apply and using LF2020 for a 2019 fire is not a
-#: reach forward in any meaningful sense — the ground did not move.
+#: reach forward in any meaningful sense - the ground did not move.
 TOPO_FOLDER = "Landfire_Topo"
 TOPO_TAG = "LF2020"
 
@@ -119,7 +119,7 @@ def layer_url(layer: NativeLayer, folder: str, grid: Grid) -> str:
 
     ``interpolation=RSP_NearestNeighbor`` for everything. On a ~30 m request grid
     that returns LANDFIRE's actual cell value rather than a blend of neighbours:
-    FBFM40 is categorical and must never be interpolated (C1.5's own reasoning —
+    FBFM40 is categorical and must never be interpolated (C1.5's own reasoning -
     an interpolated class is a fuel model that does not exist), and for the
     canopy layers nearest keeps the native integer encoding exact.
     """
@@ -163,7 +163,7 @@ def fetch_layer(
     """One native layer as ``int16[ny, nx]`` on ``grid``, LFPS NoData filled.
 
     Cached under :data:`CACHE_ROOT` keyed by layer, folder and exact geometry, so
-    a re-run of the same window is offline and byte-identical — which is what
+    a re-run of the same window is offline and byte-identical - which is what
     makes ELMFIRE's determinism checkable at all.
     """
     import rasterio  # noqa: PLC0415
@@ -198,7 +198,7 @@ class NativeStack:
     provenance: dict[str, Any]
 
     def summary(self) -> dict[str, Any]:
-        """Per-layer stats — the cheapest detector of a silently empty fetch."""
+        """Per-layer stats - the cheapest detector of a silently empty fetch."""
         out: dict[str, Any] = {}
         for stub, arr in sorted(self.layers.items()):
             out[stub] = {

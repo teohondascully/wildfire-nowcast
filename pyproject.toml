@@ -27,7 +27,7 @@ classifiers = [
 # `make install` syncs that lock with `--require-hashes` rather than resolving
 # from here. The distinction was not academic: until 2026-08-21 the lock was on
 # no install path at all, every clone re-resolved, and a clean clone landed 15
-# of its 73 packages on other versions — one of which (numpy 2.5.1 vs 2.5.2)
+# of its 73 packages on other versions - one of which (numpy 2.5.1 vs 2.5.2)
 # made a single `type: ignore[...]` in `common/contract.py` required on the
 # author's machine and unused in CI, and held the public badge red for seven
 # days. Add a dependency HERE, then `make relock`, then commit both.
@@ -72,7 +72,7 @@ where = ["src"]
 # PEP 561. The `Typing :: Typed` classifier above has been claimed since A15 with
 # nothing behind it: without this marker an installed copy of the package ships
 # no types at all, so the claim was true of the source and false of the artifact.
-# It says the annotations are THERE, which they are — how strictly they are
+# It says the annotations are THERE, which they are - how strictly they are
 # CHECKED is the separate question `[tool.mypy]` below answers, with a named list
 # of what is not checked yet.
 [tool.setuptools.package-data]
@@ -104,7 +104,7 @@ select = ["E", "F", "I", "B", "UP", "W", "A", "TID", "LOG", "G", "INT"]
 # fingerprint that reported MISSING silently), so the failure mode is known and
 # expensive. The exemptions are a BURN-DOWN LIST: every entry is a module name,
 # not a glob, and `tools/typecheck.py --audit` fails if any listed module has
-# become clean without being retired. It fails in the other direction too —
+# become clean without being retired. It fails in the other direction too -
 # a module that starts failing and is not listed turns `make typecheck` red.
 #
 # WHAT IS ACTUALLY CHECKED TODAY: 66 of 107 modules under `src/`, including all
@@ -134,7 +134,7 @@ enable_error_code = [
     # suppression this configuration exists to avoid. Every ignore must name the
     # error code it is silencing, so a reader can see what was given up.
     "ignore-without-code",
-    # `data/isotropy.py:337` read `fire_id` seven lines before it was assigned —
+    # `data/isotropy.py:337` read `fire_id` seven lines before it was assigned -
     # an UnboundLocalError on the first pass, found by ruff's F821 in A15. This
     # is the same class one step wider (conditionally-bound names).
     "possibly-undefined",
@@ -152,7 +152,7 @@ enable_error_code = [
 # here anyway, deliberately: every importer of pandas/geopandas is under
 # `data/`, which infra may not edit, so installing those stubs would land a
 # batch of new errors entirely on another lead's fenced surface. Adding them is
-# a NEXT item for infra, to be done when the fence lifts — not a permanent
+# a NEXT item for infra, to be done when the fence lifts - not a permanent
 # position. `yaml` is used only by `common/config.py`, where `safe_load` returns
 # `Any` under the stubs too, so the loss there is nil.
 [[tool.mypy.overrides]]
@@ -160,7 +160,7 @@ module = ["rasterio.*", "yaml", "pandas.*", "geopandas.*"]
 ignore_missing_imports = true
 
 # --------------------------------------------------------------------------
-# BURN-DOWN GROUP 1 of 2 — FENCED, NOT BROKEN.
+# BURN-DOWN GROUP 1 of 2 - FENCED, NOT BROKEN.
 # `model/`, `eval/` and `data/` are owned by other leads and were being written
 # in while this configuration was authored (M11 and D11, ADR-050). infra is
 # barred from editing them, so these are exempted by ownership, not by
@@ -208,7 +208,7 @@ module = [
 ignore_errors = true
 
 # --------------------------------------------------------------------------
-# BURN-DOWN GROUP 2 of 2 — ANOTHER LEAD'S DIRECTORY.
+# BURN-DOWN GROUP 2 of 2 - ANOTHER LEAD'S DIRECTORY.
 # `sim/` is simviz's. Same reasoning: exempted by ownership. `sim/review.py`
 # (26) is the largest single entry in the whole list and is also the file the
 # A15 audit already proposed splitting, so the two burn down together.

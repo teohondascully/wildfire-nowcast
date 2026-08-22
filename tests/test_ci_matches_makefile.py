@@ -11,7 +11,7 @@ worked and never fired. It is still the weaker of the two available
 constructions, and the difference showed up the week the README's claim
 ("make ci runs what github actions runs") was audited: the sentence was true of
 the target list and false of the mechanism, because CI invoked six targets
-individually and `make ci` was invoked by nobody — the gate a developer runs and
+individually and `make ci` was invoked by nobody - the gate a developer runs and
 the gate GitHub runs were two programs that a test kept in agreement.
 
 They are now one program. The workflow has ONE gate step, `make ci`, so the

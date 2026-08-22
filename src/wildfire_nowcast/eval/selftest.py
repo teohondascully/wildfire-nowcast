@@ -6,8 +6,8 @@ standalone::
     .venv/bin/python -m wildfire_nowcast.eval.selftest
     .venv/bin/python -m wildfire_nowcast.eval.selftest --json
 
-Every check has an answer that is known BEFORE the code runs — hand-computed,
-or forced by an algebraic identity — because a metric verified only against its
+Every check has an answer that is known BEFORE the code runs - hand-computed,
+or forced by an algebraic identity - because a metric verified only against its
 own output is verified against nothing. The two that matter most:
 
 * ``crps_fair_known_answer``: a 2-member ensemble bracketing the truth
@@ -15,8 +15,8 @@ own output is verified against nothing. The two that matter most:
   down which estimator is wired in, which decides whether a collapsed ensemble
   is rewarded at G3.
 * ``collapse_is_invisible_to_dispersion_ratio``: two ensembles with IDENTICAL
-  per-pixel probabilities — one built from independent per-pixel noise, one from
-  a shared latent — get the same Brier and the same ``dispersion_ratio``, and
+  per-pixel probabilities - one built from independent per-pixel noise, one from
+  a shared latent - get the same Brier and the same ``dispersion_ratio``, and
   are told apart only by ``area_dispersion_ratio`` and member diversity. This is
   the G3 ablation in miniature, and it is asserted here so that the metric
   cannot silently stop being able to see it.
@@ -82,7 +82,7 @@ def _synthetic_dataset(tmp: str | None = None):
     ``common/synthetic.py`` is infra's and is edited concurrently with this
     suite. Importing it at module scope means one broken line in someone else's
     fixture takes down every known-answer check in here, including the ones that
-    have nothing to do with it — which is how a whole verification instrument
+    have nothing to do with it - which is how a whole verification instrument
     goes dark for an unrelated reason. Lazily, a broken fixture fails the two
     checks that use it and leaves the other twenty-five reporting.
     """
@@ -176,7 +176,7 @@ def check_dispersion_calibrated_is_one() -> Check:
     """A calibrated binary ensemble has dispersion_ratio ~ 1 by construction.
 
     Members and truth drawn independently from the same per-pixel Bernoulli, so
-    the forecast is calibrated. The ratio must come out near 1 — this is the
+    the forecast is calibrated. The ratio must come out near 1 - this is the
     algebraic identity documented in :func:`~wildfire_nowcast.eval.metrics.dispersion`,
     and it is checked here because it is also the reason the ratio cannot detect
     collapse.
@@ -200,11 +200,11 @@ def check_dispersion_calibrated_is_one() -> Check:
 def _collapse_pair(n_members: int, shape: tuple[int, int] = (100, 100), seed: int = 11):
     """Two ensembles with the same intended p = 0.5 field, one truth scenario.
 
-    * ``independent`` — every pixel of every member flipped independently. The
+    * ``independent`` - every pixel of every member flipped independently. The
       known-broken model CLAUDE.md permits only as an ablation. Every member
       burns about half the domain, so the ensemble has almost no spread in
       burned AREA while its area error is enormous.
-    * ``shared`` — half the members burn everything, half burn nothing: all the
+    * ``shared`` - half the members burn everything, half burn nothing: all the
       randomness lives in one shared latent. Same per-pixel probability, but the
       members are genuine alternative scenarios.
 
@@ -242,7 +242,7 @@ def check_collapse_is_invisible_to_dispersion_ratio() -> Check:
 
     Both verified to ~1e-16 across M in {20, 50, 100, 200, 1000}. So:
 
-    1. ``dispersion_ratio`` cannot detect collapse — and worse, it is ANTI-
+    1. ``dispersion_ratio`` cannot detect collapse - and worse, it is ANTI-
        correlated with what G3 cares about. It scores the COLLAPSED ensemble at
        exactly 1.000 (textbook-perfect) and the good scenario ensemble at
        ``sqrt((M+1)/(M-1))`` > 1 ("over-dispersed"). Anyone who used it as the
@@ -255,14 +255,14 @@ def check_collapse_is_invisible_to_dispersion_ratio() -> Check:
     3. ``area_dispersion_ratio`` separates them by ~100x, and is the number the
        G3 ablation must actually be judged on.
 
-    HISTORY — the failure this check survived, kept because the reasoning
+    HISTORY - the failure this check survived, kept because the reasoning
     recurs. The first version scored both arms against an iid per-pixel
     coin-flip truth and asserted ``area_a < 0.1``. It failed with
     ``area_a = 7.85, area_b = 525.66``. The instinct is to suspect the metric;
     that would have been wrong. In an iid-coin-flip world the truth burns ~50%
     of the domain EVERY time, so there is no scenario uncertainty for a latent
     to capture and independent per-pixel noise is the CORRECTLY SPECIFIED model.
-    The area-error denominator goes to ~0 and the ratio diverges for both arms —
+    The area-error denominator goes to ~0 and the ratio diverges for both arms -
     the metric was correctly reporting "over-dispersed", in a world where
     nothing collapses. A toy that cannot exhibit the phenomenon cannot test the
     detector for it. Diagnostic that separates the two hypotheses: sweep M and
@@ -626,8 +626,8 @@ def check_kernel_respects_barriers_and_nonburnable() -> Check:
     # Simard damping polynomial to 0. sim measured that cells our
     # `fuel_model_id` channel calls non-burnable burn in the GOFER labels 66-84%
     # as often as burnable ones, so a hard mask is a modelling error against our
-    # own data. Both suppressions are now stated the same way — RELATIVE to open
-    # ground and BOUNDED AWAY FROM ZERO — because an assertion that a probability
+    # own data. Both suppressions are now stated the same way - RELATIVE to open
+    # ground and BOUNDED AWAY FROM ZERO - because an assertion that a probability
     # is small is silently satisfied by an unlearnable zero, which is exactly how
     # this hid through M2 and most of M3.
     ok = (
@@ -674,7 +674,7 @@ def check_susceptibility_has_gradient() -> Check:
         and amplitude["burnable_gradients_all_nonzero"]
         # NON-BURNABLE, added 2026-08-08. This was EXACTLY 0.0 in BOTH modes until
         # `moisture_damping_floor` landed, by a mechanism independent of ADR-015
-        # (6a) — the Simard damping collapsing to a hard zero. It is asserted here
+        # (6a) - the Simard damping collapsing to a hard zero. It is asserted here
         # rather than merely reported, because "we probed it and it was zero" was
         # true for a whole milestone without anything failing.
         and not amplitude["nonburnable_gradient_is_zero"]
@@ -838,7 +838,7 @@ def check_c8_rejects_a_stale_or_unstamped_split() -> Check:
 
     ``assert_split_unchanged`` catches the split moving during a run. This is the
     other half: a model trained under an older split being scored under a newer
-    one. Both failure modes are asserted, including the unstamped case — C-1 makes
+    one. Both failure modes are asserted, including the unstamped case - C-1 makes
     "unverifiable" a failure, so an unstamped checkpoint must not be presumed to
     match.
     """
@@ -883,7 +883,7 @@ def check_best_member_iou_by_horizon_is_consistent() -> Check:
     """Per-horizon IoU at the last horizon must equal the whole-trajectory IoU.
 
     ADR-015 (3) adjudicates at 1/2/3 h, so the mode-capture metric has to exist
-    at each horizon. The cheap way to get it — one pass, cumulative means — is
+    at each horizon. The cheap way to get it - one pass, cumulative means - is
     only legitimate if it agrees exactly with what a length-H run would have
     produced at H = L. Asserted rather than assumed, because a per-lead maximum
     (a DIFFERENT and optimistic quantity, also reported) is the easy mistake here
@@ -985,7 +985,7 @@ def check_ellipse_ensemble_has_area_spread() -> Check:
 
     If members differ only by per-pixel noise, total burned area barely moves.
     The ellipse's ensemble is built from domain-wide shared scalars precisely so
-    that it does — otherwise G3 would be judged against a strawman ensemble.
+    that it does - otherwise G3 would be judged against a strawman ensemble.
     """
     shape = (31, 31)
     x0 = np.zeros(shape, np.uint8)
@@ -1035,7 +1035,7 @@ def check_ellipse_seeds_from_frontier_not_state_one() -> Check:
 
 
 def check_forecast_window_time_phase() -> Check:
-    """weather[k] must be features[t0+1+k] — the C1.3 end-of-hour phase.
+    """weather[k] must be features[t0+1+k] - the C1.3 end-of-hour phase.
 
     Off by one here trains every fire an hour out of phase with its weather and
     presents as a mediocre model rather than as a bug (C1.3, verbatim).
@@ -1093,7 +1093,7 @@ def check_latent_off_reproduces_the_g2_kernel_bitwise() -> Check:
     The G2 record was produced by the latent-free forward pass. If an optional
     argument changed it at all, every archived number silently stops being
     reproducible by this code and nothing would say so. Two deltas must be
-    EXACTLY 0 (no latent; latent held at ``z = 0``), and a third must NOT be —
+    EXACTLY 0 (no latent; latent held at ``z = 0``), and a third must NOT be -
     a latent wired to nothing would pass both identity checks and yield a
     collapsed ensemble that looks like a model.
     """
@@ -1167,7 +1167,7 @@ def check_shared_latent_is_constant_across_pixels() -> Check:
 def check_independent_noise_ablation_collapses_in_area() -> Check:
     """[M5] G3 (d): the independent-per-pixel ablation must DEMONSTRATE collapse.
 
-    A POSITIVE CONTROL for the ensemble machinery, not a result about the model —
+    A POSITIVE CONTROL for the ensemble machinery, not a result about the model -
     G3 asks for the ablation to fail, so a failure to fail is a defect in this
     repo's sampler and must surface here rather than in a gate table.
 
@@ -1238,7 +1238,7 @@ def check_latent_spec_round_trips_and_absence_means_absence() -> Check:
 
     ``from_spec`` defaulting a missing ``latent_config`` to the current value
     would silently turn every archived G2 checkpoint into a different model on
-    reload — the same class as ADR-015's split moving under a running experiment,
+    reload - the same class as ADR-015's split moving under a running experiment,
     one level down. Absence maps to absence, and a latent spec round-trips.
     """
     import numpy as np
@@ -1333,19 +1333,19 @@ def check_gate_mean_preserving_is_off_by_default_and_exact_when_on() -> Check:
     1. **``gate_mean_preserving=False`` is BITWISE M7.** The correction vector is
        exactly what the pre-M8 expression produced, so every M6/M7 checkpoint and
        every archived number stays reproducible. This is the guarantee `M8`'s
-       whole 2x2 rests on — the fourth cell of that matrix is a REUSED M7 run.
+       whole 2x2 rests on - the fourth cell of that matrix is a REUSED M7 run.
     2. **``E_z[e^gate] = 1`` EXACTLY when it is on**, at the unconditional prior.
        Closed form: with ``z ~ N(mu, 1)`` the multiplier's mean is
        ``e^(sigma mu + sigma^2/2)``, so the correction must be
        ``-(sigma mu + sigma^2/2)`` and the product must be 1 to machine epsilon.
-       A correction that only removed ``sigma^2/2`` — the copy-paste bug this
-       change is one keystroke away from — would leave ``e^(sigma mu)``, i.e.
+       A correction that only removed ``sigma^2/2`` - the copy-paste bug this
+       change is one keystroke away from - would leave ``e^(sigma mu)``, i.e.
        ``0.13`` at the fitted scale, and would look entirely plausible.
     3. **THE ASYMMETRY SURVIVES.** ADR-034 (2) makes asymmetry the working
        mechanism, so a "fix" that symmetrised the multiplier would destroy the
        thing it was meant to preserve. The corrected multiplier's MEDIAN is
        ``e^(-sigma^2/2)``, which at ``sigma = 1.3`` is ``0.43`` against a mean of
-       1 — most members quiet, a thin expensive upper tail. Asserted as a
+       1 - most members quiet, a thin expensive upper tail. Asserted as a
        STRICT INEQUALITY (median < 0.6 * mean), so this check fails the day the
        correction is widened into a symmetric one.
     """
@@ -1378,7 +1378,7 @@ def check_gate_mean_preserving_is_off_by_default_and_exact_when_on() -> Check:
     median_over_mean = math.exp(-0.5 * sigma * sigma)
 
     # A config that asks for the correction without the dimension must RAISE,
-    # not silently do nothing — the green-but-vacuous shape, refused up front.
+    # not silently do nothing - the green-but-vacuous shape, refused up front.
     try:
         LatentConfig(dim=3, gate_mean_preserving=True)
         refuses_without_the_gate = False
@@ -1390,7 +1390,7 @@ def check_gate_mean_preserving_is_off_by_default_and_exact_when_on() -> Check:
         and abs(mean_multiplier - 1.0) < 1e-12
         # The BIAS being removed, in closed form: e^(sigma mu + sigma^2/2) at
         # sigma = 1.3, mu = -1.5 is e^-1.105 = 0.3312. My first draft of this
-        # bound said 0.2 and FAILED ON THE CLEAN WORLD — the fourth time a
+        # bound said 0.2 and FAILED ON THE CLEAN WORLD - the fourth time a
         # known-answer check has corrected my arithmetic before a model saw it.
         # Kept as a bound on the SIZE of the bias, not a re-statement of it.
         and uncorrected < 0.5
@@ -1444,7 +1444,7 @@ def check_degradation_null_rung_is_bitwise_the_undegraded_forecast() -> Check:
     block-SD". If the identity were implemented by returning the input early, the
     claim would be a property of a branch and would say nothing about the
     construction that produces every OTHER rung. So the identity runs the full
-    machinery — build the cell order, rank it, take the first ``n_h`` — and is
+    machinery - build the cell order, rank it, take the first ``n_h`` - and is
     asserted bitwise here, in BOTH families.
     """
     from wildfire_nowcast.model.degrade import MODE_AREA, MODE_SHAPE, degrade_samples
@@ -1480,8 +1480,8 @@ def check_degradation_rungs_hit_their_declared_severity() -> Check:
 
     * an AREA rung realises ``k`` times the reference increment, to within the
       rounding of one cell per member and lead;
-    * a SHAPE rung realises the reference area **EXACTLY** — integer equality, not
-      a tolerance — because "a channel blind to shape at fixed area" is a
+    * a SHAPE rung realises the reference area **EXACTLY** - integer equality, not
+      a tolerance - because "a channel blind to shape at fixed area" is a
       different finding from "a channel blind to area", and separating them
       requires the area error to be zero rather than small.
 
@@ -1491,7 +1491,7 @@ def check_degradation_rungs_hit_their_declared_severity() -> Check:
 
     THE UNDEFINED CASE IS PART OF THE CHECK, NOT AN EDGE OF IT. A ladder that
     spans harmless to catastrophic will eventually contain a rung whose increment
-    union with the reference is EMPTY — neither forecast added a cell. That is
+    union with the reference is EMPTY - neither forecast added a cell. That is
     the rung most likely to break monotonicity, so a validator that raises there
     is a validator that goes silent exactly where it is needed. An UNDEFINED
     overlap is therefore FAILED here, never skipped and never defaulted to a
@@ -1578,7 +1578,7 @@ def check_base_prediction_cache_cannot_return_another_window() -> Check:
     The runner scores one model over every window of a fire before moving to the
     next model, so a cache key that is not fully identifying would hand a rung
     another window's samples and the entire ladder would be a ladder over the
-    wrong forecast — silently, with every downstream number still finite and
+    wrong forecast - silently, with every downstream number still finite and
     plausible. Each C5 argument is therefore perturbed in turn and the key must
     move; the planted defect is the perturbation, not a comment saying it is safe.
     """
@@ -1624,7 +1624,7 @@ def check_mde_read_off_requires_a_SUSTAINED_crossing() -> Check:
     """[M11] One rung crossing a bar is not a detection threshold.
 
     Known answer, on a hand-built curve. A channel that reads 2.4 block-SD at
-    severity 0.2 and falls back to 1.1 at 0.4 has not detected 0.2 — it has
+    severity 0.2 and falls back to 1.1 at 0.4 has not detected 0.2 - it has
     produced one lucky rung, and taking the first crossing would report an MDE
     three times too optimistic for exactly the instrument this analysis exists to
     distrust. The read-off therefore requires every LARGER rung to clear the bar
@@ -1723,7 +1723,7 @@ def check_calibration_target_and_gate_criterion_are_different_estimands() -> Che
 
     ADR-056 (6). The severity was calibrated so whole-footprint
     ``IoU(noise(L), L)`` hit 0.756818 and the oracle then scored
-    ``iou_shape_masked_3h = 0.7590`` — within 0.3%. Close enough that the
+    ``iou_shape_masked_3h = 0.7590`` - within 0.3%. Close enough that the
     headline collapses if the two are one quantity through the plumbing.
 
     Three clauses, and each can fail independently:
@@ -1771,8 +1771,8 @@ def check_severity_sampler_is_the_shipped_observation_noise() -> Check:
 
     C0 has one implementation of anything the contract adjudicates, and a second
     observation-noise model wearing the first one's calibration would be exactly
-    the drift C0 forbids. The assertion is BITWISE — every field of every draw,
-    on a shared RNG stream — because agreeing moments is what a second model
+    the drift C0 forbids. The assertion is BITWISE - every field of every draw,
+    on a shared RNG stream - because agreeing moments is what a second model
     would also produce.
 
     Two clauses, not one: the draws must match, AND the comparison must be
@@ -1800,7 +1800,7 @@ def check_noise_oracle_null_severity_is_the_labels_exactly() -> Check:
     """[L1] The ceiling's NULL RUNG, and it must not be an ``if``.
 
     Severity 0 is a perfect forecaster against perfect labels, so it must score
-    the optimum of every metric EXACTLY — IoU 1, Brier 0, arrival CRPS 0 — and a
+    the optimum of every metric EXACTLY - IoU 1, Brier 0, arrival CRPS 0 - and a
     non-zero severity must move at least one of them, or the ladder is measuring
     the harness. The identity runs the entire perturbation path (draw, morph,
     shift, union with ``x0``, absorbing check) rather than returning truth early.
@@ -1847,7 +1847,7 @@ def check_window_table_refuses_a_key_collision() -> Check:
     oracle would score one fire's forecast against another's truth and every
     number under it would be finite, plausible and wrong. The table therefore
     RAISES on a duplicate rather than overwriting, and a miss RAISES rather than
-    falling back — both are asserted here by provoking them.
+    falling back - both are asserted here by provoking them.
     """
     from wildfire_nowcast.model.noiseoracle import NoisyTruthOracle, WindowTable
 
@@ -1928,7 +1928,7 @@ def check_stage_decay_recovers_a_known_beta() -> Check:
     early half multiplied term by term by ``exp(beta / 2)``, so ``stage_decay``
     has the closed form ``beta / 2`` for every even ``n`` and every amplitude.
     Asserted as a MAGNITUDE at 1e-12 over 18 (beta, n, amplitude) cells spanning
-    both signs, a 100x range of ``n`` and a 1e6 range of amplitude — ADR-051's
+    both signs, a 100x range of ``n`` and a 1e6 range of amplitude - ADR-051's
     standard, which asked for an analytic identity rather than a non-zero
     reading. ``beta = 0`` must read EXACTLY ``0.0``.
 
@@ -2022,7 +2022,7 @@ def check_stage_decay_separation_cannot_be_bought_by_closing_more_of_the_gap() -
 
     An arm that reduces every block's distance-to-truth by a common fraction
     ``f`` has per-block margins ``f * d_b``, so its equal-block separation is
-    ``mean(d) / sd(d)`` — **independent of f**. Closing 1% of the gap and closing
+    ``mean(d) / sd(d)`` - **independent of f**. Closing 1% of the gap and closing
     100% of it separate identically.
 
     Verified here by running the shipped separation through
@@ -2076,7 +2076,7 @@ def check_stage_decay_asks_the_registry_instead_of_remembering() -> Check:
     :func:`common.null_check.assert_may_adjudicate`, which is the difference
     between a guard existing and a guard being wired.
 
-    Two clauses, and neither pins the maintainer's ruling — that is deliberate,
+    Two clauses, and neither pins the maintainer's ruling - that is deliberate,
     because a check that fails the day a channel is legitimately licensed teaches
     people to edit checks:
 
@@ -2085,7 +2085,7 @@ def check_stage_decay_asks_the_registry_instead_of_remembering() -> Check:
        says the same, and when the answer is NO the refusal text travels with it
        so a reader sees WHY rather than a bare False.
     2. The mechanism can refuse. An unregistered channel name raises
-       ``NonAdjudicatingMetricError`` — the planted defect for this clause, since
+       ``NonAdjudicatingMetricError`` - the planted defect for this clause, since
        a licence function that returned True unconditionally would pass clause 1
        only if the registry already said yes.
     """
@@ -2134,7 +2134,7 @@ def check_stage_ladder_severity_is_not_computed_by_the_channel() -> Check:
        injection path and must move nothing, so a non-zero reading on the null
        rung of ``runs/u0.json`` would be a ladder defect and not an effect.
     2. **Severity is strictly increasing in the injected tilt**, so the ladder's
-       rungs are ORDERED — an unordered severity axis makes the MDE read-off
+       rungs are ORDERED - an unordered severity axis makes the MDE read-off
        meaningless whatever the separations do.
     3. **``stage_decay`` is BLIND to part of severity.** Moving growth between
        two windows in the SAME half leaves ``stage_decay`` bit-identical (the
@@ -2160,7 +2160,7 @@ def check_stage_ladder_severity_is_not_computed_by_the_channel() -> Check:
     monotone = all(a < b for a, b in zip(severities, severities[1:], strict=False))
 
     # A transfer of 1.0 cell from window 1 to window 0. Both are in the EARLY
-    # half, so the half sum — and therefore stage_decay — is untouched.
+    # half, so the half sum - and therefore stage_decay - is untouched.
     moved = [dict(r) for r in rows]
     moved[0]["model_growth"] = float(rows[0]["model_growth"]) + 1.0
     moved[1]["model_growth"] = float(rows[1]["model_growth"]) - 1.0
@@ -2198,7 +2198,7 @@ def check_stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one() -
     criterion, so the p-value is now load-bearing and is asserted as a RATIONAL,
     not to three decimals: ``P(X >= 11 | n=14) = 470/16384``, ``P(X >= 4 | n=5) =
     6/32``, ``P(X >= 14 | n=14) = 1/16384``, ``P(X >= 0) = 1`` exactly. Exact
-    ``math.comb``, never a normal approximation — at n=14 the approximation is
+    ``math.comb``, never a normal approximation - at n=14 the approximation is
     wrong in the third decimal, which is precisely where a 10-vs-11 call lands.
     Monotonicity in ``k`` rides along, since a tail that is not monotone is not a
     tail.
@@ -2207,7 +2207,7 @@ def check_stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one() -
     the estimand D3 licensed; :func:`eval.stage.estimand_digest` hashes the LIVE
     source of those four objects and compares it with the pinned SHA-256, so the
     claim is checked rather than believed. **This check is DESIGNED to go red if
-    the estimand is edited** — that is not brittleness, it is the friction that
+    the estimand is edited** - that is not brittleness, it is the friction that
     stops a silent re-tune from inheriting ADR-060's licence. Re-pin the constant
     in the same commit and re-run the known-beta control.
 
@@ -2269,8 +2269,8 @@ def check_arm_s_is_arm_a_plus_four_parameters_and_starts_there() -> Check:
 
     * ``count(S) - count(A) == 4`` on the *same* configuration, latent included,
       and the extra tensors are exactly the stage head's two.
-    * At initialisation the head is the IDENTITY — ``log_amplitude`` exactly 0.0
-      and ``reach_scale`` exactly 1.0, for any state — so S at step 0 IS A. Not
+    * At initialisation the head is the IDENTITY - ``log_amplitude`` exactly 0.0
+      and ``reach_scale`` exactly 1.0, for any state - so S at step 0 IS A. Not
       "close to": exact, because the coefficients are zero and the basis is
       linear in them.
 
@@ -2494,7 +2494,7 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_kernel_ensemble_collapses_in_area,
     check_kernel_growth_increases_with_wind,
     check_kernel_respects_barriers_and_nonburnable,
-    # M3 — ADR-015 (6a) the gradient defect, (6b) the label-noise ensemble,
+    # M3 - ADR-015 (6a) the gradient defect, (6b) the label-noise ensemble,
     # (3) per-horizon adjudication, (4) C8 split fingerprint
     check_susceptibility_has_gradient,
     check_susceptibility_is_an_exact_log_offset,
@@ -2502,29 +2502,29 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_label_perturbation_preserves_absorbing_order,
     check_c8_rejects_a_stale_or_unstamped_split,
     check_best_member_iou_by_horizon_is_consistent,
-    # M5 — the shared per-step latent z_t, its ensemble, and the G3 ablation
+    # M5 - the shared per-step latent z_t, its ensemble, and the G3 ablation
     check_latent_off_reproduces_the_g2_kernel_bitwise,
     check_shared_latent_is_constant_across_pixels,
     check_independent_noise_ablation_collapses_in_area,
     check_elbo_kl_is_scaled_like_its_reconstruction_term,
     check_latent_spec_round_trips_and_absence_means_absence,
-    # M8 — the MEAN-PRESERVING ACTIVITY GATE (reverses the M6 exemption), and
+    # M8 - the MEAN-PRESERVING ACTIVITY GATE (reverses the M6 exemption), and
     # the units defect simviz raised against C6's own dispersion decomposition
     check_debiased_dispersion_is_in_the_same_units_as_the_criterion,
     check_gate_mean_preserving_is_off_by_default_and_exact_when_on,
-    # M11 — the degradation ladder and the power read-off that stands on it
+    # M11 - the degradation ladder and the power read-off that stands on it
     check_degradation_null_rung_is_bitwise_the_undegraded_forecast,
     check_degradation_rungs_hit_their_declared_severity,
     check_base_prediction_cache_cannot_return_another_window,
     check_mde_read_off_requires_a_SUSTAINED_crossing,
-    # L1 — the label-noise floor: the morphology, the severity ladder, the oracle
+    # L1 - the label-noise floor: the morphology, the severity ladder, the oracle
     check_square_dilation_iou_matches_its_closed_form,
     check_calibration_target_and_gate_criterion_are_different_estimands,
     check_severity_sampler_is_the_shipped_observation_noise,
     check_noise_oracle_null_severity_is_the_labels_exactly,
     check_window_table_refuses_a_key_collision,
     check_the_official_perimeter_endpoint_has_not_drifted,
-    # U0 — the stage_decay channel: known-beta recovery, the agreement case, the
+    # U0 - the stage_decay channel: known-beta recovery, the agreement case, the
     # order reversal against the published statistic, the power identity, and the
     # C6 registry call site that ADR-059 (5) found missing from eval/
     check_stage_decay_recovers_a_known_beta,
@@ -2532,9 +2532,9 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_stage_decay_separation_cannot_be_bought_by_closing_more_of_the_gap,
     check_stage_decay_asks_the_registry_instead_of_remembering,
     check_stage_ladder_severity_is_not_computed_by_the_channel,
-    # U0b — the criterion ADR-060 (7) item 2 replaced the effect size with
+    # U0b - the criterion ADR-060 (7) item 2 replaced the effect size with
     check_stage_sign_criterion_is_exact_and_the_estimand_is_the_licensed_one,
-    # S1 — arm S's capacity, its covariate, and its archived-spec behaviour
+    # S1 - arm S's capacity, its covariate, and its archived-spec behaviour
     check_arm_s_is_arm_a_plus_four_parameters_and_starts_there,
     check_stage_covariate_is_one_global_scalar_of_x_t,
     check_arm_a_reloads_from_a_pre_s1_spec_without_a_stage_head,

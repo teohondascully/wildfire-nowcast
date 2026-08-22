@@ -1,7 +1,7 @@
 """G3's calibration criterion (ADR-020), validated against KNOWN answers.
 
 ``common/calibration.py`` is the module G3's rewritten bar NAMES, and until this
-file existed it had ZERO test coverage — 469 lines deciding half a gate, checked
+file existed it had ZERO test coverage - 469 lines deciding half a gate, checked
 by nothing. This is the same ordering C6.4 and C6.0 were built under and the one
 we keep getting right: **fix the gate's instrument before the result exists.**
 No ensemble has been trained yet, so nobody here knows which way any of these
@@ -11,7 +11,7 @@ What this file establishes, in order of importance:
 
 1. **The headline numbers are what the module claims.** An ORACLE scores exactly
    0, a forecast that predicts nothing scores exactly the base rate of the scored
-   set, and CLIMATOLOGY — the forecast ADR-020 was written about — passes the
+   set, and CLIMATOLOGY - the forecast ADR-020 was written about - passes the
    forecast-bin term and FAILS the frontier term. If that last one ever stops
    holding, ADR-020's second mechanism is gone and the criterion is back to being
    satisfiable by zero information.
@@ -24,7 +24,7 @@ What this file establishes, in order of importance:
    0.0 would score an unevaluated forecast as perfect (C-1).
 
 Model-blind by construction: nothing here imports ``model/``, loads a checkpoint
-or reads ``runs/`` — asserted below by grep rather than promised in prose.
+or reads ``runs/`` - asserted below by grep rather than promised in prose.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def test_the_aggregation_is_LINEAR_which_is_the_whole_ADR_020_fix() -> None:
     """Squaring is what let a silent forecast win. Assert the two disagree.
 
     One stratum deviating by 0.30 and one by 0.00 gives a LINEAR mean of 0.15 and
-    a SQUARED mean of 0.045 — the squared form flatters the larger error, which
+    a SQUARED mean of 0.045 - the squared form flatters the larger error, which
     is exactly how REL scored a do-nothing null (0.0050) above genuine skill
     (0.0099) while the bar was written in points.
     """
@@ -92,7 +92,7 @@ def test_strata_stats_retains_empty_strata_and_validates_its_index() -> None:
 
 
 # --------------------------------------------------------------------------
-# pooling — sufficient statistics, so many windows == one big window
+# pooling - sufficient statistics, so many windows == one big window
 # --------------------------------------------------------------------------
 
 
@@ -142,7 +142,7 @@ def test_pool_first_then_deviate_because_the_other_order_is_biased_upward() -> N
 
 
 # --------------------------------------------------------------------------
-# the frontier partition — from x0 ALONE, and it must match the band it strata-fies
+# the frontier partition - from x0 ALONE, and it must match the band it strata-fies
 # --------------------------------------------------------------------------
 
 
@@ -178,7 +178,7 @@ def test_the_rings_partition_the_growth_band_exactly() -> None:
 
 
 # --------------------------------------------------------------------------
-# THE HEADLINE NUMBERS — null / skill / oracle, on a constructed scenario
+# THE HEADLINE NUMBERS - null / skill / oracle, on a constructed scenario
 # --------------------------------------------------------------------------
 
 
@@ -186,14 +186,14 @@ def test_the_rings_partition_the_growth_band_exactly() -> None:
 def scenario() -> dict:
     """One lead of a spread problem with a KNOWN radial structure.
 
-    Burn probability falls off with distance from the frontier — ring 1 burns at
-    0.40, ring 2 at 0.20, ring 3 at 0.05 — so a forecast with the wrong radial
+    Burn probability falls off with distance from the frontier - ring 1 burns at
+    0.40, ring 2 at 0.20, ring 3 at 0.05 - so a forecast with the wrong radial
     profile is genuinely miscalibrated and a forecast with the right one is not.
     Outcomes are drawn from those rates, so the ground truth of every assertion
     below is arithmetic rather than a fitted expectation.
 
     The domain is deliberately LARGE (1,476 scored cells). At the 132 cells a
-    60x60 domain gives, the correctly-specified forecast scores 0.061 — not
+    60x60 domain gives, the correctly-specified forecast scores 0.061 - not
     because it is miscalibrated but because ``|mean p - mean y|`` in a small
     stratum is sampling noise that ``|.|`` cannot cancel. A fixture that noisy
     cannot tell "calibrated" from "close", so it would let a real regression
@@ -238,7 +238,7 @@ def _terms(scenario: dict, prob: np.ndarray) -> K.CalibrationTerms:
 def test_the_oracle_scores_exactly_zero(scenario) -> None:
     """A forecast equal to the observed outcome deviates from it by 0 everywhere.
 
-    Exactly 0, on both families and therefore on the criterion — the minimum of
+    Exactly 0, on both families and therefore on the criterion - the minimum of
     the range, which is what makes a criterion fit to gate (the same standard
     ``best_member_iou_shape_masked`` had to meet).
     """
@@ -253,7 +253,7 @@ def test_a_forecast_that_predicts_nothing_scores_exactly_the_base_rate(scenario)
 
     p = 0 everywhere: every stratum deviates by its own observed frequency, and
     the occupancy-weighted mean of those is the base rate of the scored set. That
-    the number is EXACTLY the base rate — on both families — is what makes the
+    the number is EXACTLY the base rate - on both families - is what makes the
     floor auditable without running a model.
     """
     terms = _terms(scenario, np.zeros_like(scenario["y"]))
@@ -268,7 +268,7 @@ def test_a_forecast_that_predicts_nothing_scores_exactly_the_base_rate(scenario)
 def test_the_well_specified_forecast_beats_the_null_by_a_wide_margin(scenario) -> None:
     """Genuine skill: the true per-ring rate. It must beat the null decisively.
 
-    This is the assertion that would fail if the criterion were unwinnable — the
+    This is the assertion that would fail if the criterion were unwinnable - the
     complement of the null test, and just as necessary. A bar no correct forecast
     can clear is as broken as one silence can clear.
     """
@@ -286,7 +286,7 @@ def test_CLIMATOLOGY_passes_the_bin_term_and_FAILS_the_frontier_term(scenario) -
     """ADR-020's second mechanism, which is the entire reason for family B.
 
     A forecast issuing the single marginal base rate on every band cell is
-    perfectly calibrated against its OWN bins — one bin, sitting on the diagonal —
+    perfectly calibrated against its OWN bins - one bin, sitting on the diagonal -
     while carrying zero information. It is wrong inside every ring: it
     under-predicts ring 1 and over-predicts ring 3. Family A cannot see that;
     family B is defined so that it can, and ``max`` is what makes the criterion
@@ -357,7 +357,7 @@ def test_the_criterion_is_flat_in_how_the_scored_set_is_chunked(scenario) -> Non
 
 
 # --------------------------------------------------------------------------
-# C0 — one implementation. The bin term must BE the ECE C6 already computes.
+# C0 - one implementation. The bin term must BE the ECE C6 already computes.
 # --------------------------------------------------------------------------
 
 
@@ -369,7 +369,7 @@ def test_the_bin_term_is_bit_identical_to_c6s_own_ece_on_the_production_path(
     The PRODUCTION path is the one C6 uses: it bins the forecast ONCE for its
     reliability diagram and hands those sufficient statistics to
     ``terms_from_strata``. There is one binning, so the criterion's bin term is
-    BITWISE the ECE C6 reports — asserted with ``==``, because "two
+    BITWISE the ECE C6 reports - asserted with ``==``, because "two
     implementations of one quantity" is how a producer and a verifier disagree
     while both look right.
     """
@@ -391,14 +391,14 @@ def test_the_standalone_binner_agrees_with_c6_to_floating_point_not_bitwise(
     ``calibration.py`` said the bin term is "asserted bit-identical" to C6's ECE.
     That is true only on the production path above. ``bin_strata`` is the
     convenience path for callers that have NOT already binned, and it sums by
-    ``bincount`` where C6 sums in a Python loop — same quantity, different
+    ``bincount`` where C6 sums in a Python loop - same quantity, different
     association order, so they differ in the last 1-2 ulp (measured 6.9e-17 on
     this fixture). Docstring corrected; the achievable guarantee is asserted here
     rather than a stronger one being claimed and never checked.
 
     The distinction is not pedantry: C0 is satisfied because the number that
     GATES comes from one binning. What this test protects is the weaker promise
-    that the two paths use the same edges and the same right-open convention — a
+    that the two paths use the same edges and the same right-open convention - a
     real bug (an off-by-one in ``digitize``) would show up here as a gross
     disagreement, not as an ulp.
     """
@@ -437,7 +437,7 @@ def test_the_gate_key_and_mask_are_named_in_code_not_in_a_table(scenario) -> Non
 
 
 # --------------------------------------------------------------------------
-# check() raises — the IouTerms standard, so a shape change cannot pass quietly
+# check() raises - the IouTerms standard, so a shape change cannot pass quietly
 # --------------------------------------------------------------------------
 
 
@@ -482,7 +482,7 @@ def test_check_raises_when_a_term_is_not_a_probability() -> None:
 def test_a_missing_frontier_family_says_why_rather_than_scoring_silently() -> None:
     """Without x0 only the term climatology satisfies trivially is checked.
 
-    The criterion still returns a number — it has to, the bin term is real — so
+    The criterion still returns a number - it has to, the bin term is real - so
     the DECLARATION is what stops that number being read as the gate criterion.
     C-1 again: a silently weaker check is worse than a declared one.
     """
@@ -501,7 +501,7 @@ def test_no_family_scored_means_no_criterion() -> None:
 
 
 # --------------------------------------------------------------------------
-# model-blindness, by grep — the property that licenses every number above
+# model-blindness, by grep - the property that licenses every number above
 # --------------------------------------------------------------------------
 
 
@@ -513,7 +513,7 @@ def test_calibration_is_model_blind_by_construction() -> None:
     from a mention: both files DISCUSS ``model/`` and ``runs/`` at length in their
     own docstrings, and a substring check flags that prose. The real property is
     that no import reaches ``model/`` and no executable string literal names a
-    run directory — which is what an AST walk can state and a substring cannot.
+    run directory - which is what an AST walk can state and a substring cannot.
     """
     import ast
 

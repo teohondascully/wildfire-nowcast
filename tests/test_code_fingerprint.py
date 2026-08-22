@@ -5,7 +5,7 @@ check that **cannot discriminate**: ``_SCORING_CODE_MODULES`` was a hand-written
 tuple of ten files, ``model/noiseoracle.py`` and ``model/direct.py`` were never
 added to it, and a run therefore stamped "ONE version of the scoring code" while
 an uncovered module was edited after the run finished. Every test was green
-throughout, because the list was internally consistent — it just did not describe
+throughout, because the list was internally consistent - it just did not describe
 the tree.
 
 So the assertions here are about COVERAGE, not about behaviour on a fixed input:
@@ -16,7 +16,7 @@ So the assertions here are about COVERAGE, not about behaviour on a fixed input:
   come back quietly;
 * a module inside a PACKAGE is covered, which is what makes splitting
   ``contract.py`` safe (ADR-047 (6)(7));
-* planting a module changes the fingerprint and the during-run guard sees it —
+* planting a module changes the fingerprint and the during-run guard sees it -
   the ADR-057 scenario itself, reproduced hermetically;
 * a scan that matches nothing RAISES rather than reporting a clean tree.
 """
@@ -146,7 +146,7 @@ def test_the_during_run_guard_sees_an_edit_to_a_module_nobody_listed(tmp_path: P
     """C-4.2 end to end: sample, edit an UNLISTED module, sample again, get named.
 
     Under the enumerated tuple this comparison returned ``[]`` for any module
-    outside the ten — the run looked clean because the instrument was not
+    outside the ten - the run looked clean because the instrument was not
     pointed at the thing that moved.
     """
     root = _fake_package(tmp_path / "pkg")

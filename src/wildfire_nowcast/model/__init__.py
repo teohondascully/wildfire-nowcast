@@ -1,6 +1,6 @@
 """Model-lead's package: the C5 prediction API, baselines, and the kernel.
 
-Import surface is deliberately thin — :func:`predict` and :func:`load_model` are
+Import surface is deliberately thin - :func:`predict` and :func:`load_model` are
 the C5 contract, and everything else (input assembly, spread physics, the
 baselines themselves) is reached through its own module so that a caller always
 names what it is depending on.

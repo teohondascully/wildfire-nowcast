@@ -1,9 +1,9 @@
-"""[U0] ``stage_decay`` — does a fire's growth fall as the fire AGES?
+"""[U0] ``stage_decay`` - does a fire's growth fall as the fire AGES?
 
 WHY THIS MODULE EXISTS (ADR-058 (1), C0)
 ----------------------------------------
-The most-cited finding in this project — *real fires decelerate and ours does
-not* — was computed by two UNTRACKED scratch scripts, ``runs/_m9_response.py``
+The most-cited finding in this project - *real fires decelerate and ours does
+not* - was computed by two UNTRACKED scratch scripts, ``runs/_m9_response.py``
 and ``runs/_m9_scaling.py``. They were unfingerprinted, untested, and outside
 every guard, so the headline number had no single tracked implementation. This
 module is the promotion: the two published estimators are reproduced here off the
@@ -44,7 +44,7 @@ Six properties, each of which is the reason a rival form was rejected:
    (``min(8, max(3, n // 20))``), so CZU is read on 3 bins and Creek on 8.
 5. **It uses every window.** The published statistic reads the first and last of
    3-8 bins, i.e. 12.5%-66% of the sample, and the discarded middle is where the
-   non-monotonicity lives — on 3 of 5 held-out fires the maximum bin sits
+   non-monotonicity lives - on 3 of 5 held-out fires the maximum bin sits
    BETWEEN the two endpoints being compared (:func:`published_stage_bins` prints
    this).
 6. **It is exactly antisymmetric under time reversal** (with distinct ages), so
@@ -151,7 +151,7 @@ STAGE_DECAY_KEY: Final = "stage_decay"
 
 #: Fewest windows a block may contribute. Four per half is already thin; below
 #: eight the two half-means are dominated by single windows and the estimand is
-#: reporting one hour rather than one stage. Not fitted on anything — it is a
+#: reporting one hour rather than one stage. Not fitted on anything - it is a
 #: refusal threshold, and it returns UNDEFINED rather than a number.
 MIN_WINDOWS_PER_BLOCK: Final = 8
 
@@ -388,8 +388,8 @@ def separation_of_blocks(
 ) -> Separation:
     """Paired equal-block separation of two per-block scalars.
 
-    Delegates to :func:`common.separation.separation` — the same function G2/G3
-    and M11's power analysis use — so a ``stage_decay`` separation is
+    Delegates to :func:`common.separation.separation` - the same function G2/G3
+    and M11's power analysis use - so a ``stage_decay`` separation is
     commensurable with every other separation in this project by construction
     rather than by claim.
     """
@@ -413,7 +413,7 @@ def proportional_closure_separation(distances: Mapping[int, float]) -> dict[str,
 
         mean(f * d) / sd(f * d)  ==  mean(d) / sd(d)
 
-    — **exactly independent of f**. Closing 5% of the gap and closing 100% of it
+    - **exactly independent of f**. Closing 5% of the gap and closing 100% of it
     produce the SAME number. That is an identity, not an estimate, and it is what
     turns "what improvement is detectable" into "is this channel capable of
     detecting an improvement at all at this block count".
@@ -538,7 +538,7 @@ def expected_stage_decay_of_exponential(beta: float) -> float:
 
     With ``g_i = A exp(beta i / n)`` and even ``n``, the late half is the early
     half multiplied by ``exp(beta (n/2) / n)`` term by term, so the ratio of the
-    two means is exactly ``exp(beta / 2)`` — no approximation and no dependence
+    two means is exactly ``exp(beta / 2)`` - no approximation and no dependence
     on ``A`` or ``n``. That is what makes it a recovery target rather than a
     fitted expectation.
     """
@@ -554,7 +554,7 @@ def inject_stage_slope(
 
     A degradation rung for the MDE ladder. On a FLAT growth series it shifts
     ``stage_decay`` by exactly ``delta / 2``; on a real series the realised shift
-    is whatever it is, and the ladder MEASURES it rather than assuming it — the
+    is whatever it is, and the ladder MEASURES it rather than assuming it - the
     severity axis must not be computed by the channel under test (``eval/power``
     module docstring), and here it is a property of the construction.
 
@@ -608,7 +608,7 @@ def known_beta_recovery() -> dict[str, Any]:
        ``beta`` must read back ``beta / 2`` exactly (:func:`
        expected_stage_decay_of_exponential`), across sign, magnitude, sample size
        and amplitude. ``beta = 0`` must read exactly ``0.0``.
-    2. **AGREEMENT — the disqualifying clause.** Two forecasts built to have the
+    2. **AGREEMENT - the disqualifying clause.** Two forecasts built to have the
        SAME stage decay while differing in everything else (amplitude 1 vs
        987.65, 40 windows vs 400) must be reported as identical; a bit-identical
        pair must differ by EXACTLY 0.0; and five blocks of a candidate that IS
@@ -813,7 +813,7 @@ def endpoint_log_ratio(bins: Sequence[Mapping[str, Any]], key: str) -> float | N
 
 
 def _published_bin_count(n: int, n_bins: int) -> int:
-    """``min(n_bins, max(3, n // 20))`` — verbatim from ``runs/_m9_scaling.py``.
+    """``min(n_bins, max(3, n // 20))`` - verbatim from ``runs/_m9_scaling.py``.
 
     Reproduced rather than improved. Note what it does: the number of bins is a
     function of the SAMPLE SIZE, so the published per-fire statistic is read on 3
@@ -878,7 +878,7 @@ def published_stage_bins(
 
 
 def weighted_loglog_slope(x: np.ndarray, y: np.ndarray, w: np.ndarray) -> dict[str, float | int]:
-    """Weighted OLS of ``log y`` on ``log x`` over BINS — ported from ``_m9_scaling.py``.
+    """Weighted OLS of ``log y`` on ``log x`` over BINS - ported from ``_m9_scaling.py``.
 
     Ported VERBATIM, including its standard-error formula (a weighted residual
     variance rescaled by ``n / dof``), because the point of this function is to
@@ -952,7 +952,7 @@ def published_growth_elasticities(
     targets: Sequence[str],
     n_bins: int = 8,
 ) -> dict[str, dict[str, float | int]]:
-    """Reproduce ``elasticities_from_bin_means`` — GROWTH elasticities, pooled."""
+    """Reproduce ``elasticities_from_bin_means`` - GROWTH elasticities, pooled."""
     table = published_frontier_bins(rows, targets=targets, n_bins=n_bins)
     counts = np.array([float(e["n_windows"]) for e in table], dtype=np.float64)
     frontier = np.array([float(e["frontier_mean"]) for e in table], dtype=np.float64)
@@ -972,7 +972,7 @@ def published_within_block_growth_elasticities(
     min_windows: int = 40,
     block_key: str = "spatial_block_id",
 ) -> dict[str, Any]:
-    """Reproduce ``within_block_elasticities`` — the table ADR-058 (3) quotes."""
+    """Reproduce ``within_block_elasticities`` - the table ADR-058 (3) quotes."""
     by_block: dict[int, list[Mapping[str, Any]]] = {}
     for row in rows:
         by_block.setdefault(int(row[block_key]), []).append(row)
@@ -1047,7 +1047,7 @@ def sign_test(n_favourable: int, n_blocks: int) -> dict[str, Any]:
     p = 0.0287 on the SAME per-block direction. G2 already stands on unanimity
     plus a sign test rather than an SD (ADR-053 (5)).
 
-    Exact, via :func:`math.comb` — no normal approximation, which at n = 14 would
+    Exact, via :func:`math.comb` - no normal approximation, which at n = 14 would
     be wrong in the third decimal and is where a borderline call would land.
 
     Reports the OUTCOME string beside the number (ADR-057 (1)); ties must be
@@ -1095,7 +1095,7 @@ ESTIMAND_FUNCTIONS: Final = (
 #: ``known_beta_recovery`` licensed them (U0 deliverable 3, ruled in ADR-060).
 #: Pinned so that a run record can CLAIM "the same estimator" and be checked
 #: rather than believed. Changing the estimand means updating this constant in
-#: the SAME commit and re-running D3 — that friction is the point, because a
+#: the SAME commit and re-running D3 - that friction is the point, because a
 #: silently re-tuned estimand invalidates every result that cites this one.
 D3_LICENSED_ESTIMAND_SHA256: Final = (
     "a78c175a278d6041be769b8d998c4811030f8c3aa82af46143a25920ad03a903"
@@ -1155,7 +1155,7 @@ def licence(*, gate: str = "the stage experiment") -> dict[str, Any]:
 
     It CATCHES the refusal and returns it rather than propagating, because the
     refusal is the expected answer today and a scoring run must still produce its
-    numbers — what it must not do is produce a verdict. Every caller reads
+    numbers - what it must not do is produce a verdict. Every caller reads
     ``may_adjudicate`` and reports ``not_a_verdict`` when it is False.
     """
     try:

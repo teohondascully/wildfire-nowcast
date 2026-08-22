@@ -1,4 +1,4 @@
-"""[L1] The LABEL-NOISE FLOOR — how much of our error the labels themselves own.
+"""[L1] The LABEL-NOISE FLOOR - how much of our error the labels themselves own.
 
 ADR-054 (4). GOFER is ~2 km effective on a 1 km grid and this project has never
 measured what that costs. Two arms, and the second is CALIBRATED BY THE FIRST:
@@ -8,14 +8,14 @@ for a corpus fire, measure GOFER-vs-official agreement directly. That is real
 label noise, not simulated. This module supplies (a).
 
 **(b) SYNTHETIC, calibrated to (a).** Morphological degradation of the labels
-through :mod:`wildfire_nowcast.model.labelnoise` — the dilate/erode observation
-noise model that already exists (C0) — at a severity chosen so that
+through :mod:`wildfire_nowcast.model.labelnoise` - the dilate/erode observation
+noise model that already exists (C0) - at a severity chosen so that
 degraded-truth-vs-truth reproduces the magnitude measured in (a).
 :mod:`wildfire_nowcast.model.noiseoracle` supplies (b).
 
 WHAT THE OFFICIAL PERIMETER IS, AND WHAT IT IS NOT
 -------------------------------------------------
-The reference is the **WFIGS Interagency Perimeters** service — the same public
+The reference is the **WFIGS Interagency Perimeters** service - the same public
 endpoint :mod:`wildfire_nowcast.data.sources.nifc` reads, queried READ-ONLY and
 cached under ``runs/`` rather than under ``data/``, which it never writes to.
 It is a *final* perimeter mapped by incident staff, not an hourly product; the
@@ -45,7 +45,7 @@ THE POSITIVE CONTROL ASSERTS A MAGNITUDE
 degrade-and-score idea, in the style D11 set (``2*AUC-1 == a-b`` to 1.1e-16): an
 ``S x S`` square dilated by ``r`` cells with an 8-connected structuring element
 is EXACTLY an ``(S+2r) x (S+2r)`` square, so its IoU against the original is
-``S**2 / (S+2r)**2`` — a closed form with no tolerance in it. A morphology that
+``S**2 / (S+2r)**2`` - a closed form with no tolerance in it. A morphology that
 is off by one cell fails it. "Non-zero" would not.
 """
 
@@ -106,7 +106,7 @@ def _query(params: dict[str, str]) -> dict[str, Any]:
 
     The service intermittently answers a perfectly valid request with HTTP 200
     and ``{"error": {"code": 400, "message": "Invalid URL"}}`` or ``"Object
-    reference not set to an instance of an object"`` — measured, on the same URL
+    reference not set to an instance of an object"`` - measured, on the same URL
     that succeeds on the next attempt. Retrying only on 429 (the rule in the
     catalog helper under ``data/sources/``) therefore turns a transient server
     fault into "this fire has no official perimeter", which is the single most
@@ -281,7 +281,7 @@ def official_geometry(irwin_id: str, *, to_crs: str = "EPSG:5070") -> tuple[Any,
     """
     # shapely ships no `py.typed` and `types-shapely` is not a declared dev
     # dependency (pyproject is infra's file, not mine). The ignore below is
-    # NARROW — exactly the two untyped imports, by error code — rather than an
+    # NARROW - exactly the two untyped imports, by error code - rather than an
     # entry on the burn-down exemption list, which would silence every future
     # error in this module instead of these two.
     import geopandas as gpd  # noqa: PLC0415
@@ -473,8 +473,8 @@ def square_dilation_identity(side: int = 21, radius: int = 1, pad: int = 12) -> 
     8-connected dilation by ``r`` maps an ``S x S`` square to an
     ``(S+2r) x (S+2r)`` square, so every quantity below has a closed form and the
     check has no tolerance to hide in. Run against
-    :func:`wildfire_nowcast.model.labelnoise.dilate_field` — the shipped
-    morphology, not a local copy — so it certifies the operator the whole
+    :func:`wildfire_nowcast.model.labelnoise.dilate_field` - the shipped
+    morphology, not a local copy - so it certifies the operator the whole
     synthetic arm is built from. If someone swaps in a 4-connected structuring
     element or an off-by-one pad, ``|measured - analytic|`` stops being 0.
     """
@@ -547,7 +547,7 @@ def _rect_case(
         the two components cannot cross-intersect, and
         ``|T | shift(T)| = 2 * (width * height + bar) - |T & shift(T)|``.
     ``masked``  the COHERENT predicted increment is ``shift(T) \\ shift(x0) =
-        shift(T \\ x0)`` — the bar, translated — against the truth bar, so
+        shift(T \\ x0)`` - the bar, translated - against the truth bar, so
         ``max(bar - shift, 0) / (2 * bar - max(bar - shift, 0))``.
     """
     from wildfire_nowcast.common.iou_terms import GATE_CRITERION_KEY  # noqa: PLC0415
@@ -630,7 +630,7 @@ def whole_footprint_vs_masked_increment() -> dict[str, Any]:
 
     They are different functionals, and the proof here is CONSTRUCTIVE and
     asserts MAGNITUDES (the D11 standard, ``2*AUC-1 == a-b`` to 1.1e-16). Two
-    cases, both exact rationals, both scored through the SHIPPED path —
+    cases, both exact rationals, both scored through the SHIPPED path -
     :func:`wildfire_nowcast.model.noiseoracle.perturb_burned` for the
     perturbation and :func:`wildfire_nowcast.eval.metrics.evaluate` for the
     criterion, so nothing is recomputed by a local copy:
@@ -650,14 +650,14 @@ def whole_footprint_vs_masked_increment() -> dict[str, Any]:
     """
     case_a = _rect_case(width=200, height=50, bar=4, shift=4)
     case_b = _rect_case(width=200, height=50, bar=100, shift=10)
-    # THE CONTROL'S OWN CONTROL. At severity zero the two estimands are equal —
-    # both exactly 1.0 — so this construction is capable of reporting AGREEMENT
+    # THE CONTROL'S OWN CONTROL. At severity zero the two estimands are equal -
+    # both exactly 1.0 - so this construction is capable of reporting AGREEMENT
     # and "they diverge" is a property of cases A and B rather than of the
     # harness. A check that returns 'different' on every input is not a check.
     case_identity = _rect_case(width=200, height=50, bar=100, shift=0)
     # `err or 1.0` was the first spelling here and it is WRONG in the one case
     # that matters: an exact match is `0.0`, which is falsy, so a perfect result
-    # read as a failure. Left in the record as an insight — a check that cannot
+    # read as a failure. Left in the record as an insight - a check that cannot
     # pass is the same defect class as a check that cannot fail (C3.5).
     errs = [
         case_a["whole_footprint_abs_error"],

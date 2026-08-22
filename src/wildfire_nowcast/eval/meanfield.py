@@ -1,4 +1,4 @@
-"""Scoring a probability field directly — the M -> infinity limit of a C6 score.
+"""Scoring a probability field directly - the M -> infinity limit of a C6 score.
 
 C6's ``evaluate`` takes ``samples``, which is right: it is model-agnostic and it
 is the only form ELMFIRE and the baselines have in common. But every M-member
@@ -9,7 +9,7 @@ ensemble pays a Monte-Carlo penalty on a quadratic score,
 and at M = 24 in the growth band that is a real fraction of the number being
 compared (measured: it is ~0.0004 against a band Brier of ~0.012, i.e. ~3%).
 The penalty is symmetric between models AT EQUAL M, so the C6 comparison stays
-fair — but it is not zero, and a model whose forecast is a closed-form
+fair - but it is not zero, and a model whose forecast is a closed-form
 probability should be able to say what its sampler cost it. That is all this
 module is for. **It never replaces a C6 number in a gate**; it explains one.
 
@@ -46,7 +46,7 @@ def mean_field_scores(
     """Band Brier / NLL / growth ratio of ``model.predict_proba`` over ``windows``.
 
     ``model`` must expose ``predict_proba(x0, static, weather, horizon_h) ->
-    float[L,H,W]``. Baselines do not, and that is fine — this is a diagnostic
+    float[L,H,W]``. Baselines do not, and that is fine - this is a diagnostic
     for closed-form models, not a comparison table.
     """
     radius = (

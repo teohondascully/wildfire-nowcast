@@ -1,4 +1,4 @@
-"""``python -m wildfire_nowcast.data.cli <command>`` — the data pipeline entry points.
+"""``python -m wildfire_nowcast.data.cli <command>`` - the data pipeline entry points.
 
 Offline (no Earth Engine):
 
@@ -156,7 +156,7 @@ def _cmd_norm_stats(
     out: str | None,
     fires_root: str | None = None,
 ) -> int:
-    """C3 — recompute ``data/norm_stats.json`` over the TRAIN folds only.
+    """C3 - recompute ``data/norm_stats.json`` over the TRAIN folds only.
 
     **Membership comes from the MANIFESTS ON DISK, never from
     ``fire_assignments()``.** That is a corrected defect, not a style choice.
@@ -164,7 +164,7 @@ def _cmd_norm_stats(
     swap it does not know the nine ``gofer_ext`` fires exist: this function would
     have opened 12 tensors instead of 21, counted 7 train blocks instead of 9,
     and printed a completely successful report while normalising the corpus on
-    57% of it. Silent, green, and wrong — the exact family (all-NaN channel,
+    57% of it. Silent, green, and wrong - the exact family (all-NaN channel,
     ``-9999`` sentinel, the neighbour defence that never executed) this project
     keeps finding. The manifests are what ``common.splits.split_fingerprint``
     reads, so using them makes the norm stats and the fingerprint agree by
@@ -251,7 +251,7 @@ def _cmd_norm_stats(
     )
     # The fingerprint is a function of `train_folds`, which this file DEFINES, so
     # it can only be read AFTER the write. Stamping it from the pre-write state
-    # would record the fingerprint of the split being replaced — the same
+    # would record the fingerprint of the split being replaced - the same
     # sampled-at-the-wrong-end defect C-4.2 names for code fingerprints.
     stats["split_fingerprint"] = split_fingerprint(fires_root=root, stats_path=path).get(
         "fingerprint"
@@ -311,7 +311,7 @@ def _cmd_backfill_c2_v27(fire_ids: Sequence[str] | None, *, dry_run: bool) -> in
 
 
 def _cmd_audit(fire_ids: Sequence[str] | None, *, patch: bool, full: bool) -> int:
-    """Advisory scan. Returns 0 even on `suspect` — this is not a contract.
+    """Advisory scan. Returns 0 even on `suspect` - this is not a contract.
 
     A finding here means *go and look*, not *the build is invalid*. Making it
     exit non-zero would put an unratified plausibility bound on the critical

@@ -1,4 +1,4 @@
-"""S5 — anatomy of a per-block ``band_area_dispersion_ratio``.
+"""S5 - anatomy of a per-block ``band_area_dispersion_ratio``.
 
 WHY THIS MODULE EXISTS
 ----------------------
@@ -10,7 +10,7 @@ where ``memberSD`` is the ensemble's SD of total in-band burned area (the thing
 G3 is about) and ``rmsE`` is the RMS error of the ENSEMBLE-MEAN area (the thing
 G3 is not about). ``rmsE`` is a property of the MODEL, not of the fire: a model
 that over-predicts growth inflates its own denominator and therefore *lowers its
-own ratio* without its ensemble getting one cell narrower — and, symmetrically, a
+own ratio* without its ensemble getting one cell narrower - and, symmetrically, a
 model whose bias happens to match a particular fire's growth rate gets a small
 denominator and a flattering ratio on that fire.
 
@@ -22,8 +22,8 @@ THE DECOMPOSITION
 -----------------
 C6 already emits ``band_area_error_bias`` and ``band_area_error_scatter`` per
 fire, and ``rmsE = hypot(bias, scatter)`` exactly. This module adds ONE
-model-independent scale — the RMS of TRUTH's own in-band growth over the same
-window x lead units, written ``truthRMS`` — and rewrites the criterion as an
+model-independent scale - the RMS of TRUTH's own in-band growth over the same
+window x lead units, written ``truthRMS`` - and rewrites the criterion as an
 exact identity::
 
     adr = sqrt((M+1)/M) * s2s * relief
@@ -44,7 +44,7 @@ nothing, so within the growth band (unburned at t0, by construction) every
 member area is 0, so its ``band_area_error_bias`` is exactly ``-mean(truth
 in-band growth)`` and its ``band_area_error_scatter`` is exactly the SD of the
 same quantity. ``truthRMS = hypot`` of those two. This module recomputes it from
-the C1 tensors as well, and the two must agree to 1e-9 — a KNOWN-ANSWER check
+the C1 tensors as well, and the two must agree to 1e-9 - a KNOWN-ANSWER check
 that the window enumeration and mask used here are C6's, not a lookalike.
 
 SCOPE. Reads C6 output JSON and C1 tensors. Calls no model, loads no checkpoint,
@@ -85,7 +85,7 @@ __all__ = [
 
 
 # --------------------------------------------------------------------------
-# truth side — computed from C1 tensors only
+# truth side - computed from C1 tensors only
 # --------------------------------------------------------------------------
 
 
@@ -194,7 +194,7 @@ def _dominant_share(
     Attribution is by the END-state component each new cell belongs to: a new
     cell is credited to whichever t0 components share that end component. A cell
     in an end-component touching TWO t0 components is a merge product and is
-    credited to both, so the shares can sum above 1 — that is the signature we
+    credited to both, so the shares can sum above 1 - that is the signature we
     want to see, not an error to normalise away.
     """
     end_labels, _ = label_components(end)
@@ -219,7 +219,7 @@ class BlockTruth:
     spatial_block_id: int
     n_windows: int
     n_growth_windows: int
-    n_units: int  # growth windows x leads — the metric's denominator count
+    n_units: int  # growth windows x leads - the metric's denominator count
     truth_mean: float
     truth_sd: float
     truth_rms: float
@@ -248,7 +248,7 @@ def block_truth(
     )
     growth = [w for w in wins if w.total_band_growth > 0 or _any_domain_growth(w)]
     # C6's growth stratum is `truth_growth_cells() > 0`, i.e. DOMAIN growth over
-    # the whole window — not in-band growth. Match it exactly.
+    # the whole window - not in-band growth. Match it exactly.
     growth = [w for w in wins if w.domain_growth[-1] > 0]
     vals = np.array([g for w in growth for g in w.band_growth], dtype=np.float64)
     n = int(vals.size)
@@ -306,7 +306,7 @@ def frontier_rate(
     A contagion kernel's total predicted area scales with the length of the
     frontier it propagates from. Normalising truth's growth the same way asks
     whether a block is fast *per unit of front*, which is the quantity a kernel
-    with one learned rate would have to modulate — and is not the same question
+    with one learned rate would have to modulate - and is not the same question
     as "is this a big fire".
     """
     from wildfire_nowcast.common.states import dilate
@@ -353,7 +353,7 @@ def frontier_rate(
 
 
 def participation_ratio(weights: Iterable[float]) -> float:
-    """``(sum w)^2 / sum w^2`` — the effective number of contributing terms.
+    """``(sum w)^2 / sum w^2`` - the effective number of contributing terms.
 
     A sum of ``n`` equal terms has ``n_eff == n``; a sum dominated by one term
     has ``n_eff -> 1``. This is the denominator discipline of C6.4 applied to a
@@ -370,7 +370,7 @@ def participation_ratio(weights: Iterable[float]) -> float:
 
 
 # --------------------------------------------------------------------------
-# model side — read back out of a C6 run record, no model call
+# model side - read back out of a C6 run record, no model call
 # --------------------------------------------------------------------------
 
 
@@ -520,7 +520,7 @@ def decompose_record(
 
 
 # --------------------------------------------------------------------------
-# PLAYTHROUGH — a world whose answer is known BY CONSTRUCTION
+# PLAYTHROUGH - a world whose answer is known BY CONSTRUCTION
 # --------------------------------------------------------------------------
 #
 # The scenario is three synthetic BLOCKS of windows, scored through the real C6
@@ -653,7 +653,7 @@ def _pt_normaliser(values: Sequence[float]) -> float:
     """The model-independent scale: RMS of truth's in-band growth.
 
     A separate module-level function ON PURPOSE, so a defect can replace it with
-    the plausible wrong answer — the MEAN — which is how this error would really
+    the plausible wrong answer - the MEAN - which is how this error would really
     arrive: at the CALL SITE, passing the wrong summary of the same numbers.
     """
     return float(np.sqrt(np.mean(np.square(np.asarray(values, dtype=np.float64)))))
@@ -908,7 +908,7 @@ def run_playthrough() -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
-# the TRANSFER test — is a block's shortfall predicted by its distance from
+# the TRANSFER test - is a block's shortfall predicted by its distance from
 # the train blocks' covariate support?
 # --------------------------------------------------------------------------
 
@@ -923,7 +923,7 @@ def _scored_cells(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Feature rows for every cell C6 SCORES, plus its FBFM40 class.
 
-    Weather is read at ``t0 + 1`` — the hour that drives step 1 under C1.3's
+    Weather is read at ``t0 + 1`` - the hour that drives step 1 under C1.3's
     end-of-hour convention, the same phase ``model.inputs.weather_from_dataset``
     applies. Getting this wrong would compare our conditions to conditions one
     hour out of phase and quietly inflate every distance.
@@ -980,7 +980,7 @@ def support_distance(
     covariance, so correlated channels do not double-count), ``oor_any_frac``
     (share of held-out scored cells outside the train 1-99 percentile box on at
     least one channel), and ``fuel_novel_frac`` (share on an FBFM40 class holding
-    < 0.1% of train mass). Numpy only — C-4.3 freezes the interpreter.
+    < 0.1% of train mass). Numpy only - C-4.3 freezes the interpreter.
     """
     rng = np.random.default_rng(seed)
     xs, fs = [], []

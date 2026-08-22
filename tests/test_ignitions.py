@@ -1,10 +1,10 @@
-"""C2 [v2.7] ``n_ignition_components`` — negative controls, adopted from data.
+"""C2 [v2.7] ``n_ignition_components`` - negative controls, adopted from data.
 
 ADOPTION NOTE. These six controls were written and passing in data's A11
 transcript and lived nowhere else; its proposal P16 asked infra to adopt them
 because it does not own ``tests/``, and ADR-022 (4) accepted. **They are adopted
 by REBUILDING them against the module's public API, not by copying an
-implementation** — the same standard A7 used for the two self-test modules — and
+implementation** - the same standard A7 used for the two self-test modules - and
 the classifications asserted here are data's, unchanged. Where its
 transcript recorded a control that FAILED and concluded the code was right, that
 control is adopted in the form the code says is correct, with the disagreement
@@ -12,14 +12,14 @@ kept in the docstring rather than erased.
 
 WHY THIS ONE MATTERS MORE THAN ITS SIZE SUGGESTS. `n_ignition_components` decides
 whether a 46 km jump is a FILING ARTIFACT (GOFER separating two lightning
-ignitions under one fire id — excluded) or a SPOT EVENT (real long-range signal —
+ignitions under one fire id - excluded) or a SPOT EVENT (real long-range signal -
 retained). The whole 12-fire corpus holds TWO never-merging spot candidates
 against hundreds of 2.0-2.24 km rasterisation holes (R17), so the branch that
 tells those apart is the branch G4's only signal survives or dies on. Excluding
 all inter-component jumps would delete the signal; including them all would feed
 a 46 km artifact into the spot model as if a fire had thrown embers 46 km.
 
-The decisive control is **the 46 km birth that MERGES must return 1** — genealogy
+The decisive control is **the 46 km birth that MERGES must return 1** - genealogy
 overriding distance. It is the only one of the six where the rule's three tiers
 (time, then genealogy, then distance) can disagree with each other, so it is the
 only one that can distinguish the ratified rule from "threshold on distance".
@@ -79,7 +79,7 @@ def _count(frames: list[np.ndarray]):
 
 
 # --------------------------------------------------------------------------
-# the labeller itself — everything below rests on it
+# the labeller itself - everything below rests on it
 # --------------------------------------------------------------------------
 
 
@@ -109,7 +109,7 @@ def test_control_1_two_far_first_frame_seeds_are_two_ignitions() -> None:
 
     Rule (a), TIME: a body in the first burned frame has no antecedent anywhere
     in the record, so it is an ignition regardless of what happens afterwards.
-    This is the case a final-footprint component count gets wrong — the two
+    This is the case a final-footprint component count gets wrong - the two
     merge, so the footprint has one body where there were two fires.
     """
     base = np.zeros(SHAPE, dtype=bool)
@@ -172,7 +172,7 @@ def test_control_3_a_46km_never_merging_birth_is_a_second_ignition() -> None:
 def test_control_4_the_SAME_46km_birth_that_MERGES_is_ONE_ignition() -> None:
     """**THE ONE THAT MATTERS.** Genealogy overrides distance (rule (b)).
 
-    Identical geometry to control 3 — same birth, same hour, same 46 km gap — and
+    Identical geometry to control 3 - same birth, same hour, same 46 km gap - and
     the ONLY difference is that the gap closes before the end, demonstrating a
     link to the region that preceded it. CZU's 14.14 km body at h25 is our widest
     directly observed instance of this.
@@ -213,7 +213,7 @@ def test_control_5_a_6km_never_merging_birth_is_a_SPOT_not_an_ignition() -> None
 
     Inside the observed genealogy range (14.14 km demonstrated), so it is a spot
     candidate. Counting it would inflate the ignition count; DELETING it would
-    remove the signal G4 depends on — the failure mode ADR-017 §7 exists to
+    remove the signal G4 depends on - the failure mode ADR-017 §7 exists to
     prevent. It must be neither: retained and reported.
     """
     base = np.zeros(SHAPE, dtype=bool)
@@ -258,8 +258,8 @@ def test_a_two_cell_gap_does_NOT_merge_and_that_is_the_stated_rule() -> None:
 
     Recorded in its status entry rather than quietly edited: ``SEED_MERGE_KM`` is
     2.25 km, and a two-cell diagonal gap is ``hypot(2, 2) = 2.83 km``, outside it.
-    Adopting the control in the form the CODE is right about — with the
-    disagreement on the record — is the point of adopting it at all. It also pins
+    Adopting the control in the form the CODE is right about - with the
+    disagreement on the record - is the point of adopting it at all. It also pins
     the boundary from the far side, which none of the six do: control 2 pins
     2.236 <= 2.25, this pins 2.83 > 2.25, and the corpus has no observation
     anywhere in [2.3, 29] km, so nothing real sits between them.
@@ -305,7 +305,7 @@ def test_the_count_is_never_below_one_and_provenance_states_its_own_rule() -> No
 def test_the_derivation_reproduces_the_twelve_shipped_manifests() -> None:
     """The adopted controls are synthetic; this is the same rule on real tensors.
 
-    Skips when the corpus is absent, per A10 PROPOSAL 3 — a suite that depends on
+    Skips when the corpus is absent, per A10 PROPOSAL 3 - a suite that depends on
     another lead's live artifacts must skip rather than fail, or it teaches people
     to re-run instead of to read. When the corpus IS present this is the only
     check here that would catch the derivation and the shipped manifests

@@ -1,4 +1,4 @@
-"""PLAYTHROUGH 2 — ELMFIRE baseline non-degeneracy (ADR-030).
+"""PLAYTHROUGH 2 - ELMFIRE baseline non-degeneracy (ADR-030).
 
 A playthrough test is an end-to-end scenario whose correct answer is known BY
 CONSTRUCTION, plus a scoring function returning pass/fail, with a planted defect
@@ -7,7 +7,7 @@ the harness actually detects. This one asks the question S4 exists to answer:
     **Do native inputs make ELMFIRE a non-degenerate baseline?**
 
 and it answers it without a human in the loop, on a scenario with no network
-dependency, while keeping a NEGATIVE CONTROL whose failure is already measured —
+dependency, while keeping a NEGATIVE CONTROL whose failure is already measured -
 the exact configuration that produced ADR-025 (4)'s +2 cells against truth's +54.
 
 WHY A DEGENERACY VERDICT NEEDS ITS OWN SCORING FUNCTION
@@ -19,11 +19,11 @@ against truth's 4,557 and was correctly called degenerate at 0.002x, not at 0x.
 :func:`degeneracy_verdict` therefore pre-registers three criteria, all fixed
 BEFORE any native number existed:
 
-``D1`` no member ignites anything                       — C6.2 verbatim
-``D2`` median member growth < ``floor``                 — order-of-magnitude miss
-``D3`` at most one distinct member                      — not an ensemble at all
+``D1`` no member ignites anything                       - C6.2 verbatim
+``D2`` median member growth < ``floor``                 - order-of-magnitude miss
+``D3`` at most one distinct member                      - not an ensemble at all
 
-For a scenario with truth, ``floor = 0.2 * truth_new`` — under-predicting growth
+For a scenario with truth, ``floor = 0.2 * truth_new`` - under-predicting growth
 by more than 5x. Calibrated against what we already know rather than invented:
 the barred Brier-fit ellipse sits at 0.002x and S3's ELMFIRE at 0.037x (both
 degenerate), while the calibrated ellipse spans 0.845x-3.09x and the kernel
@@ -153,7 +153,7 @@ def degeneracy_verdict(
 
 
 # --------------------------------------------------------------------------
-# the scenario — known by construction, no network
+# the scenario - known by construction, no network
 # --------------------------------------------------------------------------
 
 #: 20 x 20 km of uniform TU5 (Scott & Burgan 165: very high load, dry climate
@@ -185,7 +185,7 @@ class Arm:
     canopy_bulk_density_kgm3_100: int
     crown_fire: bool
     #: What the harness must conclude. The negative control's expectation is
-    #: DEGENERATE, and if it ever comes back non-degenerate the test fails —
+    #: DEGENERATE, and if it ever comes back non-degenerate the test fails -
     #: which is what stops this from being a check that cannot fail.
     expect_degenerate: bool
     why: str
@@ -315,7 +315,7 @@ def run_arm(arm: Arm, *, n_members: int, seed: int, refine: int = DEFAULT_REFINE
 def run_playthrough(
     *, n_members: int = 6, seed: int = 20260808, refine: int = DEFAULT_REFINE
 ) -> dict[str, Any]:
-    """PLAYTHROUGH 2 — pass iff every arm lands where it was declared to land."""
+    """PLAYTHROUGH 2 - pass iff every arm lands where it was declared to land."""
     rows = [run_arm(a, n_members=n_members, seed=seed, refine=refine) for a in ARMS]
     determinism = _determinism_check(n_members=2, seed=seed, refine=refine)
     ok = all(r["agrees_with_expectation"] for r in rows) and determinism["bitwise_identical"]
@@ -395,7 +395,7 @@ def real_fire_ab(
     """The A/B that answers S4's empirical question on REAL data.
 
     Same fire, same windows, same members, same seed; the ONLY difference is the
-    input path. Kept out of :func:`run_playthrough` on purpose — that one must
+    input path. Kept out of :func:`run_playthrough` on purpose - that one must
     stay network-free so it can run in CI, and a test that quietly needs the
     internet is a test that quietly stops running.
     """

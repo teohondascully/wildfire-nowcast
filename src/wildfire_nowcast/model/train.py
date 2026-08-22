@@ -33,12 +33,12 @@ training a generative ensemble and training a mean field:
   quantity: ``p`` is concave in the hazard and the hazard is log-normal in ``z``.
 
 **Nothing here trains the ensemble SPREAD directly, and that is on purpose.**
-The spread is ``sigma``, and ``sigma`` is fitted by the ELBO's own trade-off —
+The spread is ``sigma``, and ``sigma`` is fitted by the ELBO's own trade-off -
 the KL pays for width, the reconstruction pays for narrowness. G3 is adjudicated
 on ``area_dispersion_ratio``, so a term that optimised area spread would be
 tuning on the gate metric. If the fitted ensemble is under-dispersed, that is a
 result about the model and it is reported as one.
-``w_area_crps`` exists (a fair CRPS on the ensemble's burned AREA — a proper
+``w_area_crps`` exists (a fair CRPS on the ensemble's burned AREA - a proper
 score, and literally the "Brier/CRPS" CLAUDE.md names) but defaults to 0 and any
 arm using it is declared as exploratory, because it is adjacent enough to the
 gate metric that quietly enabling it would be indistinguishable from tuning.
@@ -47,7 +47,7 @@ Three decisions here are scientific and are argued where they are made:
 
 1. **Arrival-time CRPS is not a separate term, and adding one would be
    double-counting.** For a monotone binary arrival process with
-   ``F(k) = b_k``, the discrete CRPS/RPS is exactly ``sum_k (b_k - y_k)^2`` —
+   ``F(k) = b_k``, the discrete CRPS/RPS is exactly ``sum_k (b_k - y_k)^2`` -
    the sum of the per-lead Brier scores. ``w_brier`` IS the arrival-CRPS weight.
 
 2. **The growth-moment term is the remedy for the persistence attractor, and it
@@ -178,7 +178,7 @@ class TrainConfig:
     w_brier: float = 2.0
     w_growth: float = 0.05
     #: "batch" = aggregate growth-moment constraint (the remedy of record).
-    #: "window" = per-window log-growth regression (FALSIFIED — it inherits the
+    #: "window" = per-window log-growth regression (FALSIFIED - it inherits the
     #: zero-inflation and pulls toward silence; kept so the failure reproduces).
     growth_moment: str = "batch"
     #: EMA momentum for the aggregate growth moment (0 = raw batch estimate).
@@ -242,7 +242,7 @@ class TrainConfig:
     conditional_prior: bool = False
     #: [M6] Use the FINITE-ENSEMBLE-UNBIASED ("fair") pushforward Brier instead of
     #: the plug-in. See :func:`_fair_brier_correction`: the plug-in adds
-    #: ``Var_z(b)/S`` — the ensemble variance — to the loss as a sharpness bonus,
+    #: ``Var_z(b)/S`` - the ensemble variance - to the loss as a sharpness bonus,
     #: which is ADR-027 (3)'s measured cause of the ~4x-too-narrow ensemble.
     #: This changes the ESTIMATOR of the mandated score, never the estimand, and
     #: has NO free parameter. ``False`` reproduces M5 bitwise.
@@ -275,7 +275,7 @@ class TrainConfig:
     #: [M7] Give the inference network the innovation decomposition explicitly.
     #: **False = M6, bitwise.** MEASURED cause: on the shipped M6 gate checkpoint
     #: the posterior mean of the ACTIVITY GATE separates dormant from growing
-    #: windows by +0.037 against a spread of 0.426 — under a tenth of an SD, and
+    #: windows by +0.037 against a spread of 0.426 - under a tenth of an SD, and
     #: with the wrong sign. `q` cannot see dormancy, so `p(z_t|weather)` has
     #: nothing to regress. See `runs/m7_offstate_optimum.json`.
     innovation_encoder: bool = False
@@ -289,7 +289,7 @@ class TrainConfig:
     w_area_crps: float = 0.0
     band_radius_cells: int | None = None
     #: [M10 / ADR-045] Fit the DIRECT-HORIZON head (arm B) instead of the
-    #: free-running rollout (arm A). **False = arm A, bitwise** — verified by
+    #: free-running rollout (arm A). **False = arm A, bitwise** - verified by
     #: `runs/_m10_bitidentity.py` against the incumbent checkpoint's own outputs,
     #: not by inspection. See :mod:`wildfire_nowcast.model.direct` for why B's
     #: stencil is multi-scale with tied weights (the two obvious constructions
@@ -298,11 +298,11 @@ class TrainConfig:
     #: North-south mirror ABLATION (:func:`mirror_north_south`). Diagnostic only:
     #: a model fitted with this on must never be evaluated against real held-out
     #: fires, because it was fitted to a world that does not exist. It answers one
-    #: question — whether the learned S/SW anisotropy is in the data or in my code.
+    #: question - whether the learned S/SW anisotropy is in the data or in my code.
     mirror_ns: bool = False
     #: [S1 / ADR-061 (6)] Fit ARM S: the incumbent kernel plus ONE scalar input,
     #: log burned area (:class:`~wildfire_nowcast.model.stagehead.StageHead`,
-    #: 4 parameters). **False = arm A, bitwise** — measured by
+    #: 4 parameters). **False = arm A, bitwise** - measured by
     #: ``runs/_s1_bitidentity.py`` against the incumbent checkpoint's own outputs.
     #: Orthogonal to ``direct_horizon``: S1 tests a COVARIATE, M10 tested a
     #: horizon treatment, and combining them would confound two arms.
@@ -320,7 +320,7 @@ class FireTensors:
     fields: StaticFields
     weather: Tensor  # [T, C_w, H, W]
     burned: Tensor  # [T, H, W] in {0., 1.}
-    band: Tensor  # [T, H, W] bool — growth band from x0 at each t0
+    band: Tensor  # [T, H, W] bool - growth band from x0 at each t0
     t0_index: np.ndarray  # usable analysis times
     shape: tuple[int, int]
     static_array: np.ndarray = field(repr=False, default_factory=lambda: np.zeros(0))
@@ -338,7 +338,7 @@ def mirror_north_south(
     This is the decisive discriminator for insights item 25's remaining rival B:
     the learned offset weights grow a wind-INDEPENDENT preference at bearing
     ~201 deg (S/SSW) in 8 of 8 fits, and the label-perturbation ensemble did not
-    remove it. Two explanations survive — a real property of the landscape/weather,
+    remove it. Two explanations survive - a real property of the landscape/weather,
     or an artefact of my own offset parameterisation and array orientation.
     They make OPPOSITE predictions under a mirror, so one run separates them::
 
@@ -378,7 +378,7 @@ def load_fire(
     """Read one C1 store into resident tensors, with the C1.3 phase applied once.
 
     ``weather[t]`` here is indexed by ABSOLUTE time, and a window at ``t0`` uses
-    ``weather[t0+1 : t0+1+H]`` — the same ``t0+1+k`` phase
+    ``weather[t0+1 : t0+1+H]`` - the same ``t0+1+k`` phase
     :func:`~wildfire_nowcast.model.inputs.forecast_inputs` applies, taken from
     that module's convention rather than re-derived.
 
@@ -450,7 +450,7 @@ def _batch(
     """Assemble one batch of windows from ONE fire (they share static fields).
 
     ``perturbation`` is ONE draw of the observation noise, applied identically to
-    ``b0`` and to every lead of ``truth`` — see
+    ``b0`` and to every lead of ``truth`` - see
     :func:`wildfire_nowcast.model.labelnoise.apply_perturbation` for why the
     single shared draw is the whole point. The band is RECOMPUTED from the
     perturbed ``b0``, never carried over, or the model would be scored on cells
@@ -529,7 +529,7 @@ def _losses(
     nll = (nll * mask).sum() / n
     brier_plugin = (((b_score - y) ** 2) * mask).sum() / n
     # [M6] THE FAIR (finite-ensemble-unbiased) PUSHFORWARD BRIER. See
-    # `_fair_brier_correction` — this is the SAME score, estimated without the
+    # `_fair_brier_correction` - this is the SAME score, estimated without the
     # sharpness bias a 4-sample plug-in carries.
     correction = torch.zeros((), dtype=DTYPE)
     if config.fair_brier and latent_terms is not None:
@@ -593,12 +593,12 @@ def _losses(
         # IS A BUG FIX, NOT A WEIGHT CHOICE. A correct ELBO is
         # `sum_cells log p(y|z) - KL`; ours reports the reconstruction as a
         # per-cell MEAN. Leaving the KL unnormalised beside it therefore
-        # multiplies the effective KL weight by the number of scored cells —
-        # measured here as ~3,000 — so `w_kl = 1.0` was silently `w_kl = 3000`.
+        # multiplies the effective KL weight by the number of scored cells -
+        # measured here as ~3,000 - so `w_kl = 1.0` was silently `w_kl = 3000`.
         # The observable symptom was posterior collapse that reads as "the
         # latent had nothing to say": KL per dimension sat at 0.002-0.016 nats,
         # i.e. exactly the free-bits allowance and not one nat more. Same class
-        # as every other defect in this project's record — a normalisation
+        # as every other defect in this project's record - a normalisation
         # applied to one term of a comparison and not to the other.
         out["loss"] = total + config.w_kl * latent_terms["kl"] / n
         out["kl"] = latent_terms["kl"].detach()
@@ -623,7 +623,7 @@ def _elbo_terms(
     The POSTERIOR path is a free-running rollout driven by ``z_k ~ q(. | b_{k-1},
     y_k, p_k^0)``: at each step the encoder sees the state the model has actually
     reached, the truth that step produced, and the model's own ``z = 0``
-    prediction — i.e. it encodes the INNOVATION, which is the quantity ``z_t`` is
+    prediction - i.e. it encodes the INNOVATION, which is the quantity ``z_t`` is
     defined to carry. ``p_k^0`` and ``b_{k-1}`` enter the encoder DETACHED so the
     inference network cannot back-propagate into the physics: ``q`` is there to
     invert the decoder, not to reshape it.
@@ -648,7 +648,7 @@ def _elbo_terms(
     # [M10] A DIRECT-HORIZON head anchors every lead on the window's ORIGIN; a
     # rollout anchors each step on the state it reached. The encoder must see the
     # same field the decoder modulates or the spatial latent dimensions describe a
-    # different fire from the one they act on — which would not crash, and would
+    # different fire from the one they act on - which would not crash, and would
     # not show up anywhere except as a latent that mysteriously learned nothing.
     anchor_on_origin = bool(getattr(model, "anchors_on_origin", False))
     for k in range(horizon_h):
@@ -723,7 +723,7 @@ def _elbo_terms(
     marginal_var_over_s = _fair_brier_correction(stacked)
 
     # Fair CRPS on the burned AREA inside the band. Off by default (w_area_crps
-    # = 0) and declared exploratory wherever it is on — see the module docstring.
+    # = 0) and declared exploratory wherever it is on - see the module docstring.
     mask = batch["band"].unsqueeze(1)
     areas = (stacked * mask.unsqueeze(0)).sum(dim=(-2, -1))  # [S, B, L]
     truth_area = (y * mask).sum(dim=(-2, -1))  # [B, L]
@@ -748,7 +748,7 @@ def _elbo_terms(
 
 
 def _fair_brier_correction(stacked: Tensor) -> Tensor:
-    """[M6] ``s^2 / S`` — the SHARPNESS BIAS of a plug-in pushforward Brier.
+    """[M6] ``s^2 / S`` - the SHARPNESS BIAS of a plug-in pushforward Brier.
 
     **THE DEFECT, DERIVED RATHER THAN SEARCHED FOR.** The pushforward term scores
     the predictive MARGINAL ``p_bar = E_z[b(z)]``, but it can only ever see a
@@ -760,11 +760,11 @@ def _fair_brier_correction(stacked: Tensor) -> Tensor:
     so **the plug-in estimator of the Brier score is BIASED, and the bias is
     exactly the ensemble variance divided by S.** Minimising it therefore adds an
     explicit ``+Var_z(b)/S`` PENALTY ON ENSEMBLE SPREAD that has nothing to do
-    with forecast quality — it is an artifact of estimating a marginal with four
+    with forecast quality - it is an artifact of estimating a marginal with four
     samples. At ``S = 4``, ``w_brier = 2`` and ``n ~ 3,000`` scored cells, that
     penalty outweighs the correctly-normalised KL (``w_kl / n``) by three orders
     of magnitude, which is ADR-027 (3)'s measured "sigma moves 4.8x across
-    `w_brier` and ~10% across a 16x `w_kl` sweep" — *derived*, not observed.
+    `w_brier` and ~10% across a 16x `w_kl` sweep" - *derived*, not observed.
 
     **THE FIX CHANGES THE ESTIMATOR, NOT THE ESTIMAND.** Subtracting the unbiased
     sample variance over ``S`` gives
@@ -773,13 +773,13 @@ def _fair_brier_correction(stacked: Tensor) -> Tensor:
 
     exactly, for every ``S >= 2``. This is the standard finite-ensemble ("fair",
     Ferro 2014) correction of a proper score, and it is the SAME multi-step
-    pushforward Brier CLAUDE.md mandates — estimated without the bias.
+    pushforward Brier CLAUDE.md mandates - estimated without the bias.
 
     **WHY THIS IS NOT TUNING ON THE GATE (ADR-027 (6) is the standard I am held
     to).** It has NO free parameter, so there is nothing to tune. It never
     references area, spread, dispersion or any G3 quantity: its expectation is a
     pure function of the marginal ``p_bar``. And it is a bias correction whose
-    size is fixed by ``S`` alone — the same correction, with the same sign and
+    size is fixed by ``S`` alone - the same correction, with the same sign and
     the same magnitude, whatever the ensemble turns out to score.
 
     ``S = 1`` returns exactly zero: with one sample there is no variance estimate
@@ -850,7 +850,7 @@ def innovation_autocorrelation(
 
     **This is a generative parameter estimated on TRAIN fires, exactly as
     ADR-011/C6.2 estimates the ellipse's scale on TRAIN fires.** It reads no
-    held-out fire, no ensemble, and no gate metric — so it cannot be, and is not,
+    held-out fire, no ensemble, and no gate metric - so it cannot be, and is not,
     tuned toward ``area_dispersion_ratio``. C-3 applies and is satisfied by
     construction: the estimate spans 8 fires / 7 spatial blocks, and the per-fire
     values are returned so the pooled number can be audited against its spread.
@@ -932,8 +932,8 @@ def growth_diagnostics(
 
     [M5] With a latent, ``n_prior_samples > 0`` estimates the MARGINAL
     ``E_z E[new cells]`` instead. That is the quantity the ensemble realises and
-    it is NOT the ``z = 0`` value — the hazard is log-normal in ``z`` and ``p``
-    is concave in the hazard — so a growth ratio quoted at ``z = 0`` for a latent
+    it is NOT the ``z = 0`` value - the hazard is log-normal in ``z`` and ``p``
+    is concave in the hazard - so a growth ratio quoted at ``z = 0`` for a latent
     model would describe a forecast nobody samples.
     """
     rng = np.random.default_rng(seed)
@@ -1030,7 +1030,7 @@ def wind_sector_report(
 
     sim's S3 measured, on held-out fires, that TRAINING INVERTS our wind
     anisotropy: the untrained kernel scores head/flank/rear 1.507 / 1.133 / 0.847
-    (correctly anisotropic — more growth downwind than the truth had, less
+    (correctly anisotropic - more growth downwind than the truth had, less
     upwind), and the trained one scores 0.863 / 0.974 / 1.315 (inverted: it
     UNDER-predicts downwind and OVER-predicts upwind). That is backwards for a
     wind-driven fire.
@@ -1124,7 +1124,7 @@ def train_ensemble_diagnostics(
 
     The two arms are the SAME parameters (``with_sampler`` shares them), the same
     windows and the same seed. The reported quantity is the ensemble's spread in
-    TOTAL BURNED AREA relative to its own mean — the collapse
+    TOTAL BURNED AREA relative to its own mean - the collapse
     ``area_dispersion_ratio`` detects, expressed without a truth term so it
     cannot be confused with a skill score.
     """
@@ -1205,7 +1205,7 @@ def calibrate_alpha_to_growth(
     Same rule as the ellipse baseline's C6.2 calibration, applied to the
     kernel's initialisation. The point is that training starts from a physics
     model that is already right about the *rate*, so anything the optimiser
-    subsequently buys is about the *shape* — which is what the anisotropic
+    subsequently buys is about the *shape* - which is what the anisotropic
     kernel is a claim about.
     """
     lo, hi = -12.0, 12.0
@@ -1247,8 +1247,8 @@ def stamp_expected_c6_3(split: dict[str, Any]) -> dict[str, Any]:
     """[v2.16 C6.3] Declare a ``c6_3_satisfied: false`` that the PARTITION predicts.
 
     A leave-fold-out fold holding out fewer than four spatial blocks reports
-    ``c6_3_satisfied: false``. That is correct — C6.3's four-block minimum is
-    G2's, and a CV-matrix fold adjudicates nothing gate-shaped — but an
+    ``c6_3_satisfied: false``. That is correct - C6.3's four-block minimum is
+    G2's, and a CV-matrix fold adjudicates nothing gate-shaped - but an
     undeclared ``false`` in an artifact reads as a fault, which is what ADR-062
     (7) asked to prevent.
 
@@ -1256,11 +1256,11 @@ def stamp_expected_c6_3(split: dict[str, Any]) -> dict[str, Any]:
     ``folds_expected_to_fail_c6_3()``, which computes them from the partition; a
     hand-written list would have reproduced ADR-062 (7)'s arithmetic slip (it
     names folds 0 and 1; fold 2 holds out ``{3, 9, 13}``, three blocks, and is
-    also below the minimum — ADR-066 (2)). A ``false`` on a fold the partition
+    also below the minimum - ADR-066 (2)). A ``false`` on a fold the partition
     does NOT predict is left undeclared on purpose: that one IS a surprise and
     must stay one.
 
-    The value never moves — ``stamp_c6_3_expected_false`` raises on anything that
+    The value never moves - ``stamp_c6_3_expected_false`` raises on anything that
     is not exactly ``False`` and returns a copy whose ``c6_3_satisfied`` is
     byte-identical.
     """
@@ -1301,7 +1301,7 @@ def train_kernel(
     """Fit the kernel on TRAIN fires. Returns the run payload; writes ``runs/``.
 
     ``stats_path`` [v2.16, C8.2 / ADR-062 (5)] selects WHICH leave-fold-out
-    normalisation — and therefore which fold partition — this fit runs under.
+    normalisation - and therefore which fold partition - this fit runs under.
     ``None`` is the repo default and is today's behaviour: same train fires, same
     fingerprint (``b3e5dadad01eaef9``), same weights.
 
@@ -1324,7 +1324,7 @@ def train_kernel(
     * ``run_meta.json`` is stamped from the SAME context. ``create_run_dir``
       stamps the repo-default split structurally, which for a rotated fold would
       put a second, different fingerprint in the run directory and hard-fail
-      ``C8.internally_consistent`` on the fold's own run — the checker being
+      ``C8.internally_consistent`` on the fold's own run - the checker being
       right about a real inconsistency I would have created. Passing the context's
       stamp through ``extra_meta`` (applied last by ``common.runs._provenance``)
       keeps one run directory to exactly one split, without editing ``common/``.
@@ -1378,8 +1378,8 @@ def train_kernel(
     load_s = time.time() - t_load
 
     # [M10] One constructor call, one config, two arms. The direct head differs
-    # from the rollout in its CLASS and in nothing else that this function does —
-    # same losses, same optimiser, same seed, same calibration, same diagnostics —
+    # from the rollout in its CLASS and in nothing else that this function does -
+    # same losses, same optimiser, same seed, same calibration, same diagnostics -
     # so a difference in the result is a difference in the horizon treatment and
     # not in the training recipe.
     kernel_cls = DirectHorizonKernel if cfg.direct_horizon else ContagionKernel
@@ -1388,7 +1388,7 @@ def train_kernel(
             radius=cfg.radius,
             susceptibility_mode=cfg.susceptibility_mode,
             # [S1] The ONLY difference between arm A and arm S. Same class, same
-            # losses, same optimiser, same seed, same calibration — so a
+            # losses, same optimiser, same seed, same calibration - so a
             # difference in the result is a difference in the COVARIATE.
             stage_scalar=cfg.stage_scalar,
         ),
@@ -1760,7 +1760,7 @@ M3_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
 #:
 #: If a declared entry's TRAIN 3 h growth ratio falls outside [0.8, 1.25] it is
 #: reported as failing its own sanity condition. It is NOT swapped for a config
-#: that passes — swapping is how a selection rule becomes a search.
+#: that passes - swapping is how a selection rule becomes a search.
 M3_SELECTION_RULE = (
     "PRE-DECLARED, NOT FITTED. G2 candidate = 'amplitude_perturbed' (ADR-015 6a + 6b at "
     "their specified settings). Second declared entry = 'amplitude' (6a alone). Neither is "
@@ -1775,15 +1775,15 @@ M3_DECLARED_ENTRIES: tuple[str, ...] = ("amplitude_perturbed", "amplitude")
 #:
 #: **ONE intervention separates the candidate from the G2 kernel: the latent.**
 #: `zt` and `nozt` differ ONLY in `latent_dim`, so "the ensemble got wider" cannot
-#: be confounded with "the kernel got better". Everything else — amplitude
-#: susceptibility, the NB moisture floor, `w_growth = 0`, 300 steps — is M4's
+#: be confounded with "the kernel got better". Everything else - amplitude
+#: susceptibility, the NB moisture floor, `w_growth = 0`, 300 steps - is M4's
 #: configuration held fixed.
 #:
 #: **The growth-moment ladder that would normally appear here is DELIBERATELY
 #: ABSENT, and the reason is a measurement.** ADR-021 (3b) names our 2.66-3.06x
 #: held-out growth over-prediction as the thing G3's dispersion bar collides
 #: with, and the obvious response is to raise `w_growth`. But the four M4
-#: checkpoints score a TRAIN growth ratio of **1.00-1.23** — they are already
+#: checkpoints score a TRAIN growth ratio of **1.00-1.23** - they are already
 #: calibrated where they were fitted. The over-prediction is therefore a
 #: TRAIN -> HELD-OUT TRANSFER GAP, and a loss term that pins the train moment
 #: cannot close it. Adding the ladder would have produced four runs, a
@@ -1843,11 +1843,11 @@ M5_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
 #: was exploratory.
 #:
 #: SANITY CONDITION, on TRAIN only, checked before any held-out scoring:
-#:   (a) TRAIN 3 h growth ratio in [0.8, 1.25]  — the M3 band, unchanged;
+#:   (a) TRAIN 3 h growth ratio in [0.8, 1.25]  - the M3 band, unchanged;
 #:   (b) the fitted `sigma` is not collapsed (> 0.01 on at least one dimension);
 #:   (c) the TRAIN collapse control shows the latent arm with MORE pooled member
 #:       area variance than its own independent-noise ablation.
-#: A declared entry failing any of these is REPORTED AS FAILING, never replaced —
+#: A declared entry failing any of these is REPORTED AS FAILING, never replaced -
 #: (c) especially, because a failure there is evidence about the ensemble
 #: machinery and suppressing it would remove the only positive control we have.
 M5_SELECTION_RULE = (
@@ -1888,7 +1888,7 @@ M6_ACTIVITY_PREREGISTRATION = (
 #: hour-pairs, against the M5 no-latent checkpoint: pooled lag-1 autocorrelation
 #: of the one-step growth innovation = **0.5144**, per-fire 0.2171-0.6224, and
 #: positive on 8 of 8. Recorded at `runs/m6_innovation_autocorr.json`.
-#: C-3 is satisfied by construction — 8 fires across 7 spatial blocks — and no
+#: C-3 is satisfied by construction - 8 fires across 7 spatial blocks - and no
 #: held-out fire and no gate metric enters the estimate.
 M6B_RHO = 0.5144
 
@@ -1924,7 +1924,7 @@ M6_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
 #: [M6B] PRE-REGISTERED BEFORE THE FIRST LOSS-FIX RUN. Full text: insights 52-54.
 #:
 #: **THE FIX IS DERIVED, NOT SEARCHED, AND THE MECHANISM IS ARITHMETIC.** ADR-027
-#: (3) measured that the multi-step pushforward Brier — not the ELBO — sets the
+#: (3) measured that the multi-step pushforward Brier - not the ELBO - sets the
 #: ensemble width. Reading the loss rather than sweeping it says why, in one line:
 #: the term scores the predictive MARGINAL but can only see an ``S = 4`` sample
 #: estimate of it, and ``E[(p_hat_S - y)^2] = (p_bar - y)^2 + Var_z(b)/S``. **The
@@ -1934,17 +1934,17 @@ M6_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
 #: Three corrections, each of which removes a CONFOUND BETWEEN SPREAD AND MEAN
 #: rather than adding a knob. None references area, dispersion or any G3
 #: quantity; none has a free parameter fitted against a score:
-#:  1. ``fair_brier`` — score the mandated Brier with the finite-ensemble
+#:  1. ``fair_brier`` - score the mandated Brier with the finite-ensemble
 #:     unbiased estimator. Changes the ESTIMATOR, never the estimand.
-#:  2. ``mean_preserving_latent`` — ``E_z[e^effect] = 1`` exactly, so ``sigma`` is
+#:  2. ``mean_preserving_latent`` - ``E_z[e^effect] = 1`` exactly, so ``sigma`` is
 #:     a pure spread parameter and does not also inflate the ensemble mean.
-#:  3. ``latent_rho`` — AR(1) persistence of ``z_t``, at the value MEASURED on
+#:  3. ``latent_rho`` - AR(1) persistence of ``z_t``, at the value MEASURED on
 #:     TRAIN fires by :func:`innovation_autocorrelation` (0.5144 pooled over
 #:     2,350 hour-pairs, 8 fires, per-fire 0.217-0.622, all 8 positive).
 #:
 #: The candidate is the COMPOSITION and is NAMED IN ADVANCE. The three
 #: single-mechanism arms exist so the result is ATTRIBUTABLE, not so the best one
-#: can be promoted — none may be.
+#: can be promoted - none may be.
 M6B_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     (
         "m6_fair",
@@ -2044,7 +2044,7 @@ M6B_DECLARED_ENTRIES: tuple[str, ...] = ("m6_fair", "m5_zt_repro")
 #:   ``intensity_radial``      **1.1451**   (mean **+1.0034**)
 #:
 #: **THE RADIAL MODE'S MEAN LEVER IS 1.00, WHICH MAKES IT THE GLOBAL MODE IN A
-#: SPATIAL COSTUME** — growth happens at the frontier, where ``phi_radial ~ +1``
+#: SPATIAL COSTUME** - growth happens at the frontier, where ``phi_radial ~ +1``
 #: by construction, so for AREA it is nearly a relabelled ``log_intensity``. It
 #: is therefore DECLARED EXPLORATORY here, before any number exists, and may
 #: never be promoted. **That ban was stated on ADR-032 (3), which ADR-034 (2) has
@@ -2053,7 +2053,7 @@ M6B_DECLARED_ENTRIES: tuple[str, ...] = ("m6_fair", "m5_zt_repro")
 #: promoting it would buy dispersion by scaling the whole hazard field under a
 #: name that says otherwise. That holds whether or not uniform blurring is why the
 #: global latent failed, and the latter is the half ADR-034 (2) took away.
-#: The two GRADIENT modes have mean lever ~0 and RMS ~0.30 — genuinely
+#: The two GRADIENT modes have mean lever ~0 and RMS ~0.30 - genuinely
 #: window-specific, which is what "the ensemble disagrees about WHERE" means.
 #: Geographic east/north is chosen over a WIND-FRAME basis for exactly this
 #: reason: an along-wind mode would sit on the head every hour and inherit the
@@ -2062,12 +2062,12 @@ M7_SPATIAL_LEVER_RMS: tuple[float, float, float] = (0.3013, 0.2953, 1.1451)
 
 #: [M7] PRE-REGISTERED BEFORE THE FIRST M7 TRAINING RUN. Full text: insights 59-63.
 #:
-#: TWO INDEPENDENT PROBLEMS, TWO CANDIDATES, NEITHER COMPOSED WITH THE OTHER —
+#: TWO INDEPENDENT PROBLEMS, TWO CANDIDATES, NEITHER COMPOSED WITH THE OTHER -
 #: ADR-029 (7)'s one-variable-at-a-time rule applies inside a milestone too.
 #:  A. DISPERSION (ADR-032 (3)): a global scalar latent can only widen by
 #:     blurring. ``m7_spatial`` gives ``z_t`` two SPATIAL degrees of freedom.
 #:  B. THE OFF STATE (ADR-032 (5)): measured one level below the brief's
-#:     diagnosis. It is not that ``p(z_t|weather)`` cannot be fitted — it is that
+#:     diagnosis. It is not that ``p(z_t|weather)`` cannot be fitted - it is that
 #:     ``q`` never saw dormancy to hand it. ``m7_offstate`` fixes the encoder.
 #:
 #: **OUTCOME, APPENDED RATHER THAN EDITED IN: a pre-registration rewritten after
@@ -2189,7 +2189,7 @@ M7_SELECTION_RULE = (
 
 M7_DECLARED_ENTRIES: tuple[str, ...] = ("m7_spatial", "m7_offstate")
 
-#: [M8] MEASURED BEFORE THE FIRST M8 ARM RAN — `runs/m8_partition_probe.json` and
+#: [M8] MEASURED BEFORE THE FIRST M8 ARM RAN - `runs/m8_partition_probe.json` and
 #: `runs/m8_transfer_probe.json`. Both read labels/weather only; neither reads a
 #: held-out score, and neither is fitted.
 #:
@@ -2197,7 +2197,7 @@ M7_DECLARED_ENTRIES: tuple[str, ...] = ("m7_spatial", "m7_offstate")
 #: BETWEEN TRAIN AND HELD-OUT, AND SO DOES A ONE-PARAMETER PHYSICS BASELINE.**
 #: The wind-advected ellipse's ONLY fitted number is a scale set by C6.2 to
 #: reproduce TRAIN mean hourly growth; at 3 h that scale lands at TRAIN ratio
-#: **1.0086** and scores held-out **0.8447** — transfer **0.838**. Our arms:
+#: **1.0086** and scores held-out **0.8447** - transfer **0.838**. Our arms:
 #: `m6_fair` 0.819, `m7_spatial` 0.813, gate arms 0.719. A baseline with no
 #: latent, no CNN, no Brier term and no gate shows the SAME loss, so ~0.84 of
 #: ADR-034 (1)(4)'s "new failure mode" is a PROPERTY OF THE PARTITION and is not
@@ -2208,10 +2208,10 @@ M8_GATE_EXTRA_TRANSFER_LOSS = 0.719 / 0.838
 
 #: [M8] FALSIFIED BEFORE THE CANDIDATE WAS DESIGNED, and it is why the candidate
 #: is not what I first reached for. HYPOTHESIS: the gate's extra transfer loss is
-#: its CONDITIONAL PRIOR extrapolating — `mu_p = gate_prior_mean + b + w . cov`
+#: its CONDITIONAL PRIOR extrapolating - `mu_p = gate_prior_mean + b + w . cov`
 #: multiplies the field by `e^(sigma mu_p)`, and held-out weather is a different
 #: distribution. Predicted `e^(sigma (mu_ho - mu_tr)) ~ 0.878` if true.
-#: **MEASURED over all 8 M7 gate seeds: 1.057 — the WRONG SIGN.** The conditional
+#: **MEASURED over all 8 M7 gate seeds: 1.057 - the WRONG SIGN.** The conditional
 #: prior makes held-out slightly HOTTER, not cooler. Hypothesis dead; the fix it
 #: implied (centre the conditional term) was never built.
 M8_CONDITIONAL_PRIOR_TRANSFER = 1.0575
@@ -2230,13 +2230,13 @@ M8_CONDITIONAL_PRIOR_TRANSFER = 1.0575
 #:
 #: **TWO CHANGES, AND THE MATRIX IS A 2x2 SO EACH IS ATTRIBUTABLE.** Neither is a
 #: knob and neither references a gate quantity:
-#:  1. ``gate_mean_preserving`` — extend the parameter-free log-normal correction
+#:  1. ``gate_mean_preserving`` - extend the parameter-free log-normal correction
 #:     to the gate. REVERSES an M6 exemption whose stated premise (protect the OFF
 #:     state) ADR-034 (4) falsified: `dormant_off_rate` is 0.0000 on every gate arm
 #:     and the ceiling from C1's covariates is 0.143. The exemption protects
-#:     nothing measured and costs the mean. **The asymmetry SURVIVES** — the
+#:     nothing measured and costs the mean. **The asymmetry SURVIVES** - the
 #:     multiplier stays log-normal with sigma ~1.3, median 0.43 against mean 1.
-#:  2. ``spatial_modes = 2`` — the M7 component, composed with the gate for the
+#:  2. ``spatial_modes = 2`` - the M7 component, composed with the gate for the
 #:     first time. M7 held them apart under ADR-029 (7)'s one-variable rule and
 #:     both single effects are now MEASURED AND ATTRIBUTED: the gate buys
 #:     dispersion (0.2331 -> 0.7552) and costs G2's criterion (0.1555 -> 0.1461);
@@ -2246,7 +2246,7 @@ M8_CONDITIONAL_PRIOR_TRANSFER = 1.0575
 #:     interventions measured to move them in the directions required.**
 #:
 #: `m7_offstate`'s four recorded seeds are the (no-correction, no-spatial) CELL of
-#: the 2x2 and are NOT retrained — the control cannot drift under the candidate.
+#: the 2x2 and are NOT retrained - the control cannot drift under the candidate.
 M8_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     (
         "m8_asym",
@@ -2420,7 +2420,7 @@ M8_PREDICTIONS: tuple[tuple[str, str], ...] = (
 #: I do NOT predict the OFF state improves. `dormant_off_rate` is expected to stay
 #: 0.0000 on every M8 arm. ADR-034 (4) measured the ceiling at 0.143 from the
 #: covariates C1 carries, and my own insight 51 ("this needs a diurnal feature")
-#: is falsified — a diurnal feature makes LOFO AUC WORSE. That is a FEATURE GAP,
+#: is falsified - a diurnal feature makes LOFO AUC WORSE. That is a FEATURE GAP,
 #: not an unfitted model, and M8 deliberately does not spend a run on it.
 M8_OFF_STATE_IS_NOT_A_TARGET = True
 

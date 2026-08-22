@@ -2,7 +2,7 @@
 
 ``common/playthrough.py`` exists to make one sentence enforceable: *a playthrough
 that cannot fail must not ship*. That makes the harness itself the highest-risk
-object in the repo — **if the coverage machinery is vacuous, every playthrough it
+object in the repo - **if the coverage machinery is vacuous, every playthrough it
 blesses is vacuous too, and the whole policy becomes a green light.** This module
 therefore does two separate things:
 
@@ -11,13 +11,13 @@ therefore does two separate things:
    on the clean world, a mutation that leaked out of its context manager.
 2. **RUNS THE HARNESS THROUGH ITSELF.** :data:`HARNESS_PLAYTHROUGH` is a
    playthrough whose SUBJECT is a playthrough, whose observation is a coverage
-   report, and whose planted defects are the ways a coverage harness goes blind —
+   report, and whose planted defects are the ways a coverage harness goes blind -
    a probe that always passes, a defect that mutates nothing, a probe removed
    from the set. If the harness cannot detect a blind harness, it cannot be
    trusted to detect anyone else's.
 
-The inner scenario is deliberately tiny and arithmetic — the sample variance of
-four integers, whose Bessel-corrected value is known exactly — because the
+The inner scenario is deliberately tiny and arithmetic - the sample variance of
+four integers, whose Bessel-corrected value is known exactly - because the
 harness's correctness must not depend on any model, metric or fixture in this
 repo. It is the same reason ``common/calibration.py`` was validated on
 constructed cases before being pointed at anything: an instrument validated
@@ -47,7 +47,7 @@ from wildfire_nowcast.common.playthrough import (
 # [A14] SELF-DECLARATION, read by tests/test_playthrough_registry.py.
 # Registration is AUTOMATIC and these constants are how this module identifies
 # itself. They live HERE, beside the playthrough, so that adding or changing a
-# playthrough never requires editing another lead's file — the mechanism fix for
+# playthrough never requires editing another lead's file - the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
 PLAYTHROUGH_OWNER = "infra"
@@ -76,7 +76,7 @@ class World:
 
 
 class Estimator:
-    """A stand-in for ``eval/metrics.py`` — an INSTRUMENT that can be mutated."""
+    """A stand-in for ``eval/metrics.py`` - an INSTRUMENT that can be mutated."""
 
     ddof = 1
 
@@ -161,7 +161,7 @@ def test_a_well_formed_playthrough_reaches_full_mutation_coverage() -> None:
 
 
 def test_each_defect_is_caught_by_exactly_the_probe_that_should_catch_it() -> None:
-    """Attribution, not just detection — the ADR-032 (4) finding, mechanised.
+    """Attribution, not just detection - the ADR-032 (4) finding, mechanised.
 
     ``ddof`` is invisible to the mean and the shift is invisible to the variance.
     A harness that reported "something failed" would let a probe be deleted with
@@ -174,7 +174,7 @@ def test_each_defect_is_caught_by_exactly_the_probe_that_should_catch_it() -> No
 
 
 def test_the_sole_catcher_map_names_the_load_bearing_probes() -> None:
-    """`only the RANGE catches a missing square root` — as data, not a comment."""
+    """`only the RANGE catches a missing square root` - as data, not a comment."""
     report = run(INNER)
     assert report.sole_catchers == {
         "population_variance_ddof0": "variance_exact",
@@ -232,7 +232,7 @@ def test_a_blind_spot_that_CLOSES_is_also_a_failure() -> None:
     """`update the record, do not delete the test`, enforced rather than written.
 
     The reordering defect is declared undetectable. Add an order-sensitive probe
-    and it becomes detectable — which is good news about the instrument and must
+    and it becomes detectable - which is good news about the instrument and must
     still break the build, because the record now says something false.
     """
 

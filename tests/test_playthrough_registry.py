@@ -2,7 +2,7 @@
 
 ``common/playthrough.py`` makes a playthrough *able* to prove it can fail. This
 module makes it *have to*. It is the same move ``tests/test_clause_registry.py``
-made for C-2 — an audit that reads the repo rather than a hand-kept list, so it
+made for C-2 - an audit that reads the repo rather than a hand-kept list, so it
 cannot drift from the thing it audits:
 
 1. Every playthrough in the repo is registered with an owner and a note.
@@ -12,7 +12,7 @@ cannot drift from the thing it audits:
 2. DISCOVERY IS BY SCANNING THE FILESYSTEM, not by importing a list. A file named
    ``tests/test_playthrough_*.py``, or any module in ``src/`` that defines
    ``run_playthrough``, must be registered. A wiring that needs infra's
-   attention to stay complete rots the moment another lead is mid-flight —
+   attention to stay complete rots the moment another lead is mid-flight -
    ``tests/test_adopted_selftests.py`` learned that already and this copies it.
 3. **[A14] REGISTRATION IS AUTOMATIC: a playthrough declares itself IN ITS OWN
    MODULE.** See :func:`declared_metadata`. Nothing below has to be edited to add
@@ -23,11 +23,11 @@ cannot drift from the thing it audits:
 WHY REGISTRATION HAD TO BECOME AUTOMATIC [A14, ADR-039 (6)]
 ------------------------------------------------------------
 Discovery was already automatic; **registration was not**, and a hand-written
-entry in THIS FILE — which infra owns — was required before a playthrough
+entry in THIS FILE - which infra owns - was required before a playthrough
 could pass. That forced **three cross-boundary writes in three consecutive
 tasks**: simviz added 11 lines here (ADR-035 (7)), modelling 9 lines (ADR-034
 (6)), and the same root cause put infra into INTERFACES.md (ADR-033 (1)).
-Each was disclosed, offered for reversion and ratified — and each happened
+Each was disclosed, offered for reversion and ratified - and each happened
 because *the design made compliance impossible*. C-4 exists to prevent exactly
 the edit the mechanism was compelling.
 
@@ -38,7 +38,7 @@ reads them. The two entries that remain hand-written are FROZEN and named
 (:data:`_GRANDFATHERED`), and a test asserts that set cannot grow.
 
 **AUTO-DISCOVERY IS NOT AUTO-FORGIVENESS.** A discovered module that declares
-nothing is a RED BUILD, not a skip — with a message naming the four lines to add.
+nothing is a RED BUILD, not a skip - with a message naming the four lines to add.
 The failure moved from "you forgot to edit someone else's file" to "you forgot to
 describe your own", which is a failure the author can fix inside their own
 ownership boundary.
@@ -59,8 +59,8 @@ WHAT IS DELIBERATELY NOT ENFORCED HERE
 That a gate HAS a playthrough. Which metric adjudicates which gate is C6.1's
 business and the maintainer's ruling, and a test asserting "G5 has a
 playthrough" would be infra legislating gate scope from ``tests/``. This
-module enforces the property ADR-030 actually names — *the planted defect is
-detected* — over every playthrough that exists.
+module enforces the property ADR-030 actually names - *the planted defect is
+detected* - over every playthrough that exists.
 """
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ def _sibling(name: str) -> ModuleType:
 # discovery
 # --------------------------------------------------------------------------
 
-#: A module in ``src/`` that defines this name is a playthrough by construction —
+#: A module in ``src/`` that defines this name is a playthrough by construction -
 #: it is the entry point sim chose, independently, before this registry
 #: existed. Matching on the function rather than on the filename means a
 #: playthrough cannot escape the audit by being called something else.
@@ -111,7 +111,7 @@ def _defines(path: Path, name: str) -> bool:
     ``ast`` rather than ``importlib`` on purpose: discovery must not depend on a
     module's imports being satisfiable. ``sim/playthrough.py`` pulls in the
     ELMFIRE adapter, and a discovery pass that crashed on a missing binary would
-    silently stop discovering things — which is the failure mode this module is
+    silently stop discovering things - which is the failure mode this module is
     about.
     """
     try:
@@ -145,7 +145,7 @@ def discover_playthroughs() -> set[str]:
 
 
 # --------------------------------------------------------------------------
-# [A14] SELF-DECLARATION — the mechanism fix
+# [A14] SELF-DECLARATION - the mechanism fix
 # --------------------------------------------------------------------------
 
 #: Module-level constants a playthrough declares ABOUT ITSELF, in its own file.
@@ -160,7 +160,7 @@ OWNER_ATTR, NOTE_ATTR, SLOW_ATTR = (
 #: How a module hands over the thing to be run, in the order they are tried.
 #: ``PLAYTHROUGH`` (an object) · ``build_playthrough()`` (a factory, for modules
 #: whose construction is expensive) · ``run_playthrough()`` (a foreign entry point
-#: that returns its own report — simviz invented this one independently, before
+#: that returns its own report - simviz invented this one independently, before
 #: the protocol existed, which is why it is honoured rather than replaced).
 ENTRY_POINTS = ("PLAYTHROUGH", "build_playthrough", PLAYTHROUGH_ENTRY_POINT)
 
@@ -183,7 +183,7 @@ def declared_metadata(rel_path: str) -> dict[str, str]:
 
     AST rather than ``importlib`` for the same reason discovery uses it:
     ``sim/playthrough.py`` pulls in the ELMFIRE adapter, and a registration pass
-    that crashed on a missing binary would silently stop registering things —
+    that crashed on a missing binary would silently stop registering things -
     which is the failure mode this module is about. Registration must be
     answerable from the source text alone; only RUNNING one needs an import.
 
@@ -236,7 +236,7 @@ class Registered:
     ownership line.
 
     ``unavailable`` returns a REASON STRING when the playthrough cannot run in
-    this environment — currently only the ELMFIRE arm, which needs a compiled
+    this environment - currently only the ELMFIRE arm, which needs a compiled
     binary. It becomes a REPORTING gap (C-1) rather than a silent skip: an
     unrunnable playthrough is a declared weakness, and omitting it is the failure.
     """
@@ -278,7 +278,7 @@ def _auto_caught_map_report(rel_path: str) -> Callable[[], PT.PlaythroughReport]
     """Adapt a foreign ``run_playthrough()`` that already emits ``defects_caught_by``.
 
     sim invented that shape independently, before this protocol existed.
-    Honouring it generically — rather than translating each module by hand here —
+    Honouring it generically - rather than translating each module by hand here -
     is what lets a NEW foreign playthrough register with no edit to this file.
     """
 
@@ -356,7 +356,7 @@ def _non_degeneracy_report() -> PT.PlaythroughReport:
 #: **THE FROZEN GRANDFATHER LIST.** Two modules in ``src/wildfire_nowcast/sim/``
 #: predate the self-declaration convention. They belong to sim, so
 #: migrating their metadata into their own files would be a cross-boundary write
-#: to fix a rule about cross-boundary writes. Their entries therefore stay here —
+#: to fix a rule about cross-boundary writes. Their entries therefore stay here -
 #: **named, closed, and asserted un-growable** by
 #: :func:`test_the_grandfather_list_cannot_grow`.
 #:
@@ -441,7 +441,7 @@ def build_registry() -> dict[str, Registered]:
     return {path: _register(path) for path in sorted(discover_playthroughs())}
 
 
-#: **The audit table — computed, not written.** A playthrough that declares
+#: **The audit table - computed, not written.** A playthrough that declares
 #: nothing fails :func:`test_every_playthrough_in_the_repo_is_registered` at
 #: import, which is a RED BUILD and not a skip: auto-discovery must never become
 #: auto-forgiveness.
@@ -456,7 +456,7 @@ PLAYTHROUGHS: dict[str, Registered] = build_registry()
 def test_the_discovery_scan_is_not_silently_empty() -> None:
     """Guard the scanner itself: if it matched nothing, every audit below passes.
 
-    Same failure this repo has now seen four times — an all-NaN channel passing
+    Same failure this repo has now seen four times - an all-NaN channel passing
     56 checks, a `find -newermt` that matched nothing, a clause parser blind to a
     bold heading, a hard C8 clause false on every artifact. **A verification that
     cannot fail is not a verification.**
@@ -492,7 +492,7 @@ def test_every_playthrough_in_the_repo_is_registered() -> None:
 def test_MOST_playthroughs_are_registered_WITHOUT_any_entry_in_this_file() -> None:
     """The mechanism fix, asserted as a property rather than described.
 
-    Every module that declares itself must be registered by the AUTO path — i.e.
+    Every module that declares itself must be registered by the AUTO path - i.e.
     its entry could be deleted from this file and nothing would change, because
     there is no entry. If this ever drops to zero the auto path has stopped
     working and the hand-written table is silently back.
@@ -512,7 +512,7 @@ def test_PLANTED_an_UNDECLARED_playthrough_is_a_RED_BUILD_not_a_skip(tmp_path) -
     **Auto-discovery must not become auto-forgiveness.** The whole hazard of
     making registration automatic is that "nobody has to do anything" slides into
     "nothing is checked". A module matching the discovery pattern and declaring
-    nothing must still turn the build RED — the failure simply moved from "you
+    nothing must still turn the build RED - the failure simply moved from "you
     forgot to edit infra's file" to "you forgot to describe your own".
     """
     orphan = tmp_path / "test_playthrough_orphan.py"
@@ -541,7 +541,7 @@ def test_a_declaration_in_the_module_OVERRIDES_the_grandfather_entry() -> None:
     """The frozen list is a MIGRATION PATH, not a permanent carve-out.
 
     Asserted by giving a grandfathered path a declaration and watching the auto
-    path win — so the day sim adds four constants to ``sim/coarsen.py``,
+    path win - so the day sim adds four constants to ``sim/coarsen.py``,
     its entry here becomes dead and the next test says so.
     """
     path = "src/wildfire_nowcast/sim/coarsen.py"
@@ -586,7 +586,7 @@ def test_the_metadata_parser_never_imports_the_module() -> None:
     """Registration must be answerable from source text alone.
 
     ``sim/playthrough.py`` pulls in the ELMFIRE adapter, and a registration pass
-    that crashed on a missing binary would silently stop registering things —
+    that crashed on a missing binary would silently stop registering things -
     which is the failure mode this whole file is about. Verified by parsing a
     module whose import would raise, not by reading the implementation.
     """
@@ -633,7 +633,7 @@ def test_every_registry_entry_states_an_owner_and_a_reason() -> None:
 
 #: Parametrised at COLLECTION so `-m "not slow"` can actually deselect. A marker
 #: added inside the test body arrives after selection has happened, which is a
-#: check that looks applied and is not — the shape of defect this file is about.
+#: check that looks applied and is not - the shape of defect this file is about.
 _CASES = [
     pytest.param(name, marks=[pytest.mark.slow] if PLAYTHROUGHS[name].slow else [], id=name)
     for name in sorted(PLAYTHROUGHS)
@@ -645,7 +645,7 @@ def test_MUTATION_COVERAGE_is_total(name: str, playthrough_report) -> None:
     """Every declared defect is detected, and every declared blind spot is not.
 
     This is ADR-030's standing requirement, applied uniformly, including to the
-    two playthroughs infra does not own — via their own reports, with no
+    two playthroughs infra does not own - via their own reports, with no
     edit to another lead's file.
     """
     entry = PLAYTHROUGHS[name]

@@ -1,4 +1,4 @@
-"""C4 — the synthetic fire generator.
+"""C4 - the synthetic fire generator.
 
 This fixture is what unblocks modelling and sim, so regressions here
 are P0. The tests pin the five properties the rest of the project builds on:
@@ -90,7 +90,7 @@ def test_different_seeds_give_different_fires() -> None:
 
 
 # --------------------------------------------------------------------------
-# states — the ratified C1.1 rule, `fireline_v2`
+# states - the ratified C1.1 rule, `fireline_v2`
 # --------------------------------------------------------------------------
 
 
@@ -106,7 +106,7 @@ def test_scripted_dormancy_produces_empty_burning_frames(n_hours: int) -> None:
     """C1.1 (and ADR-007): the fixture must EXERCISE the empty-state-1
     phenomenon, not hide it or relax the test around it.
 
-    6-37% of real GOFER frames have no cell in state 1 — after a long dormancy
+    6-37% of real GOFER frames have no cell in state 1 - after a long dormancy
     every cell is closed and the contagion source is the frontier of the burned
     region, not state 1. A consumer that conditions solely on state 1 must break
     here, on a 0.6 s fixture, rather than three weeks later on real data.
@@ -335,7 +335,7 @@ def test_the_24h_default_fixture_is_unchanged_by_the_c1_2_reserve() -> None:
     modelling and simviz build against the 24 h default; a fixture that
     silently changes shape under them is a P0. The reserve only ever removes
     cells the fire would have burned outside the 10-cell frame, and at 24 h the
-    fire stops 13-16 cells short of it — so the default fire is bit-identical,
+    fire stops 13-16 cells short of it - so the default fire is bit-identical,
     which is asserted here rather than assumed (the A5 byte-identical precedent).
     """
     ds, _ = build_synthetic_dataset(seed=0, n_hours=24)

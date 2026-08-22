@@ -1,4 +1,4 @@
-"""P3 — barrier-crossing / spot episode mining into ``data/events/crossings.json``.
+"""P3 - barrier-crossing / spot episode mining into ``data/events/crossings.json``.
 
 **What this artifact is for.** G4 asks whether an explicit long-range spot
 component beats a no-spot model *on crossing episodes*. That question needs an
@@ -9,7 +9,7 @@ leave-block-out (ADR-028 (3)) and an event without its block cannot be scored.
 **The detection rule, in one paragraph, because it has to be defensible.** A
 crossing is a DETACHED BIRTH: cells that join the ever-burned set at hour ``t``
 with no ever-burned 8-neighbour at ``t-1``. That is the only primitive available
-from a 1 km state field — a fire that walks across a sub-cell river is not a
+from a 1 km state field - a fire that walks across a sub-cell river is not a
 jump and cannot be one at this resolution. Each detached body is measured by its
 ``gap_km``, the closest approach between the body and the whole ever-burned
 region at ``t-1``. Bodies are then classified:
@@ -25,7 +25,7 @@ cell can manufacture between two 8-connected bodies is 2.236 km (dy=2, dx=1).
 :data:`MIN_GAP_KM` is set to 3.0 km: strictly above that construction, 1.5x the
 label product's effective resolution, and at or beyond the contagion kernel's
 configured radius (3 cells) so a counted event is unreachable by the short-range
-component by construction. It is NOT tuned to a count — see
+component by construction. It is NOT tuned to a count - see
 ``sensitivity.by_min_gap_km`` in the artifact, which reports the count at every
 threshold, and note that the observed gap distribution has NO mass at all
 between 2.236 km and 3.606 km, so every value in [2.25, 3.6] yields the same
@@ -34,11 +34,11 @@ is reported with equal prominence rather than buried.
 
 **What is NOT counted, stated so a reader does not have to infer it.**
 (a) Crossings where the barrier cell itself is labelled burned are invisible
-    here — the bodies stay 8-connected and no detached birth occurs. Per-fire
+    here - the bodies stay 8-connected and no detached birth occurs. Per-fire
     ``n_barrier_cells_ever_burned`` is reported as the size of that blind spot.
 (b) Separate ignitions filed under one fire id (ADR-019). Distance alone does
     not separate those from spots; time, then genealogy, then distance does, and
-    that rule lives in :mod:`wildfire_nowcast.data.ignitions` (C0 — one rule).
+    that rule lives in :mod:`wildfire_nowcast.data.ignitions` (C0 - one rule).
 (c) Anything below :data:`MIN_EVENT_CELLS`.
 
 This module is READ-ONLY with respect to every existing artifact. It opens
@@ -97,14 +97,14 @@ __all__ = [
 GOFER_EFFECTIVE_RESOLUTION_KM = 2.0
 
 #: Cells covered by ONE label-product resolution element: (2 km / 1 km)^2 = 4.
-#: A body no larger than this is not resolved by the labels — flagged per event,
+#: A body no larger than this is not resolved by the labels - flagged per event,
 #: never excluded, because excluding it would delete newly-ignited spots.
 LABEL_RESOLUTION_ELEMENT_CELLS = 4
 
 #: Minimum closest-approach gap for a detached body to count as a crossing.
 #: 3.0 km. See the module docstring for the derivation. Fitting sample for the
 #: C-3 declaration: the observed gap distribution over 21 fires / 14 spatial
-#: blocks, which is empty on (2.236, 3.606) km — the constant sits inside a flat
+#: blocks, which is empty on (2.236, 3.606) km - the constant sits inside a flat
 #: plateau rather than on a slope, and no value in [2.25, 3.6] changes the set.
 MIN_GAP_KM = 3.0
 
@@ -127,7 +127,7 @@ SEPARATE_IGNITION_KM = SPOT_RANGE_MAX_KM
 RASTERISATION_HOLE_KM = SEED_MERGE_KM
 
 #: Terrain relief along the corridor, above both endpoints, that counts as a
-#: ridge. 100 m at 1 km cells is a ~6 deg mean slope over the corridor — enough
+#: ridge. 100 m at 1 km cells is a ~6 deg mean slope over the corridor - enough
 #: to be a real topographic obstacle rather than roughness. Reported alongside
 #: the raw `ridge_relief_m` so a reader can re-threshold it.
 RIDGE_RELIEF_M = 100.0
@@ -247,7 +247,7 @@ def barrier_evidence(
     The corridor is the supercover segment STRICTLY BETWEEN the anchor (nearest
     already-burned cell) and the landing cell (nearest cell of the new body).
     A dilated count is reported beside it so a reader can see whether the
-    verdict depends on corridor width — an oblique barrier can miss a
+    verdict depends on corridor width - an oblique barrier can miss a
     one-cell-wide line.
 
     `kind` precedence is water/road -> non-burnable fuel -> ridge -> none. The
@@ -383,7 +383,7 @@ def classify_body(body: DetachedBody, *, min_gap_km: float, min_cells: int) -> s
 
     Order matters and is the ratified one (ADR-019 §7, ADR-028 (1)): time and
     genealogy decide, distance is a tiebreak. A body that MERGES is never a
-    separate ignition however far it landed — merging is the normal fate of a
+    separate ignition however far it landed - merging is the normal fate of a
     real spot fire, and a definition demanding permanent separation selects for
     the rare pathological case.
     """
@@ -598,7 +598,7 @@ def positive_control() -> dict[str, Any]:
 
     An all-clear scan carries a control that must return non-zero. This one
     plants a 5-cell jump and a 3-cell body, asserts the detector finds exactly
-    one crossing at exactly 5.0 km, and — the half that is easy to forget —
+    one crossing at exactly 5.0 km, and - the half that is easy to forget -
     asserts a contiguously growing fire yields ZERO, so a detector that fires on
     everything could not pass either.
     """
@@ -953,7 +953,7 @@ def build_index(
 
 
 def write_crossings(path: Path | None = None) -> Path:
-    """Write the index. ADDITIVE ONLY — refuses any path inside the C1 corpus."""
+    """Write the index. ADDITIVE ONLY - refuses any path inside the C1 corpus."""
     out = Path(path) if path is not None else crossings_path()
     if Path(fires_dir()) in out.parents or out.name == "norm_stats.json":
         raise RuntimeError("crossings.json is additive: refusing to write into the frozen corpus")

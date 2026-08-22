@@ -1,4 +1,4 @@
-"""C5 baseline 1 of 2 — persistence. The floor, and the debugging oracle.
+"""C5 baseline 1 of 2 - persistence. The floor, and the debugging oracle.
 
 Persistence predicts that nothing changes: every member, at every lead, is
 ``x0``. It is trivial and it is the most important number in the project,
@@ -23,7 +23,7 @@ Deliberate design notes
 -----------------------
 * **No burnout decay.** A cell burning at ``t0`` stays in state 1 forever. Truth
   decays 1 -> 2 with a residence p50 of 3-5 h (ADR-006), so persistence is
-  "wrong" about that — correctly. Persistence means persistence; smuggling a
+  "wrong" about that - correctly. Persistence means persistence; smuggling a
   decay model in would make it a one-parameter model wearing the floor's name.
 * **All members identical.** Ensemble spread is exactly 0. That is the point:
   it anchors the dispersion axis of G3 at the degenerate end, so a learned

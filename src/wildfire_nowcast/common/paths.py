@@ -57,33 +57,33 @@ def data_dir() -> Path:
 
 
 def fires_dir() -> Path:
-    """``data/fires/`` — the C1 path root for complete 14-channel tensors."""
+    """``data/fires/`` - the C1 path root for complete 14-channel tensors."""
     return data_dir() / "fires"
 
 
 def interim_dir() -> Path:
-    """``data/interim/`` — partial artifacts. Per ADR-003 a partial tensor is
+    """``data/interim/`` - partial artifacts. Per ADR-003 a partial tensor is
     NEVER written to the C1 path; it lands here until all 14 channels exist."""
     return data_dir() / "interim"
 
 
 def runs_dir() -> Path:
-    """``runs/`` — one subdirectory per experiment run (C7)."""
+    """``runs/`` - one subdirectory per experiment run (C7)."""
     return _env_dir(_ENV_RUNS, repo_root() / "runs")
 
 
 def outputs_dir() -> Path:
-    """``outputs/`` — scratch artifacts (synthetic fires, movies)."""
+    """``outputs/`` - scratch artifacts (synthetic fires, movies)."""
     return _env_dir(_ENV_OUTPUTS, repo_root() / "outputs")
 
 
 def configs_dir() -> Path:
-    """``configs/`` — one yaml per experiment (C7)."""
+    """``configs/`` - one yaml per experiment (C7)."""
     return repo_root() / "configs"
 
 
 def norm_stats_path() -> Path:
-    """``data/norm_stats.json`` — the C3 path."""
+    """``data/norm_stats.json`` - the C3 path."""
     return data_dir() / "norm_stats.json"
 
 

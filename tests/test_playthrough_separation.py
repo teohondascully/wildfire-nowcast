@@ -1,9 +1,9 @@
-"""PLAYTHROUGH (ADR-030) — does the G3 separation criterion recover a KNOWN margin?
+"""PLAYTHROUGH (ADR-030) - does the G3 separation criterion recover a KNOWN margin?
 
 ``common/separation.py`` implements ADR-032 (7): G3's calibration half becomes a
 SEPARATION TEST in the G2 style rather than a minted margin. ADR-030's standing
-requirement then binds immediately — **a metric that adjudicates a gate ships with
-a playthrough or it does not adjudicate** — so the criterion is not allowed to
+requirement then binds immediately - **a metric that adjudicates a gate ships with
+a playthrough or it does not adjudicate** - so the criterion is not allowed to
 exist before this file does.
 
 WHAT IS KNOWN BY CONSTRUCTION
@@ -20,7 +20,7 @@ definition and never read back out of the module::
 
 That last one is the criterion's own trap and it is asserted as an answer, not as
 a tolerance: an SD estimated as exactly 0.0 from four blocks is not an SD, and
-dividing by it is exactly how a 0.001 margin acquires infinite significance —
+dividing by it is exactly how a 0.001 margin acquires infinite significance -
 i.e. the hazard this criterion was created to remove, sneaking back in through
 the denominator.
 
@@ -29,7 +29,7 @@ THE CASE THE RULING WAS ABOUT, WITH ITS REAL NUMBERS
 ``the_barred_degenerate_ellipse_fails_the_SD_bar_itself`` is not a constructed
 strawman. It is
 ``ellipse_brier_fit_all`` at 3 h, per block, copied verbatim out of
-``runs/baselines-20260809-035037/results.json`` — the arm modelling disclosed
+``runs/baselines-20260809-035037/results.json`` - the arm modelling disclosed
 would pass ``calibration_error / silent_floor < 1`` by **0.001**. Under this
 criterion it scores **+0.697 SD against the arithmetic floor and 0.000 against
 the degenerate envelope**, against a bar of 2.0. The ruling's claim is therefore
@@ -47,7 +47,7 @@ AND THE RESIDUAL HAZARD, MEASURED RATHER THAN ARGUED
 ----------------------------------------------------
 ``margins_shrunk_1000x`` shrinks every margin by three orders of magnitude while
 leaving the block-to-block SD ratio identical. **``separation_sd`` does not move
-at all** — the statistic is scale-invariant, so statistical separation is not
+at all** - the statistic is scale-invariant, so statistical separation is not
 magnitude, and that is the honest weakness of any separation test. The harness
 prints which probe caught it, and the answer is ``relative_margin_is_material``
 and nothing else. That single line of the coverage map is the argument for
@@ -70,7 +70,7 @@ from wildfire_nowcast.common.separation import BlockPair, conditions, separation
 # [A14] SELF-DECLARATION, read by tests/test_playthrough_registry.py.
 # Registration is AUTOMATIC and these constants are how this module identifies
 # itself. They live HERE, beside the playthrough, so that adding or changing a
-# playthrough never requires editing another lead's file — the mechanism fix for
+# playthrough never requires editing another lead's file - the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
 PLAYTHROUGH_OWNER = "infra"
@@ -131,8 +131,8 @@ def test_the_separation_matches_the_definition_to_machine_precision() -> None:
 def test_a_null_candidate_scores_exactly_zero_and_is_refused() -> None:
     """The reference-free assertion this project has learned to prefer.
 
-    A candidate identical to its reference has mean margin 0 and SD 0 — a genuine
-    0/0 — and the answer that is arithmetically right is 0.0, not ``inf`` and not
+    A candidate identical to its reference has mean margin 0 and SD 0 - a genuine
+    0/0 - and the answer that is arithmetically right is 0.0, not ``inf`` and not
     ``nan``. ``persistence`` reproduces this EXACTLY on the real corpus, where its
     ``calibration_error`` equals its ``silent_floor`` bitwise at every block.
     """
@@ -162,7 +162,7 @@ def test_a_zero_block_to_block_sd_is_REFUSED_not_blessed_as_infinite() -> None:
     """THE trap. A constant margin over four blocks has SD exactly 0.
 
     If that were reported as ``inf``, an arm beating the floor by 0.001 in every
-    block would score infinite separation — the 0.999 case returning through the
+    block would score infinite separation - the 0.999 case returning through the
     denominator of the statistic built to remove it.
     """
     sep = separation(_pairs((2.0, 2.0, 2.0, 2.0)))
@@ -176,8 +176,8 @@ def test_the_barred_degenerate_ellipse_does_not_clear_the_bar() -> None:
     """ADR-032 (7)'s motivating observation, with its own numbers.
 
     `ellipse_brier_fit_all` would have passed `calibration_error / silent_floor
-    < 1` by 0.001. Here it scores +0.697 SD against the arithmetic floor — the bar
-    is 2.0 — and it wins 3 of 4 blocks, so it fails unanimity as well.
+    < 1` by 0.001. Here it scores +0.697 SD against the arithmetic floor - the bar
+    is 2.0 - and it wins 3 of 4 blocks, so it fails unanimity as well.
     """
     pairs = [BlockPair(block_id=b, candidate=c, reference=f) for b, c, f in BARRED_ELLIPSE_3H]
     sep = separation(pairs)
@@ -214,7 +214,7 @@ def test_unanimity_is_REDUNDANT_at_four_blocks_and_binding_at_six() -> None:
     """A derived fact worth writing down before the corpus grows.
 
     For ``n`` blocks where one does not favour the candidate, the largest possible
-    separation is ``(n-1)/sqrt(n)`` — 1.5 at n=4, 2.04 at n=6, 2.27 at n=7. So at
+    separation is ``(n-1)/sqrt(n)`` - 1.5 at n=4, 2.04 at n=6, 2.27 at n=7. So at
     the corpus's CURRENT 4 held-out blocks, ``separation >= 2.0`` already IMPLIES
     unanimity and the second condition can never bite. **It starts biting at six
     blocks**, which is exactly what the queued corpus extension produces.

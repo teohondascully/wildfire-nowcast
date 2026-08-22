@@ -6,8 +6,8 @@ so a run directory always means the same thing no matter which lead produced it.
 
 A run directory contains:
 
-* ``config.yaml``   — the fully resolved config, plus a ``_run`` provenance block
-* ``run_meta.json`` — the same provenance block, for machine readers
+* ``config.yaml``   - the fully resolved config, plus a ``_run`` provenance block
+* ``run_meta.json`` - the same provenance block, for machine readers
 * whatever the run itself writes (checkpoints, metrics, figures)
 
 The provenance block records the git SHA **and whether the tree was dirty**. A
@@ -74,7 +74,7 @@ def git_sha(short: bool = False) -> str | None:
     ``git rev-parse --short`` needs the ref as well; omitting it made every run
     in ``runs/`` record ``git_sha_short: "unknown"`` while the full SHA was
     fine. A provenance field that silently degrades to a placeholder is the
-    C-2 failure in miniature — it looks recorded and is not.
+    C-2 failure in miniature - it looks recorded and is not.
     """
     args = ("rev-parse", "--short", "HEAD") if short else ("rev-parse", "HEAD")
     return _git(*args)
@@ -120,7 +120,7 @@ def _provenance(run_id: str, extra: Mapping[str, Any] | None = None) -> dict[str
 
 
 def _split_stamp() -> dict[str, Any]:
-    """C8 — the split every run was created under, stamped automatically.
+    """C8 - the split every run was created under, stamped automatically.
 
     Structural on purpose. C8 says *every run stamps ``split_fingerprint``*, and
     the way that clause fails is not refusal, it is a lead writing a new entry
@@ -131,7 +131,7 @@ def _split_stamp() -> dict[str, Any]:
 
     Never raises. A provenance stamp that can kill a training run is a worse
     defect than the one it prevents, so a failure is recorded as an error string
-    inside the stamp — visible, and not fatal.
+    inside the stamp - visible, and not fatal.
     """
     try:
         from wildfire_nowcast.common.splits import split_fingerprint
@@ -142,7 +142,7 @@ def _split_stamp() -> dict[str, Any]:
 
 
 def _environment_stamp() -> dict[str, Any]:
-    """[v2.12] C-4.3 — the interpreter environment, stamped automatically.
+    """[v2.12] C-4.3 - the interpreter environment, stamped automatically.
 
     Structural for the same reason ``_split_stamp`` is: C-4.3 says a run must be
     attributable to ONE environment, and the way that clause fails is not refusal,
@@ -156,7 +156,7 @@ def _environment_stamp() -> dict[str, Any]:
     ``common.splits`` hard-fails on disagreement and reports a one-ended stamp as
     a C-1 gap.
 
-    Never raises — a provenance stamp that can kill a training run is a worse
+    Never raises - a provenance stamp that can kill a training run is a worse
     defect than the one it prevents.
     """
     try:

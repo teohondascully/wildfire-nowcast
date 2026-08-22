@@ -4,7 +4,7 @@ ADR-026 (3) moved ELMFIRE to **native inputs, contract outputs**: it consumes
 30 m LANDFIRE at its own resolution, and only its OUTPUT ensemble is brought back
 to the C1 1 km lattice and wrapped in C5. That makes this module the last step
 before a baseline's numbers enter a gate, so a bug here is indistinguishable from
-"the baseline is weak" — which is exactly how the 1 km input mapping produced a
+"the baseline is weak" - which is exactly how the 1 km input mapping produced a
 degenerate ELMFIRE and nearly voided G5 in the flattering direction.
 
 THE RULE, AND WHY IT IS NOT A PREFERENCE
@@ -12,7 +12,7 @@ THE RULE, AND WHY IT IS NOT A PREFERENCE
 ``data/rasterize.py`` already defines how a GOFER perimeter becomes a 1 km TRUTH
 cell: rasterise the polygon on a 10x finer lattice, block-**mean** to a coverage
 fraction, and threshold at ``COVER_THRESHOLD = 0.5``. Its own reasoning is the
-reasoning here — centroid-in-polygon throws away half a cell at 1 km, and
+reasoning here - centroid-in-polygon throws away half a cell at 1 km, and
 ``all_touched=True`` dilates every perimeter by a cell.
 
     **A member's fine burned set is coarsened by FRACTIONAL-AREA OCCUPANCY:
@@ -28,8 +28,8 @@ WHY THE FINE LATTICE IS 30.303 m AND NOT 30 m
 30 m does not divide 1000 m. A true-30 m grid is therefore NOT nested inside the
 1 km lattice, every coarse cell straddles partial sub-cells, and area
 conservation becomes a property of an overlap-weight implementation rather than
-of arithmetic. :data:`DEFAULT_REFINE` = 33 gives 30.303 m — 1.01% off native,
-inside LANDFIRE's own resampling noise — and makes each 1 km cell exactly
+of arithmetic. :data:`DEFAULT_REFINE` = 33 gives 30.303 m - 1.01% off native,
+inside LANDFIRE's own resampling noise - and makes each 1 km cell exactly
 33 x 33 = 1089 sub-cells, so the block-mean is exact by construction. Declared as
 a mapping compromise, with the direction of bias: none, it is a 1% cell-size
 change applied identically to every layer.
@@ -41,7 +41,7 @@ Three wrong rules are implemented here on purpose, as
 a planted defect the harness actually detects:
 
 ``nearest``  centroid / nearest-neighbour sampling. Area error is small and
-             UNBIASED on blobs, so an area check alone passes it — it destroys
+             UNBIASED on blobs, so an area check alone passes it - it destroys
              thin features instead, and is caught by CONNECTIVITY.
 ``all``      require every sub-cell (an integer-cell boxcar / erosion). Loses the
              whole boundary band, which is the 11%-perimeter-shrink bug class.
@@ -182,7 +182,7 @@ DEFECTIVE_COARSENERS: dict[str, Callable[..., np.ndarray]] = {
 def n_components(mask: np.ndarray) -> int:
     """Number of 8-connected components of a boolean mask.
 
-    Delegates to :func:`wildfire_nowcast.sim.components.label_components` — the
+    Delegates to :func:`wildfire_nowcast.sim.components.label_components` - the
     union-find labeller this package already owns. scipy is deliberately absent
     from this project (``common/states.py`` says so in as many words), and a
     coarsening test that needs an optional dependency to run is a test that
@@ -251,11 +251,11 @@ def score_coarsening(
 
     Two independent criteria, because they catch different defects:
 
-    * **area** — ``|A_coarse - A_true| <= 0.5 * P * dx``, the boundary-band bound.
+    * **area** - ``|A_coarse - A_true| <= 0.5 * P * dx``, the boundary-band bound.
       A rule that keeps only whole cells loses the entire band and violates it on
       the low side; a rule that keeps any touched cell violates it on the high
       side. Plus a tighter ``relative_tol`` for shapes many cells across.
-    * **connectivity** — the coarse component count must equal the true one. This
+    * **connectivity** - the coarse component count must equal the true one. This
       is the only criterion that sees nearest-neighbour sampling, whose area error
       is small and unbiased while it shreds thin features.
     """
@@ -332,7 +332,7 @@ def sub_cell_texture(ny_fine: int, nx_fine: int, *, modulus: int = 10, keep: int
     discriminator that matters, because on a SMOOTH shape nearest-neighbour and
     area-fraction agree to within a cell (measured: ring fronts of width
     0.8-1.6 km, 36 sub-cell offsets, mean areas within 1% of each other). The two
-    rules only separate when there is structure below the coarse cell — which is
+    rules only separate when there is structure below the coarse cell - which is
     the entire reason a 30 m -> 1 km step exists.
     """
     i, j = np.meshgrid(np.arange(ny_fine), np.arange(nx_fine), indexing="ij")
@@ -364,7 +364,7 @@ def diagonal_finger_mask(
     width_km: float,
     angle_deg: float,
 ) -> np.ndarray:
-    """A thin finger. Below 1 km wide it is NOT representable — see
+    """A thin finger. Below 1 km wide it is NOT representable - see
     :func:`resolution_limit_probe`, which measures the loss rather than
     pretending a threshold rule can avoid it."""
     return rotated_bar_mask(
@@ -436,7 +436,7 @@ def resolution_limit_probe(refine: int = DEFAULT_REFINE) -> list[dict[str, Any]]
     """MEASURE what a 1 km output cannot represent. Reported, never pass/fail.
 
     A finger narrower than a coarse cell is not recoverable by ANY binary rule at
-    that resolution — an area-fraction threshold loses it when it straddles a cell
+    that resolution - an area-fraction threshold loses it when it straddles a cell
     boundary, and a point sample loses it when it misses a centre. Asserting
     otherwise would be a test that cannot fail in the direction that matters.
     This is the honest statement of the limit, with numbers, so that ELMFIRE's
@@ -504,7 +504,7 @@ def translation_sweep(
 
 
 def run_playthrough(refine: int = DEFAULT_REFINE) -> dict[str, Any]:
-    """PLAYTHROUGH 1 — coarsening correctness, no human in the loop.
+    """PLAYTHROUGH 1 - coarsening correctness, no human in the loop.
 
     Every scenario's area and component count are known analytically. The rule
     must pass all of them; each planted defect must be CAUGHT by at least one

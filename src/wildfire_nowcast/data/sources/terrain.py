@@ -10,7 +10,7 @@ much steeper than the slope of the 1 km surface the model actually advances
 over. Fire spread in a 1 km cell responds to the 1 km slope. So: reduce
 elevation to 1 km first, then differentiate.
 
-Aspect is circular, hence the sin/cos pair — averaging degrees across north
+Aspect is circular, hence the sin/cos pair - averaging degrees across north
 would otherwise produce south.
 
 Retrieval is synchronous chunked ``computePixels`` (ADR-004), not a batch
@@ -81,7 +81,7 @@ TERRAIN_CHANNELS = ("elevation", "slope", "aspect_sin", "aspect_cos")
 
 #: Horn's slope/aspect is a 3x3 stencil, so one ring of context is enough for a
 #: tile's interior to be BIT-IDENTICAL to the untiled result. Verified, not
-#: assumed — see :func:`_fetch_terrain_tiled`. Halos of 2 and 4 were also
+#: assumed - see :func:`_fetch_terrain_tiled`. Halos of 2 and 4 were also
 #: measured and are no better, which is itself the evidence that the residual is
 #: not a stencil effect.
 _HALO_CELLS = 1
@@ -128,7 +128,7 @@ def _fetch_terrain_tiled(grid: Grid, tile: int, halo: int = _HALO_CELLS) -> dict
     EQUIVALENCE, MEASURED ON A SHIPPED FIRE rather than argued. Rebuilding Zogg's
     terrain (48x39, built originally by the untiled path) with ``tile=20``:
 
-    * Earth Engine is deterministic — the untiled request repeated is
+    * Earth Engine is deterministic - the untiled request repeated is
       byte-identical to itself AND to what is on disk, all four channels.
     * An interior window fetched alone is byte-identical to the same cells inside
       the whole-domain fetch (0 of 400 cells differ).
@@ -144,8 +144,8 @@ def _fetch_terrain_tiled(grid: Grid, tile: int, halo: int = _HALO_CELLS) -> dict
     fires the nearest burned cell sits **10-11 cells from the domain edge and the
     ring never burns in any fire**. Widening the halo does not remove the residual
     (halo 1/2/4 all leave the same ring), which confirms the cause is the clip and
-    not the stencil. The alternative — letting the halo run outside the domain so
-    ring cells aggregate completely — was rejected because it would make large
+    not the stencil. The alternative - letting the halo run outside the domain so
+    ring cells aggregate completely - was rejected because it would make large
     fires' edges *differ in kind* from the small fires already shipped.
     """
     out = {ch: np.empty(grid.shape, dtype=np.float32) for ch in TERRAIN_CHANNELS}
@@ -175,7 +175,7 @@ def fetch_terrain(
     WHY THIS IS NEEDED. 3DEP is a ~10 m product and its tiles are geographic,
     while C1 is EPSG:5070 Albers. To serve one 1 km Albers request Earth Engine
     must first materialise the DEM over the axis-aligned geographic bounding box
-    of a rotated Albers rectangle — for Creek's 73x90 km domain that is
+    of a rotated Albers rectangle - for Creek's 73x90 km domain that is
     **11,695 x 10,355 native pixels (1.2e8)**, and the request is refused. The
     cap is on the SOURCE footprint, not on our 6,570 output cells, which is why
     it appears abruptly at ~3.5x the domain size of the first five fires and
@@ -220,7 +220,7 @@ def slope_aspect_from_dem(
     Delegates to :mod:`wildfire_nowcast.common.derive` (C0): channels 6-8 are
     contract-declared derived channels, so their definition lives in ``common/``
     and this module only calls it. Note that ``common`` encodes a flat cell as
-    ``(0, 0)`` — an unambiguous "no aspect" code — which is the intended C1
+    ``(0, 0)`` - an unambiguous "no aspect" code - which is the intended C1
     behaviour and differs from a raw ``arctan2`` on a zero gradient.
     """
     slope_deg, aspect_deg = slope_aspect_from_elevation(elevation, res_m)

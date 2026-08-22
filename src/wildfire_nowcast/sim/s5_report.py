@@ -1,11 +1,11 @@
-"""S5 — assemble the block-5 (CZU) diagnosis into one artifact and one page.
+"""S5 - assemble the block-5 (CZU) diagnosis into one artifact and one page.
 
 Reads: a C6 run record's ``results.json`` and the C1 tensors. Calls no model,
 loads no checkpoint, writes only under ``reports/figures``.
 
 WHAT THIS ANSWERS
 -----------------
-"Why can CZU's ensemble not spread?" — decomposed rather than scored, in the
+"Why can CZU's ensemble not spread?" - decomposed rather than scored, in the
 shape of the growth-anatomy work (ADR-025): take one scalar apart until the
 strata disagree.
 
@@ -201,7 +201,7 @@ def render(report: dict[str, Any], out_png: Path) -> None:
                 fontweight="bold",
             )
 
-    # (B) s2s across every arm — block 5 is last, always
+    # (B) s2s across every arm - block 5 is last, always
     ax = axes[0, 1]
     arms = sorted({r["model"] for r in rows if r["model"] != "persistence"})
     for b, col in zip(blocks, ["#1f77b4", "#ff7f0e", "#c0392b", "#2ca02c"], strict=True):

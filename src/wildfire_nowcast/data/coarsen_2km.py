@@ -15,7 +15,7 @@ THE COARSENING RULE, AND WHY IT IS NOT ONE RULE
 ----------------------------------------------
 ``sim/coarsen.py`` already owns the adjudicated burned-set rule (fractional-area
 occupancy at 0.5, identical in form and threshold to ``data/rasterize``'s
-``polygon_mask``, which defines TRUTH). It is imported, not re-derived — a
+``polygon_mask``, which defines TRUTH). It is imported, not re-derived - a
 producer and a verifier computing geometry through different code is exactly how
 a tensor passes its check and is still wrong (C0, docs/interfaces.md).
 
@@ -32,7 +32,7 @@ this wrong SILENTLY is the failure mode:
                at least half its area is set. ``>=`` not ``>``, so a 2-of-4 tie
                RETAINS the feature. This is truth's own rule and threshold.
 ``modal``      CATEGORICAL fields (``fuel_model_id``). A class id cannot be
-               averaged — the mean of FBFM40 classes 98 and 142 is 120, a
+               averaged - the mean of FBFM40 classes 98 and 142 is 120, a
                different fuel that happens to exist. Majority vote over the four
                sub-cells; ties broken by the fire's own 1 km class histogram
                (commonest class wins), then by ascending id. The tie RATE is
@@ -42,7 +42,7 @@ this wrong SILENTLY is the failure mode:
 ``fire_state`` is none of these and is not aggregated directly. It is a
 three-valued absorbing state whose meaning is fixed by C1.1, so it is REBUILT:
 ``ever`` and the active-fireline indicator are each coarsened by the occupancy
-rule, and ``common.states.fireline_v2`` — the single implementation of C1.1 — is
+rule, and ``common.states.fireline_v2`` - the single implementation of C1.1 - is
 re-applied to them. Every C1.1 guarantee then holds by construction rather than
 by inspection. ``line_dilation=0`` because the 1 km field was already dilated
 once; dilating again would be a second cell of growth applied at 2 km.
@@ -304,7 +304,7 @@ def modal_class(
 ) -> tuple[np.ndarray, int]:
     """Majority class per block, plus the number of blocks whose mode was tied.
 
-    ``priority`` is the class order used to break ties — the first listed class
+    ``priority`` is the class order used to break ties - the first listed class
     wins. Defaults to descending frequency over the whole input, then ascending
     class id, which is the fire's own histogram rather than an arbitrary
     preference for low ids (low FBFM40 ids are the NON-BURNABLE classes, so

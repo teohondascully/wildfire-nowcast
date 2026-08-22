@@ -205,8 +205,8 @@ def _headline(result: dict[str, Any], horizon_h: int) -> dict[str, Any]:
     Curated, but NO LONGER curated where it matters: every GATE CRITERION is
     asserted present by :func:`assert_gate_criteria_present` against a list
     derived from the modules that define the gates. A metric C6 emits and this
-    function does not name still does not exist downstream — that part is
-    deliberate, since the artifact should not be every key C6 can compute — but
+    function does not name still does not exist downstream - that part is
+    deliberate, since the artifact should not be every key C6 can compute - but
     a criterion a GATE turns on can no longer go missing quietly. It has twice.
     """
     band = result.get("by_mask", {}).get("growth_band", {})
@@ -288,7 +288,7 @@ def _headline(result: dict[str, Any], horizon_h: int) -> dict[str, Any]:
         "band_n_cells": band.get("n_cells"),
         "n_windows": result.get("n_windows"),
         # -- [M5 / ADR-020 (4)] G3's CALIBRATION half. `reliability_*` was
-        # DEMOTED (null 0.0050 vs skill 0.0099 — silence is trivially
+        # DEMOTED (null 0.0050 vs skill 0.0099 - silence is trivially
         # calibrated); `calibration_error` on the GROWTH-MASKED subset was
         # registered in its place and is named in code by
         # `common.calibration.GATE_CRITERION_KEY`, imported rather than spelled,
@@ -369,7 +369,7 @@ def run_baselines(
     """Calibrate the ellipse on train fires, score every model on held-out fires.
 
     ``extra_models`` puts a learned predictor through the IDENTICAL path as the
-    baselines — same windows, same members, same seeds, same C6 call, same C6.2
+    baselines - same windows, same members, same seeds, same C6 call, same C6.2
     validity check. That is not a convenience: a model evaluated by its own
     script and a baseline evaluated by this one differ by every detail nobody
     wrote down, and the difference always flatters the model whose author wrote
@@ -380,7 +380,7 @@ def run_baselines(
     split = split_fingerprint()
     code = common_code_fingerprint()
     # [v2.11 / C-4.2] SAMPLED BEFORE THE RUN. The M4 artifact stamped this ONCE,
-    # at payload construction — i.e. AFTER — so it recorded the hash of an
+    # at payload construction - i.e. AFTER - so it recorded the hash of an
     # `eval/metrics.py` that had been rewritten nine minutes into the run and had
     # produced none of its numbers. A fingerprint taken at the end records the
     # wrong code precisely in the case it exists to catch, and reads as
@@ -493,7 +493,7 @@ def run_baselines(
     pooled_all: dict[str, list[dict[str, Any]]] = {k: [] for k in models}
     pooled_growth: dict[str, list[dict[str, Any]]] = {k: [] for k in models}
     # [M5, maintainer directive] REGIME-STRATIFIED REPORTING. Dormant and
-    # growth windows are DIFFERENT PREDICTION PROBLEMS with opposite difficulty —
+    # growth windows are DIFFERENT PREDICTION PROBLEMS with opposite difficulty -
     # 953 vs 446 on this held-out set, and simviz's S3 showed our entire growth
     # over-prediction is bought in the dormant half while the growth half is
     # calibrated to within 2-13%. An aggregate blends two regimes into a number
@@ -730,7 +730,7 @@ def run_baselines(
 #: igniting zero cells outranks every model that predicts anything), and C6.4
 #: keeps it REPORTED because hiding it would hide the pathology. The shape
 #: criterion that replaces it is ``common.iou_terms.GATE_CRITERION_KEY``, whose
-#: null floor is exactly 0 — imported, never spelled out here, so this table
+#: null floor is exactly 0 - imported, never spelled out here, so this table
 #: cannot drift from the contract's own choice.
 G2_METRICS: tuple[tuple[str, str, bool, bool], ...] = (
     ("band_brier_by_horizon", "band Brier", True, True),  # lower is better
@@ -758,7 +758,7 @@ def g2_per_horizon(
     Two opponents are reported at every horizon and the harder one is the point:
 
     ``rule``
-        ``ellipse_cal{H}h`` — the literal reading of the ruling. At horizon H the
+        ``ellipse_cal{H}h`` - the literal reading of the ruling. At horizon H the
         opponent is the ellipse whose scale was fitted to reproduce train growth
         at horizon H.
     ``envelope``
@@ -769,7 +769,7 @@ def g2_per_horizon(
         The rule is what ADR-015 says; the envelope is what makes the answer
         insensitive to how the rule is read.
 
-    Persistence is reported at every horizon but is NOT the G2 opponent — G2 is
+    Persistence is reported at every horizon but is NOT the G2 opponent - G2 is
     "beat the wind-advected ellipse". It is here because its resolution is
     exactly zero and a Brier comparison against it means something different.
     """
@@ -881,7 +881,7 @@ def g2_per_horizon(
     # -- the verdict, computed from the table rather than narrated ----------
     # [v2.10] Only `adjudicates=True` metrics enter the count. The REPORTED-only
     # row is still scored and still printed, and its outcome is carried in
-    # `reported_not_adjudicated` so the reader sees it — it just cannot move the
+    # `reported_not_adjudicated` so the reader sees it - it just cannot move the
     # verdict, which is exactly what C6.4 rules.
     verdicts: dict[str, Any] = {}
     for candidate in candidates:
@@ -936,7 +936,7 @@ def g2_per_horizon(
 #: [M5] G3's bar, ADR-020 (4), copied here as DATA so a table cannot narrate a
 #: different one. Each entry is (key, label, low, high, mask, source).
 #: ``reliability_*`` is DELIBERATELY ABSENT: ADR-020 demoted it (null 0.0050 vs
-#: skill 0.0099 — REL/ECE are pure calibration statistics and silence is
+#: skill 0.0099 - REL/ECE are pure calibration statistics and silence is
 #: trivially calibrated) and registered `calibration_error` on the GROWTH-MASKED
 #: subset in its place. ``dispersion_ratio`` is absent for the same class of
 #: reason (C6.1: it scores a COLLAPSED ensemble at 1.000 and a healthy one at
@@ -946,7 +946,7 @@ G3_CRITERIA: tuple[tuple[str, str, float, float, str, str], ...] = (
         "band_area_dispersion_ratio",
         "ensemble dispersion (area spread-skill)",
         # [M9 / ADR-039 (4)] THE GEOMETRIC BAR, IMPORTED, NEVER SPELLED.
-        # `[0.8, 1.2]` was not symmetric in log space — |log 0.8| = 0.2231 against
+        # `[0.8, 1.2]` was not symmetric in log space - |log 0.8| = 0.2231 against
         # |log 1.2| = 0.1823, i.e. 22% MORE TOLERANCE on the under-dispersed side,
         # which is the only side we have ever failed on. Writing `0.8333` here
         # would reintroduce exactly the defect: a second free literal that is not
@@ -974,7 +974,7 @@ _C6_3_MIN_BLOCKS = 4
 
 
 #: [M9] The ellipse arm whose first moment the candidate is measured against.
-#: C6.2's growth-calibrated ellipse — the PHYSICS baseline, calibrated to
+#: C6.2's growth-calibrated ellipse - the PHYSICS baseline, calibrated to
 #: reproduce observed mean hourly growth on TRAIN fires, never Brier-fitted.
 #: Named once, in code, because "the best physics baseline" is a phrase and
 #: `"ellipse"` is a key, and the two drift.
@@ -996,7 +996,7 @@ def _ellipse_arms(per_fire: Mapping[str, Any]) -> list[str]:
     """Every GROWTH-CALIBRATED ellipse arm present. The Brier fits are EXCLUDED.
 
     C6.2: a Brier-fitted ellipse ignites zero cells, which converts it into
-    persistence. It is a barred CONTROL, never a reference — using it would be
+    persistence. It is a barred CONTROL, never a reference - using it would be
     "we beat a baseline that predicted nothing", which C6.2 calls VOID.
     """
     models = next(iter(per_fire.values()), {}).get("models", {})
@@ -1017,7 +1017,7 @@ def first_moment_reference(per_fire: Mapping[str, Any], horizon_h: int) -> str:
 #: [M9] The HEADLINE key the first-moment condition reads, WITH ITS MASK. The
 #: `band_` prefix is not decoration: `common.dispersion.GATE_MASK` is
 #: `growth_band`, and the domain value is diluted by the already-burned blob and
-#: by far-field cells nobody was ever uncertain about — on the first-moment
+#: by far-field cells nobody was ever uncertain about - on the first-moment
 #: playthrough's own scenario the two differ by 1.10 vs 1.069. Named once so the
 #: mask cannot be lost between here and the artifact.
 FIRST_MOMENT_HEADLINE_KEY = f"band_{FIRST_MOMENT_KEY}"
@@ -1034,7 +1034,7 @@ def _first_moment_row(
     is; this function only supplies the two numbers.
 
     A candidate that is not scored on a block the reference IS scored on (or vice
-    versa) is UNDEFINED, not a pass — `first_moment_condition_from_blocks`
+    versa) is UNDEFINED, not a pass - `first_moment_condition_from_blocks`
     enforces that, and `allow_missing_blocks=True` is passed here deliberately so
     the MISMATCH is reported as an undefined condition rather than raised as a
     pooling error. A raised exception at this point would kill the whole run over
@@ -1077,7 +1077,7 @@ def g3_summary(
     This function deliberately does NOT decide G3. It emits, per model, each
     criterion's value window-pooled AND equal-block, whether it lies inside the
     pre-fixed interval, and the collapse comparison against the declared
-    ablation. The gate verdict is the maintainer's — the same division of
+    ablation. The gate verdict is the maintainer's - the same division of
     labour as G2, and the reason a lead's own code should never contain the word
     that closes a gate.
 
@@ -1129,7 +1129,7 @@ def g3_summary(
             # (common/pooling.py's contract): this loop scores EVERY model in the
             # table, including baselines that are degenerate on a block by
             # construction, and a raise here would kill the run rather than report
-            # the gap. The gap is not swallowed — `complete`, `dropped_blocks` and
+            # the gap. The gap is not swallowed - `complete`, `dropped_blocks` and
             # `c6_3_satisfied` are emitted below, and the hard path is exercised
             # by the first-moment playthrough.
             blockwise = equal_block_mean(per_fire, model, key, stratum, allow_missing_blocks=True)
@@ -1163,14 +1163,14 @@ def g3_summary(
                 "complete": blockwise["complete"],
                 # [M8] C6.3 SAYS >= 4 DISTINCT HELD-OUT BLOCKS, AND NOTHING HERE
                 # CHECKED IT. `equal_block_mean` SKIPS a block whose value is
-                # None — `_ratio` returns None when the denominator is <= EPS —
+                # None - `_ratio` returns None when the denominator is <= EPS -
                 # so a criterion could be computed on 3 blocks, print
                 # `n_blocks: 3`, and still report `in_interval_equal_block: true`
                 # with nothing flagging that the sample had silently shrunk. The
                 # denominator was emitted but never ADJUDICATED, which is the
                 # same shape as quoting the gate IoU without
                 # `..._n_windows_by_horizon`. Audited on the M8 artifact: 0 of
-                # 100 model x criterion cells offend, so this did not bite — it
+                # 100 model x criterion cells offend, so this did not bite - it
                 # is a guard against the case where it would.
                 "c6_3_satisfied": blockwise["n_blocks"] >= _C6_3_MIN_BLOCKS,
                 "c6_3_note": (
@@ -1196,7 +1196,7 @@ def g3_summary(
             # [M9, maintainer directive 2026-08-09] **AN ABLATION CANNOT
             # DEMONSTRATE COLLAPSE IN AN ARM THAT HAD NO DISPERSION TO LOSE.**
             # Measured across 25 arms: 16 separate at 3.7-7.8x, and the other 9
-            # move 1.1-1.6x and were ALREADY below 0.29 — so their clause (d)
+            # move 1.1-1.6x and were ALREADY below 0.29 - so their clause (d)
             # "evidence" is a comparison between two ensembles that both fail the
             # dispersion bar outright. This flag says so; it does NOT change
             # clause (d), which is the maintainer's.
@@ -1235,7 +1235,7 @@ def g3_summary(
         first_moment = _first_moment_row(per_fire, model, stratum, reference=reference_model)
         # The OTHER ellipse calibration, reported and never adjudicated. The
         # reference choice moves this condition, so hiding the alternative would
-        # be picking the opponent we win against — the exact thing C6.2 [v2.8]
+        # be picking the opponent we win against - the exact thing C6.2 [v2.8]
         # forbids one level down.
         alternates = {
             name: _first_moment_row(per_fire, model, stratum, reference=name)

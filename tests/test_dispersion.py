@@ -5,7 +5,7 @@ caught. Three of them are the specific measured cases:
 
 * an ``adr`` that the OLD ``[0.8, 1.2]`` bar passed and the geometric bar rejects,
 * a candidate whose dispersion is in-bar while its MEAN is worse than the
-  ellipse's — the compensating-error pass ADR-035's identity makes possible,
+  ellipse's - the compensating-error pass ADR-035's identity makes possible,
 * an ``adr`` of ``None`` at perfect mean calibration, which must never read as a
   pass.
 """
@@ -19,7 +19,7 @@ import pytest
 from wildfire_nowcast.common import dispersion as D
 
 # --------------------------------------------------------------------------
-# the bar's SHAPE — the defect is in the interval itself, not in any input
+# the bar's SHAPE - the defect is in the interval itself, not in any input
 # --------------------------------------------------------------------------
 
 
@@ -27,7 +27,7 @@ def test_the_OLD_bar_was_asymmetric_IN_OUR_FAVOUR() -> None:
     """The motivating measurement, pinned as arithmetic rather than as prose.
 
     ``[0.8, 1.2]`` reaches ``|log 0.8| = 0.2231`` into under-dispersion and only
-    ``|log 1.2| = 0.1823`` into over-dispersion — 22% more tolerance on the side
+    ``|log 1.2| = 0.1823`` into over-dispersion - 22% more tolerance on the side
     every arm we have ever run fails on.
     """
     old_low, old_high = 0.8, 1.2
@@ -81,7 +81,7 @@ def test_the_measured_G3_arms_are_still_rejected() -> None:
 def test_PLANTED_an_unscoreable_adr_is_UNDEFINED_and_never_a_pass(adr: object) -> None:
     """PLANTED DEFECT: the metric returns something that is not a measurement.
 
-    ``None`` is the real case — ``area_dispersion_ratio``'s denominator is the
+    ``None`` is the real case - ``area_dispersion_ratio``'s denominator is the
     model's own mean-area error, which is exactly 0 at perfect mean calibration,
     so the criterion goes undefined as the model gets the first moment RIGHT
     (sim, found by building a playthrough it could not score). The others
@@ -98,7 +98,7 @@ def test_PLANTED_a_condition_result_REFUSES_to_be_read_as_a_bool() -> None:
 
     This is the whole mechanism. ``None`` is falsy and ``low <= None <= high``
     raises, so the three ways to arrive at an unmeasurable criterion behave three
-    different ways at the call site — one of them silently. Raising on ``bool()``
+    different ways at the call site - one of them silently. Raising on ``bool()``
     collapses that to a single loud failure.
     """
     undefined = D.dispersion_condition(None)
@@ -130,7 +130,7 @@ def test_PLANTED_compensating_errors_no_longer_pass_G3() -> None:
     dominant factor in ``adr``, so a candidate can land inside a dispersion bar by
     being wrong about the mean and wrong about the spread in compensating
     directions. Before this condition existed, the arm below passed G3's only
-    criterion. It must now fail the gate while its dispersion half still passes —
+    criterion. It must now fail the gate while its dispersion half still passes -
     and BOTH facts must be visible.
     """
     out = D.g3_conditions(
@@ -177,7 +177,7 @@ def test_PLANTED_an_unscoreable_REFERENCE_is_not_a_free_pass() -> None:
 def test_the_condition_contains_no_fitted_constant() -> None:
     """C-3: the bar is whatever the reference achieved, so it cannot be tuned.
 
-    Asserted by MOVING the reference and watching the verdict follow it — a
+    Asserted by MOVING the reference and watching the verdict follow it - a
     property of the code, not a claim in a docstring.
     """
     assert D.first_moment_condition(2.0, 1.79).outcome == D.FAIL
@@ -250,7 +250,7 @@ def test_UNDEFINED_dominates_and_a_gate_is_never_passed_on_one_condition() -> No
 
 
 def test_both_conditions_are_always_reported_separately() -> None:
-    """ "Report them separately and always together" — asserted structurally."""
+    """ "Report them separately and always together" - asserted structurally."""
     out = D.g3_conditions(0.2147, 3.06, 1.79)
     assert set(out["conditions"]) == {"dispersion", "first_moment"}
     for cond in out["conditions"].values():

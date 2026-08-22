@@ -1,4 +1,4 @@
-"""PLAYTHROUGH — G3's FIRST-MOMENT condition and the GEOMETRIC bar, end to end.
+"""PLAYTHROUGH - G3's FIRST-MOMENT condition and the GEOMETRIC bar, end to end.
 
 ADR-039 (4) and (5) pre-registered two changes to G3's criterion: a bar that is
 symmetric in LOG space, and an explicit first-moment condition defined relative
@@ -12,7 +12,7 @@ WHAT IS KNOWN BY CONSTRUCTION
 Four fires in four distinct spatial blocks, one 3-lead window each, scored
 through the REAL :func:`~wildfire_nowcast.eval.metrics.evaluate` /
 :func:`~wildfire_nowcast.eval.metrics.aggregate` / ``_headline`` /
-:func:`~wildfire_nowcast.eval.baseline_run.g3_summary` path — not a
+:func:`~wildfire_nowcast.eval.baseline_run.g3_summary` path - not a
 re-implementation of any of them. Truth grows 10/20/30 cells cumulatively inside
 the growth band, so ``sum(truth) = 60`` on every block. The candidate's five
 members are built to make ``sum(ensemble-mean) = 66`` exactly, and the ellipse's
@@ -43,7 +43,7 @@ implementation of it (C0's argument, applied to tests).
 THE DECLARED BLIND SPOT, AND IT IS THE INTERESTING ONE
 -------------------------------------------------------
 The adjudicated pooling is the arithmetic mean of the RATIO over blocks, then
-``|log|`` — the same pooling ``equal_block_mean`` applies to every other
+``|log|`` - the same pooling ``equal_block_mean`` applies to every other
 criterion. A candidate that is **1.65x on two blocks and 0.55x on two others**
 has an arithmetic mean of exactly 1.10 and is therefore INDISTINGUISHABLE from a
 candidate that is 1.10x everywhere. The alternative log pooling emitted beside it
@@ -81,7 +81,7 @@ PLAYTHROUGH_NOTE = (
     "that cancel."
 )
 
-#: Domain, initial blob and band radius. Small on purpose — the scenario has to
+#: Domain, initial blob and band radius. Small on purpose - the scenario has to
 #: be readable, and every quantity below is countable by hand.
 _H = _W = 25
 _BLOB = slice(11, 14)
@@ -175,7 +175,7 @@ def build() -> dict[str, Any]:
 
     **Scoring happens in :func:`_observe`, deliberately.** The harness rebuilds
     the world BEFORE entering a defect's context, so anything computed in
-    ``build`` is computed OUTSIDE an instrument mutation — and an instrument
+    ``build`` is computed OUTSIDE an instrument mutation - and an instrument
     mutation that cannot reach the code it mutates reads as a clean pass. This
     playthrough caught exactly that in its own first run: the smoothed-denominator
     defect went undetected because ``growth_calibration`` was called at build
@@ -203,7 +203,7 @@ def _score(world: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """Four fires, four blocks, four models, through the REAL C6 path."""
     x0, truth = world["x0"], world["truth"]
     rows = {name: _row(m, x0, truth) for name, m in world["members"].items()}
-    # The dispersion ratio is PLANTED, not scored — see the module docstring.
+    # The dispersion ratio is PLANTED, not scored - see the module docstring.
     for name in rows:
         rows[name] = dict(rows[name])
         rows[name]["band_area_dispersion_ratio"] = PLANTED_ADR
@@ -262,7 +262,7 @@ def _observe(world: dict[str, Any]) -> dict[str, Any]:
         stratum="growth_windows",
     )
     # C6.0's own question, asked of THIS metric: what does a DO-NOTHING null
-    # score on the first-moment condition? `make null-check` cannot answer it —
+    # score on the first-moment condition? `make null-check` cannot answer it -
     # `growth_calibration` is nested under a non-numeric key so that
     # `common/null_check.C6_METRICS` (which C-4 freezes to me) does not hard-fail
     # on an unregistered key, and a nested value is invisible to `_flatten`. So
@@ -308,7 +308,7 @@ def _at(obs: dict[str, Any], key: str, want: float, tol: float = 1e-9) -> bool:
 
 
 def _compensating_blocks(per_fire: dict[str, Any]) -> dict[str, Any]:
-    """Make the candidate 1.65x on two blocks and 0.55x on two — mean still 1.10."""
+    """Make the candidate 1.65x on two blocks and 0.55x on two - mean still 1.10."""
     for value, block in zip((1.65, 0.55, 1.65, 0.55), BLOCKS, strict=True):
         row = per_fire[f"fire_{block}"]["models"][CANDIDATE]["growth_windows"]
         row[baseline_run.FIRST_MOMENT_HEADLINE_KEY] = value
@@ -326,7 +326,7 @@ def _with_hook(hook: Any) -> Any:
 
 
 def _smoothed(pred: Any, truth: Any) -> float | None:
-    """``(pred + 1) / (truth + 1)`` — 'just avoid the zero denominator'."""
+    """``(pred + 1) / (truth + 1)`` - 'just avoid the zero denominator'."""
     if pred is None or truth is None:
         return None
     return (float(pred) + 1.0) / (float(truth) + 1.0)
@@ -506,13 +506,13 @@ def run_playthrough() -> dict[str, Any]:
     while ``declared_metadata`` accepts any of ``PLAYTHROUGH`` /
     ``build_playthrough`` / ``run_playthrough`` as the entry point. So a ``src/``
     module that declares its owner and note correctly and exposes ``PLAYTHROUGH``
-    is **never discovered at all** — not registered, not red, just absent.
+    is **never discovered at all** - not registered, not red, just absent.
     Auto-discovery becomes auto-omission, which is the exact failure mode A14's
     "auto-discovery is not auto-forgiveness" paragraph was written against.
     Measured: without this function the registry collected 18 tests and none of
     them was this file. ``sim/blockanatomy.py`` satisfies the same requirement the
     same way (it defines both ``run_playthrough`` and ``build_playthrough``), so
-    the convention exists — it is just not stated anywhere, and a lead who
+    the convention exists - it is just not stated anywhere, and a lead who
     follows the documented declaration protocol and stops there gets silence.
     Raised for @infra in my status entry; worked WITH here, not around.
     """

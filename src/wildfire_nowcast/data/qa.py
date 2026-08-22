@@ -7,12 +7,12 @@ much repair was needed, so label noise stays visible instead of being absorbed.
 
 Three families of check:
 
-1. *Vector-level* — what GOFER itself says: hour gaps, area monotonicity,
+1. *Vector-level* - what GOFER itself says: hour gaps, area monotonicity,
    perimeter nesting, geometry validity, growth burstiness.
-2. *Raster-level* — what survived onto the C1 grid: monotone burned-cell count,
+2. *Raster-level* - what survived onto the C1 grid: monotone burned-cell count,
    illegal state transitions, teleporting (new burned area disconnected from the
    existing fire), frames with no burning cell.
-3. *Label-noise* — GOFER East vs West disagreement, which is a direct
+3. *Label-noise* - GOFER East vs West disagreement, which is a direct
    observation of viewing-geometry/parallax error, in kilometres.
 """
 
@@ -263,8 +263,8 @@ def fire_qa_report(
 
 
 def _verdict(report: dict[str, Any]) -> dict[str, Any]:
-    """Boil the numbers down to pass/warn flags. Warnings are not failures — GOFER
-    genuinely behaves this way — but they must be visible in the manifest."""
+    """Boil the numbers down to pass/warn flags. Warnings are not failures - GOFER
+    genuinely behaves this way - but they must be visible in the manifest."""
     v, r = report["vector"], report["raster"]
     fails, warns = [], []
     if not r["burned_area_monotone"]:

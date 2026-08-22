@@ -69,7 +69,7 @@ def test_grid_from_bounds_snaps_outward() -> None:
 
 
 def test_grid_from_bounds_lands_on_the_continental_lattice() -> None:
-    """C1.2 — two fires whose buffered domains overlap must agree cell-for-cell,
+    """C1.2 - two fires whose buffered domains overlap must agree cell-for-cell,
     or the C3.1 spatial blocking is comparing different ground."""
     a = Grid.from_bounds((-2_000_123.0, 1_999_100.0, -1_998_900.0, 2_000_400.0))
     b = Grid.from_bounds((-2_001_777.0, 1_998_010.0, -1_999_010.0, 2_000_990.0))
@@ -270,7 +270,7 @@ def test_compute_norm_stats_matches_numpy(synthetic_ds) -> None:  # noqa: ANN001
 
 
 def test_compute_norm_stats_counts_spatial_blocks(synthetic_ds) -> None:  # noqa: ANN001
-    """C3.3 — `n_train_blocks` counts distinct landscapes, not fires. Two fires
+    """C3.3 - `n_train_blocks` counts distinct landscapes, not fires. Two fires
     from one block are still one block, which is the whole trap ADR-008 closed."""
     one = zio.compute_norm_stats([synthetic_ds], train_folds=[0], spatial_block_ids=[7])
     assert one["n_train_blocks"] == 1 and one["bootstrap"] is True
@@ -287,7 +287,7 @@ def test_compute_norm_stats_counts_spatial_blocks(synthetic_ds) -> None:  # noqa
 
 
 def test_norm_stats_force_the_categorical_identity_transform(synthetic_ds) -> None:  # noqa: ANN001
-    """C3.2 — a caller cannot accidentally standardise an FBFM40 class id, even
+    """C3.2 - a caller cannot accidentally standardise an FBFM40 class id, even
     by passing real statistics for it."""
     mean = dict.fromkeys(CHANNELS, 3.0)
     std = dict.fromkeys(CHANNELS, 2.0)

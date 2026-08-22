@@ -4,7 +4,7 @@ Run: ``.venv/bin/python -m wildfire_nowcast.data.leakage_selftest``
 
 These validate the ESTIMATOR before it is pointed at the corpus. A measure that
 has never been observed to fire is not evidence, and a measure that fires at the
-WRONG magnitude is as broken as one that never fires — so every check here
+WRONG magnitude is as broken as one that never fires - so every check here
 asserts a NUMBER against an analytic target, not merely "non-zero".
 """
 
@@ -82,7 +82,7 @@ def test_continuous_shifted_gaussian_hits_its_analytic_target() -> None:
     """Two unit normals separated by 1 give ``AUC = Phi(1/sqrt2)``.
 
     PLANTED DEFECT: computing AUC on the wrong class (ranks of the NEGATIVES)
-    would return the same magnitude here by symmetry — which is why the sign
+    would return the same magnitude here by symmetry - which is why the sign
     check above is a separate test and this one is not asked to carry it.
     """
     rng = np.random.default_rng(3)
@@ -96,7 +96,7 @@ def test_continuous_shifted_gaussian_hits_its_analytic_target() -> None:
 
 
 def test_a_constant_channel_is_DEGENERATE_and_not_a_zero() -> None:
-    """PLANTED DEFECT — the expensive one. A constant channel is all ties, so
+    """PLANTED DEFECT - the expensive one. A constant channel is all ties, so
     AUC is exactly 0.5 and ``|2*AUC-1|`` is exactly 0.0. Returning that 0.0
     would let ``water_barrier_mask`` under burnable masking, and every
     scar-free fire's ``recent_burn_scar``, pull the reported distribution DOWN
@@ -146,7 +146,7 @@ def test_the_null_sd_matches_the_EXACT_hypergeometric_value_for_a_binary_channel
 
     PLANTED DEFECT: dropping the tie correction from ``var_u``. On a binary
     channel the ties ARE the whole sample, so an uncorrected SD overstates by
-    up to ~2x — and the reported SD is what puts every other number on this
+    up to ~2x - and the reported SD is what puts every other number on this
     report on a scale. The empirical flatness check below cannot see this:
     on a lightly tied channel the correction moves the SD by ~1%.
     """

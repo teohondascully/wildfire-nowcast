@@ -1,4 +1,4 @@
-"""The anisotropic contagion kernel — component (a) of the C1 transition kernel.
+"""The anisotropic contagion kernel - component (a) of the C1 transition kernel.
 
 CLAUDE.md, ground truth, not re-litigated here::
 
@@ -10,8 +10,8 @@ CLAUDE.md, ground truth, not re-litigated here::
 
 **[M5] The shared per-step latent ``z_t`` is now IMPLEMENTED, and it is
 OPTIONAL.** ``latent_config=None`` (or ``dim=0``) reproduces the deterministic
-G2 kernel BIT-IDENTICALLY — asserted by :func:`check_latent_off_is_bit_identical`,
-not by inspection — so the P1/G2 result is not silently re-defined by the P2
+G2 kernel BIT-IDENTICALLY - asserted by :func:`check_latent_off_is_bit_identical`,
+not by inspection - so the P1/G2 result is not silently re-defined by the P2
 model. The latent itself lives in :mod:`wildfire_nowcast.model.latent`; this
 module is where it enters the physics. The spot component (b) is still ABSENT
 (P3), and :meth:`ContagionKernel.to_spec` says so in the artifact, so a run
@@ -33,8 +33,8 @@ be merged by hand. It also bounds ``p`` in ``[0, 1)`` without a clamp.
 
 ``b_{t-1}`` under the expectation is a MEAN FIELD: it propagates probabilities,
 not sampled states. With a latent present, ``z_t`` enters ``lambda`` in three
-places — a global log-multiplier on the hazard, a rotation of the effective head
-direction and a log-scale on the effective wind speed — so ONE draw moves the
+places - a global log-multiplier on the hazard, a rotation of the effective head
+direction and a log-scale on the effective wind speed - so ONE draw moves the
 whole field coherently and the pixels are conditionally independent Bernoulli
 ONLY GIVEN ``(x_t, z_t)``, which is CLAUDE.md's model. With
 ``latent_config=None`` the only randomness left is the per-pixel draw: that is
@@ -49,7 +49,7 @@ For offset ``d`` at distance ``|d|`` cells, arriving at ``x`` from direction
     r_d(x)     = R_reach(x) * ellipse_factor(LB(x), cos theta_d)   # cells / hour
     log w_d(x) = log alpha + c_d + log s(x) - 0.5 * (|d| / (gamma * r_d(x)))^2
 
-``r_d`` is the ELLIPSE's own directional rate of spread — reach from the cell's
+``r_d`` is the ELLIPSE's own directional rate of spread - reach from the cell's
 moisture and effective (wind + slope) forcing, reduced by the exact polar factor
 of an ellipse generated from its rear focus. So ``w`` is an elliptical Gaussian
 whose axes are stretched by wind and slope, which is the initialisation
@@ -62,7 +62,7 @@ implementation of them. "The CNN beat the ellipse" therefore cannot quietly mean
 At initialisation the kernel is EXACTLY the elliptical Gaussian; every departure
 from it is something the fires taught it, and is inspectable offset by offset.
 
-``s(x)`` is SUSCEPTIBILITY — the target cell's fuel-group multiplier times
+``s(x)`` is SUSCEPTIBILITY - the target cell's fuel-group multiplier times
 ``exp(barrier_log_multiplier)`` on barrier cells. **Where it enters is a defect
 fix, not a style choice** (ADR-015 (6a), M2 insight 15).
 
@@ -75,22 +75,22 @@ A barrier cell then had ``s = e^-6``, an exponent of ``-0.5 * (1/(0.0025 r))^2``
 of order ``-1e4``, and ``exp`` of that is a HARD ZERO in float64 (the smallest
 representable is ``e^-745``). Zero weight, and therefore **exactly zero
 gradient**: ``barrier_log_multiplier`` and the non-burnable fuel multiplier did
-not move in any of M2's seven configs, and could not have. Barrier crossing —
-the P3/G4 mechanism — was structurally unlearnable, and every burnable fuel
+not move in any of M2's seven configs, and could not have. Barrier crossing -
+the P3/G4 mechanism - was structurally unlearnable, and every burnable fuel
 multiplier flattening to ~1.0 was equally uninterpretable, because it could have
 been either a finding or the same artefact.
 
 In ``mode="amplitude"`` (the default, and the fix) susceptibility multiplies the
 hazard AMPLITUDE, so ``d log w / d barrier_log_multiplier = barrier(x)``
 EXACTLY: every barrier cell adjacent to fire supplies gradient at every step.
-The physical consequence is that a barrier is now *leaky by design* — its hazard
-is ``e^-6`` of open ground rather than identically zero — and that leak IS the
+The physical consequence is that a barrier is now *leaky by design* - its hazard
+is ``e^-6`` of open ground rather than identically zero - and that leak IS the
 gradient. ``mode="reach"`` is retained so the defect reproduces on demand, the
 same way the falsified per-window growth moment is retained in
 :mod:`wildfire_nowcast.model.train`.
 
 The cost of the fix, stated: in amplitude mode the fuel group no longer stretches
-the kernel's reach, only its amplitude. That is a deliberate narrowing — fuel
+the kernel's reach, only its amplitude. That is a deliberate narrowing - fuel
 enters once, identifiably, instead of twice in a way that made one of its two
 routes unidentifiable.
 
@@ -162,10 +162,10 @@ _EPS = 1e-12
 
 #: Where susceptibility (fuel group + barrier) enters the log-weight.
 #:
-#: ``"amplitude"`` — an additive term in ``log w``. ``d log w / d theta`` is the
+#: ``"amplitude"`` - an additive term in ``log w``. ``d log w / d theta`` is the
 #: indicator of the cell, so the parameter is identified by every adjacent-to-
 #: fire cell. THIS IS THE DEFAULT AND THE CORRECT ONE (ADR-015 (6a)).
-#: ``"reach"`` — M2's form, inside the Gaussian exponent, where the weight
+#: ``"reach"`` - M2's form, inside the Gaussian exponent, where the weight
 #: underflows to a hard zero and the gradient is EXACTLY zero. Retained so the
 #: defect reproduces and so the fix can be measured against it, never as a
 #: candidate.
@@ -180,7 +180,7 @@ def neighbour_offsets(radius: int) -> tuple[tuple[int, int, float], ...]:
     which is an anisotropy the model would then have to learn its way out of.
 
     Row index increases SOUTHWARD (C1.4 north-up), so the (east, north) travel
-    direction of an offset is ``(dc, -dr)`` — the same convention as
+    direction of an offset is ``(dc, -dr)`` - the same convention as
     :mod:`wildfire_nowcast.model.baselines.ellipse`, deliberately.
     """
     out = []
@@ -229,7 +229,7 @@ class KernelConfig:
     #: ``moisture_of_extinction = 1.0%``, so for any realistic dead fuel moisture
     #: the Simard ratio clamps to 1 and ``1 - 2.59r + 5.11r^2 - 3.52r^3``
     #: evaluates to **0.0 exactly**. Reach is then 0, the radial term is -inf and
-    #: the weight is a HARD ZERO with EXACTLY ZERO GRADIENT — i.e. a hard
+    #: the weight is a HARD ZERO with EXACTLY ZERO GRADIENT - i.e. a hard
     #: non-burnable mask, and an unlearnable one. That is the SAME defect class as
     #: ADR-015 (6a) one level down: a susceptibility-like quantity sitting in the
     #: denominator of an exponent.
@@ -248,7 +248,7 @@ class KernelConfig:
     moisture_damping_floor: float = 0.15
     #: [S1 / ADR-061 (6)] ARM S: give the kernel ONE global scalar, log burned
     #: area, through :class:`~wildfire_nowcast.model.stagehead.StageHead`.
-    #: **False = arm A, bitwise** — the head is not constructed at all, so
+    #: **False = arm A, bitwise** - the head is not constructed at all, so
     #: :meth:`ContagionKernel.step_probability` passes the same ``float`` defaults
     #: to ``log_weights`` that it did before S1 and the guarded branches there do
     #: not execute. Measured, not asserted: ``runs/_s1_bitidentity.py``.
@@ -388,13 +388,13 @@ def step_covariates(weather_step: Tensor) -> Tensor:
 def _broadcast_to_field(scalar: Tensor, n_trailing: int) -> Tensor:
     """Reshape a PER-DRAW latent scalar so it broadcasts over ``n_trailing`` field axes.
 
-    ``scalar`` carries one value per draw of ``z_t`` — one per ensemble member,
+    ``scalar`` carries one value per draw of ``z_t`` - one per ensemble member,
     or one per training window. ``n_trailing`` is the number of trailing axes of
     the field it modulates (2 for ``[..., H, W]``, 3 for ``[..., K, H, W]``).
 
     Trailing singleton axes are APPENDED to the draw rather than the field being
     expanded, for two reasons. The draw stays EXACTLY constant across every cell
-    it is shared by — the property "shared per-step latent" names, and the one a
+    it is shared by - the property "shared per-step latent" names, and the one a
     per-pixel noise field would not have. And it broadcasts correctly when the
     field carries NO member axis of its own: in :meth:`ContagionKernel.predict`
     the weather is ``[C_w, H, W]`` for all members at once, so counting axes
@@ -417,14 +417,14 @@ def spatial_log_intensity_field(burned: Tensor, latent: LatentEffect | None) -> 
 
     The split of labour is deliberate and matches the one ``head_rotation``
     already uses: the LATENT says how much of each mode to apply, and the KERNEL
-    — the only object holding ``b_{t-1}`` — knows what the modes are anchored
+    - the only object holding ``b_{t-1}`` - knows what the modes are anchored
     to. The basis is therefore recomputed at every step of a rollout from the
     state that step actually reached, so "one fire-radius east of the fire" keeps
     meaning that as the fire grows, instead of freezing at ``t0``.
 
     With ``mean_preserving`` the log-normal correction is the FIELD
     ``-0.5 sum_m sigma_m^2 phi_m(x)^2``, which makes ``E_z[e^effect] = 1`` hold
-    POINTWISE — not merely on average over the domain. That is the property that
+    POINTWISE - not merely on average over the domain. That is the property that
     keeps ``sigma`` a pure spread parameter, and a domain-average version would
     quietly move the mean hazard around inside the field while looking correct in
     aggregate.
@@ -527,7 +527,7 @@ class ContagionKernel(nn.Module):
         self.fuel_log_multiplier = nn.Parameter(torch.tensor(init_fuel, dtype=DTYPE))
         self.barrier_log_multiplier = p(self.config.barrier_log_multiplier)
         #: [S1] ARM S's one scalar covariate. ``None`` is arm A and is the
-        #: bit-identical pre-S1 code path — same rule as ``latent`` above.
+        #: bit-identical pre-S1 code path - same rule as ``latent`` above.
         self.stage: StageHead | None = StageHead() if self.config.stage_scalar else None
 
     # -- physics, in torch -------------------------------------------------
@@ -553,7 +553,7 @@ class ContagionKernel(nn.Module):
         if latent is not None:
             # z_t rotates and rescales the EFFECTIVE forcing (wind + slope), not
             # the raw wind. One draw therefore turns the whole head direction of
-            # the step together — the correlated innovation — instead of adding
+            # the step together - the correlated innovation - instead of adding
             # independent jitter that a mean field would absorb.
             theta = _broadcast_to_field(latent.head_rotation, 2)
             cos_t, sin_t = torch.cos(theta), torch.sin(theta)
@@ -581,12 +581,12 @@ class ContagionKernel(nn.Module):
         return torch.clamp(eta, 0.0, 1.0)
 
     def log_susceptibility(self, fields: StaticFields) -> Tensor:
-        """``log s(x)`` — the TARGET cell's receptivity. ``[H, W]``.
+        """``log s(x)`` - the TARGET cell's receptivity. ``[H, W]``.
 
         Additive in log space, so ``d log s / d barrier_log_multiplier`` is the
         barrier indicator exactly, and ``d log s / d fuel_log_multiplier[g]`` is
         the group-``g`` indicator exactly. Both are non-zero wherever such a cell
-        is within reach of fire — which is what makes the barrier learnable.
+        is within reach of fire - which is what makes the barrier learnable.
         """
         log_fuel = torch.einsum("g,g...->...", self.fuel_log_multiplier, fields.fuel_onehot)
         return log_fuel + self.barrier_log_multiplier * fields.barrier
@@ -632,7 +632,7 @@ class ContagionKernel(nn.Module):
 
         ``latent`` is ONE draw of ``z_t`` per leading batch entry. It is added to
         ``log alpha`` (a global hazard multiplier) and folded into the effective
-        wind, so it shifts every offset and every cell of the step TOGETHER —
+        wind, so it shifts every offset and every cell of the step TOGETHER -
         which is the whole content of "correlated innovations". ``None``
         reproduces the deterministic path exactly.
 
@@ -683,8 +683,8 @@ class ContagionKernel(nn.Module):
             log_w = log_w + _broadcast_to_field(latent.log_intensity, 3)
         if spatial_log_intensity is not None:
             # [M7] The LOW-RANK SPATIAL modulation. It enters at exactly the same
-            # place as the global `log_intensity` — an additive term on the log
-            # weight — because it is the SAME physical quantity with one extra
+            # place as the global `log_intensity` - an additive term on the log
+            # weight - because it is the SAME physical quantity with one extra
             # degree of freedom: WHERE the burst is. The offset axis is inserted
             # at -3, so the field is shared by every offset of a cell, which is
             # what makes it a modulation of the hazard rather than of the shape.
@@ -701,7 +701,7 @@ class ContagionKernel(nn.Module):
         """One-hour ignition probability for every cell. ``[..., H, W]``.
 
         ``burned`` is the mean field ``b_{t-1}`` in ``[0, 1]``, NOT a sampled
-        state — the contagion source is the whole burned region's frontier, per
+        state - the contagion source is the whole burned region's frontier, per
         C1.1's note that state 1 is legitimately empty in 6-37% of frames.
 
         Given ``latent``, the returned field is ``p(x | x_t, z_t)``: the
@@ -747,8 +747,8 @@ class ContagionKernel(nn.Module):
     ) -> Tensor:
         """[M10] The CONDITIONAL ignition probability for lead ``k+1``. ``[..., H, W]``.
 
-        Here it is exactly :meth:`step_probability` on ``weather[k]`` — the
-        free-running one-step transition, unchanged — and ``burned0`` is ignored.
+        Here it is exactly :meth:`step_probability` on ``weather[k]`` - the
+        free-running one-step transition, unchanged - and ``burned0`` is ignored.
         The indirection exists so a DIRECT-HORIZON head
         (:class:`~wildfire_nowcast.model.direct.DirectHorizonKernel`) can predict
         the lead-``k+1`` marginal in one shot from ``burned0`` while sharing this
@@ -760,7 +760,7 @@ class ContagionKernel(nn.Module):
         report as a finding. One loop, one absorbing-state bookkeeping, one RNG
         consumption order; only the hazard differs.
 
-        **Bit-identity of the incumbent is MEASURED, not asserted** — see
+        **Bit-identity of the incumbent is MEASURED, not asserted** - see
         ``runs/_m10_bitidentity.py``, which digests this class's sampled ensemble,
         mean field and marginal on real held-out windows before and after this
         change.
@@ -778,7 +778,7 @@ class ContagionKernel(nn.Module):
     ) -> Tensor:
         """Mean-field pushforward. Returns ``b_k`` for ``k = 1..horizon_h``.
 
-        ``latents[k]`` is the draw of ``z_{t+k+1}`` for step ``k`` — ONE PER
+        ``latents[k]`` is the draw of ``z_{t+k+1}`` for step ``k`` - ONE PER
         STEP, per CLAUDE.md, not one per window. Passing ``None`` (or a shorter
         sequence padded with ``None``) runs the deterministic path for that step.
 
@@ -788,7 +788,7 @@ class ContagionKernel(nn.Module):
 
         This is a FREE-RUNNING rollout: step 2 is driven by the model's own step
         1, not by the truth. Lead 1 is therefore the one-step term and leads
-        2..H are the multi-step pushforward, from one trajectory — which is what
+        2..H are the multi-step pushforward, from one trajectory - which is what
         CLAUDE.md's "one-step NLL + multi-step pushforward" asks for, and it
         keeps the two terms from being computed under different conditioning.
         """
@@ -819,13 +819,13 @@ class ContagionKernel(nn.Module):
         Reported alongside the sampled C5 forecast because an M-member ensemble
         pays a Monte-Carlo penalty of ``E[p(1-p)]/M`` on its Brier score, which
         at M = 24 in the growth band is a real fraction of the score being
-        compared. Every model in a comparison must therefore use the SAME M —
+        compared. Every model in a comparison must therefore use the SAME M -
         and this function says what the sampling cost was.
 
         ``n_latent_samples > 0`` returns the MARGINAL ``E_z[b_k]`` by averaging
         that many prior draws. With a latent present the ``z = 0`` field is NOT
-        the marginal — ``p`` is concave in the hazard and the hazard is
-        log-normal in ``z`` — so a growth calibration or a Brier computed at
+        the marginal - ``p`` is concave in the hazard and the hazard is
+        log-normal in ``z`` - so a growth calibration or a Brier computed at
         ``z = 0`` is a different quantity from the one the ensemble realises.
         Defaulting to 0 keeps the deterministic reading available and makes the
         choice explicit at every call site.
@@ -857,7 +857,7 @@ class ContagionKernel(nn.Module):
         """A VIEW of this model whose ensemble is drawn under ``mode``.
 
         Shares parameters (no copy, no re-training), so the ABLATION and the
-        model are provably the same fit — the only difference is whether ``z_t``
+        model are provably the same fit - the only difference is whether ``z_t``
         is drawn or held at its prior mean. Any other construction of the
         ablation would confound the sampler with the parameters.
         """
@@ -934,7 +934,7 @@ class ContagionKernel(nn.Module):
         # NOT always the right answer for an archived spec.
         cfg = KernelConfig(**raw)
         # A spec written before M5 carries no `latent_config`, and absence must
-        # map to NO LATENT — never to the current default — or every archived G2
+        # map to NO LATENT - never to the current default - or every archived G2
         # checkpoint would silently become a different model when reloaded.
         raw_latent = spec.get("latent_config")
         latent_cfg = None
@@ -948,7 +948,7 @@ class ContagionKernel(nn.Module):
                 gate_prior_mean=float(raw_latent.get("gate_prior_mean", 0.0)),
                 conditional_prior=bool(raw_latent.get("conditional_prior", False)),
                 # [M6] Absent keys must reload as the M5 defaults, so an archived
-                # M5 checkpoint stays the model it was — same rule as the pre-M5
+                # M5 checkpoint stays the model it was - same rule as the pre-M5
                 # `latent_config` absence above.
                 mean_preserving=bool(raw_latent.get("mean_preserving", False)),
                 # [M8] Same rule as every flag before it: ABSENCE IS FALSE, so
@@ -1023,9 +1023,9 @@ class ContagionKernel(nn.Module):
         Two ways to get the KNOWN-BROKEN independent-per-pixel ensemble, and both
         are ablations rather than candidates:
 
-        * ``self.with_sampler("independent")`` — same fit, ``z_t`` held at the
+        * ``self.with_sampler("independent")`` - same fit, ``z_t`` held at the
           prior mean. This is the CONTROLLED ablation: one switch, one model.
-        * ``latent_config=None`` — no latent at all, i.e. the deterministic G2
+        * ``latent_config=None`` - no latent at all, i.e. the deterministic G2
           kernel, whose only randomness is the per-pixel draw.
 
         Dispersion metrics on either are meaningful ONLY as the expected FAILURE
@@ -1091,7 +1091,7 @@ def check_torch_matches_numpy(seed: int = 0, tolerance: float = 1e-9) -> dict[st
 
     C0's rule is one implementation per adjudicated quantity. The forward pass
     has to be differentiable and :mod:`spread` is numpy, so this module is a
-    SECOND implementation of the same physics — the exact situation C0 exists to
+    SECOND implementation of the same physics - the exact situation C0 exists to
     prevent. It is admitted here and then pinned by a test rather than trusted:
     if the two ever disagree, "the kernel beat the ellipse" stops meaning what
     it says.
@@ -1226,7 +1226,7 @@ def susceptibility_gradient_report(
     patch, a strong east wind, a full column of barrier cells and a full column
     of non-burnable fuel, both directly downwind and inside the kernel's reach.
     Every one of those cells receives contagion, so both parameters MUST be
-    identified. Under ``mode="reach"`` both gradients are exactly ``0.0`` —
+    identified. Under ``mode="reach"`` both gradients are exactly ``0.0`` -
     which is not a small number, it is the parameter being absent from the
     model. That contrast is the point of returning both.
     """
@@ -1309,8 +1309,8 @@ def offset_anisotropy(model: ContagionKernel) -> dict[str, Any]:
 
     Within each distance ring the weights ``exp(c_d)`` are normalised to sum to
     1 and combined with the offsets' unit travel vectors. **An isotropic ring
-    contributes exactly zero**, so a pure distance profile — which is what a
-    kernel with no directional preference looks like — scores 0 regardless of how
+    contributes exactly zero**, so a pure distance profile - which is what a
+    kernel with no directional preference looks like - scores 0 regardless of how
     steeply it decays. Rings are then averaged by their offset count.
 
     ``magnitude`` is in [0, 1]. ``bearing_deg`` is a compass bearing (0 = travel

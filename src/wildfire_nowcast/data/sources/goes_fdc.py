@@ -1,4 +1,4 @@
-"""GOES ABI Fire Detection Characterization (FDC) access — the GOFER input.
+"""GOES ABI Fire Detection Characterization (FDC) access - the GOFER input.
 
 GOFER (Zenodo 14638647) publishes hourly perimeters for **28 California fires,
 2019-2021, and nothing else**: all five Zenodo versions of concept record
@@ -7,7 +7,7 @@ titled "...for 28 California wildfires from 2019-2021". Extending the corpus to
 2022-2025 therefore means *running their algorithm*, not downloading more of
 their output. The algorithm is open (github.com/tianjialiu/GOFER, ESSD 2024,
 doi:10.5194/essd-16-1395-2024) and its inputs are all in the Earth Engine
-catalog, so this is mechanical rather than speculative — but it is a
+catalog, so this is mechanical rather than speculative - but it is a
 REIMPLEMENTATION, and this module says so everywhere rather than letting a
 downstream reader assume the labels came from Zenodo.
 
@@ -35,7 +35,7 @@ verified live against the catalog rather than assumed:
   ``0`` no-data value is masked by the catalog, so it never enters ``mod(10)``.
 
 Validation of record for the port: :func:`kernel_resolutions` reproduces the
-published Kincade kernels **exactly** — ``[3453, 2550, 1725]`` for
+published Kincade kernels **exactly** - ``[3453, 2550, 1725]`` for
 East/West/Combined against ``largeFires_metadata.js``'s ``kernels:
 [3453,2550,1725]``. That is an exact integer match on a quantity derived from
 the GOES pixel geometry, which is the cheapest available proof that this
@@ -121,7 +121,7 @@ def satellite_for(when: datetime, side: str) -> SatelliteChoice:
     Mirrors ``GOFER_functions.getGOEScol``: take the latest breakpoint that does
     not postdate the request, falling back to the first entry. Raising on a date
     before the first breakpoint would be wrong for the same reason GOFER falls
-    back — the earliest GOES-16 data predates the operational handover.
+    back - the earliest GOES-16 data predates the operational handover.
     """
     if side not in SAT_BREAKPOINTS:
         raise ValueError(f"side must be 'East' or 'West', got {side!r}")
@@ -146,7 +146,7 @@ def kernel_resolutions(aoi: Any, when: datetime) -> dict[str, int]:
     satellite's native projection, vectorise the resulting cells at 10 m, and
     take the **area-weighted mean of sqrt(cell area)** over the cells touching
     the AOI. The Combined kernel uses the *intersection* lattice (the sum of the
-    two random images), which is finer than either alone — that is why it is
+    two random images), which is finer than either alone - that is why it is
     ~1700 m while East is ~3400 m.
 
     Verified exact on Kincade: this returns ``{'East': 3453, 'West': 2550,
@@ -293,7 +293,7 @@ def parallax_offsets_5070(
     displacement in a GEOGRAPHIC frame and then divides the x-component by
     ``cos(lat)`` because ``ee.Image.displace`` under-displaces in longitude.
     Doing the whole calculation in EPSG:5070 removes both the hack and a real
-    error source — Albers is rotated ~10-20 deg from true north over California,
+    error source - Albers is rotated ~10-20 deg from true north over California,
     so an (east, north) offset applied as an (x, y) offset would be wrong by
     that angle. Here both the ground point and the apparent point are projected
     to 5070 and differenced there, so the vector is correct by construction and

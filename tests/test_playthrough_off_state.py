@@ -1,4 +1,4 @@
-"""PLAYTHROUGH (ADR-030) — CAN the kernel say "nothing will happen this hour"?
+"""PLAYTHROUGH (ADR-030) - CAN the kernel say "nothing will happen this hour"?
 
 This is the question ADR-027 (7) calls untouched and the maintainer calls the
 most valuable unsolved thing in the project: ``dormant_off_rate`` is **0.0000** on
@@ -9,14 +9,14 @@ ignite in **953 of 953** dormant windows. Persistence scores 1.0 and
 Two explanations have very different consequences and nothing so far separated
 them:
 
-* **ARCHITECTURE** — the model class cannot represent a step with zero expected
+* **ARCHITECTURE** - the model class cannot represent a step with zero expected
   ignition at all, in which case no amount of training will find one; or
-* **TRAINING/CONDITIONING** — it can, and the fitted prior simply never learned
+* **TRAINING/CONDITIONING** - it can, and the fitted prior simply never learned
   WHICH hours are dormant.
 
 M6's activity gate already produced the evidence that these are different things:
-the train member-area variance ratio went 1.19 -> 10.04 at no NLL cost — the
-ensemble CONTAINS dormant members — while ``dormant_off_rate`` stayed at 0.0000.
+the train member-area variance ratio went 1.19 -> 10.04 at no NLL cost - the
+ensemble CONTAINS dormant members - while ``dormant_off_rate`` stayed at 0.0000.
 **Capacity is not knowledge.**
 
 THIS PLAYTHROUGH DECIDES IT, WITH THE ANSWER KNOWN BY CONSTRUCTION
@@ -26,7 +26,7 @@ ACTIVE hours (RH 12%, 308 K, 10 m/s), and the truth grows in the active hours an
 in no others. Three models, each of whose verdict is known before it is run:
 
 ``always_on``    the M5-shaped 3-d latent with no gate. **Must FAIL on capacity**
-                 — there is no route to zero expected ignition, so
+                 - there is no route to zero expected ignition, so
                  ``dormant_off_rate`` is 0.
 ``always_off``   a gate held far in the OFF state with NO conditioning.
                  **Must FAIL on conditioning.** This is the PLANTED DEFECT and it
@@ -39,7 +39,7 @@ in no others. Three models, each of whose verdict is known before it is run:
 The decisive reading is ``oracle_gate``: it uses the SHIPPED architecture with no
 change to the kernel's spatial structure, so if it passes, the architecture can
 represent dormancy and the blocker is the conditional prior's fit. If it fails,
-the architecture is the blocker — a legitimate and more consequential outcome,
+the architecture is the blocker - a legitimate and more consequential outcome,
 and one this file is built to report rather than to avoid.
 
 Nothing here reads a held-out fire, a tensor, or a gate metric.
@@ -64,7 +64,7 @@ from wildfire_nowcast.model.latent import ACTIVITY_GATE, LATENT_COMPONENTS, Late
 # [A14] SELF-DECLARATION, read by tests/test_playthrough_registry.py.
 # Registration is AUTOMATIC and these constants are how this module identifies
 # itself. They live HERE, beside the playthrough, so that adding or changing a
-# playthrough never requires editing another lead's file — the mechanism fix for
+# playthrough never requires editing another lead's file - the mechanism fix for
 # three consecutive forced cross-boundary writes (ADR-039 (6)).
 # --------------------------------------------------------------------------
 PLAYTHROUGH_OWNER = "infra (adopted from modelling)"
@@ -83,7 +83,7 @@ ACTIVE_HOURS = (False, False, True, True, False, False, True, True, False, False
 
 #: **THE DORMANT HOURS ARE DELIBERATELY MILD, AND THAT IS THE WHOLE TEST.**
 #: Writing this file found it: at RH 92% / 278 K / 0.3 m/s / FMC 28 the KERNEL'S
-#: OWN PHYSICS shuts the fire off — the moisture damping and the near-zero wind
+#: OWN PHYSICS shuts the fire off - the moisture damping and the near-zero wind
 #: drive the rate of spread to zero, and even the `always_on` model scores
 #: `dormant_off_rate` = 1.0. A scenario like that proves nothing: it tests
 #: whether Rothermel damping reaches zero, not whether the model can learn that
@@ -91,7 +91,7 @@ ACTIVE_HOURS = (False, False, True, True, False, False, True, True, False, False
 #: The real corpus is the opposite case, and that is exactly why it is hard:
 #: 953 of 1,399 held-out windows have BITWISE zero growth while the weather is
 #: only moderately quiet, so the physics still predicts ignition and every kernel
-#: we have trained ignites in 953 of 953. These constants reproduce THAT regime —
+#: we have trained ignites in 953 of 953. These constants reproduce THAT regime -
 #: at RH 62% / 290 K / 4 m/s the `always_on` model expects 0.5-3.5 new cells in a
 #: window where truth grows by exactly zero.
 DORMANT_WEATHER = {"rh_2m": 62.0, "temp_2m": 290.0, "wind": 4.0, "fuel_moisture_proxy": 9.0}
@@ -105,7 +105,7 @@ ORACLE_RH_WEIGHT = -3.0
 ORACLE_BIAS = -3.56
 
 #: Index of the ACTIVITY GATE inside `LATENT_COMPONENTS`, read from the module
-#: rather than written as a literal — a hard-coded 3 here would silently point at
+#: rather than written as a literal - a hard-coded 3 here would silently point at
 #: a different physical quantity the day a dimension is inserted.
 GATE_INDEX = LATENT_COMPONENTS.index(ACTIVITY_GATE)
 
@@ -172,7 +172,7 @@ def _set_oracle_prior(model: ContagionKernel) -> None:
     The two coefficients are SOLVED (see `ORACLE_RH_WEIGHT`), not tuned: they put
     the gate's prior mean at -5 in a dormant hour and +1 in an active one.
     NOTHING about the kernel's spatial structure, its offsets or its physics is
-    touched — which is what makes this a test of the ARCHITECTURE and not of a
+    touched - which is what makes this a test of the ARCHITECTURE and not of a
     hand-built forecaster.
     """
     assert model.latent is not None and model.latent.prior_net is not None
@@ -204,7 +204,7 @@ def run_scenario(kind: str, *, n_members: int = N_MEMBERS, seed: int = SEED) -> 
 
 
 def test_the_scenario_really_contains_dormant_and_growing_windows() -> None:
-    """If this ever fails, every verdict below is vacuous — so it is checked first."""
+    """If this ever fails, every verdict below is vacuous - so it is checked first."""
     truth = build_truth()
     growth = [
         int(np.count_nonzero((truth[t + 1] > 0) & ~(truth[t] > 0)))
@@ -237,8 +237,8 @@ def test_a_model_with_no_off_state_is_FLAGGED() -> None:
 def test_the_planted_defect_an_ALWAYS_OFF_model_is_FLAGGED() -> None:
     """THE NEGATIVE CONTROL. A model that never ignites must NOT pass this test.
 
-    It scores a PERFECT `dormant_off_rate` — exactly as persistence does on the
-    real corpus (1.0, ADR-027 (7)) — and is useless. If this assertion ever
+    It scores a PERFECT `dormant_off_rate` - exactly as persistence does on the
+    real corpus (1.0, ADR-027 (7)) - and is useless. If this assertion ever
     passes, the off-state playthrough has become a metric that rewards silence,
     which is the pathology C6.0 was written for and the fourth time this project
     would have shipped it.
@@ -255,7 +255,7 @@ def test_the_planted_defect_an_ALWAYS_OFF_model_is_FLAGGED() -> None:
 def test_the_architecture_CAN_represent_an_off_state_when_conditioned() -> None:
     """THE DECISIVE READING. Architecture or training?
 
-    The activity gate with an ORACLE conditional prior — the shipped model class,
+    The activity gate with an ORACLE conditional prior - the shipped model class,
     with the answer training is looking for installed by hand and no change to the
     kernel's spatial structure.
 
@@ -293,8 +293,8 @@ def test_MUTATION_a_ONE_RATE_off_state_verdict_would_pass_the_planted_defect() -
     A defect planted in the SCORER rather than in a model, because a playthrough
     whose negative control is caught for an obvious reason has not tested
     anything. `max_false_off_rate = 1.0` disables the conditioning half of the
-    verdict — the single-line change anyone would make if they wanted a simpler
-    metric — and the ALWAYS-OFF model, which ignites nothing ever, immediately
+    verdict - the single-line change anyone would make if they wanted a simpler
+    metric - and the ALWAYS-OFF model, which ignites nothing ever, immediately
     PASSES. That is what the second rate is buying, measured rather than argued.
     """
     from wildfire_nowcast.eval.validity import off_state_verdict
@@ -309,7 +309,7 @@ def test_MUTATION_a_ONE_RATE_off_state_verdict_would_pass_the_planted_defect() -
 
 
 def test_MUTATION_a_scenario_with_no_dormant_hours_is_UNDEFINED_not_passed() -> None:
-    """A degenerate scenario must not be a free pass — `eval/validity`'s own precedent.
+    """A degenerate scenario must not be a free pass - `eval/validity`'s own precedent.
 
     The M4 fix to `eval/validity.py` found an UNDEFINED case falling through to
     the verdict that says "usable as a gate floor". Same trap, one gate later.
@@ -339,7 +339,7 @@ def test_the_verdict_does_not_depend_on_the_member_count(n_members: int) -> None
 
 
 # --------------------------------------------------------------------------
-# MUTATION COVERAGE (A13, ADR-030) — the declarations above, made enforceable.
+# MUTATION COVERAGE (A13, ADR-030) - the declarations above, made enforceable.
 #
 # This file already does the hard part: three models whose verdicts are known in
 # advance, a planted defect that is a real previously-shipped behaviour

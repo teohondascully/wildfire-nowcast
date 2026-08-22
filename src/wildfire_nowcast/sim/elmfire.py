@@ -1,4 +1,4 @@
-"""ELMFIRE behind the C5 ``predict()`` signature — **NATIVE INPUTS, CONTRACT
+"""ELMFIRE behind the C5 ``predict()`` signature - **NATIVE INPUTS, CONTRACT
 OUTPUTS** (ADR-026 (3)).
 
 "ELMFIRE Monte Carlo with default Rothermel parameters" is a non-negotiable
@@ -13,7 +13,7 @@ WHAT CHANGED, AND WHY IT HAD TO
 -------------------------------
 The original playbook mapped OUR 1 km tensor into ELMFIRE's inputs. Measured
 consequence (ADR-025 (4)): **+2 cells against truth's +54** on the
-highest-growth Kincade window, 2 distinct members of 6 — C6.2-degenerate
+highest-growth Kincade window, 2 distinct members of 6 - C6.2-degenerate
 territory, which VOIDS G5 rather than losing it. ADR-026 (3) ruled that the
 cause was the SPEC, not ELMFIRE: it is built for ~30 m LANDFIRE and 1 km fuel
 channels lobotomise it.
@@ -36,7 +36,7 @@ signature the kernel and the ellipse implement, and the returned array is
 * geography is bound at CONSTRUCTION (``ElmfireNativeModel(grid=..., fire_year=
   ...)``), because C5's signature carries no CRS. Same pattern as
   ``load_model(path)``: the checkpoint is bound before ``predict``, not inside it.
-* in ``InputMode.NATIVE`` the ``static`` argument is **not consumed** — fuels and
+* in ``InputMode.NATIVE`` the ``static`` argument is **not consumed** - fuels and
   terrain come from LANDFIRE at 30 m. It is still shape-validated, and the run
   JSON records ``static_consumed: false`` so this can never be a silent
   divergence. ``InputMode.LOBOTOMISED`` consumes it, because that mode exists to
@@ -46,7 +46,7 @@ WEATHER
 -------
 ``weather`` is C1 channels 1-4 + 11, which ARE RTMA. RTMA is natively **2.5 km**
 and our lattice is 1 km, so putting RTMA on the C1 grid was an UPSAMPLING and
-destroyed no information — which is why "raw RTMA" and "our weather channels" are
+destroyed no information - which is why "raw RTMA" and "our weather channels" are
 the same field here, and why no Earth Engine call is needed for the weather half
 of ADR-026 (3). ELMFIRE reads weather rasters on their own grid with their own
 cell size and interpolates (``GET_BILINEAR_INTERPOLATE_COEFFS``), so the weather
@@ -341,7 +341,7 @@ def write_envi_bsq(
     ``map info`` carries the UPPER-LEFT tie point, which is what
     ``READ_BSQ_RASTER`` parses before doing ``YLLCORNER = y - YDIM * NROWS``
     (``elmfire_io.f90:1311``). Our stores are C1.4 y-descending, i.e. row 0 IS
-    north, so no flip happens here — and that is asserted by the geometry test,
+    north, so no flip happens here - and that is asserted by the geometry test,
     not assumed: getting it wrong mirrors every fire.
     """
     arr = np.asarray(array)
@@ -829,7 +829,7 @@ SCRATCH = 'null'
 
 
 # --------------------------------------------------------------------------
-# CLI — build, and a one-fire smoke run. NOT a comparison; G5 is not authorised.
+# CLI - build, and a one-fire smoke run. NOT a comparison; G5 is not authorised.
 # --------------------------------------------------------------------------
 
 

@@ -1,6 +1,6 @@
 """[E1] One page: does the PHYSICS baseline decelerate? (ADR-064)
 
-Reads ``runs/e1.json`` — the artifact ``sim.elmfire_stage.score`` writes — and
+Reads ``runs/e1.json`` - the artifact ``sim.elmfire_stage.score`` writes - and
 nothing else. No model is loaded, no metric is recomputed, and ``eval/stage.py``
 is not touched: if a number is not in the artifact this page draws a MISSING
 panel rather than inventing one.

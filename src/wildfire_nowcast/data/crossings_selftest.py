@@ -1,7 +1,7 @@
 """Self-tests for :mod:`wildfire_nowcast.data.crossings`, importable by infra.
 
 ``tests/`` is infra's directory and infra is mid-flight, so this ships as plain
-zero-argument ``test_*`` functions inside the package that owns the code — the
+zero-argument ``test_*`` functions inside the package that owns the code - the
 same pattern ``sim.selftest`` and ``eval.selftest`` already use and that
 ``tests/test_adopted_selftests.py`` collects by introspection. Adoption is two
 lines in that file (import this module, add it to the collected list); until
@@ -11,7 +11,7 @@ then ``python -m wildfire_nowcast.data.crossings_selftest`` runs the whole set.
 a jitter-sized gap that must be rejected, a barrier that must be seen, an
 oblique corridor a Bresenham line would slip through, a merging far body that
 must NOT be called an ignition, and a distance the ratified ignition code must
-agree with cell-for-cell (C0 — the producer and the verifier may not compute
+agree with cell-for-cell (C0 - the producer and the verifier may not compute
 geometry through different code).
 """
 
@@ -142,7 +142,7 @@ def test_the_threshold_of_record_survives_gofer_label_noise() -> None:
 def test_a_far_body_that_merges_is_a_crossing_and_not_an_ignition() -> None:
     """ADR-028 (1): merging is the NORMAL FATE of a real spot fire.
 
-    Planted defect: a body 20 km out — beyond SEPARATE_IGNITION_KM — that later
+    Planted defect: a body 20 km out - beyond SEPARATE_IGNITION_KM - that later
     merges. A distance-only rule deletes it and takes the G4 signal with it.
     """
     st = _planted(20, 4, hours=8)

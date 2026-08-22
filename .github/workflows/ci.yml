@@ -27,7 +27,7 @@
 #
 # WHAT MAKES THIS RUNNER THE SAME MACHINE AS A DEVELOPER'S. `make install`
 # syncs `requirements.lock` with `--require-hashes`, so the resolution is
-# performed once, by a human, and recorded — never performed here. That is new
+# performed once, by a human, and recorded - never performed here. That is new
 # at I8 and it is the fix for this workflow's longest outage.
 #
 # The python version is pinned to the interpreter of record (ADR-001, CPython
@@ -77,7 +77,7 @@ jobs:
 
       # `make install` builds .venv on the pinned interpreter and then
       # `uv pip sync --require-hashes requirements.lock`, so this runner holds
-      # EXACTLY the package set a developer holds — by artifact hash, not by
+      # EXACTLY the package set a developer holds - by artifact hash, not by
       # version string. Before I8 it re-resolved from `pyproject.toml` and
       # landed 15 of 73 packages on different versions than the lock names;
       # that divergence, on numpy 2.5.1 vs 2.5.2, is what kept this badge red
@@ -88,7 +88,7 @@ jobs:
       # ONE STEP, DELIBERATELY. `make ci` is the gate; this file's job is to
       # invoke it, not to restate it. Until I8 this workflow listed the six
       # targets itself and `tests/test_ci_matches_makefile.py` asserted that the
-      # two lists agreed — which worked, but "two descriptions that a test keeps
+      # two lists agreed - which worked, but "two descriptions that a test keeps
       # equal" is a weaker construction than "one description". The test now
       # asserts the stronger property: that this file runs `make ci` and no
       # other gate target, so drift is not detected, it is impossible.

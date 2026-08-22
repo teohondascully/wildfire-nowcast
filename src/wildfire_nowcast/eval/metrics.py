@@ -1,4 +1,4 @@
-"""C6 — the metrics API. Model-agnostic: samples + truth, never model internals.
+"""C6 - the metrics API. Model-agnostic: samples + truth, never model internals.
 
 INTERFACES C6::
 
@@ -22,7 +22,7 @@ below because they will decide G2 and G3:
    ensemble score better by collapsing.
 3. **``dispersion_ratio`` on a binary field is a CALIBRATION statistic, not an
    independence detector, and it cannot see ensemble collapse.** This is
-   algebraic, not empirical — see :func:`dispersion` — so C6 additionally
+   algebraic, not empirical - see :func:`dispersion` - so C6 additionally
    reports ``area_dispersion_ratio`` and ``member_diversity``, which can.
    Anyone running the G3 independent-noise ablation must read those two, or the
    ablation will appear to pass.
@@ -31,7 +31,7 @@ Pooling
 -------
 ``evaluate`` scores ONE window. Windows are pooled with :func:`aggregate`, which
 combines sufficient statistics (sums and counts) rather than averaging per-window
-scores — averaging Brier scores across windows with different pixel counts is a
+scores - averaging Brier scores across windows with different pixel counts is a
 different and wrong quantity, and it is the standard way a leave-fire-out table
 ends up subtly incorrect.
 """
@@ -97,7 +97,7 @@ _EPS = 1e-12
 
 
 def brier(p: np.ndarray, y: np.ndarray) -> tuple[float, int]:
-    """``(mean squared error, n)`` — returns the SUFFICIENT STATISTICS, pooled form."""
+    """``(mean squared error, n)`` - returns the SUFFICIENT STATISTICS, pooled form."""
     diff = np.asarray(p, dtype=np.float64) - np.asarray(y, dtype=np.float64)
     n = int(diff.size)
     return (float(np.sum(diff * diff)), n)
@@ -180,7 +180,7 @@ def arrival_times(event: np.ndarray, cap: int | None = None) -> np.ndarray:
     """First lead (1-based) at which ``event`` is true; ``cap`` if never.
 
     ``event`` is ``[..., L, H, W]``. Censoring at ``L + 1`` is not a convenience
-    — insights/data item 3 (addendum) measures that GOFER's East and West
+    - insights/data item 3 (addendum) measures that GOFER's East and West
     variants disagree about when a fire ENDS by tens of hours (CZU: 68 steps vs
     174). An uncapped arrival-time target inherits that, and the tail would
     dominate CRPS at a magnitude far larger than the 1-3 h nowcast horizon this
@@ -206,12 +206,12 @@ def crps_ensemble(
 
     with ``c = 1/(2 M (M-1))`` for the FAIR estimator and ``1/(2 M^2)`` for the
     ordinary one. The ordinary estimator is biased low for an under-dispersed
-    ensemble, i.e. it pays a model for collapsing — unacceptable when the same
+    ensemble, i.e. it pays a model for collapsing - unacceptable when the same
     number is used to adjudicate G3. Fair is the default; ``fair=False`` exists
     only so the two can be compared.
 
     A deterministic predictor (M = 1, or all members identical) has a zero
-    spread term either way, so this choice never moves a baseline — it only ever
+    spread term either way, so this choice never moves a baseline - it only ever
     removes a reward the learned ensemble would otherwise get for collapsing.
     """
     x = np.asarray(members, dtype=np.float64)
@@ -240,13 +240,13 @@ def dispersion(p: np.ndarray, y: np.ndarray, n_members: int) -> tuple[float, flo
         dispersion_ratio = sqrt( var * (M+1)/M / mse ) = 1
 
     **The trap.** For BINARY members the sample variance is exactly
-    ``p(1-p) M/(M-1)`` — mechanically determined by the ensemble mean. And
+    ``p(1-p) M/(M-1)`` - mechanically determined by the ensemble mean. And
     ``E[(p-y)^2 | p] = p(1-p)`` exactly when the forecast is calibrated. So on a
     binary field this ratio is ALGEBRAICALLY a calibration statistic and equals
     1 for any calibrated forecast, however the members are correlated. It
     therefore CANNOT detect ensemble collapse.
 
-    That matters because the G3 ablation — independent per-pixel noise — fails
+    That matters because the G3 ablation - independent per-pixel noise - fails
     by producing members that are individually well-calibrated per pixel and
     nearly identical in every aggregate (independent noise averages out over
     thousands of pixels, so every member burns almost the same total area and
@@ -311,7 +311,7 @@ def evaluate(
 ) -> dict[str, Any]:
     """Score one window. ``samples`` ``[M,L,H,W]``, ``truth`` ``[T>=L,H,W]``.
 
-    ``x0`` is optional and is DATA, not a model internal — supplying it unlocks
+    ``x0`` is optional and is DATA, not a model internal - supplying it unlocks
     the ``growth_band`` mask and the growth-restricted IoU, both of which are
     what a G2/G5 verdict should actually cite. Without it the dict says so
     instead of quietly reporting domain numbers under a band name.
@@ -430,7 +430,7 @@ def _score_mask(
 
     # [ADR-020] G3's calibration criterion needs a partition of the scored set
     # that the FORECAST did not choose, or climatology satisfies it trivially.
-    # The rings come from `x0` alone — same provenance as the growth_band mask.
+    # The rings come from `x0` alone - same provenance as the growth_band mask.
     rings = None if x0 is None else frontier_rings(x0, ring_radius)
     n_rings = int(ring_radius) + 2
 
@@ -487,7 +487,7 @@ def _score_mask(
     # [M9] SEPARATE FROM `_area_dispersion` ON PURPOSE, and it is not a style
     # choice. `tests/test_playthrough_dispersion.py` (infra's) plants
     # mutations by REPLACING `_area_dispersion` wholesale, so widening its return
-    # arity silently breaks somebody else's mutation coverage — which it did, and
+    # arity silently breaks somebody else's mutation coverage - which it did, and
     # that suite caught it in the same session. A new quantity gets a new
     # function; an existing mutation surface stays exactly the shape its owner
     # declared it to be.
@@ -539,7 +539,7 @@ def _score_mask(
             # [M9] The FIRST MOMENT's own denominator. `sum_signed` already carries
             # `sum(mean_area) - sum(truth_area)`, so one more additive sum makes
             # `growth_calibration` poolable exactly, at every level, rather than
-            # being reconstructable only by recomputing truth from the tensors —
+            # being reconstructable only by recomputing truth from the tensors -
             # which is how it was obtained until now (`sim/s5_report.py`), OUTSIDE
             # the artifact the gate is read from. ADR-039 (5) makes this quantity a
             # GATE CONDITION, and a gate condition that is not in `results.json`
@@ -558,7 +558,7 @@ def _score_mask(
             # windows convention as best_member_iou, so the pooled numbers still
             # satisfy silence + shape == best_member_iou exactly. The gate
             # criterion pools only over windows where it is DEFINED, so its
-            # denominator is carried separately and per horizon — a window with no
+            # denominator is carried separately and per horizon - a window with no
             # growth contributes nothing rather than contributing a zero.
             "silence_by_horizon_sum": list(iou["best_member_iou_silence_by_horizon"]),
             "shape_by_horizon_sum": list(iou["best_member_iou_shape_by_horizon"]),
@@ -583,7 +583,7 @@ def _area_error_decomposition(
     **NONE OF THESE KEYS IS A GATE CRITERION AND NONE MAY BE SUBSTITUTED FOR
     ONE.** G3's dispersion half is adjudicated on ``area_dispersion_ratio``
     (C6.1 / ADR-011), full stop. What this adds is an explanation of a failure,
-    never a replacement for the verdict — and it is written down here because it
+    never a replacement for the verdict - and it is written down here because it
     is emitted in the same milestone that scores that gate, which is exactly when
     a flattering variant would be easiest to slide in.
 
@@ -593,7 +593,7 @@ def _area_error_decomposition(
     that has nothing to do with how wide its ensemble is. Our own kernel
     over-predicts held-out growth 2.66-3.06x (ADR-021 (3b)), so this is the
     measurement that says whether a low ratio means "too narrow" or "in the wrong
-    place" — which have opposite remedies.
+    place" - which have opposite remedies.
     """
     note = (
         "DIAGNOSTIC ONLY. `area_dispersion_ratio` is the G3 criterion (C6.1/ADR-011); "
@@ -622,7 +622,7 @@ def _area_error_decomposition(
             # [M8 FIX] **THE SQUARE ROOT WAS MISSING AND IT REVERSED CONCLUSIONS.**
             # `area_dispersion_ratio` goes through `_ratio`, which takes a sqrt, so
             # the CRITERION is in SD units. This companion divided two sums of
-            # squares and was therefore in VARIANCE units — the SQUARE of the
+            # squares and was therefore in VARIANCE units - the SQUARE of the
             # quantity it sits next to. For every value below 1 (which is all of
             # ours) squaring moves it DOWN, so a debiased ratio that is genuinely
             # ABOVE the raw one was printed BELOW it and the attribution read
@@ -639,7 +639,7 @@ def _area_error_decomposition(
         }
     # NESTED under one non-numeric key ON PURPOSE. `common/null_check._flatten`
     # takes every numeric value in a `by_mask` block as a METRIC, and
-    # `C6_METRICS` refuses to skip one it does not know — an unregistered metric
+    # `C6_METRICS` refuses to skip one it does not know - an unregistered metric
     # is an unchecked metric (C-2, one level down). That registry lives in
     # `common/`, which C-4 FREEZES while a lead is running, and these four
     # numbers are a decomposition of an existing criterion rather than four new
@@ -654,7 +654,7 @@ def _first_moment_block(*, sum_pred: float, sum_truth: float, n: int) -> dict[st
 
     ADR-039 (5) makes ``|log(growth_calibration)|`` a G3 CONDITION, measured
     against the wind ellipse's on the same held-out blocks. Until this function
-    the quantity existed nowhere in ``eval/`` — only in ``sim/s5_report.py``,
+    the quantity existed nowhere in ``eval/`` - only in ``sim/s5_report.py``,
     where simviz recomputes truth areas from the C1 tensors. A gate condition
     that cannot be read out of ``results.json`` is the ``_headline`` allow-list
     defect a third time (C6.4's shape term, ADR-020's ``calibration_error``), so
@@ -694,7 +694,7 @@ def _first_moment_block(*, sum_pred: float, sum_truth: float, n: int) -> dict[st
 
 
 def _truth_area_sum(truth_event: np.ndarray, mask: np.ndarray) -> float:
-    """[M9] Total TRUTH event area over the scored leads — the first moment's denominator.
+    """[M9] Total TRUTH event area over the scored leads - the first moment's denominator.
 
     The one quantity in this module that depends on NO model, which is why it is
     the honest denominator for a calibration ratio and why it has its own
@@ -709,7 +709,7 @@ def _area_dispersion(
     mask: np.ndarray,
     n_members: int,
 ) -> tuple[float, float, int, float]:
-    """Spread-skill on TOTAL BURNED AREA — the collapse detector.
+    """Spread-skill on TOTAL BURNED AREA - the collapse detector.
 
     Independent per-pixel noise averages out: thousands of independent Bernoulli
     pixels give a total area whose spread is O(sqrt(N)) and vanishes relative to
@@ -737,7 +737,7 @@ def _iou_block(
     """Best-member mode-capture IoU, plus the versions that are not inflated.
 
     ``best_member_iou`` is ``max_m mean_k IoU(member m at lead k, truth at lead
-    k)`` — the best whole TRAJECTORY, which is what "mode capture" means. The
+    k)`` - the best whole TRAJECTORY, which is what "mode capture" means. The
     per-lead maximum (also reported) lets a different member win at every lead
     and is therefore optimistic; both are here so nobody has to guess which was
     computed.
@@ -752,7 +752,7 @@ def _iou_block(
     against my own words).** It was wrong twice over and both are measured, not
     argued. infra's null check scores it at 0.3333 for a do-nothing
     forecast against 0.3124 for genuine skill; and ADR-023's ZERO-CAPTURE AXIOM
-    then showed WHY, for the whole best-of-M family at once — a
+    then showed WHY, for the whole best-of-M family at once - a
     higher-is-better metric must pay a forecast that claims nothing the MINIMUM
     of its range, and this one pays 1/3. The restriction to unburned cells
     removes the absorbing-region inflation but NOT the empty-vs-empty
@@ -766,7 +766,7 @@ def _iou_block(
     (ADR-017). It ranks doing nothing above doing something: empty-vs-empty is
     IoU 1.0, so a member that predicts nothing banks a full point on every lead
     where truth did not grow. The decomposition below is computed by
-    ``common.iou_terms`` — the single, contract-adjudicated implementation (C0) —
+    ``common.iou_terms`` - the single, contract-adjudicated implementation (C0) -
     and the gate criterion is ``common.iou_terms.GATE_CRITERION_KEY``. The
     undecomposed value is left BIT-IDENTICAL and still emitted, because hiding it
     would hide the pathology.
@@ -786,7 +786,7 @@ def _iou_block(
     # ADR-015 (3) requires the model to be adjudicated against the ellipse's
     # own best-calibrated form AT THAT HORIZON, so the metric has to exist at
     # every horizon too. Entry H-1 is `max_m mean_{k<=H} IoU`, which is exactly
-    # what scoring a length-H window would have produced — one pass instead of
+    # what scoring a length-H window would have produced - one pass instead of
     # three, and identical by construction rather than by hope. The last entry
     # equals `best_member_iou`, which is asserted in the self-test.
     cumulative = np.cumsum(per_member_lead, axis=1) / np.arange(1, n_lead + 1)[None, :]
@@ -802,7 +802,7 @@ def _iou_block(
                 )
         growth = float(scores.mean(axis=1).max())
 
-    # [v2.10] C6.4 — shape / silence split, in common/ (C0), model-blind.
+    # [v2.10] C6.4 - shape / silence split, in common/ (C0), model-blind.
     truth_empty = truth_empty_by_lead(truth_event, mask)
     terms = decompose_by_horizon(per_member_lead, truth_empty)
 
@@ -909,7 +909,7 @@ def aggregate(results: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
 
     Note on what this may and may not be used for: pooling across FIRES is only
     meaningful within one fold, and CV spread must be quoted against **11
-    effective blocks, not 28 fires** (C3.1 / ADR-006 P4) — buffered domains
+    effective blocks, not 28 fires** (C3.1 / ADR-006 P4) - buffered domains
     overlap, so two fires in one block are one sample. Quoting n=28 overstates
     precision by ~sqrt(28/11).
     """
@@ -1019,7 +1019,7 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
         ),
         # [M9] Poolable EXACTLY, because both terms are sums. A pooled
         # growth_calibration is therefore the same number a single call to
-        # `evaluate` over the same windows would give — verified by the
+        # `evaluate` over the same windows would give - verified by the
         # first-moment playthrough, which is the property a "pooled" ratio
         # usually does NOT have.
         **_first_moment_block(
@@ -1068,7 +1068,7 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
 
 
 def _pool_iou_terms(blocks: Sequence[Mapping[str, Any]], iou_n: float) -> dict[str, Any]:
-    """[v2.10] C6.4 — pool the shape/silence split across windows.
+    """[v2.10] C6.4 - pool the shape/silence split across windows.
 
     Two different denominators, deliberately:
 
@@ -1120,7 +1120,7 @@ def _merge_bins(bin_lists: Sequence[Sequence[Mapping[str, Any]]]) -> list[dict[s
 
 
 def _pool_diagnostics(items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Pooled context — above all, how much of the sample was zero-growth.
+    """Pooled context - above all, how much of the sample was zero-growth.
 
     This is the first thing to read on any pooled result. If 79% of windows had
     no growth (insights/data item 1), a headline score is mostly a report on how

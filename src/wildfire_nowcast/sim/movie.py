@@ -5,7 +5,7 @@
 Three deliberate design choices, each answering a way this movie could lie.
 
 **1. Dormancy is drawn, not dropped.** Under C1.1 ``fireline_v2``, 6-37% of real
-frames have ZERO cells in state 1 — the fire is still there, GOES just cannot
+frames have ZERO cells in state 1 - the fire is still there, GOES just cannot
 see a fire line. A renderer that only draws state 1 goes blank on those frames
 and reads as missing data. So every frame draws the burned region *and* the
 frontier of the burned region (which C1.1 names as the true contagion source),
@@ -23,7 +23,7 @@ anything, and the pacing mode is stamped into the figure because a screenshot
 outlives its caption.
 
 **3. New cells with no burned neighbour last hour are marked.** Those are
-"teleports" — genuine spotting, or GOFER's polygon hull snapping outward. data
+"teleports" - genuine spotting, or GOFER's polygon hull snapping outward. data
 QA measured 17 such steps on Kincade alone with a 4.47 km max gap. Marking them
 in the base movie means the P3 crossing episodes are visible without a special
 tool, and a model that teleports for the wrong reason is visible immediately.
@@ -85,8 +85,8 @@ def frame_order(
     from which a viewer can read elapsed time off the frame counter.
 
     ``event`` repeats high-growth hours up to ``max_dwell`` times so a burst is
-    watchable at normal fps. It is strictly ADDITIVE — every hour still appears
-    exactly once before any repeat — so event pacing can slow the movie down but
+    watchable at normal fps. It is strictly ADDITIVE - every hour still appears
+    exactly once before any repeat - so event pacing can slow the movie down but
     can never drop an hour, and therefore cannot hide a defect.
     """
     n = int(np.asarray(growth_km2).size)
@@ -135,8 +135,8 @@ def teleport_cells(
     """Cells newly burned at ``t`` further than ``min_gap_cells`` from any cell
     burned at ``t-1`` (Chebyshev distance, i.e. 8-connected dilation rounds).
 
-    The threshold is not decoration. data QA's definition — "no burned
-    8-NEIGHBOUR at t-1", i.e. ``min_gap_cells=1`` — is the right detector on real
+    The threshold is not decoration. data QA's definition - "no burned
+    8-NEIGHBOUR at t-1", i.e. ``min_gap_cells=1`` - is the right detector on real
     GOFER, where the front advances about a cell an hour, and it is useless on
     anything faster: the C4 synthetic fire advances 2-3 cells/hour, so every
     single step trips it and the marker stops meaning anything. At the default
@@ -227,7 +227,7 @@ def _new_figure(fire: FireFrames, dpi: int) -> tuple[Any, Any, Any]:
     ax_time = fig.add_axes(
         [(_M_LEFT + 0.35) / fig_w, _M_BOTTOM / fig_h, (map_w - 0.35) / fig_w, _TIMELINE_H / fig_h]
     )
-    fig._layout_in = (fig_w, fig_h)  # noqa: SLF001 — used to place the legend
+    fig._layout_in = (fig_w, fig_h)  # noqa: SLF001 - used to place the legend
     return fig, ax_map, ax_time
 
 
@@ -293,7 +293,7 @@ def render_frame(ax: Any, fire: FireFrames, t: int, spec: MovieSpec) -> None:
 
     ax.imshow(fire.state[t], cmap=state_cmap(), vmin=-0.5, vmax=2.5, **geom.imshow_kwargs)
 
-    # Barrier: hatched outline, never a fill — a solid barrier would occlude the
+    # Barrier: hatched outline, never a fill - a solid barrier would occlude the
     # very cells we need to watch for a crossing event.
     if fire.barrier.any():
         ax.contour(
@@ -585,7 +585,7 @@ def _write_stills(
 ) -> list[str]:
     """Key stills: the biggest-growth hours plus the middle of each dormant run.
 
-    Deliberately not evenly spaced — on a fire that is 70% flat, evenly spaced
+    Deliberately not evenly spaced - on a fire that is 70% flat, evenly spaced
     stills are 70% identical.
     """
     picks = list(np.argsort(fire.growth_km2)[::-1][: max(1, n - 2)])

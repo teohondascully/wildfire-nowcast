@@ -1,4 +1,4 @@
-"""C6.0 — EVERY METRIC MUST BEAT A DO-NOTHING NULL (ADR-017).
+"""C6.0 - EVERY METRIC MUST BEAT A DO-NOTHING NULL (ADR-017).
 
     .venv/bin/python -m wildfire_nowcast.common.null_check
     make null-check
@@ -6,12 +6,12 @@
 THE RULE
 --------
 Before any metric adjudicates any gate, score a model that predicts NOTHING.
-**If the null wins, the metric is broken — not the model.**
+**If the null wins, the metric is broken - not the model.**
 
 Three pathologies of exactly this shape have already been found, and each was
 found LATE, by hand, after it had already influenced a decision:
 
-* Brier-fitting drove the wind-ellipse to optimal SILENCE — it ignited zero
+* Brier-fitting drove the wind-ellipse to optimal SILENCE - it ignited zero
   cells while truth grew 782 (ADR-011).
 * ``dispersion_ratio`` scores a COLLAPSED ensemble at 1.000 and a healthy one at
   1.051, so the original G3 bar would have PASSED collapse (ADR-011).
@@ -36,12 +36,12 @@ TWO VERDICTS, NOT ONE [A12, ADR-022 (1)]
 Every metric here gets **two independent verdicts**, because C6.0 was asking two
 different questions through one answer and that is what made the instrument flip.
 
-``verdict`` — THE COMPARISON. *Can any forecaster with genuine skill beat a
+``verdict`` - THE COMPARISON. *Can any forecaster with genuine skill beat a
     degenerate one under this metric, on this sample?* Answered by ranking
     against a reference model (:data:`SKILL_REFERENCES`, the ORACLE, the collapse
     ablation). Tiers ``BROKEN`` / ``BLIND`` / ``SILENCE_FAVOURING`` / ``ok``.
 
-``capture_verdict`` — THE ZERO-CAPTURE AXIOM. *Does this metric pay a strictly
+``capture_verdict`` - THE ZERO-CAPTURE AXIOM. *Does this metric pay a strictly
     positive score to a forecast that claims nothing?* Answered with no reference
     model and no threshold. Tiers ``PAYS_FOR_NOTHING`` / ``ok``.
 
@@ -54,27 +54,27 @@ beatable-in-principle and still carry a term any model can bank without
 predicting anything; those are not the same property and one string cannot hold
 both.
 
-Only the axiom and the hard comparison tiers can void a gate — see
+Only the axiom and the hard comparison tiers can void a gate - see
 :attr:`MetricVerdict.is_failure`.
 
 THE COMPARISON TIERS
 --------------------
 ``BROKEN``  (hard)
     A degenerate model ranks at least as well as the best forecast the metric
-    admits — the ORACLE for a skill metric, the healthy ensemble for a spread
+    admits - the ORACLE for a skill metric, the healthy ensemble for a spread
     metric. No defensible score can do this. There is no reading of the data
     under which not predicting is as good as being right.
 ``BLIND``  (hard, spread metrics only)
     The metric cannot SEPARATE a collapsed ensemble from a healthy one: the gap
     it opens between them is inside its own seed-to-seed noise. Which one it
-    then prefers is a coin flip, and measured here it does flip with the seed —
+    then prefers is a coin flip, and measured here it does flip with the seed -
     ``dispersion_ratio`` prefers COLLAPSE on 4 of 5 seeds and health on the 5th,
     all within 1%. ADR-011's own word for it is "a blind instrument"; this is
     that word made testable, and it is the stable finding where the direction of
     a 1% preference is not.
 ``SILENCE_FAVOURING``  (reporting)
-    A degenerate model ranks above ``skillful`` — genuine but imperfect skill,
-    partial recall plus realistic false alarms — while still ranking below the
+    A degenerate model ranks above ``skillful`` - genuine but imperfect skill,
+    partial recall plus realistic false alarms - while still ranking below the
     best admissible forecast. This is NOT automatically a bug: a proper score at
     a 1% base rate legitimately prefers silence to a sub-coin-flip predictor
     (R14, C6.2). It is a C-1 reporting gap: printed unconditionally, non-zero
@@ -96,7 +96,7 @@ skillful             0.28143  0.30977  0.32646  0.33985  0.35878  0.39181
 skillful_calibrated  0.34760  0.37003  0.38947  0.40321  0.42099  0.44116
 ===================  =======  =======  =======  =======  =======  =======
 
-The null's score is INVARIANT — it is the zero-growth lead fraction (1/3 here),
+The null's score is INVARIANT - it is the zero-growth lead fraction (1/3 here),
 a property of the LABELS, identical to the last digit at every M and every seed.
 The reference's score is MONOTONE IN THE MEMBER COUNT, because best-of-M is a
 maximum over members. So "does the null beat genuine skill" flips from YES to NO
@@ -105,13 +105,13 @@ null between M=16 and M=32, and ``skillful_calibrated`` is already above it at
 M=4. That is exactly how the verdict moved between A11 (M=8, one reference) and
 A12 (M=32, a second and stronger reference). **Neither verdict was evidence about
 the metric.** ``mean_member_iou`` is a MEAN rather than a maximum, is therefore
-flat in M (0.2126 -> 0.2200), and never went quiet — which is why precisely the
+flat in M (0.2126 -> 0.2200), and never went quiet - which is why precisely the
 best-of-M family fell silent and nothing else did.
 
 What IS evidence about the metric needs no reference and no threshold: a forecast
 that claims nothing captures nothing, so a capture metric must pay it the minimum
 of its range. Anything above that minimum is credit paid for an empty forecast,
-and **it is bankable by any model** — which is the mechanism simviz measured
+and **it is bankable by any model** - which is the mechanism simviz measured
 directly on one real window (kernel 0.020 vs ellipse 0.833 because 9/24 members
 predicted nothing) and the reason the do-nothing floor sat at 0.464/0.326/0.219
 above every kernel. Measured here, ``null_empty``, every seed and M in {4, 32}:
@@ -131,18 +131,18 @@ resolution_{1,2,3}h          0.0 exact    0.0 exact
 Three properties of that table are why the axiom is the right instrument.
 (a) The comparison exonerated ``best_member_iou_tolerant`` at A11; the axiom does
 not. (b) It flags ``best_member_iou_growth`` on the DOMAIN mask, where
-``best_member_iou`` is clean — a case no growth-band comparison looks at.
+``best_member_iou`` is clean - a case no growth-band comparison looks at.
 (c) The line is EXACT equality with zero: every sound metric lands on exactly
 ``0.0``, so no tolerance has to be justified and C-3 has no constant to bind to.
 
 ``ZERO_CLAIM`` is ``null_empty`` and NOT persistence, deliberately: on the domain
 mask persistence scores ``best_member_iou`` 0.857 by reproducing the already-
 burned region, which is capture it EARNED. Using it as the axiom's subject would
-manufacture a false positive on every metric — the failure mode that teaches
+manufacture a false positive on every metric - the failure mode that teaches
 people to disable a check.
 
 The axiom is confined to ``higher_is_better`` metrics because for an ERROR metric
-a silent forecast may legitimately score well at a 1% base rate — that is R14,
+a silent forecast may legitimately score well at a 1% base rate - that is R14,
 not a defect, and is what the reporting tier is for.
 
 WHY THIS IS NOT "COMPARE AGAINST THE MODELS UNDER TEST" [A12]
@@ -164,11 +164,11 @@ measures the size of the floor any model can bank. 0.33333 of bankable credit is
 a fact about the metric; whether a given kernel is above or below it is a fact
 about the kernel.
 
-WHAT COUNTS AS A NULL — WIDENED [ADR-020]
+WHAT COUNTS AS A NULL - WIDENED [ADR-020]
 
 A gate-eligible metric must avoid the hard tier. A metric the contract has
 already quarantined (``dispersion_ratio`` by C6.1, ``best_member_iou`` by C6.4)
-is EXPECTED to fail and is reported, not fatal — those are the POSITIVE CONTROLS
+is EXPECTED to fail and is reported, not fatal - those are the POSITIVE CONTROLS
 that prove this harness has teeth. If they ever come back clean, suspect the
 harness before believing the good news.
 
@@ -177,8 +177,8 @@ C6.0's text names a model that predicts nothing, and the two zero-ignition nulls
 are exactly that. But the property those nulls exploit is not silence, it is
 carrying NO INFORMATION ABOUT THE SITUATION; at a 1-7% base rate, silence is
 merely a *bad approximation* to the climatological forecast. :class:`Climatology`
-is the sharp form — it knows where the fire is and what fraction of reachable
-cells burn on average, and nothing else — and it is the decisive test of any
+is the sharp form - it knows where the fire is and what fraction of reachable
+cells burn on average, and nothing else - and it is the decisive test of any
 CALIBRATION statistic, because it is perfectly calibrated by construction.
 Adding it found that ``ece_*`` and ``reliability_*`` are both beaten by a model
 with zero information, which no do-nothing null could show.
@@ -191,15 +191,15 @@ Two consequences worth reading before trusting any verdict here:
   flattering one, which is why the default is not the cheap one.
 * **The null floor of a metric is a LABEL STATISTIC.** Metrics marked
   :data:`LABEL_STATISTIC` must be identical for every forecaster and seed, and
-  the harness raises a PROBLEM if they are not — that is how a model-dependent
+  the harness raises a PROBLEM if they are not - that is how a model-dependent
   quantity leaking into a supposedly model-free floor gets caught.
 """
 
 from __future__ import annotations
 
 # [A15] This module was a single 1,636-line file. It is now a package split by
-# responsibility — the metric table, the windows, the forecasters, the
-# adjudication, the report — and this file re-exports the whole of the previous
+# responsibility - the metric table, the windows, the forecasters, the
+# adjudication, the report - and this file re-exports the whole of the previous
 # public surface, so every existing import path resolves unchanged. Nothing
 # below is new API; if a name is here it was importable from
 # `wildfire_nowcast.common.null_check` before the split.
@@ -298,7 +298,7 @@ __all__ = [
     "SKILL_REFERENCES",
     "MetricSpec",
     "C6_METRICS",
-    # [v2.15] C6.6 — the flag is now ASKABLE, and asking is the point: scoring
+    # [v2.15] C6.6 - the flag is now ASKABLE, and asking is the point: scoring
     # code must not have to remember which channels the contract disqualified.
     "adjudicating_metrics",
     "may_adjudicate",
@@ -332,8 +332,8 @@ __all__ = [
 ]
 
 #: [A15] Names that were importable from the flat module and are NOT in the list
-#: above. They were public in practice — tests, `sim/quarantine.py` and the
-#: clause registry all reach for them — so the split must not quietly narrow the
+#: above. They were public in practice - tests, `sim/quarantine.py` and the
+#: clause registry all reach for them - so the split must not quietly narrow the
 #: surface. Listed separately rather than merged, so the pre-split `__all__`
 #: stays readable as the thing it was.
 __all__ += [

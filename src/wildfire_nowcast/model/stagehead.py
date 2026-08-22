@@ -1,4 +1,4 @@
-"""[S1] ARM S — the incumbent kernel plus ONE scalar covariate: log burned area.
+"""[S1] ARM S - the incumbent kernel plus ONE scalar covariate: log burned area.
 
 ADR-061 (6) asks a single question: does the transition kernel need a STAGE
 covariate? Truth decelerates on 12 of 14 spatial blocks (ADR-061 (1-3)); arm A's
@@ -19,13 +19,13 @@ it is recomputed at every step from the state that step reached, exactly as
 
 WHERE IT ACTS, and why there are two blocks and not one
 -------------------------------------------------------
-``log_amplitude_coeff`` (3) is a cubic in ``z`` added to ``log alpha`` — the
+``log_amplitude_coeff`` (3) is a cubic in ``z`` added to ``log alpha`` - the
 global hazard scale. This is the direct expression of "an old fire ignites less
 per frontier cell".
 
 ``log_reach_coeff`` (1) multiplies the directional rate of spread. This is a
 DIFFERENT physical mechanism: a fire can keep its per-cell hazard and simply
-stop reaching as far. Amplitude and reach are not redundant — reach enters
+stop reaching as far. Amplitude and reach are not redundant - reach enters
 inside ``exp(-0.5 (d / reach)^2)`` and therefore changes the SHAPE of the
 stencil, while amplitude shifts every offset together.
 
@@ -36,8 +36,8 @@ one implementation of the elliptical-Gaussian weight.
 NO CONSTANT TERM, on purpose. A constant in ``f(z)`` is exactly ``log_alpha``,
 which the kernel already has and already calibrates
 (``calibrate_alpha_to_growth``). Carrying both would give the optimiser an
-exactly flat direction — two parameters that can only be identified by their
-sum — which is the same unidentifiability defect ADR-015 (6a) found one level
+exactly flat direction - two parameters that can only be identified by their
+sum - which is the same unidentifiability defect ADR-015 (6a) found one level
 down. The consequence worth stating: the function CLASS is invariant to the
 values of :data:`STAGE_CENTRE` and :data:`STAGE_SCALE` up to a constant that
 ``log_alpha`` absorbs, so those two numbers are a conditioning choice and not a
@@ -48,7 +48,7 @@ ZERO INIT IS THE POINT. Every coefficient starts at 0, so ``log_amplitude`` is
 merely tidy: it is what makes "S beat A" a statement about the covariate rather
 than about a different starting point. And because the basis is LINEAR IN THE
 PARAMETERS, every gradient at init is the basis function itself and is
-non-zero — the head cannot be born dead the way a ``v * tanh(w z + b)`` form
+non-zero - the head cannot be born dead the way a ``v * tanh(w z + b)`` form
 would be (``df/dw = v sech^2(.) z = 0`` at ``v = 0``, so ``w`` and ``b`` would
 never move and the "4-parameter" head would really have 2).
 """
@@ -90,7 +90,7 @@ class StageHead(nn.Module):
         """``z`` for every leading batch/member entry of ``burned``. ``[...]``.
 
         ``burned`` is the MEAN FIELD in [0, 1], so the sum is the EXPECTED burned
-        cell count, not a sampled one — the same quantity ``step_probability``
+        cell count, not a sampled one - the same quantity ``step_probability``
         already treats as the contagion source. ``log1p`` rather than ``log`` so
         an empty state is 0 rather than ``-inf``: C1.1 records that 6-37% of
         frames have an empty state-1 set, and a covariate that is ``-inf`` on

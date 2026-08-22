@@ -70,7 +70,7 @@ def test_cluster_bootstrap_widens_when_data_are_clustered() -> None:
     """The whole point: 636 correlated draws are not 636 independent draws.
 
     Averaged over replications, because a design-effect read off ONE draw is a
-    property of that draw — the error that made the first version of this very
+    property of that draw - the error that made the first version of this very
     test fail against correct code.
     """
     rng = np.random.default_rng(0)
@@ -83,7 +83,7 @@ def test_cluster_bootstrap_widens_when_data_are_clustered() -> None:
         )
         ratios.append(res["design_effect_se_ratio"])
     assert float(np.mean(ratios)) > 3.0, np.mean(ratios)
-    # PLANTED DEFECT: with iid data the two SEs must AGREE (ratio near 1) —
+    # PLANTED DEFECT: with iid data the two SEs must AGREE (ratio near 1) -
     # a bootstrap that always inflates is not measuring clustering.
     iid_ratios = []
     for _ in range(30):
@@ -99,7 +99,7 @@ def test_cluster_bootstrap_interval_has_nominal_COVERAGE() -> None:
     """A CI is tested by COVERAGE over replications, never by one draw.
 
     Under a true mean of 0 the 95% interval must miss ~5% of the time, and it
-    must not miss ~0% either — an interval that always covers is not a 95%
+    must not miss ~0% either - an interval that always covers is not a 95%
     interval, it is a vacuous one.
     """
     rng = np.random.default_rng(11)
@@ -183,7 +183,7 @@ def test_negative_controls_are_flat_on_an_isotropic_pool() -> None:
 def test_negative_controls_catch_a_rigged_estimator() -> None:
     """PLANTED DEFECT: a pool whose displacement is ALWAYS due east while the
     wind is also always due east makes the crosswind control flat but the
-    permutation control STAY high — which is exactly the corpus-marginal
+    permutation control STAY high - which is exactly the corpus-marginal
     confound the control exists to expose."""
     pool = [_body(f"fire{f}", f % 4, h, 6.0, 0.0, 1.0, 0.0) for f in range(8) for h in range(30)]
     neg = negative_controls(pool)
@@ -197,7 +197,7 @@ def test_tie_averaged_direction_points_away_from_the_burned_neighbour() -> None:
     dr, dc, ok = _tie_averaged_ring_direction(prev, np.array([2]), np.array([2]))
     assert ok[0] and dr[0] == 0.0 and dc[0] == 1.0, (dr, dc, ok)
     # PLANTED DEFECT: symmetric neighbours must AVERAGE to a null direction, not
-    # silently pick the first one — that is the row-major tie-break this
+    # silently pick the first one - that is the row-major tie-break this
     # estimand exists to remove.
     sym = np.zeros((5, 5), dtype=bool)
     sym[1, 2] = sym[3, 2] = True

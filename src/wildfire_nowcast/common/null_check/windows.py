@@ -1,6 +1,6 @@
 """EVALUATION WINDOWS, built from labels alone.
 
-A :class:`Window` is one ``t0`` state plus the ``L`` label frames after it —
+A :class:`Window` is one ``t0`` state plus the ``L`` label frames after it -
 the only input any forecaster in this harness is allowed to see. Two sources:
 a generated label sequence with a DECLARED zero-growth rate (so the pathology's
 magnitude is an input rather than an accident of whichever fire was on disk),
@@ -55,7 +55,7 @@ def synthetic_windows(
     steps = np.cumsum(grow.astype(np.float64))
     # Radius AND centre advance only on a growth hour, so a dormant hour adds
     # bitwise zero cells. Drifting the centre every hour instead would make every
-    # hour a growth hour and quietly destroy the property being tested — the
+    # hour a growth hour and quietly destroy the property being tested - the
     # zero-growth rate is the whole point of this fixture.
     radius = 3.0 + steps * 1.10
     cy = height / 2.0 - steps * 0.32
@@ -99,7 +99,7 @@ def synthetic_windows(
 def windows_from_tensor(
     tensor_path: str | Path, *, horizon_h: int = 3, stride: int = 1, max_windows: int | None = None
 ) -> tuple[list[Window], dict[str, Any]]:
-    """Windows read from any C1 store — the C4 synthetic fire or a real fire."""
+    """Windows read from any C1 store - the C4 synthetic fire or a real fire."""
     from wildfire_nowcast.common.zarr_io import open_tensor  # noqa: PLC0415
 
     ds = open_tensor(Path(tensor_path))

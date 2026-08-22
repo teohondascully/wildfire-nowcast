@@ -10,13 +10,13 @@ This module tries to see them without reading a single model internal.
 
 **(a) Barrier / non-burnable response.** Claim: ``barrier_log_multiplier`` and
 non-burnable fuel have exactly zero gradient, so barrier crossing is unlearnable.
-The observable consequence is not "the kernel ignores barriers" — the multiplier
+The observable consequence is not "the kernel ignores barriers" - the multiplier
 still has whatever value it was initialised with. The observable is that the
 kernel's barrier response is *whatever was assumed*, and cannot match the
 labels except by luck. So we measure the response and compare it to the labels'.
 
 The measurement controls for distance. Barrier cells are not randomly placed
-relative to a fire front — water sits in valleys, roads on ridges — so a raw
+relative to a fire front - water sits in valleys, roads on ridges - so a raw
 "probability on barrier vs off barrier" ratio conflates suppression with
 geometry. Rates are therefore computed inside each Chebyshev distance ring
 around the ``t0`` burned region and pooled ring by ring.
@@ -24,7 +24,7 @@ around the ``t0`` burned region and pooled ring by ring.
 **(b) Wind-independent drift.** Claim: the free offset weights grew a S/SW
 preference matching GOFER's centroid bias (STATE R6), i.e. the model is fitting a
 measurement artifact as physics. The discriminator is not "does the fire go
-SW" — in California it often does, and the wind often blows that way. It is
+SW" - in California it often does, and the wind often blows that way. It is
 whether the bias is fixed in the EARTH frame or in the WIND frame:
 
 * rotate each window's displacement residual into the wind frame and average →
@@ -112,7 +112,7 @@ class RingCounts:
 
     Kept as sums rather than rates so pooling across windows is exact. A mean of
     per-window rates would let a window with three eligible cells outvote one
-    with three hundred — the same weighting error that makes a pooled Brier read
+    with three hundred - the same weighting error that makes a pooled Brier read
     as skill when 62% of windows are motionless.
     """
 
@@ -204,7 +204,7 @@ def displacement(
     """Vector from the ``t0`` frontier centroid to the new-burn centroid, in metres.
 
     ``ys`` are NORTHINGS from the C1 coordinate, not row indices, so +y is north
-    — the same rule that keeps the wind quiver honest (``sim.style``). Using row
+    - the same rule that keeps the wind quiver honest (``sim.style``). Using row
     indices here would point every drift statistic due south.
     """
     from wildfire_nowcast.sim.reader import frontier_of  # noqa: PLC0415

@@ -2,9 +2,9 @@
 
 Two leakage routes have to be closed, not one:
 
-1. *Temporal/identity* — a fire must be wholly in one fold. That is the obvious
+1. *Temporal/identity* - a fire must be wholly in one fold. That is the obvious
    one and is what "leave-fire-out" names.
-2. *Spatial* — two fires whose domains overlap share terrain, fuels, barriers
+2. *Spatial* - two fires whose domains overlap share terrain, fuels, barriers
    and often weather. Splitting them across folds lets the model memorise the
    landscape and score well on the held-out fire for the wrong reason. 2020 in
    California is full of these (the August/North/LNU/SCU complexes burned within
@@ -91,7 +91,7 @@ def assign_folds(fires: Iterable[FireFoldInput], k: int = 5) -> dict[str, int]:
     """Map ``fire_id -> cv_fold`` in ``[0, k)``. Deterministic.
 
     ``k = len(fires)`` gives strict leave-one-fire-out (subject to the spatial
-    constraint, which may merge two fires into one fold and leave a fold empty —
+    constraint, which may merge two fires into one fold and leave a fold empty -
     that is reported by :func:`fold_summary`, not hidden).
     """
     items = sorted(fires, key=lambda f: f.fire_id)
@@ -118,7 +118,7 @@ def fire_domain_inputs(
 ) -> list[FireFoldInput]:
     """Buffered domain bbox + hour count for every GOFER fire.
 
-    Reads perimeter geometry only — no rasterisation, no state rule — because
+    Reads perimeter geometry only - no rasterisation, no state rule - because
     fold and block assignment depend on the domain, not on the labels.
     """
     from wildfire_nowcast.common.contract import CRS_STRING  # noqa: PLC0415

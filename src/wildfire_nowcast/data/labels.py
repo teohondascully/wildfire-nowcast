@@ -1,6 +1,6 @@
 """Build the ``fire_state`` label channel (C1 channel 0) from GOFER perimeters.
 
-Output goes to ``data/interim/{fire_id}/fire_state.zarr`` — **never** to the C1
+Output goes to ``data/interim/{fire_id}/fire_state.zarr`` - **never** to the C1
 path. Per ADR-003(b) nothing lands at ``data/fires/{fire_id}/tensor.zarr`` until
 all 14 channels exist; the guard that enforces that lives in
 :mod:`wildfire_nowcast.data.assemble`.
@@ -39,7 +39,7 @@ __all__ = [
     "write_interim_fire_state",
 ]
 
-#: C1.2 — the per-fire domain is the final-perimeter bbox buffered outward by
+#: C1.2 - the per-fire domain is the final-perimeter bbox buffered outward by
 #: this much before snapping to the continental lattice. 10 km ~ 3 h of a fast
 #: wind-driven run at 3 km/h, i.e. somewhere for the model to spread *into*.
 DEFAULT_BUFFER_M = 10_000.0

@@ -2,7 +2,7 @@
 
 ADR-015 (6b): the M2 kernel's free offset weights grew a **wind-independent
 S/SW preference**, which is what GOFER's measured systematic centroid bias would
-look like if the model absorbed it as physics. The instruction — correctly — is
+look like if the model absorbed it as physics. The instruction - correctly - is
 to handle that by *marginalising over the label noise*, not by penalising the
 offset weights until the symptom disappears. A penalty removes the evidence; a
 marginalisation removes the incentive.
@@ -37,7 +37,7 @@ lives in the PERIMETER, so the perturbation must act on the perimeter.
 The perimeter noise model, sized from measurement
 -------------------------------------------------
 insights/data item 4 + its addendum measure GOFER-East against GOFER-West on the
-same fire — two independent renderings of one perimeter, i.e. a direct read of
+same fire - two independent renderings of one perimeter, i.e. a direct read of
 the observation noise. Dataset-wide: IoU 0.687, centroid offset magnitude
 1.64 km, equivalent-radius mismatch 0.91 km, East larger in 90% of all timesteps.
 Per-fire values (0.49 km Bobcat to 5.52 km CZU) are in
@@ -62,7 +62,7 @@ Why the sign of ``morph`` is symmetric even though the measured bias is not
 East > West in 90% of timesteps identifies the sign of ``E - W``. It does **not**
 identify the sign of ``Combined - truth``, which is the quantity a training
 augmentation has to marginalise. insights/data item 4's own prescription is a
-per-fire scalar area bias "drawn from something like N(0, 15-25%)" — zero mean.
+per-fire scalar area bias "drawn from something like N(0, 15-25%)" - zero mean.
 The thing that makes this a BIAS model rather than the mis-specified symmetric
 jitter data warns against is not an asymmetric sign, it is that **one draw
 covers the whole fire**: within a draw every cell and every hour is displaced
@@ -304,8 +304,8 @@ def apply_perturbation(x: Tensor, p: LabelPerturbation) -> Tensor:
 def growth_band_field(burned0: Tensor, radius_cells: int) -> Tensor:
     """The C6 ``growth_band`` mask, recomputed in torch from a perturbed ``b0``.
 
-    Mirrors :func:`wildfire_nowcast.eval.masks.growth_band` exactly — dilate the
-    frontier of the burned set, minus the burned set — because a perturbed label
+    Mirrors :func:`wildfire_nowcast.eval.masks.growth_band` exactly - dilate the
+    frontier of the burned set, minus the burned set - because a perturbed label
     with an unperturbed scoring mask would score the model on cells the perturbed
     fire was never near.
     """

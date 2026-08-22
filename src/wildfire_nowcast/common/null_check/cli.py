@@ -3,7 +3,7 @@
     .venv/bin/python -m wildfire_nowcast.common.null_check
     make null-check
 
-The report prints every verdict, both of them, whether or not anything fired —
+The report prints every verdict, both of them, whether or not anything fired -
 including the positive controls, so an empty control set is visible as a
 sentence rather than as an absence.
 """

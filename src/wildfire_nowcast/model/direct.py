@@ -1,10 +1,10 @@
-"""[M10] The DIRECT-HORIZON head — arm B of ADR-045's direct-vs-rollout experiment.
+"""[M10] The DIRECT-HORIZON head - arm B of ADR-045's direct-vs-rollout experiment.
 
 THE QUESTION THIS ARM EXISTS TO ANSWER
 --------------------------------------
-M9 named the defect (ADR-043): the kernel **cannot decelerate** — the elasticity
+M9 named the defect (ADR-043): the kernel **cannot decelerate** - the elasticity
 of log growth rate to log frontier length is ``-0.781 +/- 0.082`` for truth and
-``-0.036 +/- 0.026`` for the model — and it did NOT establish WHERE the defect
+``-0.036 +/- 0.026`` for the model - and it did NOT establish WHERE the defect
 enters. Two candidates:
 
     (a) the 1-step kernel is mis-specified and rolling it 3x COMPOUNDS the error;
@@ -16,7 +16,7 @@ experiment that can retire the expensive one, so it runs first.
 
 WHAT "DIRECT" MEANS HERE, PRECISELY
 -----------------------------------
-Every lead's hazard is computed from ``b_0`` — the OBSERVED state at ``t0`` — and
+Every lead's hazard is computed from ``b_0`` - the OBSERVED state at ``t0`` - and
 the model's own predicted state never re-enters the hazard. The only sequential
 element left is absorbing bookkeeping: a cell that burned at lead 1 cannot burn
 again at lead 2. That is carried by the INCREMENTAL hazard at fixed ``z``::
@@ -48,21 +48,21 @@ So B uses a **multi-scale stencil with TIED weights**: at lead ``h`` the offsets
 are the union of dilations ``1..h`` of A's radius-3 stencil, and the free weight
 ``c_d`` is SHARED across the dilations of one base offset. Then
 
-    receptive field  3h  — identical to A's at every lead
-    free offset weights  28  — identical to A's
-    shifted-field evaluations at lead 3: 84 = A's 3 x 28 — matched
+    receptive field  3h  - identical to A's at every lead
+    free offset weights  28  - identical to A's
+    shifted-field evaluations at lead 3: 84 = A's 3 x 28 - matched
 
 and the near shell is present at every lead, so a cell adjacent to the fire keeps
 accumulating hazard for the whole window, which is the thing dilation alone gets
 wrong.
 
-THE TWO PARAMETERS B HAS AND A DOES NOT — DECLARED, NOT BURIED
+THE TWO PARAMETERS B HAS AND A DOES NOT - DECLARED, NOT BURIED
 --------------------------------------------------------------
 :attr:`log_lead_reach_exponent` (``p``) and :attr:`log_lead_hazard_exponent`
 (``q``): reach scales as ``h^p`` and hazard amplitude as ``h^q``, with ``p = q =
 1`` at initialisation, i.e. plain linear-in-lead extrapolation. They are B's own
-HORIZON RESPONSE — the degree of freedom by which a direct head could in
-principle decline to extrapolate linearly — and they are the only capacity B has
+HORIZON RESPONSE - the degree of freedom by which a direct head could in
+principle decline to extrapolate linearly - and they are the only capacity B has
 that A does not. Two parameters against A's ~1,000; the measured ratio is
 reported in the M10 artifact by :func:`parameter_counts` and **if it ever falls
 outside +/-10% the arm is void.**
@@ -75,7 +75,7 @@ what makes ADR-045's P1 a real prediction rather than a foregone one.
 WHAT IS DELIBERATELY NOT DIFFERENT
 ----------------------------------
 The physics, the latent, the sampler, the absorbing bookkeeping and the RNG
-consumption order are all A's — inherited, not restated. ``predict`` and
+consumption order are all A's - inherited, not restated. ``predict`` and
 ``rollout`` are NOT overridden: the base class routes both through
 ``step_probability_at``, and this class overrides only that. M10 compares a
 rollout against a direct head, so any difference produced by *two copies of the
@@ -120,7 +120,7 @@ __all__ = [
     "PARAMETER_PARITY_TOLERANCE",
 ]
 
-#: ADR-045 (3): "parameter count within +/-10% of A". Not a threshold I chose —
+#: ADR-045 (3): "parameter count within +/-10% of A". Not a threshold I chose -
 #: it is the pre-registration's own number, restated in code so the check cannot
 #: drift from the clause. C-3 has nothing to bind to: no sample was consulted.
 PARAMETER_PARITY_TOLERANCE = 0.10
@@ -132,7 +132,7 @@ class DirectConfig:
 
     #: Largest dilation the multi-scale stencil ever uses. At lead ``h`` the
     #: dilations are ``1..min(h, max_dilation)``, so with the default and
-    #: ``horizon_h = 3`` the lead-3 receptive field is 9 cells — A's rollout
+    #: ``horizon_h = 3`` the lead-3 receptive field is 9 cells - A's rollout
     #: receptive field, exactly.
     max_dilation: int = 3
     #: The two lead-response parameters. ``False`` pins ``p = q = 1`` (linear in
@@ -155,7 +155,7 @@ class DirectHorizonKernel(ContagionKernel):
     #: Read by ``train._elbo_terms`` so the inference network anchors its spatial
     #: basis on the SAME field the decoder does. For a rollout that is the state
     #: each step reached; for a direct head it is the window's origin. A mismatch
-    #: would not crash — it would quietly make the spatial latent dimensions
+    #: would not crash - it would quietly make the spatial latent dimensions
     #: describe a different fire from the one they modulate.
     anchors_on_origin = True
 
@@ -195,7 +195,7 @@ class DirectHorizonKernel(ContagionKernel):
         lead: int,
         latent: LatentEffect | None = None,
     ) -> Tensor:
-        """``lambda_h`` — hazard accumulated from ``t0`` to lead ``h``, from ``b_0`` alone.
+        """``lambda_h`` - hazard accumulated from ``t0`` to lead ``h``, from ``b_0`` alone.
 
         ``weather`` is ``[..., T, C_w, H, W]``; the head sees the MEAN of the
         first ``h`` forecast hours, so it is driven by the same forcing over the
@@ -314,7 +314,7 @@ class DirectHorizonKernel(ContagionKernel):
 
 
 # --------------------------------------------------------------------------
-# the capacity check ADR-045 (3) requires — reported, never assumed
+# the capacity check ADR-045 (3) requires - reported, never assumed
 # --------------------------------------------------------------------------
 
 
@@ -333,12 +333,12 @@ def check_direct_head_properties(seed: int = 11, horizon_h: int = 3) -> dict[str
        exactly: the increments compose back into the one-shot marginal, so the
        absorbing bookkeeping has not quietly changed the estimand.
     3. **RECEPTIVE FIELD 3h, WITH A POSITIVE CONTROL.** Nothing beyond ``3h``
-       cells may ignite, AND something at more than ``3(h-1)`` cells must — an
+       cells may ignite, AND something at more than ``3(h-1)`` cells must - an
        all-clear that has never been observed to find anything is not evidence
        (ADR-044 (3)).
     4. **THE NEAR SHELL KEEPS ACCUMULATING.** A cell adjacent to the fire must be
        strictly more likely at lead 3 than at lead 1. This is the property a
-       pure dilation-3 stencil — the obvious construction — fails outright, and
+       pure dilation-3 stencil - the obvious construction - fails outright, and
        the reason B's stencil is multi-scale.
     """
     import numpy as np
@@ -367,14 +367,14 @@ def check_direct_head_properties(seed: int = 11, horizon_h: int = 3) -> dict[str
     b0 = torch.as_tensor((x0 > 0).astype(np.float64), dtype=DTYPE)
     w = torch.as_tensor(weather, dtype=DTYPE)
 
-    # 1 — directness
+    # 1 - directness
     garbage = torch.as_tensor(rng.random(shape), dtype=DTYPE)
     with torch.no_grad():
         p_clean = model.step_probability_at(b0, w, fields, horizon_h - 1, None, b0)
         p_garbage = model.step_probability_at(garbage, w, fields, horizon_h - 1, None, b0)
     directness_delta = float(torch.max(torch.abs(p_clean - p_garbage)))
 
-    # 2 — telescoping
+    # 2 - telescoping
     with torch.no_grad():
         b = model.rollout(b0, w, fields, horizon_h)
         worst_telescope = 0.0
@@ -391,7 +391,7 @@ def check_direct_head_properties(seed: int = 11, horizon_h: int = 3) -> dict[str
             )
         )
 
-    # 3 — receptive field, with the positive control
+    # 3 - receptive field, with the positive control
     rows, cols = np.indices(shape)
     distance = np.maximum(np.abs(rows - 20), np.abs(cols - 20)).astype(np.float64)
     reach: dict[str, Any] = {}
@@ -409,7 +409,7 @@ def check_direct_head_properties(seed: int = 11, horizon_h: int = 3) -> dict[str
             "exceeds_previous_budget": max_lit > 3 * (h - 1),
         }
 
-    # 4 — the near shell keeps accumulating
+    # 4 - the near shell keeps accumulating
     near = distance == 1
     near_lead1 = float(b[..., 0, :, :].detach().numpy()[near].mean())
     near_leadH = float(b[..., horizon_h - 1, :, :].detach().numpy()[near].mean())

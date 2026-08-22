@@ -50,7 +50,7 @@ def _stats(
     heldout: list[str] | None,
     n_train_blocks: int = 2,
 ) -> None:
-    """Write a ``norm_stats.json``. ``None`` OMITS the key — that is a defect to plant."""
+    """Write a ``norm_stats.json``. ``None`` OMITS the key - that is a defect to plant."""
     payload: dict[str, Any] = {"train_folds": train_folds, "n_train_blocks": n_train_blocks}
     if train is not None:
         payload["train_fire_ids"] = train
@@ -82,7 +82,7 @@ def _fp(fake: tuple[Path, Path]) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
-# C0 — one implementation, and it must reproduce the fingerprint of record
+# C0 - one implementation, and it must reproduce the fingerprint of record
 # --------------------------------------------------------------------------
 
 
@@ -92,7 +92,7 @@ def test_common_and_eval_fingerprints_agree_byte_for_byte() -> None:
 
     Re-homing a function under C0 is only safe if it is the SAME function. If
     this ever fails, one of the two changed and every artifact stamped by the
-    other is unverifiable — which is worse than the duplication itself.
+    other is unverifiable - which is worse than the duplication itself.
     """
     from wildfire_nowcast.eval.reporting import split_fingerprint as eval_fp
 
@@ -106,20 +106,20 @@ def test_common_and_eval_fingerprints_agree_byte_for_byte() -> None:
 #: **THE C8 ARCHIVE BOUNDARY, kept as two named constants rather than one
 #: overwritten literal** (ADR-039 (3), adopting data's suggestion verbatim).
 #:
-#: ``FINGERPRINT_PRE_D6`` — 12 fires, ``train_folds [0, 1, 2, 4]``, 4 held-out
+#: ``FINGERPRINT_PRE_D6`` - 12 fires, ``train_folds [0, 1, 2, 4]``, 4 held-out
 #: blocks {3,4,5,6}. **Everything produced before the D6 corpus swap is bound to
 #: this value and stays bound to it:** G2's record of adjudication
 #: (``runs/baselines-20260808-095003``, ADR-021) and ALL FOUR G3 attempts
 #: (ADR-027 / ADR-032 / ADR-034 / ADR-037, i.e. M5, M6, M7 and M8, including the
 #: `m8_asym` candidate and the 2x2 factorial). No number stamped with it may be
-#: quoted beside a number stamped with the one below — that is what C8's
+#: quoted beside a number stamped with the one below - that is what C8's
 #: ``matches_current`` reporting clause is for.
 FINGERPRINT_PRE_D6 = "4848f491e8d588fa"
 
-#: ``FINGERPRINT_OF_RECORD`` — the CURRENT split. 21 fires (ADR-037 (7) authorised
+#: ``FINGERPRINT_OF_RECORD`` - the CURRENT split. 21 fires (ADR-037 (7) authorised
 #: the swap, ADR-038 verified it), 14 spatial blocks, ``train_folds [0, 1, 2, 4]``
 #: = 16 fires / 9 blocks, held out fold 3 = 5 fires / 5 blocks {4,5,6,7,12}.
-#: **Nothing has been scored under it yet** — M9 will be the first.
+#: **Nothing has been scored under it yet** - M9 will be the first.
 FINGERPRINT_OF_RECORD = "b3e5dadad01eaef9"
 
 
@@ -131,7 +131,7 @@ def test_the_fingerprint_of_record_is_reproduced() -> None:
     """The split on disk must reproduce :data:`FINGERPRINT_OF_RECORD`.
 
     Pinned deliberately. If the split legitimately moves this test fails and the
-    number in ADR-015/STATE.md must be updated in the same commit — a fingerprint
+    number in ADR-015/STATE.md must be updated in the same commit - a fingerprint
     nobody notices changing is not a fingerprint.
 
     **This test has now fired once in the correct direction and been updated
@@ -242,7 +242,7 @@ def test_assert_split_unchanged_raises_when_the_split_moves(fake_split) -> None:
 
 
 # --------------------------------------------------------------------------
-# C8 — the hard fail
+# C8 - the hard fail
 # --------------------------------------------------------------------------
 
 
@@ -297,7 +297,7 @@ def test_fingerprints_are_found_wherever_a_lead_stamped_them() -> None:
 
 
 # --------------------------------------------------------------------------
-# [v2.11] C-4.2 — a code fingerprint must be sampled BEFORE *and* AFTER
+# [v2.11] C-4.2 - a code fingerprint must be sampled BEFORE *and* AFTER
 # --------------------------------------------------------------------------
 
 
@@ -307,7 +307,7 @@ def test_a_code_fingerprint_is_NOT_a_split_fingerprint() -> None:
     ``common_code_before``/``_after`` and ``scoring_code`` are each a dict with
     their own ``fingerprint`` key. Collecting those as SPLIT stamps made
     ``internally_consistent`` report "MORE THAN ONE split fingerprint" and HARD
-    FAIL on every run in the repo — including the G2 record of ADR-021, whose
+    FAIL on every run in the repo - including the G2 record of ADR-021, whose
     stamps were one split fingerprint agreeing in four places plus two code
     fingerprints doing their job.
 
@@ -417,7 +417,7 @@ def test_an_artifact_with_no_code_fingerprint_emits_no_c4_2_clause() -> None:
 
 
 def test_check_split_chain_fails_across_two_artifacts(tmp_path: Path) -> None:
-    """A checkpoint trained under split A, evaluated under split B — ADR-015 exactly."""
+    """A checkpoint trained under split A, evaluated under split B - ADR-015 exactly."""
     train = tmp_path / "train.json"
     ev = tmp_path / "eval.json"
     train.write_text(json.dumps({"split_before": {"fingerprint": "aaaa"}}))
@@ -457,7 +457,7 @@ def test_the_chain_follows_run_references(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------
-# C3.1 — overlapping fires MUST share a fold
+# C3.1 - overlapping fires MUST share a fold
 # --------------------------------------------------------------------------
 
 
@@ -491,7 +491,7 @@ def test_the_real_split_satisfies_c3_1_and_c6_3() -> None:
 
 
 # --------------------------------------------------------------------------
-# [A14] C3 — DECLARED train/held-out membership, by fire id (ADR-038 (6))
+# [A14] C3 - DECLARED train/held-out membership, by fire id (ADR-038 (6))
 #
 # Every test below PLANTS THE DEFECT AND ASSERTS THE CHECK CATCHES IT. The
 # clause exists because its predecessor could not: `train_heldout_disjoint`
@@ -505,7 +505,7 @@ def test_the_OLD_disjointness_check_could_not_have_failed(fake_split) -> None:  
     """The vacuity, pinned as a fact rather than left as an anecdote.
 
     ``split_fingerprint`` partitions the same rows by ``fold in train_folds``,
-    so its ``train_fire_ids`` and ``heldout_fire_ids`` cannot share a member —
+    so its ``train_fire_ids`` and ``heldout_fire_ids`` cannot share a member -
     **however corrupt the artifacts are.** This test deliberately hands it the
     worst input it will ever see (a fire moved into a straddling block, plus a
     norm-stats file whose declared membership is a lie) and shows the derived
@@ -525,8 +525,8 @@ def test_an_overlapping_fire_id_is_a_HARD_failure(fake_split) -> None:  # noqa: 
     """PLANTED DEFECT: one fire declared in BOTH train and held-out.
 
     This is the case ADR-038 (6) ruled into the contract. It is leakage of the
-    most consequential kind — the normalisation is fitted on a fire that is then
-    scored — and until now literally nothing in the repo read the two keys.
+    most consequential kind - the normalisation is fitted on a fire that is then
+    scored - and until now literally nothing in the repo read the two keys.
     """
     fires, stats = fake_split
     _stats(
@@ -575,7 +575,7 @@ def test_a_MISSING_membership_key_is_a_failure_not_a_skip(fake_split, omit: str)
 def test_a_STALE_norm_stats_disagreeing_with_the_manifests_is_caught(fake_split) -> None:  # noqa: ANN001
     """PLANTED DEFECT: the corpus moved and norm_stats.json did not.
 
-    ADR-038 (1) measured this exact hazard at 9.76% of train mass —
+    ADR-038 (1) measured this exact hazard at 9.76% of train mass -
     ``2020_july_complex`` moved train -> held-out during the D6 swap, and a
     stats file still listing it as train would have baked its statistics into
     the normalisation of a fire it was then scored on. Both artifacts are
@@ -664,7 +664,7 @@ def test_cli_runs_and_reports_the_current_split() -> None:
 
 
 def test_create_run_dir_stamps_the_split(tmp_path: Path) -> None:
-    """C8: *every run stamps* ``split_fingerprint`` — structurally, not by memory.
+    """C8: *every run stamps* ``split_fingerprint`` - structurally, not by memory.
 
     10 of the 20 run directories in ``runs/`` carry no fingerprint at all, all
     of them from before ``eval/`` started stamping one. Putting it in
@@ -681,7 +681,7 @@ def test_create_run_dir_stamps_the_split(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------
-# C-4.3 [v2.12] — the interpreter ENVIRONMENT is in C-4's frozen set (ADR-024)
+# C-4.3 [v2.12] - the interpreter ENVIRONMENT is in C-4's frozen set (ADR-024)
 # --------------------------------------------------------------------------
 
 
@@ -705,7 +705,7 @@ def test_the_environment_fingerprint_MOVES_when_a_package_version_moves() -> Non
     """The positive control: if this cannot change, the clause cannot fire.
 
     Asserted by substituting the distribution enumeration rather than by
-    installing anything — installing a package to test the no-installing clause
+    installing anything - installing a package to test the no-installing clause
     would be its own joke, and C-4.3 binds this session too.
     """
     from wildfire_nowcast.common import environment as E
@@ -725,7 +725,7 @@ def test_the_environment_fingerprint_MOVES_when_a_package_version_moves() -> Non
 
 
 def test_an_environment_that_moved_during_the_run_is_a_HARD_fail() -> None:
-    """C-4.3's own sentence, made executable — and its own check id, not code's."""
+    """C-4.3's own sentence, made executable - and its own check id, not code's."""
     rep = S.check_run_split(
         {
             "split_before": {"fingerprint": "aaaa"},
@@ -767,7 +767,7 @@ def test_an_environment_block_is_NOT_counted_as_a_split_fingerprint() -> None:
 
     ``environment_before`` carries its own ``fingerprint`` key. If the split
     walker collected it, ``C8.internally_consistent`` would report "MORE THAN ONE
-    split fingerprint" and hard-fail every run that stamps one — which, now that
+    split fingerprint" and hard-fail every run that stamps one - which, now that
     ``create_run_dir`` stamps it structurally, is every run from today onward.
     """
     payload = {
@@ -794,7 +794,7 @@ def test_missing_or_none_environment_stamps_never_compare_equal() -> None:
     """C1.5's rule at the choke point: an unevaluable comparison is unpassable.
 
     Without this, a run stamping ``None`` at both ends would read as "the
-    environment did not change" — a green check standing in for a measurement
+    environment did not change" - a green check standing in for a measurement
     that was never taken, which is this project's single most repeated defect.
     """
     from wildfire_nowcast.common.environment import environments_agree
@@ -821,12 +821,12 @@ def test_create_run_dir_stamps_the_environment(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------
-# [v2.16] C8.1 — the CV-MATRIX artifact class (ADR-062 (6))
+# [v2.16] C8.1 - the CV-MATRIX artifact class (ADR-062 (6))
 #
 # Every one of these plants the defect the clause names. A guard nobody has
 # watched fail is not a guard: C8.1 exists because a leave-fold-out matrix has
-# five fingerprints by construction, and the tempting fix — record them under a
-# name the checker does not read — is the exact move C8 exists to prevent.
+# five fingerprints by construction, and the tempting fix - record them under a
+# name the checker does not read - is the exact move C8 exists to prevent.
 # --------------------------------------------------------------------------
 
 
@@ -852,7 +852,7 @@ def _matrix_payload(members: dict[str, str], *, n_members: int | None = None) ->
     }
 
 
-#: Five folds, five splits — the shape ADR-062 (6) is actually about.
+#: Five folds, five splits - the shape ADR-062 (6) is actually about.
 _FIVE_FOLDS = {
     "fold0": "0000aaaaaaaaaaaa",
     "fold1": "1111bbbbbbbbbbbb",
@@ -872,7 +872,7 @@ def test_a_well_formed_five_fold_matrix_is_GREEN(tmp_path: Path) -> None:
     """OBSERVATION 3 (the control): five folds, five fingerprints, all verified.
 
     Under v2.15 this identical artifact HARD FAILS `C8.internally_consistent`
-    for carrying five stamps — which is why the matrix could not be checked at
+    for carrying five stamps - which is why the matrix could not be checked at
     all rather than being checked leniently.
     """
     payload = _five_fold_matrix(tmp_path)
@@ -893,7 +893,7 @@ def test_a_well_formed_five_fold_matrix_is_GREEN(tmp_path: Path) -> None:
 def test_a_member_stamp_that_DISAGREES_with_the_matrix_claim_is_a_HARD_fail(
     tmp_path: Path,
 ) -> None:
-    """OBSERVATION 1 — PLANTED: fold 2's run dir was trained under a different split.
+    """OBSERVATION 1 - PLANTED: fold 2's run dir was trained under a different split.
 
     This is the ADR-015 defect with the AGGREGATE as its subject: the claim is
     what a reader trusts, the run dir is what was actually trained, and a matrix
@@ -919,7 +919,7 @@ def test_a_member_stamp_that_DISAGREES_with_the_matrix_claim_is_a_HARD_fail(
 
 
 def test_five_declared_but_four_present_is_a_HARD_fail(tmp_path: Path) -> None:
-    """OBSERVATION 2 — PLANTED: the matrix declares 5 folds and 4 exist on disk.
+    """OBSERVATION 2 - PLANTED: the matrix declares 5 folds and 4 exist on disk.
 
     The criterion this matrix feeds is a COUNT OVER FOLDS (>= 11/14, ADR-061
     (6)), so a fold that silently does not exist moves the denominator without
@@ -983,8 +983,8 @@ def test_two_members_sharing_a_fingerprint_REPORTS_but_does_not_block(tmp_path: 
     """The one C8.1 clause that is reporting-tier, and the reason is the NULL RUNG.
 
     Two folds under one split IS a defect in a leave-fold-out matrix. But the
-    mandatory null rung — the same arm retrained at a second seed on every fold
-    (ADR-062 (4)) — is the same split twice BY DESIGN, and a hard clause here
+    mandatory null rung - the same arm retrained at a second seed on every fold
+    (ADR-062 (4)) - is the same split twice BY DESIGN, and a hard clause here
     would forbid the control that makes the matrix readable. Reported loudly,
     never blocking.
     """
@@ -1003,7 +1003,7 @@ def test_two_members_sharing_a_fingerprint_REPORTS_but_does_not_block(tmp_path: 
 
 
 def test_the_matrix_key_does_not_buy_a_FOLD_run_out_of_anything(tmp_path: Path) -> None:
-    """Each fold is its own run dir carrying ONE stamp — that part is UNCHANGED.
+    """Each fold is its own run dir carrying ONE stamp - that part is UNCHANGED.
 
     The exemption is for the aggregate's declaration and nothing else. A fold run
     that carries two disagreeing stamps is the literal train-vs-eval mismatch and
@@ -1040,7 +1040,7 @@ def test_the_member_stamps_are_STILL_VISIBLE_to_the_checker(tmp_path: Path) -> N
     """The refusal ADR-062 (6) upheld, asserted as a property rather than trusted.
 
     `fingerprints_in` skips `cv_matrix` so a matrix does not hard-fail
-    `internally_consistent` for its own structure — but the five stamps must not
+    `internally_consistent` for its own structure - but the five stamps must not
     thereby become invisible. `declared_cv_matrix` reads every one of them, and
     `check_run_split` checks each against its run dir. If a future edit moved the
     members somewhere the parser does not look, this test goes red.
@@ -1061,8 +1061,8 @@ def test_a_matrix_still_reports_when_the_split_on_disk_is_none_of_its_members(
 ) -> None:
     """C8.matches_current stays REPORTING-tier and stays meaningful for a matrix.
 
-    It passes when today's split is any ONE of the members — a fold run scored
-    today is legitimately current — and gaps when it is none of them.
+    It passes when today's split is any ONE of the members - a fold run scored
+    today is legitimately current - and gaps when it is none of them.
     """
     payload = _five_fold_matrix(tmp_path)
     ok = S.check_run_split(
@@ -1076,7 +1076,7 @@ def test_a_matrix_still_reports_when_the_split_on_disk_is_none_of_its_members(
 
 
 # --------------------------------------------------------------------------
-# [v2.16] C8.2 — ATOMICITY OF THE FIT AND THE STAMPS (ADR-062 (5))
+# [v2.16] C8.2 - ATOMICITY OF THE FIT AND THE STAMPS (ADR-062 (5))
 #
 # The approved `stats_path` parameter lets a caller train against one of five
 # internally-consistent fold-stats files. The danger is a caller setting the FIT
@@ -1088,7 +1088,7 @@ def test_a_matrix_still_reports_when_the_split_on_disk_is_none_of_its_members(
 
 @pytest.fixture
 def two_folds(tmp_path: Path) -> tuple[Path, Path, Path]:
-    """``(fires_root, stats_A, stats_B)`` — the same corpus under TWO partitions.
+    """``(fires_root, stats_A, stats_B)`` - the same corpus under TWO partitions.
 
     This is the leave-fold-out situation in miniature: one set of manifests, two
     ``norm_stats.json`` files each fitted on its own folds and each declaring its
@@ -1129,11 +1129,11 @@ def test_a_split_context_moves_the_fit_and_BOTH_stamps_together(
 def test_PLANTED_a_caller_that_sets_the_FIT_without_moving_the_STAMPS_cannot_pass(
     two_folds: tuple[Path, Path, Path],
 ) -> None:
-    """OBSERVATION — PLANTED: the exact leak ADR-062 (5) says must be impossible.
+    """OBSERVATION - PLANTED: the exact leak ADR-062 (5) says must be impossible.
 
     This is the old shape, written out deliberately: `read_norm_stats(B)` for the
     fit, `split_fingerprint()` at the default for the stamp. Every individual
-    call is correct; only their JOIN is wrong — the same structure as ADR-015,
+    call is correct; only their JOIN is wrong - the same structure as ADR-015,
     where every tensor was conformant and the relation between them was not.
     """
     from wildfire_nowcast.common.zarr_io import read_norm_stats
@@ -1187,7 +1187,7 @@ def test_PLANTED_a_stats_file_whose_membership_drifted_cannot_become_a_context(
     """The case the SHAPE cannot cover, which is why the belt exists.
 
     A single path used consistently everywhere still leaks if the file's declared
-    membership has drifted from the manifests it names — ADR-038 (1), where one
+    membership has drifted from the manifests it names - ADR-038 (1), where one
     fire carrying 9.76% of train mass moved train -> held-out. The shape cannot
     see this; the value-reading guard can.
     """
@@ -1223,7 +1223,7 @@ def test_a_run_cannot_be_CLOSED_under_a_different_context_than_it_OPENED(
 def test_a_split_context_still_detects_the_ADR_015_defect(
     two_folds: tuple[Path, Path, Path],
 ) -> None:
-    """C8's original job survives the new wrapper — the split MOVING mid-run.
+    """C8's original job survives the new wrapper - the split MOVING mid-run.
 
     Worth a test rather than an assumption: `assert_unchanged` gained a
     precondition, and a guard that starts failing early can stop reaching the
@@ -1258,7 +1258,7 @@ def test_the_default_context_is_todays_behaviour_exactly(
 
 
 # --------------------------------------------------------------------------
-# [v2.16] C6.3 (addition) — AN EXPECTED FALSE IS STAMPED, NOT DISCOVERED
+# [v2.16] C6.3 (addition) - AN EXPECTED FALSE IS STAMPED, NOT DISCOVERED
 # (ADR-062 (7))
 #
 # The whole hazard of an "expected" stamp is that it becomes a way to write
@@ -1286,7 +1286,7 @@ def test_PLANTED_stamping_a_SATISFIED_split_as_expected_false_raises() -> None:
     """The abuse this mechanism would otherwise create, planted.
 
     If "expected" could be written beside a `true`, the stamp would be a way of
-    telling a reader to stop reading — the same failure as a warning nobody reads
+    telling a reader to stop reading - the same failure as a warning nobody reads
     (C6.6's reasoning), one artifact down.
     """
     for value in (True, None, 1, "false"):
@@ -1378,14 +1378,14 @@ def test_an_artifact_with_no_c6_3_key_emits_NO_expectation_clause() -> None:
 def test_the_expected_false_FOLD_SET_is_derived_and_it_is_THREE_folds() -> None:
     """ADR-062 (7) names folds 0 and 1. The partition it states names THREE.
 
-    Fold 2 holds out ``{3, 9, 13}`` — three blocks, below the minimum of 4 — so
+    Fold 2 holds out ``{3, 9, 13}`` - three blocks, below the minimum of 4 - so
     it reports ``c6_3_satisfied: false`` exactly as folds 0 and 1 do. The ADR's
     RULING is unaffected and simply covers one more fold than it names; this is
     recorded here rather than corrected in DECISIONS.md, which is not this
     lead's file.
 
     The set is DERIVED from the partition. A hand-written ``(0, 1)`` would have
-    reproduced the slip and then outlived it — the same shape as the enumerated
+    reproduced the slip and then outlived it - the same shape as the enumerated
     `_SCORING_CODE_MODULES` and the public-tell allowlist.
     """
     assert S.folds_expected_to_fail_c6_3() == (0, 1, 2)

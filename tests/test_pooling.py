@@ -1,6 +1,6 @@
 """Equal-block pooling: a dropped block is a HARD failure (A14, ADR-039 (6)).
 
-The defect being closed is not an arithmetic error — the mean of the surviving
+The defect being closed is not an arithmetic error - the mean of the surviving
 blocks is computed correctly. The defect is that the result is *reported as if it
 were complete*. Every test here plants a gap and asserts it is refused, or asserts
 the number that says how many blocks actually contributed.
@@ -36,7 +36,7 @@ def test_PLANTED_a_block_that_scores_None_is_a_HARD_failure() -> None:
 
     The pre-A14 behaviour returned the mean of the other three blocks with
     ``n_blocks: 3`` and nothing saying the sample had shrunk below the 4 distinct
-    held-out blocks C6.3 requires — so ``in_interval_equal_block: true`` could be
+    held-out blocks C6.3 requires - so ``in_interval_equal_block: true`` could be
     reported on a criterion computed over three quarters of the evidence.
     """
     per_fire = _per_fire(
@@ -74,7 +74,7 @@ def test_the_opt_in_is_EXPLICIT_and_reports_the_gap_instead_of_hiding_it() -> No
 def test_PLANTED_a_dropped_FIRE_inside_a_surviving_block_is_still_declared() -> None:
     """PLANTED DEFECT: partial coverage that does not lose a whole block.
 
-    Block 4 keeps a value, so nothing is raised — but half its evidence is gone
+    Block 4 keeps a value, so nothing is raised - but half its evidence is gone
     and the return must say so. This is the sub-case that would otherwise pass
     unremarked once the block-level guard exists.
     """
@@ -89,7 +89,7 @@ def test_PLANTED_a_dropped_FIRE_inside_a_surviving_block_is_still_declared() -> 
 def test_PLANTED_a_fire_with_an_unusable_block_id_is_not_silently_skipped() -> None:
     """PLANTED DEFECT: a manifest without a usable ``spatial_block_id``.
 
-    Skipping it would be the same silent shrink one level down — the fire simply
+    Skipping it would be the same silent shrink one level down - the fire simply
     stops existing and every count still looks right.
     """
     per_fire = _per_fire({"a": (4, 0.9), "b": (5, 1.1)})
@@ -132,7 +132,7 @@ def test_a_block_is_one_vote_regardless_of_how_many_hours_it_burned() -> None:
 
 @pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), "0.9", True])
 def test_non_measurements_never_pool_as_values(bad: object) -> None:
-    """``float("0.9")`` and ``float(True)`` both succeed — so both are refused."""
+    """``float("0.9")`` and ``float(True)`` both succeed - so both are refused."""
     with pytest.raises(IncompleteBlockCoverageError):
         equal_block_mean_of({4: 1.0, 5: bad})
 

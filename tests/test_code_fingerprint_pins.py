@@ -6,14 +6,14 @@ CAN CHECK.** Every S1 and E1 artifact on disk stamps
 ``85ecff60dff714b8``. The sweep moved that value. Left in a commit message, the
 old hash becomes an orphan the moment the message scrolls out of anyone's view;
 pinned here it stays resolvable, on the ``FINGERPRINT_PRE_D6`` precedent in
-``tests/test_splits.py`` — where the superseded split fingerprint is kept as a
+``tests/test_splits.py`` - where the superseded split fingerprint is kept as a
 named constant precisely so the archive boundary is readable in the test rather
 than lost in a diff.
 
 **WHAT THE SWEEP WAS, AND WHY THE TRANSITION IS SAFE TO CROSS.** One command,
 ``ruff format src tests tools``, no hand edit anywhere in the 151 files it
 touched. 88 files were reformatted. The claim that this is a REFORMAT and not a
-REWRITE is not taken on the tool's word and cannot be taken from a diffstat — a
+REWRITE is not taken on the tool's word and cannot be taken from a diffstat - a
 formatter that moved a call out of a loop produces the same line counts. It was
 verified structurally, per file, by ``ast.dump(..., include_attributes=False)``:
 **151 files checked, 88 bytes moved, 0 ASTs moved.** That check is reproduced
@@ -24,8 +24,8 @@ re-derivable from the repository rather than believed.
 is the reason a separate commit exists at all: two docstrings in ``tests/``
 opened on four quote characters, so their CONTENT began with ``"``, and ruff
 inserts a space there. That changes a string's VALUE. Both were normalised by
-hand in the commit BEFORE the sweep — visible in a two-line diff instead of
-buried in an 88-file bulk reformat — after which the sweep measured 0 of 151.
+hand in the commit BEFORE the sweep - visible in a two-line diff instead of
+buried in an 88-file bulk reformat - after which the sweep measured 0 of 151.
 
 **AND THE RESOLUTION LIMIT OF THE OTHER HALF OF THE EVIDENCE, WHICH BELONGS
 BESIDE THE NUMBER PERMANENTLY.** The sweep was also checked numerically: one S1
@@ -33,10 +33,10 @@ fold row (fold 1 / arm A, 575 windows) re-scored through the swept code and
 compared to its archived artifact. Two levels were built, and their sensitivity
 is NOT the same:
 
-* the raw 575 window rows, compared as bytes of JSON — a planted **1 ULP** in
+* the raw 575 window rows, compared as bytes of JSON - a planted **1 ULP** in
   one row is detected;
 * the pooled 14-block ``stage_decay`` over all 5346 rows, compared by ``repr``
-  — a planted **1 ULP PASSED**. Measured ladder rather than assumed: a
+  - a planted **1 ULP PASSED**. Measured ladder rather than assumed: a
   single-row relative nudge of 1e-16 and 1e-12 moves 0 of 14 blocks, 1e-9 moves
   1, and nudging ALL 575 rows by 1e-16 still moves nothing.
 
@@ -77,8 +77,8 @@ produced both predicted values. **A number predicted before the observation is
 evidence; the same number read off afterwards is only a record**, and this is
 the evidence that the sweep did what its commit message claims.
 
-**WHY THESE TESTS DO NOT PIN THE LIVE TREE.** An obvious design — assert that
-``scoring_code_fingerprint()`` equals the of-record value — was rejected
+**WHY THESE TESTS DO NOT PIN THE LIVE TREE.** An obvious design - assert that
+``scoring_code_fingerprint()`` equals the of-record value - was rejected
 deliberately. That fingerprint covers ``eval/`` and ``model/``, two other leads'
 working directories, so such a test would go red on their every legitimate edit
 and force them to change a file in ``tests/``, which they do not own. A guard
@@ -118,11 +118,11 @@ POST_FORMAT_SWEEP_COMMIT = "25ad15697ac5d5e977070b5fcf3eaf8170202c03"
 
 #: The commit whose tree hashes to the PRE pair below: the two-character
 #: docstring normalisation, i.e. the last commit before the sweep. Pinned as a
-#: FULL sha because an abbreviation is not a name — it is a prefix that a
+#: FULL sha because an abbreviation is not a name - it is a prefix that a
 #: growing repository can make ambiguous.
 PRE_FORMAT_SWEEP_COMMIT = "07997b28f4b60ea4985b710e973de013c4dcb23f"
 
-#: ``eval/`` + ``model/`` — the code a reported number is computed IN.
+#: ``eval/`` + ``model/`` - the code a reported number is computed IN.
 #: **BOUND TO THIS VALUE:** every artifact of S1 (``runs/s1.json`` and all 15
 #: matrix cells' ``s1_rows_*.json``) and of E1 (``runs/e1_rows_*.json``), at
 #: BOTH ends, per C-4.2. Also every run record written between ADR-057 and the
@@ -133,7 +133,7 @@ SCORING_FINGERPRINT_PRE_FORMAT_SWEEP = "85ecff60dff714b8"
 #: The same subtrees after the sweep. Identical code, different bytes.
 SCORING_FINGERPRINT_OF_RECORD = "bacc6ae6e2f87d13"
 
-#: ``common/`` — C-4's frozen shared surface. Moves too: 10 of its 28 files were
+#: ``common/`` - C-4's frozen shared surface. Moves too: 10 of its 28 files were
 #: non-conformant. Recorded because the S1 artifacts stamp this one as well, in
 #: ``common_code_before`` / ``common_code_after``.
 COMMON_FINGERPRINT_PRE_FORMAT_SWEEP = "0ebd997542cb02af"
@@ -287,7 +287,7 @@ def test_the_sweep_commit_reproduces_both_of_record_fingerprints() -> None:
 
 
 def test_the_transition_is_formatting_only() -> None:
-    """**THE LOAD-BEARING TEST. Reformatted, not rewritten — re-derived, not believed.**
+    """**THE LOAD-BEARING TEST. Reformatted, not rewritten - re-derived, not believed.**
 
     Takes the pre-sweep commit's tree, applies the one command the sweep applied,
     and asserts two things about the result:

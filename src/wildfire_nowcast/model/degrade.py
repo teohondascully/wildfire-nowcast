@@ -25,7 +25,7 @@ project has paid for elsewhere:
     The base order is *"the first lead at which the base sample burns this cell,
     then distance from the t0 burn, then a fixed permutation"*. Its first
     ``|I_h|`` cells ARE ``I_h``. So the ``k = 1`` / ``f = 0`` rung reproduces the
-    wrapped model BITWISE — a null rung that must return zero separation, which
+    wrapped model BITWISE - a null rung that must return zero separation, which
     is the ladder's negative control and is asserted, not assumed.
 ``nesting``
     ``n_h`` is non-decreasing and the order is fixed within a window, so
@@ -43,7 +43,7 @@ TWO FAMILIES
 ------------
 ``area``  (:data:`MODE_AREA`)
     Same order as the base, size schedule ``round(k * n_h)``. ``k < 1`` keeps the
-    cells the base burns EARLIEST — a temporal erosion of the front. ``k > 1``
+    cells the base burns EARLIEST - a temporal erosion of the front. ``k > 1``
     runs past the base prediction into the nearest unburned cells, which the base
     order ranks by distance from the t0 burn. Severity unit: the area ratio,
     which is measured on the samples and is independent of every channel scored.
@@ -299,7 +299,7 @@ def degrade_samples(
 class IncrementOverlap:
     """Two forecasts' increment overlap, WITH its denominator, three-valued.
 
-    ``UNDEFINED`` is its own outcome and is NEVER 0.0 and NEVER a pass — the same
+    ``UNDEFINED`` is its own outcome and is NEVER 0.0 and NEVER a pass - the same
     shape as ``ConditionResult`` in ``common/dispersion.py``, and for the same
     reason. An empty union means NEITHER forecast added a cell, which is total
     AGREEMENT; scoring it as IoU 0.0 would record perfect disagreement and would
@@ -358,8 +358,8 @@ def increment_iou(a: np.ndarray, b: np.ndarray, x0: np.ndarray) -> float | None:
 
     A ``None`` returned from here is NOT orderable and NOT comparable: ``None >
     0.5`` raises, by design and not by accident. Callers that need to rank rungs
-    must branch on :meth:`IncrementOverlap.defined` — use
-    :func:`increment_overlap` — rather than defaulting the value, because the two
+    must branch on :meth:`IncrementOverlap.defined` - use
+    :func:`increment_overlap` - rather than defaulting the value, because the two
     plausible defaults are both wrong in the same direction. Substituting 0.0
     turns "both forecasts agreed that nothing burns" into "the two forecasts
     share nothing", which is the maximum severity this ladder can express, and
@@ -502,7 +502,7 @@ class DegradedModel:
         base = self.base_predict(x0, static, weather, n_members, horizon_h, seed)
         # DELIBERATELY NOT SHORT-CIRCUITED AT THE IDENTITY RUNG. Returning the
         # base directly would make "the null rung reproduces the wrapped model
-        # bitwise" a property of an `if`, not of the construction — a check that
+        # bitwise" a property of an `if`, not of the construction - a check that
         # cannot fail. The identity rung runs the whole machinery and is asserted
         # bitwise-equal in `eval/selftest.py`.
         return degrade_samples(base, x0, mode=self.mode, level=self.level)

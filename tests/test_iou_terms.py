@@ -1,9 +1,9 @@
-"""C6.4 — the shape/silence decomposition, validated on cases with KNOWN answers.
+"""C6.4 - the shape/silence decomposition, validated on cases with KNOWN answers.
 
 Written the way C1.7 was validated (A7): construct the artifact whose correct
 score you can work out on paper, then assert the code produces it. Every case in
 here has an answer derivable without running anything, including the two that
-motivated ADR-017 — empty-vs-empty, and a model that predicts nothing.
+motivated ADR-017 - empty-vs-empty, and a model that predicts nothing.
 
 **Model-blindness is a property this file has to establish, not claim.** Nothing
 here imports ``model/``, loads a checkpoint or reads ``runs/``. The two
@@ -78,7 +78,7 @@ def test_empty_truth_everywhere_leaves_the_gate_criterion_UNDEFINED() -> None:
     """Every lead is empty-vs-empty. The reported score is a perfect 1.0.
 
     This is ADR-017's mechanism in one assertion: the metric says the forecast
-    was flawless, and the forecast said nothing. ``shape_masked`` must be None —
+    was flawless, and the forecast said nothing. ``shape_masked`` must be None -
     NOT 0.0 (which would punish a model for a property of the labels) and NOT 1.0
     (which is the bug).
     """
@@ -97,7 +97,7 @@ def test_a_model_that_predicts_nothing_scores_the_floor_and_zero_shape() -> None
     """A silent forecast: IoU 1 on every empty lead, 0 on every growing one.
 
     Known answer at 4 leads with 3 empty: reported 0.75, silence 0.75, shape 0.0,
-    and the gate criterion EXACTLY 0 — the minimum of its range. That last number
+    and the gate criterion EXACTLY 0 - the minimum of its range. That last number
     is the reason the masked variant is the gate criterion.
     """
     empty = np.array([True, True, False, True])
@@ -134,7 +134,7 @@ def test_undecomposed_prefers_silence_while_the_gate_criterion_prefers_shape() -
     gate criterion the empty leads drop out: quiet = 0.0, shapely = 0.6.
 
     The ordering flips, and the flip is the point. Neither array is a model we
-    own — the case is symmetric under swapping their names, and the assertions
+    own - the case is symmetric under swapping their names, and the assertions
     reference the arrays, not any run.
     """
     empty = np.array([True, True, False, False])
@@ -168,7 +168,7 @@ def test_gate_criterion_selects_the_member_with_the_shape_not_the_silent_one() -
     captures the shape perfectly on the growing lead but false-alarms on the
     empty ones, so its trajectory mean is 1/3 and it loses.
 
-    Decomposing the winner would report shape 0.0 — a model with a perfect-shape
+    Decomposing the winner would report shape 0.0 - a model with a perfect-shape
     member scoring zero on shape. The masked variant selects on the growing lead
     and reports 1.0, which is the true best-member mode capture.
     """
@@ -252,7 +252,7 @@ def test_metric_dict_names_the_gate_criterion_explicitly() -> None:
 
 
 # --------------------------------------------------------------------------
-# the wiring into C6 — the value modelling will actually read
+# the wiring into C6 - the value modelling will actually read
 # --------------------------------------------------------------------------
 
 
@@ -350,7 +350,7 @@ def test_domain_mask_decomposition_is_inert_and_that_is_correct() -> None:
 
 
 # --------------------------------------------------------------------------
-# C0 — one implementation, and simviz's independent one agrees with it
+# C0 - one implementation, and simviz's independent one agrees with it
 # --------------------------------------------------------------------------
 
 
@@ -359,7 +359,7 @@ def test_agrees_with_simviz_replay_decomposition() -> None:
 
     simviz reproduced C6 with 0 mismatches over 2,230 windows, which is why C0
     says WIRE rather than reinvent. This asserts the agreement instead of
-    assuming it — and it is a skip rather than a hard failure because coupling
+    assuming it - and it is a skip rather than a hard failure because coupling
     CI to another lead's live working file bit us once already (A10 PROPOSAL 3).
     """
     replay = pytest.importorskip(

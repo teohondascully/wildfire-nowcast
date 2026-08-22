@@ -1,4 +1,4 @@
-"""C1/C2 assembly — and the guard that keeps a partial tensor off the C1 path.
+"""C1/C2 assembly - and the guard that keeps a partial tensor off the C1 path.
 
 ADR-003(b): nothing lands at ``data/fires/{fire_id}/tensor.zarr`` until all 14
 channels exist. That is enforced here, once, by :func:`write_fire_tensor`, which
@@ -74,7 +74,7 @@ class ChannelBundle:
     cv_fold: int | None = None
     #: [v2] C2 key; connected-component id over overlapping fire domains (C3.1).
     spatial_block_id: int | None = None
-    #: [v2.7] C2 keys (ADR-014). Both are ``None`` until set, never defaulted —
+    #: [v2.7] C2 keys (ADR-014). Both are ``None`` until set, never defaulted -
     #: see :func:`build_manifest`.
     fuel_vintage_lag_years: int | None = None
     n_ignition_components: int | None = None
@@ -177,7 +177,7 @@ def write_fire_tensor(
     tensor_path: Path | None = None,
     manifest_path: Path | None = None,
 ) -> tuple[Path, Path]:
-    """Write the C1 tensor and C2 manifest — **only** if all 14 channels exist."""
+    """Write the C1 tensor and C2 manifest - **only** if all 14 channels exist."""
     if not bundle.complete:
         raise MissingChannelsError(
             f"refusing to write {bundle.fire_id} to the C1 path: missing channels "

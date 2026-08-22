@@ -24,9 +24,9 @@ therefore a mean over LEADS, and the leads are not alike: in the growth stratum
 comparison (documented, and defensible in isolation). So each window's score
 splits exactly into
 
-* ``silence_term``  — leads where truth did not grow in the band. A member that
+* ``silence_term``  - leads where truth did not grow in the band. A member that
   ignites nothing scores 1.0; a member that ignites ONE cell scores 0.0.
-* ``shape_term``    — leads where truth did grow. This is the mode-capture
+* ``shape_term``    - leads where truth did grow. This is the mode-capture
   quantity the metric is named after.
 
 Both are reported, always together. The split is arithmetic, not a re-definition
@@ -86,7 +86,7 @@ COL_MISS = "#7f1d1d"
 
 
 # --------------------------------------------------------------------------
-# window enumeration — the gate's, reproduced from C1
+# window enumeration - the gate's, reproduced from C1
 # --------------------------------------------------------------------------
 
 
@@ -97,7 +97,7 @@ def iter_eval_windows(
 
     ``i`` is the position in the FILTERED sequence, because the gate seeds member
     sampling with ``seed + i``. Using the raw ``t0`` instead would reseed every
-    window differently and silently change every ensemble — the figures would be
+    window differently and silently change every ensemble - the figures would be
     of a neighbouring experiment, not of the run being explained.
 
     The rule (mirrored from the run's own enumeration, and verified against its
@@ -225,19 +225,19 @@ def score_window(
 def silent_floor(window: C5Inputs, band: np.ndarray) -> float:
     """What an ensemble that predicts NOTHING scores on this window.
 
-    Depends only on the labels, so it is identical for every model — which is the
+    Depends only on the labels, so it is identical for every model - which is the
     whole point. A metric whose null value is not zero must publish that value
     next to every number it produces, or the numbers read as skill.
 
-    [C0, ADR-036] This used to RECOMPUTE the floor inline. It is a gate quantity —
-    C6.4's silence term, the thing G2's criterion is defined by REMOVING — so a
+    [C0, ADR-036] This used to RECOMPUTE the floor inline. It is a gate quantity -
+    C6.4's silence term, the thing G2's criterion is defined by REMOVING - so a
     second implementation of it is exactly what C0 forbids: *the producer and the
     verifier computing geometry through different code is how a tensor passes its
     check and is still wrong*. The arithmetic agreed (3003 randomised cases plus
     all-empty / all-burn / empty-band edges, 0 mismatches, exact equality), but the
     canonical version also VALIDATES the horizon and raises, and that guard was
-    silently absent here. This function now only derives ``truth_empty`` — which is
-    what its old loop computed anyway — and delegates the reduction.
+    silently absent here. This function now only derives ``truth_empty`` - which is
+    what its old loop computed anyway - and delegates the reduction.
     """
     truth_event = np.asarray(window.truth) > 0
     truth_empty = np.array(
@@ -248,7 +248,7 @@ def silent_floor(window: C5Inputs, band: np.ndarray) -> float:
 
 
 # --------------------------------------------------------------------------
-# models — the ONE place this package constructs a predictor
+# models - the ONE place this package constructs a predictor
 # --------------------------------------------------------------------------
 
 
@@ -263,7 +263,7 @@ class GateModels:
     **Recorded contract gap (PROPOSAL, see docs/decisions.md).** C5
     says checkpoints load behind ``load_model(path)``. That works for the kernel:
     the run directory holds ``model.json``. It does NOT work for the calibrated
-    ellipse — a gate run records the fitted *scale* in ``results.json`` but emits
+    ellipse - a gate run records the fitted *scale* in ``results.json`` but emits
     no loadable spec, so reproducing the gate's own opponent requires rebuilding
     ``EllipseBaseline(params.scaled(scale))`` by hand. That is a reproducibility
     hole, and it will bite hardest at G5, where ELMFIRE's configuration is the
@@ -331,7 +331,7 @@ def replay_fire(
 
     ``growth_only`` mirrors the ``growth_windows`` stratum the gate reports and
     that G2 was adjudicated on. It conditions the window set on the outcome and
-    is therefore never a headline number on its own — it is here because it is
+    is therefore never a headline number on its own - it is here because it is
     the stratum whose IoU split the gate.
     """
     from wildfire_nowcast.eval.masks import default_band_radius  # noqa: PLC0415

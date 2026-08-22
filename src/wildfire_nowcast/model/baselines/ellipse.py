@@ -1,4 +1,4 @@
-"""C5 baseline 2 of 2 — the wind-advected ellipse. The physics floor.
+"""C5 baseline 2 of 2 - the wind-advected ellipse. The physics floor.
 
 CLAUDE.md lists this as non-negotiable, and G2 is defined against it: the
 contagion kernel must beat the ellipse on held-out fires or the project stops
@@ -9,7 +9,7 @@ tuned is not a floor, it is a courtesy, and beating it proves nothing.
 **The calibration rule is C6.2 / ADR-011 and is not negotiable inside this
 file: the head-rate scale reproduces the observed mean hourly growth of the
 TRAIN fires** (:meth:`calibrate_to_growth`). It is NEVER fitted by a pixelwise
-score — :meth:`fit_by_brier` is kept only as the evidence for that clause, and
+score - :meth:`fit_by_brier` is kept only as the evidence for that clause, and
 its own docstring records why using it voids the gate. The chosen scale is
 recorded with the fire ids it was calibrated on, so a leave-fire-out violation
 is auditable after the fact rather than trusted at the time.
@@ -18,7 +18,7 @@ How it spreads
 --------------
 Each hour, every unburned cell accumulates ignition progress from its eight
 neighbours. The rate into a cell is the elliptical rate of spread evaluated at
-that cell — head rate from its own fuel, moisture and effective wind
+that cell - head rate from its own fuel, moisture and effective wind
 (:mod:`wildfire_nowcast.model.spread`), reduced by the ellipse's polar factor
 according to the angle between the head direction and the direction the fire is
 arriving from. A cell ignites when accumulated progress reaches 1.
@@ -28,7 +28,7 @@ Two properties of that scheme matter and are not accidental:
 * **It can produce exactly zero growth.** At 1 km cells and hourly steps, a
   realistic rate of spread is usually a small fraction of a cell per hour, so
   the accumulator sits below 1 and nothing ignites. A dilation-based baseline
-  cannot do this — it advances at least one cell per hour, roughly 1 km/h, and
+  cannot do this - it advances at least one cell per hour, roughly 1 km/h, and
   would over-predict growth in the ~79% of hours where GOFER records bitwise
   zero (insights/data item 1). Getting the zero-growth majority right is most of
   what a baseline has to do here.
@@ -41,14 +41,14 @@ Two properties of that scheme matter and are not accidental:
 
 Ensemble
 --------
-Members differ by a **shared per-step innovation** — one rate-of-spread
+Members differ by a **shared per-step innovation** - one rate-of-spread
 multiplier and one wind-bearing offset per (member, step), correlated in time by
-an AR(1) — applied to the entire domain at once. This is deliberately the same
+an AR(1) - applied to the entire domain at once. This is deliberately the same
 structural choice CLAUDE.md requires of the learned model (correlated
 innovations via a shared per-step latent ``z_t``; pixels conditionally
 independent ONLY given that latent). Per-pixel independent noise is the
 known-broken alternative that collapses in aggregate, so the *baseline* is not
-built that way either — otherwise the G3 ensemble comparison would be against a
+built that way either - otherwise the G3 ensemble comparison would be against a
 strawman ensemble, and beating it would say nothing about dispersion.
 """
 
@@ -94,7 +94,7 @@ def _shift(a: np.ndarray, dr: int, dc: int, fill: float = 0.0) -> np.ndarray:
 
     i.e. move the contents of ``a`` by ``(dr, dc)``. Used to ask "is my
     ``(-dr, -dc)`` neighbour burned", so the domain edge answers "no" rather
-    than wrapping — a wrapped fire would spread off the north edge and reappear
+    than wrapping - a wrapped fire would spread off the north edge and reappear
     in the south, which is the kind of bug that looks like spotting.
     """
     out = np.full_like(a, fill)
@@ -203,7 +203,7 @@ class EllipseBaseline:
         AR(1) correlation of both innovations across steps. Step-to-step
         independent perturbations average out over a 3 h window and would
         produce an ensemble that looks dispersed per step and is degenerate over
-        the horizon — the exact failure G3 exists to catch.
+        the horizon - the exact failure G3 exists to catch.
     burnout_hours
         Hours a newly-ignited cell stays in state 1 before going to state 2.
         Affects only the 1-vs-2 distinction, never the burned SET, so it cannot
@@ -213,8 +213,8 @@ class EllipseBaseline:
     barrier_ros_factor
         Multiplier applied to the rate of spread INTO a ``water_barrier_mask``
         cell. 0.0 means a hard block. Note the mask is 1 km, so a "barrier" cell
-        is usually only partly water or road — Kincade's truth burns 44 of them
-        — which is precisely what the spot/crossing component has to explain.
+        is usually only partly water or road - Kincade's truth burns 44 of them
+        - which is precisely what the spot/crossing component has to explain.
     force_isotropic
         Pin the length-to-breadth ratio to 1. The anisotropy ablation: if the
         ellipse does not beat its own isotropic version, the wind field is not
@@ -384,7 +384,7 @@ class EllipseBaseline:
         is the ellipse's stand-in for the model's ``z_t``: spread comes from a
         low-dimensional shared forcing perturbation, never from independent
         per-pixel noise (which averages out and collapses the ensemble in every
-        aggregate quantity — the known-broken mode CLAUDE.md rules out).
+        aggregate quantity - the known-broken mode CLAUDE.md rules out).
         """
         rho = self.innovation_rho
         innov_scale = float(np.sqrt(max(1.0 - rho * rho, 1e-12)))
@@ -414,7 +414,7 @@ class EllipseBaseline:
         burned = state0 > UNBURNED
         progress = np.zeros(state0.shape, dtype=np.float64)
         state = state0.copy()
-        # -1 marks "already burning at t0, age unknown" — never burned out by us,
+        # -1 marks "already burning at t0, age unknown" - never burned out by us,
         # because guessing its age would be inventing information.
         ignited_at = np.full(state0.shape, -1, dtype=np.int64)
         traj = np.empty((horizon_h, *state0.shape), dtype=np.uint8)
@@ -434,7 +434,7 @@ class EllipseBaseline:
             traj[k] = state
         return traj
 
-    # -- calibration (TRAIN fires only) — THE RULE OF RECORD ---------------
+    # -- calibration (TRAIN fires only) - THE RULE OF RECORD ---------------
 
     def predicted_new_cells(self, windows: Sequence[Any], scale: float) -> float:
         """Total cells the DETERMINISTIC ellipse ignites over ``windows`` at ``scale``.
@@ -475,8 +475,8 @@ class EllipseBaseline:
         **Why not a pixelwise score.** Measured (insights item 3): the ellipse's
         precision on newly-ignited cells is 0.09-0.43, always below 0.5, so
         under a hard 0/1 Brier a predictor worse than a coin flip about *where*
-        is optimally SILENT. The Brier fit picked 0.501 — one grid point off a
-        dead zone where sub-half-cell/hour spread ignites nothing — and ignited
+        is optimally SILENT. The Brier fit picked 0.501 - one grid point off a
+        dead zone where sub-half-cell/hour spread ignites nothing - and ignited
         zero cells against 782 of truth. That does not produce a weak baseline,
         it produces persistence, which is already a separate baseline. Two
         baselines that are secretly the same baseline are a mirror, not a floor.

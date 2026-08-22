@@ -8,8 +8,8 @@ C5 is::
 
 **C5 names the shapes but not the contents.** It does not say which C1 channels
 are "static", which are "weather", in what order, or how ``weather``'s time axis
-lines up with ``x0``. Two leads implementing against it independently — which is
-exactly what is happening — will each pick something reasonable and the pair
+lines up with ``x0``. Two leads implementing against it independently - which is
+exactly what is happening - will each pick something reasonable and the pair
 will be silently wrong: a swapped ``aspect_sin``/``aspect_cos`` or an
 off-by-one weather index does not raise, it just makes the model look mediocre.
 The gap is raised in ``docs/decisions.md`` (modelling).
@@ -27,7 +27,7 @@ remembered:
   Under C1.3 times are END-OF-HOUR, so with ``x0 = fire_state[t0]`` that is
   ``weather_channels[t0 + 1 + i]``, and ``T == horizon_h``. Taking
   ``weather[0] = t0`` instead trains every fire one hour out of phase with its
-  weather — ADR-006 calls this out as silently catastrophic, and it is the same
+  weather - ADR-006 calls this out as silently catastrophic, and it is the same
   off-by-one wearing a different hat.
 
 :data:`C5_CONVENTION` records all of the above in a form a consumer can assert
@@ -95,13 +95,13 @@ class PredictFn(Protocol):
 class C5Inputs:
     """Everything one C5 call needs, plus the truth to score it against."""
 
-    x0: np.ndarray  # uint8 (H, W)     — state at t0
+    x0: np.ndarray  # uint8 (H, W)     - state at t0
     static: np.ndarray  # f32   (C_s, H, W)
     weather: np.ndarray  # f32   (T, C_w, H, W), T == horizon_h
-    truth: np.ndarray  # uint8 (horizon_h, H, W) — states t0+1 .. t0+horizon_h
+    truth: np.ndarray  # uint8 (horizon_h, H, W) - states t0+1 .. t0+horizon_h
     t0: int
     horizon_h: int
-    times: np.ndarray  # datetime64 (horizon_h,) — stamps of the predicted hours
+    times: np.ndarray  # datetime64 (horizon_h,) - stamps of the predicted hours
 
     def check(self) -> None:
         """Assert the shape relations C5 implies. Cheap, and catches adapter drift."""

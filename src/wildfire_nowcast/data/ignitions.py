@@ -1,4 +1,4 @@
-"""C2 [v2.7] ``n_ignition_components`` — how many fires are inside one fire id.
+"""C2 [v2.7] ``n_ignition_components`` - how many fires are inside one fire id.
 
 GOFER files SEPARATE LIGHTNING IGNITIONS UNDER ONE FIRE ID. Undeclared, those
 show up downstream as enormous "spot events" that no contagion kernel can or
@@ -7,7 +7,7 @@ the shipped ``fire_state`` field, and records the evidence so the next fire is
 self-serve rather than hand-entered.
 
 **The estimand is IGNITIONS, not final-footprint components.** Those are
-different numbers and the difference is not cosmetic — ADR-017 §7 corrected
+different numbers and the difference is not cosmetic - ADR-017 §7 corrected
 ADR-014 on exactly this point. Measured on SCU: the final footprint has 3
 connected components, but two of them are 5-6 km bodies born mid-run (h27, h89)
 that are spot CANDIDATES, while the two genuine ignitions are 29.3 km apart in
@@ -15,7 +15,7 @@ the very first burned frame and later MERGE, so they are invisible to a
 component count. A footprint-component count gets SCU wrong twice over: wrong
 number (3 vs 2) and wrong objects.
 
-Rule of record — time and genealogy first, distance only as a tiebreak, per
+Rule of record - time and genealogy first, distance only as a tiebreak, per
 ADR-017 §7 ("distance alone does not separate them"):
 
   (a) TIME. Bodies present in the FIRST burned frame have no antecedent anywhere
@@ -33,7 +33,7 @@ ADR-017 §7 ("distance alone does not separate them"):
       counted as separate ignitions.
 
 This module deliberately stops at the C2 integer. It does NOT mine, classify or
-export crossing episodes — that is P3, and P3 owns the harder half of the same
+export crossing episodes - that is P3, and P3 owns the harder half of the same
 distinction.
 """
 
@@ -59,7 +59,7 @@ __all__ = [
 #: Two bodies in the first burned frame closer than this are one body. One cell
 #: diagonal at 1 km is 1.414 km and a one-cell hole between them is 2.236 km;
 #: GOFER's effective resolution is ~2 km, so a gap this size is rasterisation
-#: noise. Fitted sample: 12 fires / 11 spatial blocks (C-3) — the only two
+#: noise. Fitted sample: 12 fires / 11 spatial blocks (C-3) - the only two
 #: multi-seed fires in the corpus sit at 2.24 km and 29.27 km, three orders of
 #: separation apart, so no value in [2.3, 29] changes any count.
 SEED_MERGE_KM = 2.25
@@ -67,7 +67,7 @@ SEED_MERGE_KM = 2.25
 #: A never-merging detached birth farther than this is a separate ignition, not
 #: a spot. Fitted sample: 12 fires / 11 spatial blocks (C-3). The largest
 #: detached birth that DEMONSTRABLY merges with its predecessor is 14.14 km
-#: (CZU, h25) — i.e. we have direct evidence of genealogy out to 14 km and none
+#: (CZU, h25) - i.e. we have direct evidence of genealogy out to 14 km and none
 #: beyond it. Rounded up to 15 km, which is also the bound recorded in
 #: insights/data.md item 27 before this rule existed. The corpus's only
 #: never-merging births are at 5.0/6.0 km (SCU, spots) and 46.1 km
@@ -75,8 +75,8 @@ SEED_MERGE_KM = 2.25
 #: count either.
 SPOT_RANGE_MAX_KM = 15.0
 
-# [A14, C0] `label_components` was HOISTED to `common/components.py` — this
-# module's BFS flood fill IS the implementation that survived — and is imported
+# [A14, C0] `label_components` was HOISTED to `common/components.py` - this
+# module's BFS flood fill IS the implementation that survived - and is imported
 # above. It is re-exported here (it stays in `__all__`) so every existing caller
 # is unchanged. `sim/components.py` held a second, independent union-find copy of
 # the same function; the two agreed on 417 masks with 0 disagreements on both

@@ -73,7 +73,7 @@ def resolve_sha(revision: str) -> str | None:
     """Full 40-character sha for any revision, or ``None``.
 
     Always resolved, never passed through. ``gh run list --commit`` matches on
-    the FULL sha and returns an empty list for an abbreviated one — so a short
+    the FULL sha and returns an empty list for an abbreviated one - so a short
     sha would have been reported as "no run exists for this commit", which is
     the exact shape of false negative this tool was written to refuse. Found by
     a control that asked about a known-green commit by its short form and got

@@ -8,18 +8,18 @@ integer ever indexes ``features`` here.
 Why that matters more than it looks: the v2 store holds ``features`` with 13
 channels and ``channel_index_offset = 1``, so position ``i`` is C1 channel
 ``i + 1``. A literal ``features[:, 5]`` therefore returns ``slope`` where the
-author meant ``elevation`` — a *plausible* raster, correlated with the right
+author meant ``elevation`` - a *plausible* raster, correlated with the right
 one, that renders as a physics anomaly rather than as an indexing bug.
 
 The reader also derives the quantities the renderers need and the contract
 asks consumers to think in:
 
-* ``ever`` — ``state > 0``, the cumulative burned region. Monotone by C1.4.
-* ``frontier`` — the edge of ``ever``. C1.1 is explicit that **the contagion
+* ``ever`` - ``state > 0``, the cumulative burned region. Monotone by C1.4.
+* ``frontier`` - the edge of ``ever``. C1.1 is explicit that **the contagion
   source is the frontier of the burned region, not state 1 alone**, because
   state 1 is legitimately empty in 6-37% of frames. Every renderer draws the
   frontier so a dormant frame still shows where the fire can restart.
-* ``dormant`` — frames with zero cells in state 1. LEGAL, not missing data.
+* ``dormant`` - frames with zero cells in state 1. LEGAL, not missing data.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ __all__ = ["FireFrames", "load_fire", "ever_burned", "frontier_of", "arrival_hou
 
 
 def ever_burned(state: np.ndarray) -> np.ndarray:
-    """``state > 0`` — the cumulative burned region, per timestep."""
+    """``state > 0`` - the cumulative burned region, per timestep."""
     return np.asarray(state) > 0
 
 
@@ -127,7 +127,7 @@ class FireFrames:
 
     @cached_property
     def frontier(self) -> np.ndarray:
-        """Edge of the cumulative burned region — the C1.1 contagion source."""
+        """Edge of the cumulative burned region - the C1.1 contagion source."""
         return frontier_of(self.ever)
 
     @cached_property

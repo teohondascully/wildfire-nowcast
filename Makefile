@@ -1,7 +1,7 @@
-# wildfire-nowcast — developer tasks.
+# wildfire-nowcast - developer tasks.
 #
 # Every target runs against the repo-root .venv (ADR-001: uv, CPython 3.12).
-# Never invoke bare `python`/`pytest`/`ruff` — they may be system Python.
+# Never invoke bare `python`/`pytest`/`ruff` - they may be system Python.
 
 VENV   := .venv
 PY     := $(VENV)/bin/python
@@ -123,7 +123,7 @@ $(PY):
 
 ## test: run the test suite (deselects `slow`; see `make test-all`)
 ##         `slow` is one case today: the ELMFIRE playthrough runs a real Fortran
-##         simulator six times (33 s). Nothing is hidden in a pytest default —
+##         simulator six times (33 s). Nothing is hidden in a pytest default -
 ##         bare `pytest` still runs everything, and `make check` runs it too.
 test: | $(PY)
 	$(PYTEST) -m "not slow"
@@ -156,7 +156,7 @@ format-check: | $(PY)
 	$(RUFF) format --check src tests tools
 
 ## format: autofix lint + formatting. Scope this to YOUR directory, e.g.
-##         make format DIRS="src/wildfire_nowcast/data" — never reformat another lead's code.
+##         make format DIRS="src/wildfire_nowcast/data" - never reformat another lead's code.
 DIRS ?= src tests tools
 format: | $(PY)
 	$(RUFF) check --fix $(DIRS)
@@ -199,7 +199,7 @@ contract-all-fires: | $(PY)
 	    || { rc=1; echo "FAIL $$d"; grep -E '^\s+\[FAIL\]' /tmp/_c.txt | cut -c1-140; }; \
 	done; $(PY) -m wildfire_nowcast.common.splits || rc=1; exit $$rc
 
-## null-check: C6.0 — score a DO-NOTHING null against every C6 metric.
+## null-check: C6.0 - score a DO-NOTHING null against every C6 metric.
 ##         Run this before any metric adjudicates any gate. If the null wins, the
 ##         metric is broken, not the model (ADR-017). Three metrics have already
 ##         failed this way. Add STRICT=1 to promote SILENCE_FAVOURING reporting
@@ -210,7 +210,7 @@ null-check: | $(PY)
 	$(PY) -m wildfire_nowcast.common.null_check \
 	  $(if $(TENSOR_NULL),--tensor $(TENSOR_NULL),) $(if $(STRICT),--strict,)
 
-## playthrough: ADR-030 — run EVERY playthrough in the repo and require that each
+## playthrough: ADR-030 - run EVERY playthrough in the repo and require that each
 ##         one's planted defects are all detected. This is the mutation-coverage
 ##         gate: a playthrough that cannot fail turns this red. Includes the slow
 ##         ELMFIRE arm, which `make test` deselects.
@@ -226,7 +226,7 @@ playthrough-list: | $(PY)
 	from test_playthrough_registry import PLAYTHROUGHS as P; \
 	[print(f'{n:44s} owner={e.owner:28s} {\"SLOW\" if e.slow else \"\"}') for n, e in sorted(P.items())]"
 
-## playthrough-dispersion: G3's dispersion half — area_dispersion_ratio vs a closed form.
+## playthrough-dispersion: G3's dispersion half - area_dispersion_ratio vs a closed form.
 playthrough-dispersion: | $(PY)
 	$(PYTEST) -s tests/test_playthrough_dispersion.py
 
@@ -242,11 +242,11 @@ playthrough-separation: | $(PY)
 playthrough-harness: | $(PY)
 	$(PYTEST) -s tests/test_playthrough_harness.py
 
-## playthrough-coarsening: simviz PLAYTHROUGH 1 — the 30 m -> 1 km rule (its own CLI).
+## playthrough-coarsening: simviz PLAYTHROUGH 1 - the 30 m -> 1 km rule (its own CLI).
 playthrough-coarsening: | $(PY)
 	$(PY) -m wildfire_nowcast.sim.coarsen
 
-## playthrough-baseline: simviz PLAYTHROUGH 2 — ELMFIRE non-degeneracy (needs the binary).
+## playthrough-baseline: simviz PLAYTHROUGH 2 - ELMFIRE non-degeneracy (needs the binary).
 playthrough-baseline: | $(PY)
 	$(PY) -m wildfire_nowcast.sim.playthrough
 

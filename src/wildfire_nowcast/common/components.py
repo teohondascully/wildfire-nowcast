@@ -1,4 +1,4 @@
-"""C0 — the ONE implementation of 8-connected component labelling.
+"""C0 - the ONE implementation of 8-connected component labelling.
 
 WHY THIS IS IN ``common/`` (ADR-036 (2), hoisted at A14)
 ---------------------------------------------------------
@@ -10,8 +10,8 @@ code, both computing the quantity that determines **C2's
 
 C0 says it plainly: *"the producer and the verifier computing geometry through
 different code is how a tensor passes its check and is still wrong."* The two
-copies agreed on every input anyone tried — 417 masks at A14, 0 disagreements on
-both partition structure and exact label ids — so this was **latent risk, not a
+copies agreed on every input anyone tried - 417 masks at A14, 0 disagreements on
+both partition structure and exact label ids - so this was **latent risk, not a
 live defect, and G4's 12-event count is safe.** Nothing enforced tomorrow, though,
 and this quantity has already produced one cross-lead disagreement: ADR-019's
 SCU ``3 -> 2`` correction, where the count was wrong because the ESTIMAND was
@@ -26,7 +26,7 @@ WHICH IMPLEMENTATION SURVIVED, AND WHAT WAS ADDED
 ------------------------------------------------
 The BFS flood fill (``data/``'s), because it visits only cells that are set, where
 the union-find visits every cell of the grid twice in Python. **Its ``ndim`` guard
-came with it**, and that guard existed in only one of the two copies — the same
+came with it**, and that guard existed in only one of the two copies - the same
 asymmetry as ``silent_floor``, where the canonical version validated its horizon
 and the ``sim/replay.py`` copy had no horizon concept at all (ADR-036 (3)). A
 hoist must take the UNION of the guards: keeping only what both copies did would
@@ -62,7 +62,7 @@ def label_components(mask: np.ndarray) -> tuple[np.ndarray, int]:
     """8-connected labelling of a 2-D boolean mask. Labels are ``1..n``, 0 = off.
 
     Returns ``(labels, n)``. Labels are assigned in raster order of each
-    component's first cell, so the numbering is deterministic and stable — which
+    component's first cell, so the numbering is deterministic and stable - which
     matters because callers index by label id (``data/ignitions.py`` compares
     ``final_labels`` between frames to establish genealogy).
 

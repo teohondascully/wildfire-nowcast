@@ -216,7 +216,7 @@ def midflame_wind(
 
     Fire spread responds to wind at flame height, not at 10 m. The wind
     adjustment factor is interpolated linearly from ``waf_open`` at 0% canopy to
-    ``waf_closed`` under full canopy — the standard sheltered/unsheltered split,
+    ``waf_closed`` under full canopy - the standard sheltered/unsheltered split,
     coarsened to a ramp because C1 gives canopy cover as a percentage and not
     the crown-fill/height triple the full WAF formula needs.
     """
@@ -243,7 +243,7 @@ def slope_equivalent_wind(
     taken as ``k_slope * tan^2(phi)`` pointing UPSLOPE. C1 channels 7/8 encode
     the DOWNSLOPE azimuth (the direction the slope faces) as
     ``(sin, cos) = (east, north)`` components, with ``(0, 0)`` reserved for flat
-    cells — so upslope is simply the negation, and a flat cell contributes zero
+    cells - so upslope is simply the negation, and a flat cell contributes zero
     without a special case.
     """
     tan_phi = np.tan(np.radians(np.clip(np.asarray(slope_deg, dtype=np.float64), 0.0, 89.0)))
@@ -356,7 +356,7 @@ class EllipseParams:
         return cls(fuel_multipliers=tuple(sorted(mults.items())), **known)
 
     def scaled(self, ros_multiplier: float) -> EllipseParams:
-        """Same shape, head rate scaled — the ensemble's shared innovation."""
+        """Same shape, head rate scaled - the ensemble's shared innovation."""
         return replace(self, r0_ms=self.r0_ms * float(ros_multiplier))
 
     def max_head_ros_ms(self, max_wind_ms: float = 30.0) -> float:
@@ -380,7 +380,7 @@ def head_rate_of_spread(
     moisture, and exactly zero in non-burnable fuel or at the moisture of
     extinction. That is the whole scientific content: it is a shape with four
     knobs, and the knobs are fit. It is NOT Rothermel and must never be
-    described as such — ELMFIRE is the Rothermel baseline (CLAUDE.md).
+    described as such - ELMFIRE is the Rothermel baseline (CLAUDE.md).
     """
     u = np.clip(np.asarray(u_eff_ms, dtype=np.float64), 0.0, None)
     wind_response = 1.0 + (u / max(params.u_ref_ms, 1e-6)) ** params.wind_exponent

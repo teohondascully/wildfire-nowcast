@@ -2,7 +2,7 @@
 
 ADR-030 defines a *playthrough test* as an end-to-end scenario whose correct
 answer is known BY CONSTRUCTION, plus a scoring function returning a pass/fail
-verdict, plus **a planted defect the harness actually detects** — and makes it
+verdict, plus **a planted defect the harness actually detects** - and makes it
 standing policy that *no gate is adjudicated on a metric whose implementation
 lacks one*. That policy has paid three times in a single day. All three payoffs
 are about the same thing, and none of them was caught by a rule:
@@ -13,8 +13,8 @@ are about the same thing, and none of them was caught by a rule:
    sub-cell texture. It found this only because it went looking; nothing in the
    repo would have told it.
 2. **modelling planted mutations in `eval/metrics.py` itself** (ADR-032 (4)).
-   Dropping the square root is invisible at ``c = 1`` — only scoring a RANGE
-   catches it. Dropping ``(M+1)/M``, or using ``ddof=0``, moves the reading 3% —
+   Dropping the square root is invisible at ``c = 1`` - only scoring a RANGE
+   catches it. Dropping ``(M+1)/M``, or using ``ddof=0``, moves the reading 3% -
    only an exact 1e-12 case catches it. **A single-regime playthrough would have
    been GREEN for 2 of 4 mutations.**
 3. A playthrough **corrected G3's own units before a model was touched**:
@@ -41,19 +41,19 @@ A :class:`Playthrough` declares four things and the harness does the rest:
 :func:`run` then enforces, in order:
 
 * **every probe passes on the clean world.** A defect planted into an
-  already-failing scenario proves nothing — "the scenario must pass BEFORE the
+  already-failing scenario proves nothing - "the scenario must pass BEFORE the
   defect is planted" is the sentence both existing playthroughs wrote by hand.
 * **every defect declared ``detected=True`` is caught by at least one probe.**
   This is the ADR-030 requirement and the reason this module exists. An
   undetected planted defect is a HARD FAILURE of the playthrough, not a note.
 * **every defect declared ``detected=False`` is NOT caught.** A documented blind
-  spot that closes is also a failure — *update the record, do not delete the
+  spot that closes is also a failure - *update the record, do not delete the
   test* (the sentence `test_playthrough_dispersion` already carries about member
   duplication). A blind spot nobody re-measures is folklore.
 
 and REPORTS, at the C-1 reporting tier rather than as a failure:
 
-* **which probe is the SOLE catcher of a defect** — mechanising finding (2).
+* **which probe is the SOLE catcher of a defect** - mechanising finding (2).
   ``sole_catchers`` is the map that says *only the RANGE catches a missing square
   root*. Delete that probe and the coverage requirement goes red, which is the
   guarantee the comment in the file could not give.
@@ -69,7 +69,7 @@ reaches is the playthrough's; the verdict a GATE reaches is the maintainer's.
 
 It also does not attempt to invent defects for you. A generated mutation would be
 a different tool (and a good one), but the three payoffs above all came from a
-human choosing a mutation that a REAL bug would look like — ``nearest``
+human choosing a mutation that a REAL bug would look like - ``nearest``
 coarsening, an ensemble loop reusing one draw, ``ddof=0``. The harness's job is
 to make sure the chosen mutation is actually caught, not to choose it.
 
@@ -122,7 +122,7 @@ class Probe:
     would make the coverage map a fiction.
 
     ``guard=True`` marks a probe that pins the SCENARIO rather than the
-    instrument — "this scenario really does contain four dormant windows". Guards
+    instrument - "this scenario really does contain four dormant windows". Guards
     are expected to catch nothing and are exempt from the dead-probe report.
     """
 
@@ -138,7 +138,7 @@ class Defect:
 
     ``plant`` is a context manager factory: ``plant(world)`` yields the world the
     observation should be taken from. That one shape covers both kinds of defect
-    this project has actually needed —
+    this project has actually needed -
 
     * a DATA defect (collapse the ensemble, shift every area) returns a mutated
       world, via :func:`data_defect`;
@@ -147,7 +147,7 @@ class Defect:
       via :func:`attribute_defect`.
 
     ``detected=False`` declares a DOCUMENTED BLIND SPOT: a defect this instrument
-    provably cannot see. It is not an excuse — it is asserted in the opposite
+    provably cannot see. It is not an excuse - it is asserted in the opposite
     direction, so the day the blind spot closes, the build says so.
     """
 
@@ -168,12 +168,12 @@ def data_defect(mutate: Callable[[Any], Any]) -> Callable[[Any], Any]:
 
 
 def attribute_defect(*targets: tuple[Any, str, Any]) -> Callable[[Any], Any]:
-    """Temporarily ``setattr(obj, name, value)`` — an INSTRUMENT mutation.
+    """Temporarily ``setattr(obj, name, value)`` - an INSTRUMENT mutation.
 
     Deliberately not ``pytest.monkeypatch``: ``common/`` must import cleanly
     outside a test session, and a playthrough should be runnable from a CLI. The
     original values are restored in a ``finally``, and
-    ``test_playthrough_harness`` asserts that restoration actually happens —
+    ``test_playthrough_harness`` asserts that restoration actually happens -
     a mutation that leaked into the next test would corrupt every result after it
     and look like a flake.
     """
@@ -194,7 +194,7 @@ def attribute_defect(*targets: tuple[Any, str, Any]) -> Callable[[Any], Any]:
 
 def no_defect() -> Callable[[Any], Any]:
     """A defect that changes nothing. Only ever legitimate with ``detected=False``
-    — it is the control that proves the harness does not hallucinate catches."""
+    - it is the control that proves the harness does not hallucinate catches."""
     return data_defect(lambda world: world)
 
 
@@ -277,7 +277,7 @@ class DefectOutcome:
 @dataclass(frozen=True)
 class PlaythroughReport:
     """The coverage verdict. ``failures`` is the hard tier, ``reporting`` the soft
-    tier — the same two-tier severity C-1 gives the contract checker, for the same
+    tier - the same two-tier severity C-1 gives the contract checker, for the same
     reason: a declared weakness is a gate, an omitted one is a failure."""
 
     name: str
@@ -334,8 +334,8 @@ def _judge(probes: Sequence[Probe], observation: Any) -> tuple[dict[str, bool], 
     """Run every probe, converting a raised exception into a recorded failure.
 
     An exception is treated as a FAILED probe rather than swallowed or re-raised.
-    Under a mutated world that is usually a legitimate detection — a metric
-    returning ``None`` makes ``abs(got - want)`` a ``TypeError`` — but it is
+    Under a mutated world that is usually a legitimate detection - a metric
+    returning ``None`` makes ``abs(got - want)`` a ``TypeError`` - but it is
     ambiguous enough that the message is kept and printed, so nobody reads a
     ``TypeError`` in the harness as evidence about the instrument.
     """
@@ -483,7 +483,7 @@ def coverage_from_caught_map(
     figures area and are not this module's to restructure (C-4 ownership rules).
     They already
     emit ``defects_caught_by: {defect: [criteria]}`` plus a "the rule passes every
-    scenario" flag, which is this protocol's shape written independently — so the
+    scenario" flag, which is this protocol's shape written independently - so the
     same coverage requirement can be enforced over them without touching a line
     of another lead's code.
 

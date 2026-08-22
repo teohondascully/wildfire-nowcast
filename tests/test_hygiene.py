@@ -1,13 +1,13 @@
 """C7 and C0 hygiene rules that were true only by discipline until A10.
 
-Both clauses were ratified and satisfied on disk, and neither was ENFORCED —
+Both clauses were ratified and satisfied on disk, and neither was ENFORCED -
 the same shape as C1.5 (ratified v2.3, implemented v2.5, all-NaN passing 56
 checks in between). They pass today, which is exactly when to wire them: a
 hygiene rule is cheap to keep and expensive to restore.
 
-* C7 — *no hardcoded paths in src/*, *no hardcoded GCP project id*, and the
+* C7 - *no hardcoded paths in src/*, *no hardcoded GCP project id*, and the
   house rule that *notebooks are never imported by src*.
-* C0 — anything the contract adjudicates has ONE implementation, in ``common/``.
+* C0 - anything the contract adjudicates has ONE implementation, in ``common/``.
   The retired ``data/`` duplicates must stay deleted, and the second copy of the
   split fingerprint must agree with the first.
 """
@@ -34,7 +34,7 @@ def _py_files() -> list[Path]:
 
 
 def test_there_is_source_to_check() -> None:
-    """A scan over an empty file list passes vacuously — check the scan first."""
+    """A scan over an empty file list passes vacuously - check the scan first."""
     assert len(_py_files()) > 20
 
 
@@ -65,7 +65,7 @@ def test_no_absolute_path_literals_in_src() -> None:
 def test_no_hardcoded_gcp_project_id_in_src() -> None:
     """C7 [v2]: the project id is read from ``$WILDFIRE_GEE_PROJECT`` (ADR-003).
 
-    Checked structurally rather than by matching the id itself — writing the
+    Checked structurally rather than by matching the id itself - writing the
     real project id into a test file is the very thing the clause forbids.
     """
     offenders: list[str] = []
@@ -146,7 +146,7 @@ def test_retired_data_duplicates_stay_deleted(name: str) -> None:
 
     These four modules were deleted at A5 after the byte-identical check (R9).
     The failure mode C0 exists to prevent is the producer and the verifier
-    computing geometry through different code — a tensor that passes its check
+    computing geometry through different code - a tensor that passes its check
     and is still wrong.
     """
     duplicate = SRC / "data" / name
@@ -178,7 +178,7 @@ def test_the_state_rule_has_exactly_one_implementation() -> None:
 # --------------------------------------------------------------------------
 
 #: A MODULE DOCSTRING claiming a contract version, e.g.
-#: ``"""Executable form of INTERFACES.md contracts ... — **v2.5**."""``
+#: ``"""Executable form of INTERFACES.md contracts ... - **v2.5**."""``
 #:
 #: Deliberately narrow. In-body citations like ``[v2.7] ADD fuel_vintage_lag_years``
 #: or ``C8 (INTERFACES v2.8)`` are CORRECT and must survive: they say when a clause
@@ -191,7 +191,7 @@ def test_the_state_rule_has_exactly_one_implementation() -> None:
 #: ``[v2.7]`` citation form. That narrowness is deliberate and was arrived at by
 #: running the wide version first: it flagged `eval/reporting.py` ("enforced at
 #: v2.3"), `sim/components.py` ("[v2.7]") and `data/ignitions.py` ("C2 [v2.7]"),
-#: all of which are CORRECT — they record when a clause was ratified, which does
+#: all of which are CORRECT - they record when a clause was ratified, which does
 #: not change when the contract moves. A hygiene rule with false positives on
 #: three other leads' files gets disabled within a day (the C1.6 lesson), and it
 #: would have had me "fixing" correct docstrings across two ownership boundaries.
@@ -205,10 +205,10 @@ def test_no_module_docstring_SUMMARY_LINE_claims_a_contract_version() -> None:
     duplicate that FORCED a lead to edit the maintainer's file; this test stops a
     new duplicate being written into a docstring, which is how the last two got in.
     Both known instances were the module SUMMARY LINE announcing which version the
-    module implements — a claim about the present that nothing ever updates:
+    module implements - a claim about the present that nothing ever updates:
 
-        ``Executable form of INTERFACES.md contracts C1, C2 and C3 — **v2.5**.``
-        ``Reading and writing C1/C2/C3 artifacts — **INTERFACES v2.5**.``
+        ``Executable form of INTERFACES.md contracts C1, C2 and C3 - **v2.5**.``
+        ``Reading and writing C1/C2/C3 artifacts - **INTERFACES v2.5**.``
     """
     offenders: list[str] = []
     for path in _py_files():
@@ -230,7 +230,7 @@ def test_no_module_docstring_SUMMARY_LINE_claims_a_contract_version() -> None:
 
 
 def test_the_docstring_scan_can_actually_fire() -> None:
-    """The scan's own positive control — a pattern that matches nothing passes.
+    """The scan's own positive control - a pattern that matches nothing passes.
 
     Four of this project's confident false negatives came from a query that
     silently matched nothing (a relative ``find -newermt``, a future timestamp, an
@@ -247,7 +247,7 @@ def test_the_docstring_scan_can_actually_fire() -> None:
 def test_the_contract_version_is_DERIVED_and_has_NO_literal_fallback() -> None:
     """PLANTED DEFECT: INTERFACES.md line 1 becomes unreadable.
 
-    The requirement is not merely "it currently agrees" — it is that a failure to
+    The requirement is not merely "it currently agrees" - it is that a failure to
     read the file **raises** rather than falling back. A fallback is how drift
     hides: the constant would keep its last value and the checker would print a
     version it had not read, which is the stale-checker hazard wearing a current
@@ -328,7 +328,7 @@ def test_a_config_declaring_a_DIFFERENT_version_is_an_error(tmp_path: Path) -> N
 # --------------------------------------------------------------------------
 #
 # This repo is public. Four manual sweeps failed to finish this job and three of
-# them reported clean while being wrong, so the deliverable is not a sweep — it is
+# them reported clean while being wrong, so the deliverable is not a sweep - it is
 # this check.
 #
 # WHAT IS BANNED IS THE UNRESOLVABLE REFERENCE, NOT THE CONTENT. The scientific
@@ -345,7 +345,7 @@ def test_a_config_declaring_a_DIFFERENT_version_is_an_error(tmp_path: Path) -> N
 
 #: The tells, spelled in HALVES and joined at runtime.
 #:
-#: This module is scanned by its own check, with NO self-exemption — see
+#: This module is scanned by its own check, with NO self-exemption - see
 #: ``test_the_scan_reads_its_own_source_and_is_not_self_exempt``. An exemption
 #: would be the exact failure this check exists to prevent: a scan narrowed until
 #: it cannot see something. Splitting the literals is what buys that, and it costs
@@ -366,7 +366,7 @@ _TELL_RE = re.compile("|".join(f"(?:{p})" for p in _TELL_PATTERNS.values()), re.
 #: BURN-DOWN LIST, NOT AN EXEMPTION. ``model/`` and ``eval/`` were fenced at A16
 #: because modelling held a running experiment out of them (C-4 freezes a running
 #: lead's surface). These 31 are recorded so the fence does not make the suite red,
-#: and are to be RETIRED — file by file, to zero — once that work lands. The check
+#: and are to be RETIRED - file by file, to zero - once that work lands. The check
 #: fails if any count goes UP (a new tell) and equally if any count comes DOWN
 #: without the entry being removed (a burn-down list that never shrinks is an
 #: excuse, and a stale entry is how one starts). Deleting an entry once its file is
@@ -450,11 +450,11 @@ def test_the_public_tree_has_files_to_scan() -> None:
 
 
 def test_the_tell_scan_can_actually_fire() -> None:
-    """PATTERN positive control — the half this project has got wrong four times.
+    """PATTERN positive control - the half this project has got wrong four times.
 
     Three of the four failed sweeps reported clean from a scan that matched
     nothing. This asserts the compiled pattern still matches realistic sentences,
-    and — the harder half — that it still does NOT match the citations and the
+    and - the harder half - that it still does NOT match the citations and the
     ordinary English that must survive. A pattern narrowed until it is silent and a
     pattern widened until it is ignored both end with the check switched off.
     """
@@ -484,7 +484,7 @@ def test_the_tell_scan_can_actually_fire() -> None:
     # SECOND control, live only while the burn-down list is non-empty: the fenced
     # population is real text in real files, so the pattern is exercised against
     # the tree and not only against fixtures. Guarded explicitly rather than left
-    # to become `>= 0` on the day the list is retired — a control that quietly
+    # to become `>= 0` on the day the list is retired - a control that quietly
     # turns vacuous is worse than one that was never written, because it still
     # reads as coverage. When the list empties, the specimens above are the
     # control, and they do not depend on the tree's state at all.
@@ -546,7 +546,7 @@ def test_the_planted_defects_the_burn_down_check_must_catch() -> None:
     grown["src/wildfire_nowcast/common/paths.py"] = 1
     assert any("common/paths.py" in o for o in new_or_grown_tells(grown))
 
-    # 2. An allowlisted count going UP — the fence must not absorb new debt.
+    # 2. An allowlisted count going UP - the fence must not absorb new debt.
     bumped = dict(live)
     bumped["src/wildfire_nowcast/model/train.py"] = (
         FENCED_BURN_DOWN["src/wildfire_nowcast/model/train.py"] + 1
@@ -570,7 +570,7 @@ def test_the_scan_reads_its_own_source_and_is_not_self_exempt() -> None:
 
     The patterns are spelled in halves and joined at runtime, so the source
     contains no literal tell and needs no exemption. Asserted rather than trusted,
-    because the tempting fix — skipping this path — would make the one file most
+    because the tempting fix - skipping this path - would make the one file most
     likely to acquire a tell the one file that could never report one. That is the
     same shape as the check that could not fail.
     """

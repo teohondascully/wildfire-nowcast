@@ -1,9 +1,9 @@
-"""C8 — the split fingerprint, and the cross-fire clauses no per-tensor check can see.
+"""C8 - the split fingerprint, and the cross-fire clauses no per-tensor check can see.
 
 **Why this module exists (ADR-015 §4).** The CV split moved *mid-task*:
 ``train_folds`` went from ``[0, 1, 3]`` to ``[0, 1, 2, 4]`` while modelling was
 training, and four fires silently crossed from TRAIN to HELD-OUT. Every tensor
-was individually conformant the entire time — **no per-tensor check could ever
+was individually conformant the entire time - **no per-tensor check could ever
 have seen it**, because the defect is not in any tensor, it is in the RELATION
 between them and a running experiment. modelling detected it, discarded the
 contaminated matrix rather than shipping it, and wrote ``split_fingerprint`` /
@@ -13,13 +13,13 @@ unchanged, because it was sound.
 
 Three kinds of clause live here, all of them cross-fire:
 
-* **C8** — a run stamps a fingerprint; the fingerprints inside one artifact must
+* **C8** - a run stamps a fingerprint; the fingerprints inside one artifact must
   agree (train-time vs eval-time), and an evaluation must not consume a
   checkpoint trained under a different split. Mismatch is a **HARD FAIL**.
-* **C3.1** — overlapping fires MUST share a fold. Two fires in one spatial block
+* **C3.1** - overlapping fires MUST share a fold. Two fires in one spatial block
   landing in different folds is landscape leakage, and it is invisible to both
   fires' own manifests.
-* **C3.3 / C6.3** — how many distinct *blocks* the split holds out (not fires).
+* **C3.3 / C6.3** - how many distinct *blocks* the split holds out (not fires).
 
 Compatibility note, deliberately load-bearing: :func:`split_fingerprint` must
 reproduce the fingerprint already on record (``4848f491e8d588fa``, ADR-015), or
@@ -70,19 +70,19 @@ __all__ = [
     "ENVIRONMENT_FINGERPRINT_FAMILY",
     "RUN_FINGERPRINT_FAMILIES",
     "code_fingerprint_ends",
-    # [v2.16] C8.1 — the CV-matrix artifact class (ADR-062 (6))
+    # [v2.16] C8.1 - the CV-matrix artifact class (ADR-062 (6))
     "CV_MATRIX_KEY",
     "CV_MATRIX_MEMBER_KEYS",
     "CvMatrixMember",
     "DeclaredCvMatrix",
     "declared_cv_matrix",
-    # [v2.16] C8.2 — fit/stamp atomicity (ADR-062 (5))
+    # [v2.16] C8.2 - fit/stamp atomicity (ADR-062 (5))
     "SPLIT_CONTEXT_KEY",
     "SplitContext",
     "SplitFitStampMismatchError",
     "assert_fit_and_stamp_agree",
     "resolve_split_context",
-    # [v2.16] C6.3 (addition) — the expected-false stamp (ADR-062 (7))
+    # [v2.16] C6.3 (addition) - the expected-false stamp (ADR-062 (7))
     "C6_3_EXPECTED_FALSE_KEY",
     "LEAVE_FOLD_OUT_BLOCKS",
     "folds_expected_to_fail_c6_3",
@@ -107,15 +107,15 @@ FINGERPRINT_KEYS: tuple[str, ...] = (
     "fingerprint",
 )
 
-#: C6.3 — G2 requires >= 4 DISTINCT held-out spatial blocks (ADR-011).
+#: C6.3 - G2 requires >= 4 DISTINCT held-out spatial blocks (ADR-011).
 MIN_HELDOUT_BLOCKS_FOR_G2 = 4
 
-#: [A14] C3 — the two keys ``data/norm_stats.json`` MUST declare, by fire id.
+#: [A14] C3 - the two keys ``data/norm_stats.json`` MUST declare, by fire id.
 #:
 #: ADR-038 (6) ruled these into the contract after the maintainer queried
 #: ``train_fires`` (a key that does not exist), got ``None``, and published "the
 #: file records no train list" as a fact. The keys were there the whole time and
-#: **nothing read them** — so the misread was undetectable by anything except
+#: **nothing read them** - so the misread was undetectable by anything except
 #: someone happening to look at the right key name.
 #:
 #: They are checked BY ID and not by fold index on purpose: ``cv_fold`` is not
@@ -127,14 +127,14 @@ MIN_HELDOUT_BLOCKS_FOR_G2 = 4
 #: stale for seven versions.
 DECLARED_MEMBERSHIP_KEYS: tuple[str, str] = ("train_fire_ids", "heldout_fire_ids")
 
-#: [v2.11] C-4.2 — code-fingerprint families a run artifact may stamp. Each must
+#: [v2.11] C-4.2 - code-fingerprint families a run artifact may stamp. Each must
 #: be sampled at BOTH ends of the run.
 #:
-#: ``common_code``  — the ``common/`` modules a number is computed THROUGH.
-#: ``scoring_code`` — the ``eval/`` + ``model/`` modules it is computed IN.
+#: ``common_code``  - the ``common/`` modules a number is computed THROUGH.
+#: ``scoring_code`` - the ``eval/`` + ``model/`` modules it is computed IN.
 CODE_FINGERPRINT_FAMILIES: tuple[str, ...] = ("common_code", "scoring_code")
 
-#: [v2.12] C-4.3 — the INTERPRETER ENVIRONMENT joins C-4's frozen set (ADR-024).
+#: [v2.12] C-4.3 - the INTERPRETER ENVIRONMENT joins C-4's frozen set (ADR-024).
 #: A separate family, and deliberately NOT appended to
 #: :data:`CODE_FINGERPRINT_FAMILIES`: it gets its own check ids so a report says
 #: WHICH thing moved. Giving two different quantities one key name is exactly the
@@ -144,7 +144,7 @@ CODE_FINGERPRINT_FAMILIES: tuple[str, ...] = ("common_code", "scoring_code")
 ENVIRONMENT_FINGERPRINT_FAMILY = "environment"
 
 #: Every family a run artifact may stamp at both ends. Used by
-#: :func:`code_fingerprint_ends` and by :data:`_NON_SPLIT_FINGERPRINT_BLOCKS` —
+#: :func:`code_fingerprint_ends` and by :data:`_NON_SPLIT_FINGERPRINT_BLOCKS` -
 #: the latter matters more than it looks: an ``environment`` block carries its own
 #: ``fingerprint`` key, so without this the split walker would have counted it as
 #: a SECOND split stamp and hard-failed ``C8.internally_consistent`` on every run
@@ -157,11 +157,11 @@ RUN_FINGERPRINT_FAMILIES: tuple[str, ...] = (
 
 
 def code_fingerprint_ends(payload: Mapping[str, Any]) -> dict[str, dict[str, str]]:
-    """[v2.11] C-4.2 — every code fingerprint in one artifact, keyed by END.
+    """[v2.11] C-4.2 - every code fingerprint in one artifact, keyed by END.
 
     Returns ``{family: {"before": fp, "after": fp, "unpaired": fp}}``, omitting
     ends that are absent. ``unpaired`` is a bare ``{family}`` key with no
-    ``_before``/``_after`` suffix — the exact shape C-4.2 was written about, and
+    ``_before``/``_after`` suffix - the exact shape C-4.2 was written about, and
     the reason this returns a structure rather than a boolean: the difference
     between "sampled twice and agreed" and "sampled once" is the whole clause.
 
@@ -189,7 +189,7 @@ def code_fingerprint_ends(payload: Mapping[str, Any]) -> dict[str, dict[str, str
 
 
 def read_json(path: str | Path) -> dict[str, Any] | None:
-    """``json.loads`` of a file, or ``None``. Never raises — a malformed
+    """``json.loads`` of a file, or ``None``. Never raises - a malformed
     artifact must fail its own clause rather than abort the punch list."""
     try:
         payload = json.loads(Path(path).read_text())
@@ -223,7 +223,7 @@ def declared_split_membership(path: str | Path | None = None) -> dict[str, Any]:
     (``set(fp["train_fire_ids"]) & set(fp["heldout_fire_ids"])`` on the
     fingerprint's own output) proved a set was empty using two lists that
     :func:`split_fingerprint` builds as ``[r for r in rows if r[1] in train_set]``
-    and ``[r for r in rows if r[1] not in train_set]`` — **a partition by
+    and ``[r for r in rows if r[1] not in train_set]`` - **a partition by
     construction, whose intersection is empty as a matter of set algebra, on any
     input, forever.** It printed green for months and could not have printed
     anything else. Reading the recorded lists is the only version of this check
@@ -319,7 +319,7 @@ def split_fingerprint(
 
     # Byte-identical to eval.reporting.split_fingerprint: json.dumps of
     # {"fires": rows, "train_folds": train_folds} with sort_keys, sha256[:16].
-    # Do not "improve" this construction — it would invalidate every artifact
+    # Do not "improve" this construction - it would invalidate every artifact
     # already stamped (the fingerprint of record is 4848f491e8d588fa).
     payload = json.dumps({"fires": rows, "train_folds": train_folds}, sort_keys=True)
     return {
@@ -344,7 +344,7 @@ def split_fingerprint(
 def assert_split_unchanged(before: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
     """Raise :class:`SplitChangedError` if the split moved since ``before``.
 
-    Call at the END of any run whose result depends on the split — which is
+    Call at the END of any run whose result depends on the split - which is
     every leave-fire-out run. A result produced across a split change is not a
     weak result, it is a leaked one.
     """
@@ -363,7 +363,7 @@ def assert_split_unchanged(before: Mapping[str, Any], **kwargs: Any) -> dict[str
 
 
 # --------------------------------------------------------------------------
-# [v2.16] C8.2 — ATOMICITY OF THE FIT AND THE STAMPS (ADR-062 (5))
+# [v2.16] C8.2 - ATOMICITY OF THE FIT AND THE STAMPS (ADR-062 (5))
 # --------------------------------------------------------------------------
 
 
@@ -380,12 +380,12 @@ SPLIT_CONTEXT_KEY = "split_context"
 def assert_fit_and_stamp_agree(
     stats: Mapping[str, Any], stamp: Mapping[str, Any], *, where: str = ""
 ) -> None:
-    """[v2.16] C8.2 — raise unless the FIT and the STAMP describe the same partition.
+    """[v2.16] C8.2 - raise unless the FIT and the STAMP describe the same partition.
 
     ``stats`` is the normalisation actually consumed (a ``norm_stats.json``
     payload); ``stamp`` is a :func:`split_fingerprint` result. The danger ADR-062
     (5) names is a caller setting the FIT from one of the five fold-stats files
-    while the STAMPS still come from the default — which recreates, silently, the
+    while the STAMPS still come from the default - which recreates, silently, the
     exact leak the ``stats_path`` parameter was approved to avoid.
 
     **This READS VALUES.** It compares ``train_folds`` and the declared fire ids,
@@ -422,28 +422,28 @@ def assert_fit_and_stamp_agree(
 
 @dataclass(frozen=True)
 class SplitContext:
-    """[v2.16] C8.2 — the fit and both stamps, resolved ONCE and inseparable.
+    """[v2.16] C8.2 - the fit and both stamps, resolved ONCE and inseparable.
 
     **The shape, and why this shape.** ADR-062 (5) approved ``stats_path`` so a
     caller can train against one of five internally-consistent fold-stats files,
     and required that the one parameter reach :func:`read_norm_stats
     <wildfire_nowcast.common.zarr_io.read_norm_stats>`, :func:`split_fingerprint`
-    and :func:`assert_split_unchanged` **atomically** — *make that failure
+    and :func:`assert_split_unchanged` **atomically** - *make that failure
     impossible, not merely discouraged.*
 
     A parameter threaded to three call sites cannot be made impossible to
     desynchronise; it can only be made easy to synchronise, and "easy" is what
     the leak was already. So the parameter is REMOVED FROM THE CALLS INSTEAD.
     This object resolves the path once, at construction, and its three
-    operations — :meth:`norm_stats`, :meth:`fingerprint`, :meth:`assert_unchanged`
-    — **take no path argument at all.** You cannot pass a different path to a
+    operations - :meth:`norm_stats`, :meth:`fingerprint`, :meth:`assert_unchanged`
+    - **take no path argument at all.** You cannot pass a different path to a
     method that has no path parameter, and
     ``tests/test_splits.py::test_no_split_context_operation_accepts_a_path``
     asserts that property by introspection rather than by convention.
 
     The second half is the belt: :func:`resolve_split_context` calls
     :func:`assert_fit_and_stamp_agree` before returning, so an inconsistent
-    context cannot be CONSTRUCTED either — which covers the case the shape
+    context cannot be CONSTRUCTED either - which covers the case the shape
     cannot, namely a stats file whose declared membership has drifted from the
     manifests it names.
 
@@ -459,7 +459,7 @@ class SplitContext:
         """THE FIT: the normalisation this context's runs consume."""
         # Imported here rather than at module scope on purpose: `zarr_io` pulls
         # in xarray/zarr, and `splits` is imported by `runs.create_run_dir`,
-        # i.e. by every run. C0 still holds — this is THE `read_norm_stats`,
+        # i.e. by every run. C0 still holds - this is THE `read_norm_stats`,
         # not a second copy.
         from wildfire_nowcast.common.zarr_io import read_norm_stats
 
@@ -488,7 +488,7 @@ class SplitContext:
         return now
 
     def check_assignment(self) -> ContractReport:
-        """C3/C3.1 for THIS partition — same atomicity, same reason."""
+        """C3/C3.1 for THIS partition - same atomicity, same reason."""
         return check_split_assignment(fires_root=self.fires_root, stats_path=self.stats_path)
 
     def provenance(self) -> dict[str, str]:
@@ -509,7 +509,7 @@ def resolve_split_context(
 
     ``None`` means the repo default, so ``resolve_split_context()`` is today's
     behaviour exactly. Pass one of the five leave-fold-out artifacts to move the
-    fit and both stamps together — there is no way to move only one.
+    fit and both stamps together - there is no way to move only one.
 
     Raises :class:`SplitFitStampMismatchError` if the resolved fit and stamp do
     not describe the same partition, so the inconsistent context never exists.
@@ -529,7 +529,7 @@ def resolve_split_context(
 
 
 # --------------------------------------------------------------------------
-# [v2.16] C6.3 (addition) — AN EXPECTED FALSE IS STAMPED, NOT DISCOVERED
+# [v2.16] C6.3 (addition) - AN EXPECTED FALSE IS STAMPED, NOT DISCOVERED
 # (ADR-062 (7))
 # --------------------------------------------------------------------------
 
@@ -540,7 +540,7 @@ C6_3_EXPECTED_FALSE_KEY = "c6_3_expected_false"
 
 #: [ADR-062 (7)] the leave-fold-out partition of the 14 spatial blocks. Pinned
 #: here so the claim "these folds are expected to report false" is DERIVED from
-#: the partition rather than restated next to it — the second copy of a fact is
+#: the partition rather than restated next to it - the second copy of a fact is
 #: how ``CONTRACT_VERSION`` stayed stale for seven versions.
 LEAVE_FOLD_OUT_BLOCKS: dict[int, tuple[int, ...]] = {
     0: (2,),
@@ -558,7 +558,7 @@ def folds_expected_to_fail_c6_3(
 
     **THIS RETURNS THREE FOLDS, NOT TWO.** ADR-062 (7) names folds 0 and 1 as the
     expected-false pair because they hold out one block each. Fold 2 holds out
-    ``{3, 9, 13}`` — **three** blocks, which is also below
+    ``{3, 9, 13}`` - **three** blocks, which is also below
     :data:`MIN_HELDOUT_BLOCKS_FOR_G2` (4), so it reports ``c6_3_satisfied: false``
     as well. The ADR's arithmetic, not its ruling, is what differs; the ruling
     ("an expected false must be stamped, not discovered") applies unchanged and
@@ -582,7 +582,7 @@ def stamp_c6_3_expected_false(
     ADR-062 (7): folds that hold out fewer than
     :data:`MIN_HELDOUT_BLOCKS_FOR_G2` blocks report ``c6_3_satisfied: false``,
     which is correct and expected for a CV matrix that pools all 14 blocks and
-    adjudicates nothing gate-shaped — *but it must be STAMPED as expected, citing
+    adjudicates nothing gate-shaped - *but it must be STAMPED as expected, citing
     the ADR, so a future reader does not discover it as a fault.*
 
     **An expected-false must still BE false.** This returns a copy whose
@@ -647,7 +647,7 @@ def _c6_3_sites(payload: object, *, prefix: str = "") -> dict[str, tuple[object,
 def _add_c6_3_expectation_clauses(
     rep: ContractReport, payloads: Mapping[str, Mapping[str, Any]]
 ) -> None:
-    """[v2.16] C6.3 (addition) — an expected false is declared, and stays false."""
+    """[v2.16] C6.3 (addition) - an expected false is declared, and stays false."""
     sites: dict[str, tuple[object, object]] = {}
     for name, payload in payloads.items():
         for where, pair in _c6_3_sites(payload).items():
@@ -705,7 +705,7 @@ def _add_c6_3_expectation_clauses(
 
 
 # --------------------------------------------------------------------------
-# C8 — fingerprint extraction and checking
+# C8 - fingerprint extraction and checking
 # --------------------------------------------------------------------------
 
 
@@ -714,7 +714,7 @@ def _add_c6_3_expectation_clauses(
 #:
 #: THIS IS A FIXED FALSE POSITIVE IN A HARD CLAUSE, found by A12 and mine. When
 #: modelling began stamping ``common_code_before``/``_after`` and
-#: ``scoring_code`` — each a dict with its own ``fingerprint`` key — this walker
+#: ``scoring_code`` - each a dict with its own ``fingerprint`` key - this walker
 #: collected all three as split stamps, so ``C8.internally_consistent`` reported
 #: "this artifact carries MORE THAN ONE split fingerprint" and HARD FAILED on
 #: every run in the repo, including the G2 record of ADR-021, whose seven stamps
@@ -736,14 +736,14 @@ _NON_SPLIT_FINGERPRINT_BLOCKS: frozenset[str] = frozenset(
 
 
 # --------------------------------------------------------------------------
-# [v2.16] C8.1 — the CV-MATRIX artifact class (ADR-062 (6))
+# [v2.16] C8.1 - the CV-MATRIX artifact class (ADR-062 (6))
 # --------------------------------------------------------------------------
 
 
 #: The key an AGGREGATE artifact uses to declare the fold runs it summarises.
 #:
 #: **Why this key exists at all.** A full leave-fold-out matrix has FIVE split
-#: fingerprints by construction — one per fold — and
+#: fingerprints by construction - one per fold - and
 #: :func:`check_run_split` hard-fails ``C8.internally_consistent`` on more than
 #: one fingerprint per artifact. modelling proposed recording the five under a
 #: name the checker does not read, *and flagged that doing so is exactly the move
@@ -769,7 +769,7 @@ CV_MATRIX_MEMBER_KEYS: tuple[str, str] = ("run", "split_fingerprint")
 #: The key carrying the declared member count. Checked against the member runs
 #: PRESENT rather than against the member entries alone: a matrix that declares
 #: five folds, lists five, and has four on disk is a partial run being read as a
-#: whole one — ADR-063 (3)'s expensive failure mode, made mechanical.
+#: whole one - ADR-063 (3)'s expensive failure mode, made mechanical.
 CV_MATRIX_COUNT_KEY = "n_members"
 
 
@@ -907,7 +907,7 @@ def fingerprints_in(payload: object, *, prefix: str = "") -> dict[str, str]:
 
     Walks nested dicts/lists so a fingerprint stamped in ``scope``,
     ``split_before``, ``split_after`` or at the root is all found by one pass.
-    Code-fingerprint blocks are skipped — see
+    Code-fingerprint blocks are skipped - see
     :data:`_NON_SPLIT_FINGERPRINT_BLOCKS`.
 
     [v2.16] ``cv_matrix`` is skipped here and read by :func:`declared_cv_matrix`
@@ -999,7 +999,7 @@ def check_run_split(
     Clauses
     -------
     ``C8.stamped``            (fail)      the artifact carries a fingerprint.
-    ``C8.internally_consistent`` (fail)   every fingerprint inside it agrees —
+    ``C8.internally_consistent`` (fail)   every fingerprint inside it agrees -
                                           this is the literal train-vs-eval
                                           mismatch, e.g. ``split_before`` vs
                                           ``split_after``.
@@ -1017,7 +1017,7 @@ def check_run_split(
                                           partly after an edit.
     ``C8.code_sampled_both_ends`` (reporting) [v2.11, C-4.2] every code
                                           fingerprint family is sampled BEFORE as
-                                          well as after — see below.
+                                          well as after - see below.
     ``C8.1 cv_matrix_*``      (fail)      [v2.16, ADR-062 (6)] if this artifact
                                           declares a CV matrix, the declaration
                                           must parse, the declared member count
@@ -1039,11 +1039,11 @@ def check_run_split(
     normally a hard fail). Every artifact in ``runs/`` today predates C-4.2, and
     the two that stamp ``scoring_code`` stamp it ONCE, at payload construction.
     Making this hard would retroactively fail the G2 record of ADR-021 on a
-    bookkeeping property rather than on any measurement — and whether that record
+    bookkeeping property rather than on any measurement - and whether that record
     must be re-run is an maintainer ruling, not a checker's. Two things narrow
     the exposure and are worth stating rather than leaving to be inferred: that
     record's ``common_code`` IS sampled at both ends and agrees, and
-    ``common/iou_terms.py`` — where the G2 gate criterion is actually computed —
+    ``common/iou_terms.py`` - where the G2 gate criterion is actually computed -
     is inside ``common_code``. So the un-verified span is ``eval/`` and
     ``model/``, not the criterion. PROPOSAL for the next bump: promote to ``fail``
     once a run stamps both ends, at which point the reporting tier has served its
@@ -1077,7 +1077,7 @@ def check_run_split(
         for where, fp in fingerprints_in(payload).items():
             found[f"{name}:{where}"] = fp
 
-    # [v2.16] C8.1 — a declared CV matrix, if this artifact is one.
+    # [v2.16] C8.1 - a declared CV matrix, if this artifact is one.
     matrices: dict[str, DeclaredCvMatrix] = {}
     for name, payload in payloads.items():
         matrix = declared_cv_matrix(payload)
@@ -1149,7 +1149,7 @@ def check_run_split(
                 # Declared members are EXCLUDED here and checked by C8.1 against
                 # what the matrix claims about each one individually. Left in,
                 # every matrix would hard-fail C8.chain for holding the five
-                # different fingerprints it exists to hold — and would do so
+                # different fingerprints it exists to hold - and would do so
                 # WITHOUT ever comparing a member's stamp to its own claim.
                 if ref in member_dirs:
                     continue
@@ -1198,7 +1198,7 @@ def check_run_split(
 def _add_cv_matrix_clauses(
     rep: ContractReport, matrices: Mapping[str, DeclaredCvMatrix], root: Path
 ) -> None:
-    """[v2.16] C8.1 — the three clauses a CV matrix pays for its exemption with.
+    """[v2.16] C8.1 - the three clauses a CV matrix pays for its exemption with.
 
     ``cv_matrix_well_formed``      (fail) the declaration parses: an int
                                           ``n_members`` and members each carrying
@@ -1213,7 +1213,7 @@ def _add_cv_matrix_clauses(
     Why the last one is REPORTING and not FAIL, stated because the other three
     are hard and the asymmetry should not have to be inferred: a leave-fold-out
     matrix's five folds have five different splits, so duplicates there are a
-    real defect — but the mandatory **null rung** (ADR-062 (4): retrain the same
+    real defect - but the mandatory **null rung** (ADR-062 (4): retrain the same
     arm at a second seed on every fold) is by design the SAME split twice, and a
     hard clause would forbid the control that makes the matrix readable. So it is
     surfaced, loudly, and does not block.
@@ -1335,12 +1335,12 @@ def _add_cv_matrix_clauses(
 def _add_code_fingerprint_clauses(
     rep: ContractReport, payloads: Mapping[str, Mapping[str, Any]]
 ) -> None:
-    """[v2.11] C-4.2 — a fingerprint must be sampled BEFORE *and* AFTER the run.
+    """[v2.11] C-4.2 - a fingerprint must be sampled BEFORE *and* AFTER the run.
 
     The defect, in the clause's own words: *a fingerprint sampled after the fact
     records the wrong code precisely in the case it was built to catch.* If
     ``eval/metrics.py`` is rewritten nine minutes into an 876-second run, a hash
-    taken at payload construction is the hash of the NEW file — so the artifact
+    taken at payload construction is the hash of the NEW file - so the artifact
     confidently records code that produced none of its numbers, and the one
     stamp that exists reads as reassurance.
     """
@@ -1410,7 +1410,7 @@ def _add_environment_clauses(
     unpaired: Mapping[str, str],
     paired: int,
 ) -> None:
-    """[v2.12] C-4.3 — the interpreter environment must not move across a run.
+    """[v2.12] C-4.3 - the interpreter environment must not move across a run.
 
     Its own check ids, not the ``code_*`` ones. What this catches, concretely:
     a ``pip install`` or a ``uv sync`` landing mid-run, an editable install being
@@ -1511,7 +1511,7 @@ def check_split_chain(
 
 
 # --------------------------------------------------------------------------
-# C3.1 — the cross-fire fold clauses
+# C3.1 - the cross-fire fold clauses
 # --------------------------------------------------------------------------
 
 
@@ -1523,7 +1523,7 @@ def check_split_assignment(
 ) -> ContractReport:
     """Assert C3.1 across ALL fires: one block never straddles two folds.
 
-    C3.1: *buffered domains overlap ... overlapping fires MUST share a fold —
+    C3.1: *buffered domains overlap ... overlapping fires MUST share a fold -
     leave-one-fire-out across an overlapping pair is landscape leakage.* Like
     C8, this is invisible to every per-fire check: both manifests are perfectly
     conformant, and only their JOIN is wrong.
@@ -1600,7 +1600,7 @@ def check_split_assignment(
     fp = split_fingerprint(fires_root=root, stats_path=stats_path)
 
     # ------------------------------------------------------------------
-    # [A14] C3 — the DECLARED membership, read from norm_stats.json (ADR-038 (6))
+    # [A14] C3 - the DECLARED membership, read from norm_stats.json (ADR-038 (6))
     # ------------------------------------------------------------------
     declared = declared_split_membership(stats_path or norm_stats_path())
     rep.add(
@@ -1637,7 +1637,7 @@ def check_split_assignment(
         ),
     )
     # The check that can actually catch a STALE file: the declared ids against
-    # the fold assignment on disk. ADR-038 (1) measured this exact hazard —
+    # the fold assignment on disk. ADR-038 (1) measured this exact hazard -
     # `2020_july_complex` carried 9.76% of train mass and moved train -> held-out,
     # and a norm_stats.json still listing it as train would have baked its
     # statistics into the normalisation of a fire it was then scored on. Silent,

@@ -10,14 +10,14 @@ a NUMBER, at the moment the number is about to be written down, because that is
 the moment it matters and the moment it is most likely to be skipped. Everything
 this project emits goes through one of two functions:
 
-* :func:`stamp_smoke_test` — marks a result as plumbing-only. Always allowed.
-* :func:`assert_reportable` — raises unless the norm stats span >= 2 blocks.
+* :func:`stamp_smoke_test` - marks a result as plumbing-only. Always allowed.
+* :func:`assert_reportable` - raises unless the norm stats span >= 2 blocks.
 
 There is no third option and no ``force=True``. The trap this guards against is
 R10 in STATE.md, described there as "the highest-consequence trap for the first
 model numbers": ``data/norm_stats.json`` is currently a BOOTSTRAP with
 ``n_train_blocks = 1`` and ``train_folds = [4]``, and Kincade's own ``cv_fold``
-is 4 — so the only fire is simultaneously the only train fire and the only
+is 4 - so the only fire is simultaneously the only train fire and the only
 possible test fire. Any number produced against it is a smoke test, and every
 artifact this package writes says so in its own payload rather than only in a
 status entry that a reader may not have.
@@ -135,7 +135,7 @@ def assert_reportable(path: str | Path | None = None) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
-# C-4.2 — the code fingerprints. **THE MODULE SETS ARE NO LONGER ENUMERATED
+# C-4.2 - the code fingerprints. **THE MODULE SETS ARE NO LONGER ENUMERATED
 # HERE (ADR-057).**
 #
 # Two hand-written tuples used to live at this spot: ``_COMMON_CODE_MODULES``
@@ -148,7 +148,7 @@ def assert_reportable(path: str | Path | None = None) -> dict[str, Any]:
 # Both sets are now WALKED from the imported package by
 # ``common/codefingerprint.py``: whole subtrees, recursive, so a module added
 # tomorrow and a module that becomes a package are both covered without anyone
-# remembering. That module is in `common/` and not here on purpose — C0 puts the
+# remembering. That module is in `common/` and not here on purpose - C0 puts the
 # one implementation of an adjudicated quantity in `common/`, the same argument
 # that re-homed C8 just below.
 #
@@ -157,7 +157,7 @@ def assert_reportable(path: str | Path | None = None) -> dict[str, Any]:
 # (``common/contract.py``, not ``contract.py``). Fingerprints recorded by runs
 # before this change are not comparable with fingerprints recorded after it.
 #
-# C8 — RE-HOMED to common/splits.py (ADR-015 (4) -> infra A10).
+# C8 - RE-HOMED to common/splits.py (ADR-015 (4) -> infra A10).
 #
 # This module originated `split_fingerprint` / `assert_split_unchanged` during
 # M2, after the CV split moved under a running experiment. infra has since
@@ -188,13 +188,13 @@ def common_code_fingerprint() -> dict[str, Any]:
     """Hash the ``common/`` modules a reported number is computed through.
 
     **This is the second instance of the hazard C8 was written for, and it is not
-    yet contract — it is a PROPOSAL, so it warns rather than fails.** ADR-015 (4)
+    yet contract - it is a PROPOSAL, so it warns rather than fails.** ADR-015 (4)
     made the CV split's version auditable after a fold change landed under a
     running experiment. The same shape recurs one level down: ``common/`` is
     shared, infra owns it, and it can be rewritten while a training run is
-    in flight. Measured live during M3 — ``common/{contract,zarr_io,runs,
+    in flight. Measured live during M3 - ``common/{contract,zarr_io,runs,
     splits,synthetic}.py`` were all rewritten inside a ten-minute window, and
-    ``synthetic.py`` was momentarily un-importable — so this is an observed
+    ``synthetic.py`` was momentarily un-importable - so this is an observed
     hazard, not a hypothetical one.
 
     A hash change does NOT invalidate a result by itself (a docstring edit is
@@ -218,7 +218,7 @@ def scoring_code_fingerprint() -> dict[str, Any]:
     """Hash the ``eval/`` + ``model/`` modules a reported number is computed IN.
 
     WHY THIS EXISTS, measured rather than assumed: ADR-016 replaced ``git_sha
-    "unknown"`` with a real SHA, and the SHA is real — but **every run in this
+    "unknown"`` with a real SHA, and the SHA is real - but **every run in this
     repo also carries ``git_dirty: true``, because the entire ``src/`` tree is
     still untracked against the scaffold commit.** So the SHA identifies the
     scaffold, not the code that produced the number. A reader who checks out
@@ -278,8 +278,8 @@ def assert_model_split_matches(
 
     Resolution order, all of it verification and none of it assumption:
 
-    1. ``model.provenance['split_fingerprint']`` — stamped by the trainer.
-    2. ``<run_dir>/training.json`` ``split_before.fingerprint`` — where runs
+    1. ``model.provenance['split_fingerprint']`` - stamped by the trainer.
+    2. ``<run_dir>/training.json`` ``split_before.fingerprint`` - where runs
        predating the stamp recorded it. Reading it there is still reading it off
        disk; it is not inferring it.
     3. Nothing found -> **HARD FAIL**. Per C-1, "invariant violated OR

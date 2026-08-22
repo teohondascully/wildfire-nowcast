@@ -1,15 +1,15 @@
-"""C0 — ``label_components`` had TWO implementations. This is the proof they agree.
+"""C0 - ``label_components`` had TWO implementations. This is the proof they agree.
 
 ADR-036 (2) found the same signature ``(mask) -> (labels, n)`` in
 ``sim/components.py:87`` (union-find over one raster pass) and
-``data/ignitions.py:85`` (BFS flood fill) — **two owners who cannot see each
+``data/ignitions.py:85`` (BFS flood fill) - **two owners who cannot see each
 other's code**, computing the quantity that determines C2's
 ``n_ignition_components`` and G4's spot-event count. They are not a copy-paste:
 they are two genuinely different algorithms that happen to agree.
 
 That is exactly what C0 forbids: *"the producer and the verifier computing
 geometry through different code is how a tensor passes its check and is still
-wrong."* And this quantity has already produced one cross-lead disagreement —
+wrong."* And this quantity has already produced one cross-lead disagreement -
 ADR-019's SCU 3 -> 2 correction.
 
 **THIS FILE IS WRITTEN AND LANDED GREEN BEFORE THE HOIST**, against both original
@@ -21,10 +21,10 @@ after, 0 mismatches) applied to a function two leads depend on.
 
 WHAT IS COMPARED, AND WHY BOTH
 ------------------------------
-* **partition structure** — which cells are grouped together, independent of the
+* **partition structure** - which cells are grouped together, independent of the
   integers used to label them. This is the property the contract actually cares
   about, and it is what the maintainer's 400-mask check compared.
-* **exact array equality** — the labels themselves. Stronger than required, and
+* **exact array equality** - the labels themselves. Stronger than required, and
   measured rather than assumed: if it holds, the hoist cannot change any
   downstream consumer that indexes by label id (``ignitions.py`` does, at
   ``final_labels[...]``), so behaviour preservation needs no further argument.
@@ -38,7 +38,7 @@ import numpy as np
 import pytest
 
 # --------------------------------------------------------------------------
-# ARCHIVED ORIGINALS — verbatim copies, frozen at A14, never to be "improved"
+# ARCHIVED ORIGINALS - verbatim copies, frozen at A14, never to be "improved"
 # --------------------------------------------------------------------------
 
 
@@ -193,7 +193,7 @@ def _handmade_masks() -> list[tuple[str, np.ndarray]]:
 
 
 def _random_masks(n: int = 400) -> list[tuple[str, np.ndarray]]:
-    """Random masks across shapes AND densities — the density sweep matters.
+    """Random masks across shapes AND densities - the density sweep matters.
 
     A single density explores one connectivity regime; near the percolation
     threshold is where a labelling disagreement would actually show up.
@@ -215,7 +215,7 @@ def test_the_mask_corpus_is_not_empty_and_actually_varies() -> None:
     """Guard the corpus before trusting any agreement it reports.
 
     A differential test over a corpus of identical or trivial masks agrees
-    perfectly and proves nothing — the same shape as every other confident empty
+    perfectly and proves nothing - the same shape as every other confident empty
     result this project has produced.
     """
     assert len(ALL_MASKS) >= 400
@@ -227,7 +227,7 @@ def test_the_mask_corpus_is_not_empty_and_actually_varies() -> None:
 
 
 # --------------------------------------------------------------------------
-# (a) the two ORIGINALS agree — landed green BEFORE the hoist
+# (a) the two ORIGINALS agree - landed green BEFORE the hoist
 # --------------------------------------------------------------------------
 
 
@@ -290,7 +290,7 @@ def test_the_hoisted_version_KEEPS_the_guard_only_one_copy_had() -> None:
     Exactly the ``silent_floor`` situation (ADR-036 (3)): the canonical version
     validated and the copy had no such concept, so the guard was silently absent
     on one path. Hoisting must take the UNION of the guards, never the
-    intersection — a refactor that keeps only what both copies did quietly
+    intersection - a refactor that keeps only what both copies did quietly
     deletes protection.
     """
     from wildfire_nowcast.common.components import label_components

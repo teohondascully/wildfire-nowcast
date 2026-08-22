@@ -34,7 +34,7 @@ def dead_fuel_moisture_simard(
     *,
     clip: tuple[float, float] = (1.0, 60.0),
 ) -> np.ndarray:
-    """C1 channel 11 — ``fuel_moisture_proxy``, in percent.
+    """C1 channel 11 - ``fuel_moisture_proxy``, in percent.
 
     Equilibrium moisture content (EMC) of fine dead fuels from air temperature
     and relative humidity, using the piecewise fit of **Simard (1968)**, as used
@@ -53,7 +53,7 @@ def dead_fuel_moisture_simard(
     precipitation, so it is an equilibrium estimate rather than actual fuel
     moisture. It is a deterministic function of RTMA ``temp_2m``/``rh_2m``,
     which is exactly what C1 asks for, and it is monotonically decreasing in
-    temperature and increasing in humidity — the two dependencies that matter
+    temperature and increasing in humidity - the two dependencies that matter
     for spread.
 
     Reference: Simard, A.J. (1968), *The Moisture Content of Forest Fuels I*,
@@ -82,7 +82,7 @@ def slope_aspect_from_elevation(
     Slope is ``atan(|grad z|)`` in degrees. Aspect is the compass bearing the
     slope *faces* (downhill), 0 deg = north, 90 deg = east. Gradients are
     central differences (edge-replicated), i.e. the 4-neighbour simplification
-    of Horn's method — adequate at 1 km where the DEM is already heavily
+    of Horn's method - adequate at 1 km where the DEM is already heavily
     aggregated.
     """
     z = np.asarray(elevation, dtype=np.float64)

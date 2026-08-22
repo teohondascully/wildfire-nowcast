@@ -1,4 +1,4 @@
-"""D6 — the corpus swap: ``data/interim/`` extension fires -> ``data/fires/``.
+"""D6 - the corpus swap: ``data/interim/`` extension fires -> ``data/fires/``.
 
 Authorised by ADR-037 (7) after the model lever was measured exhausted. This is
 the single largest change to shared state since G0, and every guard here exists
@@ -9,7 +9,7 @@ because something in this project's record went wrong in exactly that way:
   docstring, and computing over the subset reproduces NONE of the existing
   manifests.
 * **No existing fire may change block.** ADR-030 (1) / P17: a fire that BRIDGES
-  two blocks MERGES them, and the held-out block count can then FALL — adding
+  two blocks MERGES them, and the held-out block count can then FALL - adding
   data can weaken the independence claim. ``2025_garnet`` is excluded for
   exactly that reason. :func:`authoritative_assignment` asserts the invariant
   rather than trusting it, and names the fires that would have moved.
@@ -25,7 +25,7 @@ because something in this project's record went wrong in exactly that way:
   scientific object and every table spanning both must be able to say which is
   which. Two independent witnesses carry it: this key and ``gofer_version``.
 
-Norm stats are NOT computed here — see :func:`wildfire_nowcast.data.cli` and C0:
+Norm stats are NOT computed here - see :func:`wildfire_nowcast.data.cli` and C0:
 ``common.zarr_io.compute_norm_stats`` is the one implementation and this module
 imports the corpus definition it needs rather than restating any of it.
 """
@@ -150,7 +150,7 @@ def corpus_members() -> tuple[dict[str, Path], dict[str, Path]]:
 
     Membership is read off the FILESYSTEM, not off a list, so a fire that failed
     to build cannot be silently assumed present. A directory needs both
-    ``tensor.zarr`` and ``manifest.json`` to count — half a fire is not a fire.
+    ``tensor.zarr`` and ``manifest.json`` to count - half a fire is not a fire.
     """
     published: dict[str, Path] = {}
     extension: dict[str, Path] = {}
@@ -171,7 +171,7 @@ def authoritative_assignment(
 ) -> CorpusAssignment:
     """The 21-fire ``cv_fold`` + ``spatial_block_id`` of record.
 
-    Raises if adding the extension would move any existing fire's block — the
+    Raises if adding the extension would move any existing fire's block - the
     P17 hazard, which is invisible to every per-tensor check because both
     manifests stay individually conformant.
     """
@@ -258,7 +258,7 @@ def authoritative_assignment(
 def select_heldout_fold(assignment: CorpusAssignment) -> int:
     """The fold to hold out: the one covering the MOST DISTINCT SPATIAL BLOCKS.
 
-    C6.3 counts blocks, not fires — "more fires from the same block are the same
+    C6.3 counts blocks, not fires - "more fires from the same block are the same
     evidence with false confidence". A8 established this precedent on the 12-fire
     corpus (fold 3 was the only fold that could reach 4 blocks, and picking by
     FIRE count would have missed it); ADR-014 ratified it. Ties break to the
@@ -281,7 +281,7 @@ def _rewrite_manifest(
     Both the root key and ``provenance.spatial_block_id`` are written. Two
     copies of one fact is the defect ADR-033 (1) names; they already both exist
     on disk, so the least-bad thing available is to keep them in lockstep and
-    say so — divergence is what actually bites.
+    say so - divergence is what actually bites.
     """
     man = dict(manifest)
     man["cv_fold"] = int(assignment.folds[fire_id])
@@ -323,7 +323,7 @@ def swap_corpus(
     """Copy the extension into ``data/fires/`` and rewrite all 21 manifests.
 
     COPY, then verify, then (optionally, and only on request) remove the interim
-    original — never move first. A fire that cannot be made contract-clean must
+    original - never move first. A fire that cannot be made contract-clean must
     be left where it was and reported, which is impossible if the source is
     already gone.
     """

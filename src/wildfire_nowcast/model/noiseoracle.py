@@ -9,7 +9,7 @@ THE CONSTRUCTION
 ----------------
 Let ``T`` be the underlying fire and ``L = noise(T)`` the label we actually have.
 A forecaster that is RIGHT ABOUT THE FIRE is still scored against ``L``, so its
-score is bounded by ``score(T, L)`` — the disagreement the labels contribute on
+score is bounded by ``score(T, L)`` - the disagreement the labels contribute on
 their own. We cannot observe ``T``, so the standard substitution applies: take
 the labels as the centre and generate ``noise_k(L)``. The severity of ``noise``
 is CALIBRATED so that ``IoU(noise(L), L)`` on the final footprint reproduces the
@@ -35,13 +35,13 @@ generalises it to a stochastically-rounded integer magnitude with the same mean,
 and caps the translation at a severity-scaled number of cells.
 **At the shipped parameters it is BITWISE IDENTICAL to
 :func:`wildfire_nowcast.model.labelnoise.sample_perturbation`, draw for draw, on
-a shared RNG stream** — asserted by :func:`sampler_reduces_to_shipped`, which
+a shared RNG stream** - asserted by :func:`sampler_reduces_to_shipped`, which
 compares every field of every draw and demands exact equality rather than
 agreement of moments.
 
 SEVERITY IS DECLARED IN KILOMETRES
 ----------------------------------
-``Severity`` reports ``shift_sigma_km`` and ``morph_km`` — displacement of the
+``Severity`` reports ``shift_sigma_km`` and ``morph_km`` - displacement of the
 perimeter on the ground. Neither is a function of any metric being tested, so
 the ceiling curve is not circular. IoU is the CALIBRATION TARGET, never the
 severity axis.
@@ -152,7 +152,7 @@ def severity_for(fire_id: str, scale: float, *, cell_size_m: float = 1000.0) -> 
     base = noise_model_for(fire_id, cell_size_m=cell_size_m, scale=1.0)
     # `noise_model_for` clips `p_morph` at 0.5 because in the shipped model it is
     # a PROBABILITY. Here it is a mean magnitude in cells, so the clip is undone
-    # from the measured quantity it was computed from — never from the clipped
+    # from the measured quantity it was computed from - never from the clipped
     # value, which would silently cap the ladder for the noisiest fires.
     morph_unclipped = 0.5 * base.radius_mismatch_km / cell_km
     return Severity(
@@ -193,7 +193,7 @@ def draw_perturbation(sev: Severity, rng: np.random.Generator) -> LabelPerturbat
 def sampler_reduces_to_shipped(
     fire_id: str = "2020_creek", n_draws: int = 50_000, seed: int = 20260814
 ) -> dict[str, Any]:
-    """ASSERT — bitwise, every field, every draw — that scale=1 IS the shipped sampler.
+    """ASSERT - bitwise, every field, every draw - that scale=1 IS the shipped sampler.
 
     Not "the moments agree". Not "the distributions look the same". The two
     samplers are driven by two RNGs seeded identically and every one of the four
@@ -266,7 +266,7 @@ def _window_key(x0: np.ndarray, static: np.ndarray, weather: np.ndarray) -> Wind
     C5's ``predict`` receives no fire id and no ``t0``, and a truth-aware oracle
     needs both. Keying on ``(x0, static, weather)`` is exact: ``static`` is the
     fire (elevation is unique per domain) and ``weather`` is a float32 RTMA slab
-    that differs between any two hours. Collisions are not assumed away —
+    that differs between any two hours. Collisions are not assumed away -
     :meth:`WindowTable.add` REFUSES a duplicate key, so a collision is a crash
     rather than a silently mis-scored window.
     """
@@ -320,7 +320,7 @@ class WindowTable:
         return len(self._rows)
 
 
-#: The label noise is ONE DRAW PER FIRE, shared by every cell and every hour —
+#: The label noise is ONE DRAW PER FIRE, shared by every cell and every hour -
 #: that is the shipped model's stated design and it comes from the measurement
 #: that the GOFER centroid offset is "a per-fire latent nuisance parameter,
 #: resampled per fire, not per pixel and not per step".
@@ -346,12 +346,12 @@ class NoisyTruthOracle:
 
     ``temporal`` picks which end of the coherence interval this rung sits at.
 
-    ``COHERENT`` — ``x0 | (perturb(truth_h) \\ perturb(x0))``. One displacement
+    ``COHERENT`` - ``x0 | (perturb(truth_h) \\ perturb(x0))``. One displacement
         corrupts the whole trajectory, so what survives into the increment is
         only the part that does not cancel: the increment translated, and the
         increment's own boundary dilated. This is the construction that matches
         the measured per-fire structure of the noise.
-    ``PER_STEP`` — ``x0 | perturb(truth_h)``. The initial condition is clean and
+    ``PER_STEP`` - ``x0 | perturb(truth_h)``. The initial condition is clean and
         every hour is mis-observed afresh. This displaces the WHOLE perimeter
         relative to a clean ``x0``, so a 2 km label error lands entirely inside a
         growth band whose real content is one hour of spread.
@@ -459,7 +459,7 @@ def final_footprint_agreement(
     seed: int = 20260814,
     cell_size_m: float = 1000.0,
 ) -> dict[str, Any]:
-    """``IoU(noise(L), L)`` on the FINAL footprint — the calibration measurement.
+    """``IoU(noise(L), L)`` on the FINAL footprint - the calibration measurement.
 
     This is the quantity that is matched to arm (a)'s measured
     ``IoU(GOFER, official)``. Same estimand: two renderings of one fire's final

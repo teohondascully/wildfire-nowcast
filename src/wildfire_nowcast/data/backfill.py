@@ -1,8 +1,8 @@
 """Backfill the C2 [v2.7] keys into manifests that predate the clause (ADR-014).
 
 Twelve manifests were written before ``fuel_vintage_lag_years`` and
-``n_ignition_components`` existed. The tensors are clean — this is a manifest-key
-gap, not a data defect — so the fix is a manifest patch, NOT a rebuild. Rebuilding
+``n_ignition_components`` existed. The tensors are clean - this is a manifest-key
+gap, not a data defect - so the fix is a manifest patch, NOT a rebuild. Rebuilding
 would re-hit GEE/LFPS for twelve fires to change two integers, and every byte it
 moved would be a byte nobody asked it to move.
 
@@ -15,7 +15,7 @@ Rules this module holds itself to:
   key-for-key what a rebuilt one would be. The *evidence* goes in ``provenance``,
   which is what ADR-014 actually asked for.
 - **Nothing else changes.** :func:`backfill_manifest` diffs its own output and
-  raises if any pre-existing key moved — including ``cv_fold`` and
+  raises if any pre-existing key moved - including ``cv_fold`` and
   ``spatial_block_id``. C8 makes a split-fingerprint mismatch a hard fail, and
   the last time the split moved mid-flight it contaminated a trained matrix.
 - **Derived, never defaulted, never overwritten.** A value already on disk that
@@ -64,7 +64,7 @@ def fuel_vintage_lag_years(manifest: dict[str, Any]) -> int:
     ``provenance.fuels_staleness_years`` already carries the right value as a
     STRING (ADR-014 asked for machine-readable, hence the ``int()``). It is
     cross-checked against ``ignition_time_utc`` year minus
-    ``provenance.fuels_vintage_year`` — the same cross-check the contract runs —
+    ``provenance.fuels_vintage_year`` - the same cross-check the contract runs -
     and a disagreement raises here rather than shipping two numbers for one fact.
     """
     prov = manifest.get("provenance")
@@ -106,7 +106,7 @@ def _insert_after(man: dict[str, Any], additions: dict[str, Any]) -> dict[str, A
         if key == _INSERT_AFTER:
             out.update(additions)
     for key, value in additions.items():
-        if key not in out:  # _INSERT_AFTER absent — append rather than drop
+        if key not in out:  # _INSERT_AFTER absent - append rather than drop
             out[key] = value
     return out
 

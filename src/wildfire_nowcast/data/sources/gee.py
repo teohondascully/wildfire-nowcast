@@ -10,7 +10,7 @@ Drive-export directive:
   ``Export.*.toCloudStorage`` is forbidden on cost grounds (GCS bills for
   storage and egress against the live billing account independently of Earth
   Engine registration).
-* The default is **synchronous chunked fetch** — ``ee.data.computePixels``
+* The default is **synchronous chunked fetch** - ``ee.data.computePixels``
   straight to numpy, chunked over time. At our scale (a fire domain is O(40-300)
   cells per side) this is sufficient and strictly simpler: no task polling, no
   Drive round-trip, no intermediate GeoTIFF.
@@ -18,7 +18,7 @@ Drive-export directive:
   is the region-sized path and is bounded by an explicit byte budget per request.
 
 If measured volume ever defeats synchronous fetch, ADR-004 says the remedy is a
-scoped re-auth adding ``drive`` and a PROPOSAL — never a silent switch to GCS.
+scoped re-auth adding ``drive`` and a PROPOSAL - never a silent switch to GCS.
 :func:`export_image` is kept for that eventuality and refuses to run until the
 scope actually exists.
 """
@@ -118,7 +118,7 @@ class ExportConfig:
                 "Engine registration. Use the default 'sync' fetch."
             )
         if target == "drive" and not bucket:
-            # not an error — just make the missing precondition explicit
+            # not an error - just make the missing precondition explicit
             pass
         return cls(target=target, folder=folder, bucket=bucket)  # type: ignore[arg-type]
 
@@ -127,7 +127,7 @@ def initialize_ee(project: str | None = None, *, quiet: bool = True) -> Any:
     """Initialise the ``ee`` module with the env-configured project.
 
     Returns the imported ``ee`` module. Raises :class:`GeeAuthError` with the
-    remediation steps on any failure — this function never launches an
+    remediation steps on any failure - this function never launches an
     interactive OAuth flow (ADR-002: auth is human-gated, one attempt, then a
     BLOCKER).
     """
@@ -197,7 +197,7 @@ def hourly_window(
 
     ``end == start`` is LEGAL and means a single hour. It is not a degenerate
     request: the time-chunked RTMA fetch produces a one-hour trailing chunk
-    whenever a fire's hour count is ``1 (mod chunk_hours)`` — 4 of the 28 GOFER
+    whenever a fire's hour count is ``1 (mod chunk_hours)`` - 4 of the 28 GOFER
     fires (Walker, August, Bobcat, McCash) are exactly that, and rejecting it
     aborted the build after every earlier chunk had already been paid for. Only
     a REVERSED window is an error.
@@ -308,7 +308,7 @@ def export_image(
     max_pixels: int = 1_000_000_000,
     start: bool = True,
 ) -> ExportTask:
-    """Submit a batch GeoTIFF export. **Gated — not the default path (ADR-004).**
+    """Submit a batch GeoTIFF export. **Gated - not the default path (ADR-004).**
 
     Kept so that a future scoped re-auth is a config change rather than a
     rewrite. Refuses to run today because our credentials hold only

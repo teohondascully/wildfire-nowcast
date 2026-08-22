@@ -2,8 +2,8 @@
 
 [A17] This project's stated code style is typed Python (see README.md) and
 nothing enforced it until now. `pyproject.toml` even carries a
-`Typing :: Typed` classifier. The obvious way to close that gap — turn mypy on and relax it until
-it is green — produces a check that cannot fail, which is this project's most
+`Typing :: Typed` classifier. The obvious way to close that gap - turn mypy on and relax it until
+it is green - produces a check that cannot fail, which is this project's most
 expensive and most frequently repeated defect: an all-NaN channel passed 56
 contract clauses, `train_heldout_disjoint` intersected a partition it had
 constructed, and `common_code_fingerprint` recorded a package as ``MISSING``
@@ -34,7 +34,7 @@ from wildfire_nowcast.common.paths import repo_root
 
 #: The burn-down list, pinned. Measured 2026-08-14. Two groups, both exempt by
 #: OWNERSHIP rather than by difficulty: `model/`, `eval/` and `data/` were being
-#: written in by other leads (M11, D11 — ADR-050) and infra may not edit them,
+#: written in by other leads (M11, D11 - ADR-050) and infra may not edit them,
 #: and `sim/` belongs to simviz. Error counts are recorded in `pyproject.toml`
 #: as documentation and are deliberately not asserted: pinning a count inside a
 #: directory somebody else is working in goes red on their ordinary work, which
@@ -91,7 +91,7 @@ STRICT_PACKAGE_PREFIX = "wildfire_nowcast.common."
 
 # The two ways a checker gets silenced by hand. Both patterns are spelled in
 # HALVES and joined here, so this file contains no literal specimen and needs no
-# exemption from its own scan — the file most likely to acquire one must not be
+# exemption from its own scan - the file most likely to acquire one must not be
 # the one file that can never report it (ADR-048 (2)).
 _BARE_IGNORE = re.compile(r"#\s*" + "ty" + r"pe:\s*" + "igno" + r"re(?!\[)")
 _MODULE_DIRECTIVE = re.compile(r"^\s*#\s*" + "my" + r"py:\s")

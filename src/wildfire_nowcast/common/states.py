@@ -1,11 +1,11 @@
-"""C1.1 — the ratified ``fireline_v2`` perimeter -> ``fire_state`` rule.
+"""C1.1 - the ratified ``fireline_v2`` perimeter -> ``fire_state`` rule.
 
 **This module is the single implementation of the state rule (C0, ADR-007).**
 The rule is contractual: it decides what the label channel *means*, so a producer
 and a verifier that compute it through different code is precisely how a tensor
 passes its own check and is still wrong. Everything that turns GOFER perimeters
-into ``{0, 1, 2}`` — the real ingestion path, the synthetic fixture, any future
-re-labelling — imports :func:`apply_state_rule` from here. Nothing re-implements
+into ``{0, 1, 2}`` - the real ingestion path, the synthetic fixture, any future
+re-labelling - imports :func:`apply_state_rule` from here. Nothing re-implements
 it.
 
 The rule (ADR-006 P1, INTERFACES C1.1)::
@@ -24,7 +24,7 @@ not a silent repair.
 
 ``active`` is what keeps state 1 observationally grounded. 51-91% of GOFER hours
 have bitwise-zero perimeter growth because GOES stops detecting the front at
-night or under cloud — not because the fire stopped. The retired provisional
+night or under cloud - not because the fire stopped. The retired provisional
 rule made state 1 an artefact of Δt and left it empty in 62-87% of frames, so a
 contagion kernel had no seed in most training steps. ``cfireLine`` is non-empty
 in 100% of Kincade's zero-growth hours.
@@ -41,7 +41,7 @@ and asserted in-line when ``validate=True``: values in ``{0,1,2}``, non-decreasi
 in time, no 0 -> 2 skip, one contiguous burning run per cell.
 
 Accepted caveat (ADR-006, and a contract line in C1.1): this does NOT reach 0%
-empty-burning frames and no absorbing rule can — after a long dormancy every cell
+empty-burning frames and no absorbing rule can - after a long dormancy every cell
 is closed and state 1 is legitimately empty (6-37% of real frames). Consumers
 must treat the **frontier of the burned region**, not state 1 alone, as the
 contagion source.
@@ -119,7 +119,7 @@ def dilate(mask: np.ndarray, iterations: int = 1, *, connectivity: int = 8) -> n
 
 
 def cumulative_or(masks: np.ndarray) -> np.ndarray:
-    """Running OR over the leading (time) axis — the monotone ``ever`` field."""
+    """Running OR over the leading (time) axis - the monotone ``ever`` field."""
     return np.logical_or.accumulate(np.asarray(masks, dtype=bool), axis=0)
 
 

@@ -1,17 +1,17 @@
-"""C6.0 — the do-nothing null check, validated against KNOWN answers.
+"""C6.0 - the do-nothing null check, validated against KNOWN answers.
 
 A safety check nobody has tried to fool is a safety check with unknown power.
 This file establishes three things, in order of importance:
 
-1. **It has teeth.** The two pathologies the contract already quarantined —
-   ``dispersion_ratio`` (C6.1) and ``best_member_iou`` (C6.4) — must come back
+1. **It has teeth.** The two pathologies the contract already quarantined -
+   ``dispersion_ratio`` (C6.1) and ``best_member_iou`` (C6.4) - must come back
    flagged. If they ever come back clean, the harness broke, not the metrics.
 2. **It does not over-fire.** A metric known to be sound (the C6.4 gate
    criterion, ``area_dispersion_ratio``, Brier against a silence null) must come
    back ``ok``, so a real finding is not lost in noise.
 3. **It is decidable, not lucky.** Verdicts are stable across DISJOINT seed sets,
    because a verdict that moves with the seed is a coin flip being reported as a
-   finding — which is the exact failure the ``BLIND`` tier exists to name.
+   finding - which is the exact failure the ``BLIND`` tier exists to name.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def _verdicts(report: N.NullCheckReport) -> dict[tuple[str, str], N.MetricVerdic
 
 
 # --------------------------------------------------------------------------
-# the fixture itself — a check on a fixture with the wrong statistics is a
+# the fixture itself - a check on a fixture with the wrong statistics is a
 # check on nothing
 # --------------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ def test_the_scenario_is_legal_state_data(scenario) -> None:
 
 
 # --------------------------------------------------------------------------
-# 1. teeth — the known-broken metrics must come back flagged
+# 1. teeth - the known-broken metrics must come back flagged
 # --------------------------------------------------------------------------
 
 
@@ -89,8 +89,8 @@ def test_best_member_iou_is_flagged_in_the_growth_band(report_a, report_b) -> No
     used to read ``verdict != ok``, i.e. it asked the COMPARISON question, and it
     went green when the refit gave the harness a stronger reference model
     (``skillful_calibrated`` 0.40321 vs the null's 0.33333). That is a true
-    measurement of a different thing. ADR-017's actual claim — that the metric
-    pays for silence — lives in the CAPTURE verdict, which no reference model can
+    measurement of a different thing. ADR-017's actual claim - that the metric
+    pays for silence - lives in the CAPTURE verdict, which no reference model can
     move. The comparison is asserted alongside it precisely because it now says
     ``ok``: both answers are true, and pinning both is what stops either from
     being quietly read as the other (ADR-022 (1)).
@@ -102,7 +102,7 @@ def test_best_member_iou_is_flagged_in_the_growth_band(report_a, report_b) -> No
         assert not v.gate_eligible, "C6.4 already forbids this metric from gating"
 
         # The size of the pathology, exactly: a forecast claiming NOTHING is paid
-        # the zero-growth lead fraction. Not "about a third" — 1/3, because the
+        # the zero-growth lead fraction. Not "about a third" - 1/3, because the
         # fixture declares 33.3% and the metric hands it over whole.
         assert v.scores["null_empty"] == pytest.approx(1.0 / 3.0)
         assert v.scores["null_zero_ignition"] == pytest.approx(1.0 / 3.0)
@@ -118,7 +118,7 @@ def test_the_two_verdicts_disagree_and_that_is_the_point(report_a) -> None:
 
     At least one metric must have a clean comparison AND a failing axiom.
     Otherwise the two fields are carrying the same information and the split has
-    bought nothing — which is the state the harness was in before A12.
+    bought nothing - which is the state the harness was in before A12.
     """
     split_is_load_bearing = [
         v
@@ -173,7 +173,7 @@ def test_the_axiom_does_not_fire_on_error_metrics_or_spread_metrics() -> None:
 
 
 def test_a_missing_zero_claim_is_undecidable_not_a_pass() -> None:
-    """An axiom that cannot be evaluated must say so — C-2's verdict choke point."""
+    """An axiom that cannot be evaluated must say so - C-2's verdict choke point."""
     spec = N.MetricSpec(N.HIGHER, True)
     verdict, detail = N._capture_verdict(spec, {"skillful": [0.5, 0.5]})
     assert verdict == N.VERDICT_UNDECIDABLE
@@ -223,7 +223,7 @@ def test_zero_claim_is_the_empty_forecast_and_not_persistence(report_a) -> None:
     """Pointing the axiom at persistence would make it a false-alarm generator.
 
     On the DOMAIN mask persistence scores ``best_member_iou`` ~0.86 by correctly
-    reproducing the already-burned region — capture it EARNED. The empty forecast
+    reproducing the already-burned region - capture it EARNED. The empty forecast
     scores exactly 0 there, which is why it is the axiom's subject and why
     ``best_member_iou`` is clean on ``domain`` and flagged on ``growth_band``.
     """
@@ -241,7 +241,7 @@ def test_the_axiom_also_catches_growth_iou_on_the_domain_mask(report_a) -> None:
     """A case the growth-band comparison never looks at.
 
     ``best_member_iou_growth`` restricts to cells unburned at t0, so it inherits
-    the empty-vs-empty convention on BOTH masks — while plain ``best_member_iou``
+    the empty-vs-empty convention on BOTH masks - while plain ``best_member_iou``
     is clean on ``domain``. The comparison tier has never examined this cell;
     the axiom flags it on the first run.
     """
@@ -255,7 +255,7 @@ def test_the_declared_deterministic_forecasters_really_ignore_the_rng(scenario) 
 
     ``run_null_check`` scores these once and replicates across seeds. That is
     bitwise correct only while they really never draw, so the declaration is
-    verified rather than trusted — under two generators seeded far apart.
+    verified rather than trusted - under two generators seeded far apart.
     """
     windows, _ = scenario
     models = N.forecasters_for(windows)
@@ -285,7 +285,7 @@ def test_dispersion_ratio_cannot_separate_collapse_from_health(report_a, report_
 
     Measured here: the collapsed and healthy ensembles land within ~1% of each
     other and which one wins flips with the seed. `area_dispersion_ratio`, the
-    metric C6.1 promoted in its place, separates them by ~3x — asserted in the
+    metric C6.1 promoted in its place, separates them by ~3x - asserted in the
     same breath, because "this instrument is blind" only means something beside
     an instrument that is not.
     """
@@ -305,7 +305,7 @@ def test_the_positive_controls_are_not_empty(report_a) -> None:
     """The harness's own validation: the two contract-quarantined metrics reappear.
 
     ``quarantined_confirmed`` reads BOTH verdicts as of A12. Reading only the
-    comparison is what emptied this set when the reference model improved — a
+    comparison is what emptied this set when the reference model improved - a
     positive control that a better reference can switch off was never testing the
     metric, only the reference.
     """
@@ -316,7 +316,7 @@ def test_the_positive_controls_are_not_empty(report_a) -> None:
 
 
 # --------------------------------------------------------------------------
-# 2. no over-firing — the sound metrics must come back clean
+# 2. no over-firing - the sound metrics must come back clean
 # --------------------------------------------------------------------------
 
 
@@ -337,7 +337,7 @@ def test_the_c6_4_gate_criterion_passes_its_own_null_check(report_a, report_b) -
 
         band = _verdicts(report)[(N.GATE_METRIC, "growth_band")]
         # In the band, a zero-ignition forecast predicts NOTHING, and the gate
-        # criterion pays exactly 0 for it — the minimum of the range, not merely
+        # criterion pays exactly 0 for it - the minimum of the range, not merely
         # a low score. This one number is what makes the criterion fit to gate.
         assert band.scores["null_zero_ignition"] == pytest.approx(0.0, abs=1e-9)
         assert band.scores["null_empty"] == pytest.approx(0.0, abs=1e-9)
@@ -369,7 +369,7 @@ def test_no_gate_eligible_metric_is_in_the_hard_tier(report_a, report_b) -> None
 
 
 # --------------------------------------------------------------------------
-# 3. decidability — verdicts must not move with the seed
+# 3. decidability - verdicts must not move with the seed
 # --------------------------------------------------------------------------
 
 
@@ -471,7 +471,7 @@ def test_an_unregistered_metric_is_reported_not_skipped(scenario) -> None:
     """C-2, one level down: a metric with no declared orientation is unchecked.
 
     Simulated by scoring through a wrapper that emits an extra key, because the
-    real trigger is modelling adding a metric — which must break this check
+    real trigger is modelling adding a metric - which must break this check
     loudly rather than pass by omission.
     """
     from wildfire_nowcast.eval.metrics import aggregate, evaluate
@@ -497,7 +497,7 @@ def test_an_unregistered_metric_is_reported_not_skipped(scenario) -> None:
 
 
 # --------------------------------------------------------------------------
-# C6.6 [v2.15] — which channels may decide a gate, asked rather than remembered
+# C6.6 [v2.15] - which channels may decide a gate, asked rather than remembered
 # --------------------------------------------------------------------------
 
 #: The three channels the contract lets adjudicate at v2.15. PINNED HERE and

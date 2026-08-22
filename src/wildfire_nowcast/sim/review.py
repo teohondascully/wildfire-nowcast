@@ -1,4 +1,4 @@
-"""S7 — the external-reviewer page.
+"""S7 - the external-reviewer page.
 
 Builds ``reports/review.html``: ONE self-contained HTML file (every image inlined
 as a ``data:`` URI) that walks a reader who has seen nothing since the original
@@ -13,7 +13,7 @@ HARD CONSTRAINTS THIS MODULE OBEYS, AND THEY ARE THE POINT
 * **No checkpoint is read and ``predict()`` is never called.** Anything that
   would need a live model is rendered as a labelled ``NOT MEASURED`` gap.
 * The only live data touched is the C1 tensor store, read-only, through
-  :mod:`wildfire_nowcast.sim.reader` — the contract input this lead consumes.
+  :mod:`wildfire_nowcast.sim.reader` - the contract input this lead consumes.
 * **Every number carries its provenance**: the run record it came from and the
   split fingerprint it is bound to. The corpus of record is
   ``b3e5dadad01eaef9`` (21 fires); G2 and all four G3 attempts are bound to
@@ -43,7 +43,7 @@ from matplotlib.patches import Rectangle  # noqa: E402
 from wildfire_nowcast.sim.style import add_north_arrow  # noqa: E402
 
 # --------------------------------------------------------------------------
-# provenance constants — the C8 archive boundary, named, never inlined
+# provenance constants - the C8 archive boundary, named, never inlined
 # --------------------------------------------------------------------------
 
 FINGERPRINT_PRE_D6 = "4848f491e8d588fa"  # 12 fires: G2 + all four G3 attempts
@@ -78,7 +78,7 @@ def _fig(rel: str) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
-# 1. COLLECT — every number the page shows, pulled from a record
+# 1. COLLECT - every number the page shows, pulled from a record
 # --------------------------------------------------------------------------
 
 
@@ -200,7 +200,7 @@ def _collect_growth(d: PageData) -> None:
     rec = _load(RECORD_G2)
     ga = _fig("growth_anatomy.json")
     val = rec["c6_2_validity"]
-    # only the models the anatomy artifact actually replayed — never a default
+    # only the models the anatomy artifact actually replayed - never a default
     models = [
         m for m in ("nbfix_s1", "nbfix_s2", "kernel_init", "ellipse_cal3h") if m in ga["summary"]
     ]

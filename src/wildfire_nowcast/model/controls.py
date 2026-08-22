@@ -1,4 +1,4 @@
-"""[M10] The CONTROL arms — the things that license a metric channel to speak.
+"""[M10] The CONTROL arms - the things that license a metric channel to speak.
 
 ADR-045 (4): *"an indistinguishability claim is exactly the claim this project has
 gotten wrong most often"*. M10's likely outcome is "B is indistinguishable from
@@ -10,7 +10,7 @@ same code**. So each metric channel carries its own control:
     accuracy channel    <- C2, the wind covariates zeroed
 
 If a control does not separate from A, that channel returns ``not_a_verdict`` and
-NO conclusion is drawn from it — not "no difference". Three-valued, exactly as
+NO conclusion is drawn from it - not "no difference". Three-valued, exactly as
 C6.5 made the G3 conditions three-valued.
 
 C1 needs no code: :meth:`ContagionKernel.with_sampler` already produces the
@@ -47,7 +47,7 @@ class ZeroedCovariateModel:
     """A C5 predictor that blanks named weather channels before delegating.
 
     Holds the wrapped model's ``provenance`` so C8's split check reads the
-    checkpoint's real fingerprint rather than being exempted — an unstamped
+    checkpoint's real fingerprint rather than being exempted - an unstamped
     control is an unverifiable control, and C-1 makes unverifiable a failure.
     """
 

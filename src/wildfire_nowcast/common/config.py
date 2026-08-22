@@ -169,7 +169,7 @@ def load_config(
 ) -> dict[str, Any]:
     """Load and fully resolve one experiment config.
 
-    Returns a plain dict — the *resolved* config that
+    Returns a plain dict - the *resolved* config that
     :func:`wildfire_nowcast.common.runs.create_run_dir` records verbatim, so a
     run is reproducible from its own directory without consulting ``configs/``.
     """
@@ -190,13 +190,13 @@ INTERFACES_VERSION_KEY = "interfaces_version"
 
 
 def _stamp_interfaces_version(config: dict[str, Any], *, source: Path) -> dict[str, Any]:
-    """Stamp — do not merely validate — the contract version into a resolved config.
+    """Stamp - do not merely validate - the contract version into a resolved config.
 
     [A14, ADR-033 (1)] ``configs/base.yaml`` used to carry ``interfaces_version:
     v2.12`` as a LITERAL, which made it the THIRD place one fact was written down
     (INTERFACES.md line 1, ``contract.CONTRACT_VERSION``, here) and the third
     place it could go stale. ``tests/test_common.py`` pinned them equal, so a
-    contract bump turned the build red until somebody edited a yaml — the same
+    contract bump turned the build red until somebody edited a yaml - the same
     mechanically-forced edit that ADR-033 ruled must be fixed at the mechanism.
 
     Now the resolved config is STAMPED from
@@ -207,7 +207,7 @@ def _stamp_interfaces_version(config: dict[str, Any], *, source: Path) -> dict[s
     force, and silently honouring its claim would put a false attestation into
     every run directory it produced.
 
-    Imported inside the function on purpose — ``contract`` pulls in xarray, and
+    Imported inside the function on purpose - ``contract`` pulls in xarray, and
     loading a yaml should not cost that.
     """
     from wildfire_nowcast.common.contract import CONTRACT_VERSION

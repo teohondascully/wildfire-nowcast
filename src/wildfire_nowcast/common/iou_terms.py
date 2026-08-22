@@ -1,4 +1,4 @@
-"""C6.4 — the ``best_member_iou`` SHAPE / SILENCE decomposition (ADR-017).
+"""C6.4 - the ``best_member_iou`` SHAPE / SILENCE decomposition (ADR-017).
 
 WHY THIS EXISTS
 ---------------
@@ -18,11 +18,11 @@ It computes THREE quantities from the same per-member-per-lead IoU matrix:
     The contribution of empty-truth leads to the reported score.
 ``shape``    (arithmetic term)
     The contribution of leads where truth actually grew.
-    ``silence + shape == best_member_iou`` EXACTLY — this is arithmetic, not a
+    ``silence + shape == best_member_iou`` EXACTLY - this is arithmetic, not a
     redefinition, and :meth:`IouTerms.check` raises if it ever stops holding.
 ``shape_masked``  (**THE GATE CRITERION**, :data:`GATE_CRITERION_KEY`)
     Empty-truth leads are DROPPED, and the best member is selected on the
-    surviving leads. ``None`` when no lead grew — undefined, never 0 and never 1.
+    surviving leads. ``None`` when no lead grew - undefined, never 0 and never 1.
 
 WHY THE MASKED VARIANT GATES, AND THE ARITHMETIC TERMS ONLY REPORT
 ------------------------------------------------------------------
@@ -35,7 +35,7 @@ which are properties of the ESTIMAND and none of which reference any model:
    score worst, not merely worse. The arithmetic ``shape`` term also gives the
    null 0, but its own MAXIMUM is ``n_growing / horizon`` rather than 1, so its
    scale is set by the label statistics of the window rather than by the
-   forecast — two horizons, or two fires, are not on the same scale.
+   forecast - two horizons, or two fires, are not on the same scale.
 2. **Member selection is not contaminated.** The arithmetic terms decompose the
    score of the member chosen by the FULL trajectory, i.e. chosen partly on the
    silence bonus. A silent member can win that argmax and drag the shape term to
@@ -96,7 +96,7 @@ def jaccard(a: np.ndarray, b: np.ndarray) -> float:
 
     Kept here so the convention that CAUSED the pathology has one definition
     that the decomposition is written against. It is bit-identical to
-    ``eval.metrics.fuzzy_iou(a, b, 0)`` — asserted by a test, not assumed, on the
+    ``eval.metrics.fuzzy_iou(a, b, 0)`` - asserted by a test, not assumed, on the
     same standard A10 used when re-homing ``split_fingerprint``.
     """
     set_a = np.asarray(a, dtype=bool)
@@ -111,7 +111,7 @@ def truth_empty_by_lead(truth_event: np.ndarray, mask: np.ndarray | None = None)
     """``[L]`` bool: does truth have NO cell at this lead, inside ``mask``?
 
     This is the label statistic the whole pathology rests on, and it depends on
-    labels and the mask only — never on a forecast.
+    labels and the mask only - never on a forecast.
     """
     obs = np.asarray(truth_event, dtype=bool)
     if obs.ndim < 1:
@@ -125,7 +125,7 @@ def truth_empty_by_lead(truth_event: np.ndarray, mask: np.ndarray | None = None)
 def silent_floor(truth_empty: np.ndarray, horizon: int | None = None) -> float:
     """What a forecast that predicts NOTHING scores on this window.
 
-    Depends only on the labels, so it is the same number for every model — which
+    Depends only on the labels, so it is the same number for every model - which
     is the point. A metric whose null value is not zero must publish that value
     beside every number it produces, or the numbers read as skill.
     """
@@ -190,7 +190,7 @@ def decompose_best_member_iou(
 
     ``per_member_lead`` is ``[M, L]``: ``IoU(member m at lead k, truth at lead
     k)`` inside whatever mask the caller scored. ``truth_empty`` is ``[L]`` from
-    :func:`truth_empty_by_lead` under the SAME mask — passing a mismatched pair
+    :func:`truth_empty_by_lead` under the SAME mask - passing a mismatched pair
     is the one way to get a wrong answer here, so the shapes are checked.
 
     ``horizon`` scores leads ``0..horizon-1``; the default is all of them. This

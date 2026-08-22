@@ -12,7 +12,7 @@ is exactness where exactness exists:
 * ``refine = 1`` is the IDENTITY, so it must reproduce its input bit-for-bit;
 * the nested-snap identity is algebra, so it must hold with residual exactly 0;
 * the disc's area is ``pi r^2``, so the coarse area must sit inside the
-  analytic boundary-band bound ``0.5 * P * dx`` — scored by
+  analytic boundary-band bound ``0.5 * P * dx`` - scored by
   ``sim.coarsen.score_coarsening``, the existing scorer, not a second one.
 
 Where exactness does NOT exist (a threshold rule loses features below the coarse
@@ -63,7 +63,7 @@ def test_the_block_decomposition_is_an_exact_partition() -> None:
     This is the identity that makes a block-mean an aggregation rather than a
     resampling. It asserts the ACTUAL 1 km burned-cell count, not "non-zero",
     and it is the check that catches a misaligned reshape, a dropped row or a
-    double-counted pad — none of which any area-tolerance check could see.
+    double-counted pad - none of which any area-tolerance check could see.
     """
     rng = np.random.default_rng(7)
     residuals = []
@@ -138,8 +138,8 @@ def _textured_disc(n: int, r_km: float) -> np.ndarray:
 def test_the_disc_area_matches_pi_r_squared_inside_the_analytic_bound() -> None:
     """POSITIVE CONTROL, MAGNITUDE: an analytically known area, scored by sim/coarsen.
 
-    ``relative_tol`` is passed explicitly as ``dx / r`` — the analytic relative
-    boundary-band bound for a disc — instead of inheriting ``RELATIVE_TOL``,
+    ``relative_tol`` is passed explicitly as ``dx / r`` - the analytic relative
+    boundary-band bound for a disc - instead of inheriting ``RELATIVE_TOL``,
     which was calibrated for a 33x step where the band is a far smaller fraction
     of the shape. Reusing a tolerance across a different resolution ratio is how
     a bound stops meaning anything.
@@ -208,7 +208,7 @@ def test_any_touch_and_area_occupancy_separate_EXACTLY_on_sub_cell_speckle() -> 
     ``n_spots`` isolated 1 km cells, one per 2 km block. Each covers exactly 25%
     of its block, so the declared rule scores **exactly 0 km2** and any-touch
     scores **exactly 4 * n_spots km2**. Both are analytic, both are asserted, and
-    the difference is the whole content of the "a mask is not a mean" choice —
+    the difference is the whole content of the "a mask is not a mean" choice -
     which is why ``water_barrier_mask`` carries both numbers in its per-fire QA.
     """
     n_spots, n = 24, 40
@@ -282,7 +282,7 @@ def test_averaging_fire_state_is_WRONG_and_C1_CANNOT_SEE_IT() -> None:
 
     Mean-then-round of ``{0, 1, 2}`` is the plausible-looking wrong rule for the
     label channel. It satisfies **every** guarantee ``fire_state_violations``
-    checks — values, monotonicity, no 0->2 skip, one contiguous burning run — so
+    checks - values, monotonicity, no 0->2 skip, one contiguous burning run - so
     the C1 checker cannot distinguish it from the declared rule. What DOES see it
     is the burned-area comparison: the mean rule silently DROPS cells whose
     sub-cells are in state 1, because ``mean([1,1,0,0]) == 0.5`` rounds to 0
@@ -318,7 +318,7 @@ def test_averaging_fire_state_is_WRONG_and_C1_CANNOT_SEE_IT() -> None:
 
 def test_coarsening_a_monotone_field_stays_monotone() -> None:
     """The occupancy rule is monotone in the coverage fraction, so ``ever`` cannot
-    go backwards. Asserted on a shape that grows one sub-cell at a time — the
+    go backwards. Asserted on a shape that grows one sub-cell at a time - the
     hardest case for a threshold rule."""
     t, n = 40, 12
     ever = np.zeros((t, n, n), dtype=bool)

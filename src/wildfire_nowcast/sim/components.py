@@ -1,4 +1,4 @@
-"""Detect and render the ignition components of a fire — C2 ``n_ignition_components``.
+"""Detect and render the ignition components of a fire - C2 ``n_ignition_components``.
 
     python -m wildfire_nowcast.sim.components \
         --tensor data/fires/2020_july_complex/tensor.zarr \
@@ -12,7 +12,7 @@ a number in a manifest is easy to forget and a picture of two fires is not.
 
 **Detection rule.** Walk the cumulative burned region hour by hour. A new
 *ignition component* is a connected component of ``ever(t)`` containing no cell of
-``ever(t-1)`` — i.e. fire appears somewhere it could not have spread to. For each
+``ever(t-1)`` - i.e. fire appears somewhere it could not have spread to. For each
 one the module records the hour, the location, and the distance to the nearest
 already-burning cell. That distance is the whole diagnostic: contagion at 1 km/h
 cannot produce 47 km, so the number itself separates "filing artifact" from
@@ -71,7 +71,7 @@ FRAGMENT_KM: float = 2.0
 #: Separation at or above which a new component is confidently a DIFFERENT fire
 #: rather than long-range spotting. Provisional, declared not fitted: an order of
 #: magnitude above the label noise scale. Observed on 4 fires the gaps are
-#: strongly bimodal — 4.0/4.1/5.0/6.0 km versus 14.1/46.1 km — with nothing in
+#: strongly bimodal - 4.0/4.1/5.0/6.0 km versus 14.1/46.1 km - with nothing in
 #: between, so any cut in (6, 14) gives the same answer. C-3 applies: this is NOT
 #: a pass/fail threshold and MUST NOT be pasted into a C2 manifest. @data owns
 #: that number; this module reports the evidence for it.
@@ -92,7 +92,7 @@ COMPONENT_COLORS: tuple[str, ...] = (
 
 # [A14, C0] `label_components` was HOISTED to `common/components.py` and is
 # imported above. It is re-exported here (it stays in `__all__`) so every
-# existing caller — this module, `sim/blockanatomy.py`, `sim/coarsen.py` — is
+# existing caller - this module, `sim/blockanatomy.py`, `sim/coarsen.py` - is
 # unchanged. The local union-find implementation was byte-for-byte identical in
 # behaviour to `data/ignitions.py`'s BFS flood fill on 417 masks (0 disagreements
 # on partition structure AND exact label ids), measured BEFORE the hoist and
@@ -130,7 +130,7 @@ def ignition_components(fire: FireFrames) -> dict[str, Any]:
     """Every independent ignition in the store, with its separation distance.
 
     ``km_to_nearest_burning`` for the FIRST component is ``inf`` by definition
-    (nothing was burning), and that is reported rather than coerced to 0 — the
+    (nothing was burning), and that is reported rather than coerced to 0 - the
     same discipline that stopped the movie calling every ignition hour a 24 km
     teleport. A 0 there would read as "spread from an adjacent cell".
     """
@@ -264,7 +264,7 @@ def ignition_components(fire: FireFrames) -> dict[str, Any]:
     return {
         "fire_id": fire.fire_id,
         # Raw topology: connected regions that appeared where fire could not have
-        # spread to. This is NOT C2's n_ignition_components — see the breakdown.
+        # spread to. This is NOT C2's n_ignition_components - see the breakdown.
         "n_components_detected": len(components),
         "n_ignition_components": len(components),
         # What the topology count is actually made of. A first_frame_fragment is

@@ -4,7 +4,7 @@ Two jobs, and they are separable on purpose.
 
 **1. RE-SCORE AN ARCHIVED RECORD.** ADR-039 (5) made the first moment a G3
 condition after every existing result was already on disk. Those artifacts do not
-carry ``band_growth_calibration`` — it did not exist in ``eval/`` until M9 — so
+carry ``band_growth_calibration`` - it did not exist in ``eval/`` until M9 - so
 the condition cannot be evaluated on them by reading one key. It CAN be
 reconstructed exactly, because the record already carries everything the ratio is
 made of::
@@ -16,7 +16,7 @@ made of::
 The reconstruction is not asserted, it is CHECKED, twice: against sim's
 independent recomputation from the C1 tensors
 (``reports/figures/s5_block5_anatomy.json``, ``abs_diff 0.0`` on 4 of 4 fires),
-and — on any run made after M9 — against the emitted key itself, which must agree
+and - on any run made after M9 - against the emitted key itself, which must agree
 to 1e-9. A reconstruction that is only self-consistent is the kind of check this
 project has been bitten by six times.
 
@@ -31,7 +31,7 @@ which hypothesis a number belongs to.
 
 On a dormant stratum truth grew nothing, so the RATIO is undefined and this
 module reports ``None`` for it and the absolute predicted area beside it. That is
-the honest answer — not 0, not inf — and it is what makes "the model cannot say
+the honest answer - not 0, not inf - and it is what makes "the model cannot say
 nothing happens this hour" a measurable statement rather than a metaphor.
 """
 
@@ -80,7 +80,7 @@ def _row(per_fire_entry: Mapping[str, Any], model: str, stratum: str) -> dict[st
 
 #: The stratum on which truth is ZERO BY THE STRATUM'S OWN DEFINITION. A window
 #: enters it when ``truth_growth_cells() == 0``, and every ``growth_band`` cell is
-#: unburned at t0, so band truth growth is zero there too — no measurement
+#: unburned at t0, so band truth growth is zero there too - no measurement
 #: needed, and none available: persistence's area error is identically 0 on this
 #: stratum, so ``_area_error_decomposition`` returns ``None`` for every term and
 #: the NULL-model reconstruction goes blind exactly where hypothesis (A) lives.
@@ -94,7 +94,7 @@ def truth_area_mean(per_fire_entry: Mapping[str, Any], stratum: str) -> float | 
 
     ``0.0`` on the dormant stratum by construction. Otherwise from the NULL
     model's signed area error, which IS the truth because persistence ignites
-    nothing. ``None`` only when the stratum was not scored at all — 0 and absent
+    nothing. ``None`` only when the stratum was not scored at all - 0 and absent
     are different facts and this project has conflated them before.
     """
     if stratum == DORMANT_STRATUM:
@@ -111,8 +111,8 @@ def growth_calibration_of(
 
     ``source`` is ``"emitted"`` when the artifact carries
     ``band_growth_calibration`` (post-M9 runs) and ``"reconstructed"`` otherwise.
-    When BOTH are available they are compared and the disagreement is reported —
-    never silently preferred — because a reconstruction that has quietly stopped
+    When BOTH are available they are compared and the disagreement is reported -
+    never silently preferred - because a reconstruction that has quietly stopped
     matching its measurement is exactly the failure this module would otherwise
     hide.
     """
@@ -265,7 +265,7 @@ def _stratum_reconciliation(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]
 
 
 def block_spread(table: Mapping[str, Any], model: str, stratum: str) -> dict[str, Any]:
-    """max/min of ``growth_calibration`` across BLOCKS — the quantity ADR-035 put at 3-7x.
+    """max/min of ``growth_calibration`` across BLOCKS - the quantity ADR-035 put at 3-7x.
 
     Reported as a plain ratio of the extremes AND in log units, because the
     hypothesis being tested is about whether restricting to growth windows makes

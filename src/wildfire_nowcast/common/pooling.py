@@ -1,11 +1,11 @@
-"""EQUAL-BLOCK pooling — and a dropped block is now a HARD failure.
+"""EQUAL-BLOCK pooling - and a dropped block is now a HARD failure.
 
 WHY POOLING IS EQUAL-BLOCK AT ALL (ADR-021 (4))
 -----------------------------------------------
 Window pooling weights a spatial block by how many hours it burned. Creek alone
 is **47% of the held-out growth pool**, so a window-pooled held-out number is
-mostly one landscape. C6.3's own logic — spatial blocks are the independent
-units — says that is the same false-confidence hazard C6.3 was written against.
+mostly one landscape. C6.3's own logic - spatial blocks are the independent
+units - says that is the same false-confidence hazard C6.3 was written against.
 modelling raised this at M4 *having declined to use it*, because it would have
 won two persistence comparisons; the maintainer adopted it for G3 onward and
 deliberately left the G2 record window-pooled. Both numbers are emitted, always.
@@ -26,7 +26,7 @@ reported the mean **as if it were complete**::
 criterion could be computed on 3 blocks, print ``n_blocks: 3``, and still report
 ``in_interval_equal_block: true`` with nothing saying the sample had silently
 shrunk below the 4 distinct held-out blocks C6.3 requires. The denominator was
-*emitted* but never *adjudicated* — the same shape as quoting a gate IoU without
+*emitted* but never *adjudicated* - the same shape as quoting a gate IoU without
 its window count, and the same shape as the vacuous train/held-out disjointness
 check A14 replaced. **Silent partial coverage reads as full coverage.**
 
@@ -37,8 +37,8 @@ be, installed before that case exists.
 THE RULE
 --------
 A block that contributes nothing to the mean is a :class:`IncompleteBlockCoverageError`
-**by default**. Callers that legitimately expect gaps — a diagnostic sweep over
-arms that were never scored everywhere, say — pass ``allow_missing_blocks=True``
+**by default**. Callers that legitimately expect gaps - a diagnostic sweep over
+arms that were never scored everywhere, say - pass ``allow_missing_blocks=True``
 and get the gap enumerated in the return instead of raised. The opt-in is
 explicit and per-call, so the permissive path appears in the caller's own source
 where a reviewer can see it, rather than being the ambient default.
@@ -90,8 +90,8 @@ def equal_block_mean_of(
     """Mean over BLOCKS of the per-block mean, with dropped blocks made loud.
 
     ``values_by_block`` maps a block id to either one value or a sequence of
-    values (one per fire in that block). A value of ``None`` — or any non-finite
-    thing — does not contribute.
+    values (one per fire in that block). A value of ``None`` - or any non-finite
+    thing - does not contribute.
 
     Raises :class:`IncompleteBlockCoverageError` if any block ends up
     contributing nothing, unless ``allow_missing_blocks`` is set.
@@ -155,7 +155,7 @@ def equal_block_mean(
     {stratum: {key: value}}}}}``.
 
     A fire whose ``spatial_block_id`` is missing or unusable is NOT silently
-    skipped — it lands under a ``None`` block id, which then either contributes
+    skipped - it lands under a ``None`` block id, which then either contributes
     or is reported as dropped like any other. Dropping a fire because its block
     label is malformed would be the same silent-shrink defect one level down.
     """

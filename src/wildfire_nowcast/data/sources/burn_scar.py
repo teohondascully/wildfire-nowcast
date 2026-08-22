@@ -1,4 +1,4 @@
-"""C1 channel 13: ``recent_burn_scar`` {0,1} — the mandatory LANDFIRE correction.
+"""C1 channel 13: ``recent_burn_scar`` {0,1} - the mandatory LANDFIRE correction.
 
 LANDFIRE lags reality, and :mod:`.fuels` deliberately makes that lag *worse* by
 refusing any vintage published after the fire (leakage). This channel closes the
@@ -9,9 +9,9 @@ carry fire again.
 Window: ``(vintage_year, ignition_time)``. Two sources, because neither alone
 covers it:
 
-* **MTBS** ``USFS/GTAC/MTBS/burned_area_boundaries/v1`` — authoritative, but only
+* **MTBS** ``USFS/GTAC/MTBS/burned_area_boundaries/v1`` - authoritative, but only
   published ~1-2 years in arrears, so it cannot cover the fire's own season.
-* **NIFC current-season perimeters** — the public NIFC/WFIGS ArcGIS service,
+* **NIFC current-season perimeters** - the public NIFC/WFIGS ArcGIS service,
   no auth, which covers the season in progress.
   Important scoping point for the 2019-2021 training set: the WFIGS service is
   *YearToDate*, i.e. the CURRENT season, so it is useless for historical fires.
@@ -64,7 +64,7 @@ SCAR_LOOKBACK_YEARS = 6
 #:    fire's own record can be stamped *earlier* than the hourly GOFER ignition.
 #:    Kincade: MTBS says 2019-10-23 07:00Z, GOFER says 2019-10-24 04:00Z. A naive
 #:    ``Ig_Date < ignition`` filter therefore admitted Kincade's own 77,780-acre
-#:    scar into channel 13 — i.e. handed the model the answer.
+#:    scar into channel 13 - i.e. handed the model the answer.
 #: 2. A fire that started days before ours is probably still burning, so its
 #:    final MTBS perimeter contains ground that burns *after* our ignition. That
 #:    is leakage too, just less obvious.
@@ -95,8 +95,8 @@ def mtbs_scar_image(
 ) -> Any:
     """Binary MTBS scar mask of fires that burned *strictly before* this one.
 
-    Self-exclusion is belt and braces — a guard window (see
-    :data:`SELF_EXCLUSION_GUARD_DAYS`) *and* an incident-name match — because
+    Self-exclusion is belt and braces - a guard window (see
+    :data:`SELF_EXCLUSION_GUARD_DAYS`) *and* an incident-name match - because
     the date filter alone provably fails on day-resolution MTBS ignition dates.
     """
     from wildfire_nowcast.common.contract import CELL_SIZE_M  # noqa: PLC0415
@@ -129,13 +129,13 @@ def mtbs_scar_image(
 
 
 #: dNBR at or above this counts as a burn scar. 0.27 is the USGS/MTBS
-#: "low / moderate-low" severity break — the lowest cut that is a burn rather
+#: "low / moderate-low" severity break - the lowest cut that is a burn rather
 #: than noise. It is a CONFIG KNOB and it is calibrated against MTBS on the
 #: years where both exist (see :func:`dnbr_vs_mtbs`), never asserted.
 DNBR_THRESHOLD = 0.27
 
 #: WFIGS all-years perimeters. NOT the YearToDate service the docstring above
-#: warns about — this one carries every season and is published within weeks of
+#: warns about - this one carries every season and is published within weeks of
 #: containment, which is exactly the window MTBS cannot reach.
 WFIGS_ALL_YEARS = (
     "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/"
@@ -148,8 +148,8 @@ WFIGS_ALL_YEARS = (
 #: noise, not a coverage measurement.
 _CA_BBOX_4326 = (-124.6, 32.4, -114.0, 42.1)
 #: A year counts as ASSESSED if its record count reaches this fraction of the
-#: median of the five years before it. Fitted on nothing — it is a presence
-#: test, not a threshold on an outcome — and the observed separation is 5x
+#: median of the five years before it. Fitted on nothing - it is a presence
+#: test, not a threshold on an outcome - and the observed separation is 5x
 #: (2024: 7 records vs a 2019-2023 median of ~34), so no value in [0.25, 0.75]
 #: changes the verdict.
 _MTBS_COMPLETENESS_FRACTION = 0.5
@@ -180,7 +180,7 @@ def mtbs_coverage_end(reference_year: int) -> tuple[datetime, dict[str, Any]]:
 
     **The naive version of this function is a trap and I nearly shipped it.**
     ``aggregate_max("Ig_Date")`` returns 2024-12-17, which reads as "MTBS covers
-    2024" — but California has **7** records in 2024 against 48 / 29 / 34 in
+    2024" - but California has **7** records in 2024 against 48 / 29 / 34 in
     2021 / 2022 / 2023, and **0** in 2025. A single early-released record makes
     a year look covered. Presence of a maximum date is not coverage, exactly as
     a finite value is not a plausible one (R11).
@@ -246,7 +246,7 @@ def wfigs_scar_mask(
     within weeks of containment rather than years after it, so it covers exactly
     the one-to-two seasons before a recent fire that MTBS has not assessed.
 
-    Self-exclusion carries the SAME two-part guard as the MTBS path — the caller
+    Self-exclusion carries the SAME two-part guard as the MTBS path - the caller
     closes the window at ``ignition - guard`` and this also drops the fire's own
     IRWIN id and name token. ADR-008's lesson (a strict date inequality is not a
     self-exclusion) does not stop applying because the source changed.
@@ -338,7 +338,7 @@ def dnbr_scar_mask(
 
     **BOTH WINDOWS END BEFORE OUR FIRE IGNITES, and the first version of this
     function did not.** Taking the post-composite *after* ``end`` looks natural
-    — you want imagery after the scar formed — and it walks straight through our
+    - you want imagery after the scar formed - and it walks straight through our
     own fire, so dNBR then measures OUR burn and hands the model the answer.
     Measured on 2024_bridge before the fix: 188 flagged cells against WFIGS's
     14, IoU 0.025. That is ADR-008's Kincade self-scar leak reproduced in a new

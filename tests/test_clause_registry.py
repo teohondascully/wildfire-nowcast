@@ -9,7 +9,7 @@ This module makes that audit permanent and automatic:
 
 1. Every numbered clause in ``docs/interfaces.md`` appears in
    :data:`CLAUSE_IMPLEMENTATIONS` with a status. **A new clause fails this
-   suite until someone classifies it** — which is the entire point: ratifying a
+   suite until someone classifies it** - which is the entire point: ratifying a
    clause now breaks the build until it is implemented, deferred on the record,
    or declared unenforceable with a reason.
 2. Registry entries cannot lie. Every check id an entry claims must actually
@@ -51,7 +51,7 @@ _CLAUSE_RE = re.compile(r"^#{2,3}\s+(?:\[[^\]]+\]\s+)?(C-?\d+(?:\.\d+)?)\b")
 #: clause the audit cannot see can stay fiction indefinitely without ever
 #: breaking the build, and the build would look green while it did.
 #:
-#: The fix is here rather than in INTERFACES.md deliberately — infra does
+#: The fix is here rather than in INTERFACES.md deliberately - infra does
 #: not edit that file, and more importantly **an audit whose coverage depends on
 #: another lead's markdown style is not an audit.** Matching only at line start
 #: keeps it from harvesting the dozens of in-prose references ("C-1's corollary",
@@ -79,7 +79,7 @@ def conformant_corpus(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, P
     """A SYNTHETIC, fully conformant split: manifests on disk + a norm-stats file.
 
     [A15] Built here rather than read from ``data/fires/`` so that the C-2 audit
-    runs on a machine that has no fire corpus — CI, a fresh clone, a reviewer.
+    runs on a machine that has no fire corpus - CI, a fresh clone, a reviewer.
     Before this, five of C3/C3.1/C6.3's cross-fire check ids simply never
     emitted without the 1.3 GB of data, and ``test_claimed_check_ids_really_run``
     read that absence as *the registry claims a check that does not exist*. The
@@ -126,7 +126,7 @@ def test_the_conformant_corpus_is_actually_conformant(
     """Positive control for the fixture the audit rests on.
 
     A fixture that quietly produced a FAILING split would still emit every check
-    id — the ids come from both branches — and the audit above would stay green
+    id - the ids come from both branches - and the audit above would stay green
     while its evidence came from the failure path. Assert the split passes, so
     the registry is checked against checks that were observed to succeed.
     """
@@ -140,12 +140,12 @@ def test_the_conformant_corpus_is_actually_conformant(
 def conformant_cv_matrix(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> tuple[dict[str, object], Path]:
-    """[v2.16] C8.1 — a WELL-FORMED CV matrix plus the fold run dirs it claims.
+    """[v2.16] C8.1 - a WELL-FORMED CV matrix plus the fold run dirs it claims.
 
     Conformant for the same reason :func:`conformant_corpus` is: C8.1's four
     check ids must be observed from their PASSING branch, or the registry would
     be validated against checks nobody has seen succeed. Two members rather than
-    five — the clause is about the relation between a claim and a run dir, and
+    five - the clause is about the relation between a claim and a run dir, and
     the arity is the matrix's business, not the checker's.
     """
     runs_root = tmp_path_factory.mktemp("cv_matrix_runs")
@@ -186,7 +186,7 @@ def emitted_check_ids(
                 "split_before": {"fingerprint": "x"},
                 "split_after": {"fingerprint": "x"},
                 # [v2.11] C-4.2's clauses only emit when a code fingerprint is
-                # present, so a conformant payload must carry one at BOTH ends —
+                # present, so a conformant payload must carry one at BOTH ends -
                 # otherwise the registry would claim two check ids that this
                 # fixture can never make appear.
                 "common_code_before": {"fingerprint": "code-x"},
@@ -200,7 +200,7 @@ def emitted_check_ids(
                 "environment_after": {"fingerprint": "env-x"},
                 # [v2.16] C6.3 (addition)'s clauses only emit when a
                 # `c6_3_satisfied` key is present, and the conformant form is a
-                # false that is DECLARED expected — the value stays False, the
+                # false that is DECLARED expected - the value stays False, the
                 # declaration sits beside it and cites the ruling.
                 "fold": S.stamp_c6_3_expected_false(
                     {"c6_3_satisfied": False, "n_heldout_blocks": 1},
@@ -214,7 +214,7 @@ def emitted_check_ids(
     }
     # [v2.16] C8.1's clauses only emit when a `cv_matrix` key is present, so the
     # conformant payload for them is a separate artifact with its member run dirs
-    # actually on disk — a claim about a run dir cannot be checked from a payload
+    # actually on disk - a claim about a run dir cannot be checked from a payload
     # alone, which is the entire point of the clause.
     matrix_payload, matrix_runs = conformant_cv_matrix
     ids |= {
@@ -251,7 +251,7 @@ def test_interfaces_parses_into_the_clauses_we_expect() -> None:
 
 
 def test_bold_declared_subclauses_are_discovered_too() -> None:
-    """C-4.1/C-4.2 are declared in BOLD, not in a heading — pin that they are seen.
+    """C-4.1/C-4.2 are declared in BOLD, not in a heading - pin that they are seen.
 
     Without this, a future contract edit that reformats a heading into a bold
     line silently removes a clause from the audit, and the build stays green
@@ -291,7 +291,7 @@ def test_registry_statuses_are_legal() -> None:
 def test_claimed_check_ids_really_run(emitted_check_ids: set[str]) -> None:
     """A registry entry cannot claim a check that does not exist.
 
-    Without this, the registry is just a second document that can rot — the
+    Without this, the registry is just a second document that can rot - the
     exact failure mode it exists to prevent, one level up.
     """
     missing: dict[str, list[str]] = {}

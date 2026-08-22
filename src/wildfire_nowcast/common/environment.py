@@ -1,11 +1,11 @@
-"""C-4.3 [v2.12] — the interpreter ENVIRONMENT is in C-4's frozen set.
+"""C-4.3 [v2.12] - the interpreter ENVIRONMENT is in C-4's frozen set.
 
 WHERE THIS CLAUSE CAME FROM, AND IT WAS NOT THIS MODULE'S AUTHOR
 ----------------------------------------------------------------
 The ingestion work needed ``scipy`` mid-burst and **declined to install it**, on
 the reasoning that adding a package to the shared virtualenv while training is
 in flight is a
-shared-state change of exactly the class C-4 exists to stop — and wrote pure-numpy
+shared-state change of exactly the class C-4 exists to stop - and wrote pure-numpy
 equivalents instead. **C-4 as written enumerated FILES and said nothing about the
 environment**, so a lead could have installed anything mid-run and violated no
 clause. A lead extended a rule to a case it did not name, conservatively and with
@@ -20,12 +20,12 @@ it is barred from running.* This module is the implementation that unblocks it.
 WHAT IS MECHANICALLY CHECKABLE, AND WHAT IS NOT
 -----------------------------------------------
 C-4 is classified ``process`` because the same edit is legal or illegal depending
-on whether another session is live — a fact about the maintainer's schedule,
+on whether another session is live - a fact about the maintainer's schedule,
 not about this repo. The same is true of ``pip install``. What IS mechanical is
 the **detection of a violation after the fact**, and that is exactly how C-4.2
 was implemented: sample a fingerprint at BOTH ends of a run and hard-fail on
-disagreement. C-4.3 gets the same treatment and its own check ids —
-``C8.environment_agrees_across_run`` and ``C8.environment_sampled_both_ends`` —
+disagreement. C-4.3 gets the same treatment and its own check ids -
+``C8.environment_agrees_across_run`` and ``C8.environment_sampled_both_ends`` -
 deliberately NOT the ``code_*`` ones, because giving two different quantities one
 key name is precisely the defect that made ``C8.internally_consistent`` false on
 every artifact in the repo (A12).
@@ -35,19 +35,19 @@ WHAT THE FINGERPRINT COVERS, AND THE LIMIT, STATED
 COVERED: the interpreter (version, implementation, platform), **every installed
 distribution's name and version**, the lockfile digest if one exists, and a small
 declared set of SYSTEM TOOLS resolved on ``PATH`` (their real path, size and
-mtime) — which is how ``pip install``, ``uv sync``, an editable-install change and
+mtime) - which is how ``pip install``, ``uv sync``, an editable-install change and
 a rebuilt ELMFIRE binary all become visible.
 
 NOT COVERED: arbitrary system packages. There is no portable way to enumerate
 what ``brew upgrade`` did, and a fingerprint that pretends otherwise is worse
-than one that states its scope — the C1.6 mistake, pointed the other way. The
+than one that states its scope - the C1.6 mistake, pointed the other way. The
 scope is therefore recorded IN the fingerprint payload (``covers``), so a reader
 of an artifact can see what the hash did and did not see, rather than inferring
 it. A check that cannot fail is not a check; a check whose reach is undocumented
 is the same thing one level up.
 
 C0: one implementation. ``runs.create_run_dir`` stamps it structurally, so a run
-directory carries it no matter who wrote the run — the same reasoning that put
+directory carries it no matter who wrote the run - the same reasoning that put
 the split stamp there after 10 of 20 run dirs turned out to carry none.
 """
 
@@ -166,7 +166,7 @@ def environment_fingerprint(*, root: Path | None = None) -> dict[str, Any]:
     Total by construction, on the same reasoning as ``splits.split_fingerprint``:
     this is called from ``runs.create_run_dir`` and *a provenance stamp that can
     kill a training run is a worse defect than the one it prevents.* A failure is
-    recorded as an ``error`` string inside the payload — visible, not fatal.
+    recorded as an ``error`` string inside the payload - visible, not fatal.
     """
     payload: dict[str, Any] = {
         "python": platform.python_version(),

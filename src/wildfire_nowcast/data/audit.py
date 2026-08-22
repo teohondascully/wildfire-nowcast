@@ -1,8 +1,8 @@
-"""Physical-plausibility audit — the data-side complement to C1.7.
+"""Physical-plausibility audit - the data-side complement to C1.7.
 
 **Why this exists (R11, ADR-010).** The contract checks STRUCTURE, not
-plausibility. C1.7 closed exactly one instance of that class — ``canopy_cover``
-and ``fuel_model_id`` — and it did so deliberately narrowly: ADR-010 admits only
+plausibility. C1.7 closed exactly one instance of that class - ``canopy_cover``
+and ``fuel_model_id`` - and it did so deliberately narrowly: ADR-010 admits only
 ranges outside which *no* legitimate value exists, so a hard fail carries no
 false-positive mode. That is the right call for a contract. It leaves eleven
 channels whose sentinels would still sail through: a ``-9999`` in ``elevation``
@@ -14,7 +14,7 @@ So this module is the other half, and it is deliberately NOT a contract:
   ``ok`` / ``suspect``, and a ``suspect`` is a prompt to look, not a verdict.
 * Its ranges are *plausibility* ranges, not definitional ones. They are
   documented with their justification and they live here, in ``data/``, rather
-  than in ``common/`` — precisely because an unratified clause in the contract
+  than in ``common/`` - precisely because an unratified clause in the contract
   is the same mistake as a tolerated sentinel, pointed the other way.
 * Where the contract DOES adjudicate a range it is imported, never restated
   (C0). ``canopy_cover`` and ``fuel_model_id`` come from
@@ -67,7 +67,7 @@ __all__ = [
 
 #: NoData / fill values that real GIS and remote-sensing products emit. Tested by
 #: EXACT equality, so a legitimate ``-9999.0`` would have to be a genuine
-#: measurement of exactly that value — impossible in every channel we carry.
+#: measurement of exactly that value - impossible in every channel we carry.
 #:
 #: Provenance of each entry, so this list is not folklore:
 #: ``-9999`` USGS LFPS / LANDFIRE (the CZU case, ADR-010) and most ESRI rasters;
@@ -89,7 +89,7 @@ SENTINEL_VALUES: tuple[float, ...] = (
     1e20,
 )
 
-#: channel -> (low, high), INCLUSIVE. PLAUSIBILITY, not definition — see module
+#: channel -> (low, high), INCLUSIVE. PLAUSIBILITY, not definition - see module
 #: docstring. Each bound is justified, because an unjustified bound is a future
 #: false positive that someone will silence rather than investigate.
 PLAUSIBLE_RANGES: dict[str, tuple[float, float]] = {
@@ -239,7 +239,7 @@ def channel_audit(name: str, values: np.ndarray) -> dict[str, Any]:
 
 
 def audit_channels(channels: dict[str, np.ndarray], *, fire_id: str = "") -> dict[str, Any]:
-    """Audit a ``{channel_name: array}`` mapping — the single implementation.
+    """Audit a ``{channel_name: array}`` mapping - the single implementation.
 
     Called both from the build (before the store exists) and from
     :func:`audit_dataset` (after it does), so a fire audited at build time and
@@ -276,15 +276,15 @@ def audit_dataset(ds: xr.Dataset) -> dict[str, Any]:
 #: structural clause could see it: the channel was binary, static and finite.
 #: Above this fraction the channel is asserting that most of what the fire burned
 #: had already burned before it started, which is a claim to check rather than a
-#: threshold to trust — hence ``suspect``, never a failure.
+#: threshold to trust - hence ``suspect``, never a failure.
 SCAR_SELF_OVERLAP_SUSPECT = 0.50
 
 
 def burn_scar_leak_report(ds: xr.Dataset) -> dict[str, Any]:
     """Is channel 13 telling the model where this fire is going to burn?
 
-    Measures the SAME estimand the Kincade defect was found on — *what fraction
-    of the cells this fire ever burns are already flagged as recently burned* —
+    Measures the SAME estimand the Kincade defect was found on - *what fraction
+    of the cells this fire ever burns are already flagged as recently burned* -
     rather than an AUC surrogate. Direct measurement beats a proxy here for the
     reason ADR-016's `find -newermt` note gives: prefer a check that reads the
     value over one that proves a set is empty.
@@ -331,7 +331,7 @@ def burn_scar_leak_report(ds: xr.Dataset) -> dict[str, Any]:
 
 
 def audit_norm_stats(stats: dict[str, Any]) -> dict[str, Any]:
-    """C3.4 — norm-stats-level sanity, a SEPARATE check from per-fire QA.
+    """C3.4 - norm-stats-level sanity, a SEPARATE check from per-fire QA.
 
     A per-fire defect propagates globally through shared normalisation: CZU's
     ``-9999`` would have moved the TRAIN mean canopy to -492% while every

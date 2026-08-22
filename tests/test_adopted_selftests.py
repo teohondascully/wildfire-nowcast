@@ -4,8 +4,8 @@
 their verification suite as an *importable module inside their own package*
 rather than writing into a directory they do not own:
 
-* ``wildfire_nowcast.sim.selftest``  — plain ``test_*`` functions, no fixtures.
-* ``wildfire_nowcast.eval.selftest`` — known-answer ``Check`` objects.
+* ``wildfire_nowcast.sim.selftest``  - plain ``test_*`` functions, no fixtures.
+* ``wildfire_nowcast.eval.selftest`` - known-answer ``Check`` objects.
 
 That was the right call, and the point of this file is that it does not leave
 them orphaned. **Nothing here reimplements or edits their logic**; this module
@@ -15,7 +15,7 @@ working unchanged.
 
 Collection is by INTROSPECTION, not from a hand-maintained list. If sim
 adds a test to its module tomorrow, `make test` runs it that day without
-touching this file — a wiring that needs infra's attention to stay
+touching this file - a wiring that needs infra's attention to stay
 complete would silently rot the moment another lead is mid-flight. The
 completeness tests below then check that each module's own runner sees the same
 set, so the standalone path and the pytest path cannot drift apart.
@@ -51,7 +51,7 @@ EVAL_CHECKS = list(eval_selftest.CHECKS)
 
 
 # --------------------------------------------------------------------------
-# sim — wildfire_nowcast.sim.selftest
+# sim - wildfire_nowcast.sim.selftest
 # --------------------------------------------------------------------------
 
 
@@ -60,7 +60,7 @@ def test_sim_selftest(case: Callable[[], None]) -> None:
     """Run one of sim's self-tests as a first-class pytest case.
 
     These target defects that render as plausible-but-wrong rather than as a
-    crash — a mirrored fire, a confident arrival time the ensemble does not
+    crash - a mirrored fire, a confident arrival time the ensemble does not
     support, an ignition hour reported as a 24 km spot fire.
     """
     case()
@@ -81,7 +81,7 @@ def test_every_sim_selftest_is_collected() -> None:
 
 
 # --------------------------------------------------------------------------
-# modelling — wildfire_nowcast.eval.selftest
+# modelling - wildfire_nowcast.eval.selftest
 # --------------------------------------------------------------------------
 
 
@@ -89,8 +89,8 @@ def test_every_sim_selftest_is_collected() -> None:
 def test_eval_selftest(check: Callable[[], eval_selftest.Check]) -> None:
     """Run one of modelling's known-answer C5/C6 verifications.
 
-    Every one has an answer known BEFORE the code runs — hand-computed or forced
-    by an algebraic identity — because a metric verified only against its own
+    Every one has an answer known BEFORE the code runs - hand-computed or forced
+    by an algebraic identity - because a metric verified only against its own
     output is verified against nothing. The load-bearing one is
     ``collapse_is_invisible_to_dispersion_ratio``: it pins the fact that
     ``dispersion_ratio`` scores a COLLAPSED ensemble at exactly 1.000, which is

@@ -1,7 +1,7 @@
 """Executable form of the INTERFACES.md contracts C1, C2 and C3.
 
 The version this module enforces is :data:`CONTRACT_VERSION`, **derived at import
-from INTERFACES.md line 1** — it is deliberately not restated in this docstring.
+from INTERFACES.md line 1** - it is deliberately not restated in this docstring.
 It used to be: this line read ``**v2.5**`` while ``CONTRACT_VERSION`` said
 ``v2.12``, seven versions apart, in the file that adjudicates the contract
 (ADR-036 (5)). A version number written down twice is a version number that will
@@ -17,14 +17,14 @@ Design notes
 * **Structure is not plausibility (R11, ADR-010).** C1.5's declarations are
   satisfied by ``-9999``: it is finite, integral and static. A CZU tensor
   carrying the USGS LFPS coastline sentinel therefore scored
-  ``OK — 42 checks passed (reporting-ready)`` with a mean canopy cover of
+  ``OK - 42 checks passed (reporting-ready)`` with a mean canopy cover of
   **-3085%**. C1.7 closes that instance by asserting the *definitional* range of
   the two channels that have one. The CLASS remains open: when you add a
   channel, ask what physically impossible value would still pass, and say so.
 * **A verdict must never pass by default (ADR-012).** Every outcome goes through
   :func:`_verdict` at the single choke point :meth:`ContractReport.add`, which
   maps non-finite and unusable outcomes to ``False``. ``bool(float("nan"))`` is
-  ``True`` in Python, so a NaN reaching a verdict unguarded reports PASS — the
+  ``True`` in Python, so a NaN reaching a verdict unguarded reports PASS - the
   exact defect sim found in its own ladder, where an unverifiable
   statistic printed ``[ok]`` and simultaneously hid a good result and passed a
   weak one. Unverifiable is a FAIL here, per C-1.
@@ -32,12 +32,12 @@ Design notes
   failing tensor produces a full punch list in one pass. Corollary: a malformed
   *attribute* must fail its own clause rather than raise, or one bad value
   truncates the punch list and hides everything after it.
-* The checkers depend only on ``xarray``/``numpy`` — deliberately *not* on
+* The checkers depend only on ``xarray``/``numpy`` - deliberately *not* on
   :mod:`wildfire_nowcast.common.zarr_io`. A tensor written with plain xarray by
   another lead is judged by exactly the same yardstick as one written by our
   own writer.
 * Every check is either ``fail`` or ``reporting`` severity. ``reporting``
-  mirrors the contract's own two-tier language — C3.3 says a norm-stats file
+  mirrors the contract's own two-tier language - C3.3 says a norm-stats file
   MUST carry ``n_train_blocks`` (unconditional: a ``fail``) and that any
   *REPORTED* result must assert ``n_train_blocks >= 2`` (conditional: a
   ``reporting``). A ``reporting`` gap never blocks plumbing, is printed on
@@ -142,7 +142,7 @@ __all__ = [
 # --------------------------------------------------------------------------
 
 #: Where the contract's version actually lives. Line 1 of this file is the
-#: authoritative statement of the contract version — the maintainer writes it
+#: authoritative statement of the contract version - the maintainer writes it
 #: when ratifying, and ``tests/test_clause_registry.py`` has always read it.
 INTERFACES_RELATIVE_PATH = "docs/interfaces.md"
 
@@ -153,7 +153,7 @@ def _read_contract_version() -> str:
     """Parse ``vX.Y`` out of INTERFACES.md line 1. **Raises rather than guessing.**
 
     [A14, ADR-033 (1)] This used to be a hardcoded literal, and it drifted from
-    the file FOUR times — three of them the maintainer's, once caught by
+    the file FOUR times - three of them the maintainer's, once caught by
     infra's own C-2 audit catching its author's boss inside a single edit.
     Worse, the duplication made the ownership rule unenforceable by construction:
     ``test_contract_version_matches_interfaces`` reads INTERFACES line 1, so the
@@ -166,7 +166,7 @@ def _read_contract_version() -> str:
     **There is deliberately NO literal fallback.** A fallback is how drift hides:
     the moment the parse fails, a stale constant would take over silently and the
     checker would print a confident version it did not read. Failing at import is
-    loud, immediate, and impossible to mistake for a green run — the same
+    loud, immediate, and impossible to mistake for a green run - the same
     reasoning as C-1's "unverifiable is a hard fail".
     """
     path = repo_root() / INTERFACES_RELATIVE_PATH
@@ -190,7 +190,7 @@ def _read_contract_version() -> str:
 
 
 #: The INTERFACES.md version these checks enforce, **DERIVED from
-#: INTERFACES.md line 1 at import time** — never restated here. It is printed on
+#: INTERFACES.md line 1 at import time** - never restated here. It is printed on
 #: every report: a checker silently one version behind the contract is worse than
 #: no checker, because it fails conformant data and passes stale data.
 CONTRACT_VERSION = _read_contract_version()
@@ -200,7 +200,7 @@ CONTRACT_VERSION = _read_contract_version()
 #:
 #: This exists because the version string alone can lie. A checker printing
 #: "enforcing v2.5" while silently skipping a v2.3 clause is the stale-checker
-#: hazard wearing a current label — worse than an honestly old checker, because
+#: hazard wearing a current label - worse than an honestly old checker, because
 #: nobody goes looking. It is the C-1 corollary applied to the checker itself:
 #: declaring a weakness is a gate, omitting it is a failure. Printed on every
 #: report and carried in ``--json``; emptying this dict is the goal.
@@ -221,7 +221,7 @@ DEFERRED_CLAUSES: dict[str, str] = {
     ),
 }
 
-#: [v2.6] C-3 — every pass/fail constant, and the sample it was fitted on.
+#: [v2.6] C-3 - every pass/fail constant, and the sample it was fitted on.
 #:
 #: C-3 does not say "prefer larger samples"; it says a constant that decides a
 #: pass/fail MUST STATE the sample it was fitted on, and that sample must span
@@ -267,7 +267,7 @@ THRESHOLD_PROVENANCE: dict[str, str] = {
 }
 
 # --------------------------------------------------------------------------
-# C-2: the clause registry — ratification is not implementation
+# C-2: the clause registry - ratification is not implementation
 # --------------------------------------------------------------------------
 
 #: Every clause status the registry may carry.
@@ -279,10 +279,10 @@ CLAUSE_DEFERRED = "deferred"  #: ratified and deliberately not enforced yet
 
 @dataclass(frozen=True)
 class ClauseImpl:
-    """Where one numbered INTERFACES clause is implemented — or why it is not.
+    """Where one numbered INTERFACES clause is implemented - or why it is not.
 
     ``checks`` are check ids this checker emits; ``where`` are importable dotted
-    symbols. Both are VERIFIED by ``tests/test_clause_registry.py`` — check ids
+    symbols. Both are VERIFIED by ``tests/test_clause_registry.py`` - check ids
     must appear in a report generated from a conformant artifact, and every
     dotted symbol must import. A registry that can lie is the problem, not the
     fix.
@@ -541,7 +541,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "`g3_conditions`. UNDEFINED is a third outcome and is never a pass.",
     ),
     # [v2.13] Classified by the MAINTAINER rather than by the author of the
-    # checks — a declared ownership crossing (ADR-040). C3.5 was authored here,
+    # checks - a declared ownership crossing (ADR-040). C3.5 was authored here,
     # the registry correctly went red because the clause was unclassified, and
     # nobody who owned the classification was available to fix it. The crossing
     # is one dict entry and no logic; the checks it names were written and
@@ -617,7 +617,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         CLAUSE_ENFORCED,
         checks=(
             "heldout_block_coverage",
-            # [v2.16] ADR-062 (7) — an expected false is stamped, not discovered.
+            # [v2.16] ADR-062 (7) - an expected false is stamped, not discovered.
             "c6_3_expected_false_did_not_flip",
             "c6_3_expected_false_declared",
         ),
@@ -735,11 +735,11 @@ CHANNELS: tuple[str, ...] = (
     "rh_2m",  # 4  %     RTMA
     "elevation",  # 5  m     3DEP, static
     "slope",  # 6  deg   static
-    "aspect_sin",  # 7  —     static
-    "aspect_cos",  # 8  —     static
+    "aspect_sin",  # 7  -     static
+    "aspect_cos",  # 8  -     static
     "fuel_model_id",  # 9  FBFM40 class as float (USGS LFPS, ADR-005)
     "canopy_cover",  # 10 %     static (USGS LFPS)
-    "fuel_moisture_proxy",  # 11 —     derived from RTMA
+    "fuel_moisture_proxy",  # 11 -     derived from RTMA
     "water_barrier_mask",  # 12 {0,1} static
     "recent_burn_scar",  # 13 {0,1} static
 )
@@ -786,7 +786,7 @@ STATIC_CHANNELS = frozenset(
     }
 )
 
-#: [v2.2] C3.2 — class labels, not quantities. Identity transform only.
+#: [v2.2] C3.2 - class labels, not quantities. Identity transform only.
 CATEGORICAL_CHANNELS = frozenset({"fire_state", "fuel_model_id"})
 
 #: C1 declares these as ``{0,1}`` masks.
@@ -795,11 +795,11 @@ BINARY_CHANNELS = frozenset({"water_barrier_mask", "recent_burn_scar"})
 #: C1 declares channel 9 as "int-as-float, FBFM40 class".
 INTEGER_CHANNELS = frozenset({"fuel_model_id"})
 
-#: [v2.4] C1.7 — the FBFM40 enumeration (Scott & Burgan 2005, LANDFIRE codes).
+#: [v2.4] C1.7 - the FBFM40 enumeration (Scott & Burgan 2005, LANDFIRE codes).
 #: 40 burnable models in six groups, plus the five NB (non-burnable) codes.
 #: This is the WHOLE legal domain of channel 9: an FBFM40 raster cannot hold a
 #: value outside it, so anything else is a sentinel, a fill, or a resampling
-#: artefact — never data.
+#: artefact - never data.
 FBFM40_NONBURNABLE: frozenset[int] = frozenset(
     {
         91,  # NB1 Urban / developed
@@ -821,12 +821,12 @@ FBFM40_CLASSES: frozenset[int] = (
     | frozenset(range(201, 205))  # SB1-SB4   slash-blowdown
 )
 
-#: [v2.4] C1.7 — ``channel -> (low, high)``, INCLUSIVE, both definitional.
+#: [v2.4] C1.7 - ``channel -> (low, high)``, INCLUSIVE, both definitional.
 #:
 #: Deliberately SHORT. Every entry here is a range outside which no legitimate
 #: value exists, so a violation is always a bug and a hard fail carries no
 #: false-positive mode (this is the distinction from C1.6's heuristic, ADR-010).
-#: Ranges that are merely *implausible* — a 500 m/s wind, a 900% humidity — are
+#: Ranges that are merely *implausible* - a 500 m/s wind, a 900% humidity - are
 #: NOT here: they are proposed in docs/decisions.md and stay out
 #: until an ADR ratifies them. Adding an unratified clause here is the same
 #: mistake as tolerating a sentinel, pointed the other way.
@@ -843,25 +843,25 @@ CRS_EPSG = 5070
 CRS_STRING = f"EPSG:{CRS_EPSG}"
 CELL_SIZE_M = 1000.0
 
-#: [v2] C1.2 — the single continental lattice. Cell EDGES fall on integer
+#: [v2] C1.2 - the single continental lattice. Cell EDGES fall on integer
 #: multiples of the cell size measured from this origin, so cell (i, j) denotes
 #: the same ground in every fire and two buffered domains can be compared
 #: cell-for-cell (which is also what makes the C3.1 spatial blocking meaningful).
 LATTICE_ORIGIN_M = (0.0, 0.0)
 
-#: [v2] C1.2 — "final-perimeter bbox buffered 10 km" in CELLS. One-sided: the
+#: [v2] C1.2 - "final-perimeter bbox buffered 10 km" in CELLS. One-sided: the
 #: burned footprint must be at least this far inside the domain edge.
 #:
 #: This is the definitional half of C1.2 and the only half with a failure mode
 #: worth a hard clause: a smaller margin means the domain was NOT built from the
 #: final perimeter (or the fire was clipped), so spread ran off-grid and the
-#: tensor silently truncates a fire. A LARGER margin is merely generous — the C4
-#: synthetic legitimately uses a fixed 128x128 lattice domain — so the upper
+#: tensor silently truncates a fire. A LARGER margin is merely generous - the C4
+#: synthetic legitimately uses a fixed 128x128 lattice domain - so the upper
 #: side is not enforced. Fitting sample (C-3): all 12 built fires, 11 spatial
 #: blocks; observed 10-13 cells, minimum exactly 10.
 MIN_BUFFER_MARGIN_CELLS = 10
 
-#: [v2] C1.3 — GOFER ``tUTC`` is end-of-hour; RTMA is lagged 1 h to match.
+#: [v2] C1.3 - GOFER ``tUTC`` is end-of-hour; RTMA is lagged 1 h to match.
 TIME_CONVENTION = "end_of_hour"
 
 #: The stacked, model-facing view. On disk this is two variables (v2).
@@ -887,7 +887,7 @@ ATTR_CHANNEL_ORDER = "channel_order"
 # C2
 #: [v2.7] ADR-014 says these live in ``provenance``; INTERFACES C2 lists them
 #: under "Keys". The contract is genuinely ambiguous about LOCATION, so the
-#: checker accepts either and enforces the INVARIANT — an int, machine-readable,
+#: checker accepts either and enforces the INVARIANT - an int, machine-readable,
 #: present. Legislating a location the contract does not fix would be inventing
 #: a clause; see the PROPOSAL in docs/decisions.md (A10).
 MANIFEST_VINTAGE_LAG_KEY = "fuel_vintage_lag_years"
@@ -900,7 +900,7 @@ MANIFEST_KEYS: tuple[str, ...] = (
     "ignition_time_utc",
     "n_hours",
     "cv_fold",
-    "spatial_block_id",  # [v2] C3.1 — folds are blocked, not per-fire
+    "spatial_block_id",  # [v2] C3.1 - folds are blocked, not per-fire
     "created_utc",
     "provenance",
     "norm_stats_path",
@@ -916,12 +916,12 @@ NORM_STATS_KEYS: tuple[str, ...] = (
     "created_utc",
 )
 
-#: [v2.2] C3.2 — the nested per-channel block data emitted before the file
+#: [v2.2] C3.2 - the nested per-channel block data emitted before the file
 #: shape was ratified. Canonical shape is TOP-LEVEL dicts; this is dropped at A5.
 NORM_STATS_LEGACY_BLOCK = "channels"
 NORM_STATS_CATEGORICAL_NOTE = "categorical_identity_note"
 
-#: C3.3 — a norm-stats file is reporting-grade only at or above this many blocks.
+#: C3.3 - a norm-stats file is reporting-grade only at or above this many blocks.
 MIN_TRAIN_BLOCKS_FOR_REPORTING = 2
 
 SEVERITY_FAIL = "fail"
@@ -1014,13 +1014,13 @@ def _verdict(ok: object) -> bool:
     That pair is the whole defect: a statistic that goes NaN makes every
     ``<``/``<=`` guard False, so an ``if/elif`` ladder hands it to the trailing
     ``else``, and if the outcome is then passed on as a raw float it is *also*
-    truthy. sim hit exactly this — ``cos: +nan [ok]`` on 2 of 5 fires,
+    truthy. sim hit exactly this - ``cos: +nan [ok]`` on 2 of 5 fires,
     hiding a good CZU result and passing a weak Zogg one.
 
     Accepted: real booleans (and ``numpy.bool_``) pass through unchanged, so a
     correctly-written clause is unaffected. Rejected as ``False``: ``None``,
     NaN, +/-inf, and anything that cannot be evaluated. An array is True only if
-    every element is — ``np.all`` of an empty array is vacuously True, so an
+    every element is - ``np.all`` of an empty array is vacuously True, so an
     empty comparison is treated as unverifiable and fails.
     """
     if isinstance(ok, bool | np.bool_):
@@ -1040,7 +1040,7 @@ def _verdict(ok: object) -> bool:
 
 
 def _as_float(value: object) -> float | None:
-    """``float(value)`` or ``None`` — never raises, never returns a NaN.
+    """``float(value)`` or ``None`` - never raises, never returns a NaN.
 
     A malformed attribute must fail *its own* clause. If it raises instead, the
     checker aborts and every clause after it goes unreported, which turns one
@@ -1313,7 +1313,7 @@ def check_tensor(
         Path to a ``.zarr`` store, or an already-open :class:`xarray.Dataset`.
     required_channels
         Channels that must be present. Defaults to all 14 (full C1). Pass
-        ``["fire_state"]`` to check a labels-only interim store (ADR-003) — the
+        ``["fire_state"]`` to check a labels-only interim store (ADR-003) - the
         grid, time and state checks are identical, only completeness is relaxed.
     require_channel_coord
         Require the on-disk ``channel`` coordinate that records C1 order.
@@ -1354,7 +1354,7 @@ def check_tensor(
 def _check_buffer_margin(
     rep: ContractReport, ds: xr.Dataset, required_channels: Sequence[str]
 ) -> None:
-    """C1.2 — the domain is the final-perimeter bbox **buffered 10 km**.
+    """C1.2 - the domain is the final-perimeter bbox **buffered 10 km**.
 
     Ratified at v2 and never implemented until A10: the checker asserted the
     lattice snap and the cell size, which are the *other* two sentences of
@@ -1712,7 +1712,7 @@ def _check_time(rep: ContractReport, ds: xr.Dataset, manifest_path: str | Path |
 def _check_time_convention(
     rep: ContractReport, ds: xr.Dataset, manifest_path: str | Path | None
 ) -> None:
-    """C1.3 — the store records ``time_convention: "end_of_hour"``.
+    """C1.3 - the store records ``time_convention: "end_of_hour"``.
 
     Severity note. A *wrong* or *absent-everywhere* convention is a hard failure:
     it is the silently-catastrophic case, where the whole fire trains an hour out
@@ -1861,13 +1861,13 @@ def _check_feature_domains(rep: ContractReport, ds: xr.Dataset) -> None:
 
 
 def _check_features_finite(rep: ContractReport, ds: xr.Dataset) -> None:
-    """C1.5 [v2.3] — ``features`` must be finite (no NaN/inf). HARD FAIL.
+    """C1.5 [v2.3] - ``features`` must be finite (no NaN/inf). HARD FAIL.
 
     This is the widest hole the checker has ever had, and it is the same shape
     as the defect ADR-012 made project policy. Measured on the v2.2 checker: a
     ``features`` array with ``rh_2m`` set to NaN everywhere passed **all 56
     checks**, because no clause looked. The three C1.5 declarations that did
-    exist are worse than silent on ``+inf`` — they actively bless it:
+    exist are worse than silent on ``+inf`` - they actively bless it:
     ``inf == round(inf)`` is True, so an infinite ``fuel_model_id`` satisfied
     ``class_channels_integral``, and ``array_equal`` of an all-inf slab against
     itself is True, so it satisfied ``static_channels_constant``.
@@ -1903,12 +1903,12 @@ def _check_features_finite(rep: ContractReport, ds: xr.Dataset) -> None:
 
 
 def _check_physical_ranges(rep: ContractReport, ds: xr.Dataset) -> None:
-    """C1.7 [v2.4] — definitional ranges on the static physical channels. HARD FAIL.
+    """C1.7 [v2.4] - definitional ranges on the static physical channels. HARD FAIL.
 
     ADR-010, in one line: the USGS LFPS returns ``-9999`` off the LANDFIRE
-    coastline, and ``-9999`` is finite, integral and static — so it satisfied
+    coastline, and ``-9999`` is finite, integral and static - so it satisfied
     every C1.5 declaration and a CZU tensor carrying it reported
-    ``OK — 42 checks passed (reporting-ready)`` at a mean canopy cover of
+    ``OK - 42 checks passed (reporting-ready)`` at a mean canopy cover of
     **-3085%**. Structure was checked; plausibility was not.
 
     Hard rather than ``reporting`` because these ranges are DEFINITIONAL, not
@@ -1949,7 +1949,7 @@ def _check_physical_ranges(rep: ContractReport, ds: xr.Dataset) -> None:
 
 
 def _check_fuel_model_enumeration(rep: ContractReport, ds: xr.Dataset) -> None:
-    """C1.7 — ``fuel_model_id`` must be an FBFM40 class, not merely an integer."""
+    """C1.7 - ``fuel_model_id`` must be an FBFM40 class, not merely an integer."""
     name = "fuel_model_id"
     values = _feature_slice(ds, name)
     finite = values[np.isfinite(values)]
@@ -2163,7 +2163,7 @@ def _as_int(value: object) -> int | None:
 
 
 def _check_manifest_v27_keys(rep: ContractReport, man: Mapping[str, Any]) -> None:
-    """C2 [v2.7] — ``fuel_vintage_lag_years`` and ``n_ignition_components`` (ADR-014)."""
+    """C2 [v2.7] - ``fuel_vintage_lag_years`` and ``n_ignition_components`` (ADR-014)."""
     lag = _as_int(_manifest_lookup(man, MANIFEST_VINTAGE_LAG_KEY))
     ok = lag is not None and lag >= 0
     rep.add(
@@ -2249,7 +2249,7 @@ PROVENANCE_REQUIRED_FACTS: dict[str, tuple[str, ...]] = {
 
 
 def _check_provenance_declarations(rep: ContractReport, man: Mapping[str, Any]) -> None:
-    """C2 [v2] — ``provenance`` MUST record the LANDFIRE vintage, state rule and ``fconf``.
+    """C2 [v2] - ``provenance`` MUST record the LANDFIRE vintage, state rule and ``fconf``.
 
     Ratified at v2 and never implemented until A10; the checker asserted only
     that ``provenance`` was a non-empty dict. All three facts are load-bearing
@@ -2261,7 +2261,7 @@ def _check_provenance_declarations(rep: ContractReport, man: Mapping[str, Any]) 
     modelling needs for the ADR-015 §6b label-noise defect.
 
     Presence, not plausibility: an honest ``"n/a (synthetic)"`` passes. That is
-    the C-1 corollary — declaring is a gate, omitting is a failure — and it is
+    the C-1 corollary - declaring is a gate, omitting is a failure - and it is
     why the C4 fixture can satisfy a clause about LANDFIRE without pretending to
     have used LANDFIRE.
     """
@@ -2354,7 +2354,7 @@ def check_norm_stats(path: str | Path) -> ContractReport:
 
 
 def _check_norm_stats_blocks(rep: ContractReport, stats: dict[str, Any]) -> None:
-    """C3.2 — the canonical file shape is TOP-LEVEL ``mean``/``std`` dicts."""
+    """C3.2 - the canonical file shape is TOP-LEVEL ``mean``/``std`` dicts."""
     for key in ("mean", "std"):
         block = stats.get(key)
         if not isinstance(block, dict):
@@ -2403,13 +2403,13 @@ def _check_norm_stats_blocks(rep: ContractReport, stats: dict[str, Any]) -> None
 
 
 def _check_norm_stats_physical(rep: ContractReport, stats: dict[str, Any]) -> None:
-    """C3.4 — the norm-stats file is checked as its OWN artifact, not as a summary.
+    """C3.4 - the norm-stats file is checked as its OWN artifact, not as a summary.
 
     ADR-010's measured case: CZU's ``-9999`` sentinel is 33.1% of train
     cell-hours and would have moved the TRAIN mean ``canopy_cover`` to
     **-492.13%** from 27.94%, corrupting the normalisation of two held-out fires
     containing no NoData at all. Per-fire QA is necessary and NOT sufficient,
-    because a fire can be poisoned by a bug it does not contain — so the shared
+    because a fire can be poisoned by a bug it does not contain - so the shared
     file needs a check that no per-fire report can supply.
 
     Scoped to channels with a C1.7 DEFINITIONAL range, and skipping the
@@ -2445,7 +2445,7 @@ def _check_norm_stats_physical(rep: ContractReport, stats: dict[str, Any]) -> No
 
 
 def _check_norm_stats_categorical(rep: ContractReport, stats: dict[str, Any]) -> None:
-    """C3.2 — categorical channels take the identity transform, plus a note."""
+    """C3.2 - categorical channels take the identity transform, plus a note."""
     mean, std = stats.get("mean"), stats.get("std")
     if not isinstance(mean, dict) or not isinstance(std, dict):
         return
@@ -2481,7 +2481,7 @@ def _check_norm_stats_categorical(rep: ContractReport, stats: dict[str, Any]) ->
 
 
 def _check_bootstrap_guard(rep: ContractReport, stats: dict[str, Any]) -> None:
-    """C3.3 — ``n_train_blocks`` must exist (hard); ``>= 2`` gates reporting."""
+    """C3.3 - ``n_train_blocks`` must exist (hard); ``>= 2`` gates reporting."""
     raw = stats.get("n_train_blocks")
     ok = isinstance(raw, int) and not isinstance(raw, bool) and raw >= 1
     rep.add(
@@ -2523,7 +2523,7 @@ def _check_bootstrap_guard(rep: ContractReport, stats: dict[str, Any]) -> None:
 
 
 def _check_legacy_nested_block(rep: ContractReport, stats: dict[str, Any]) -> None:
-    """C3.2 — the pre-v2.2 nested ``channels`` block is retired.
+    """C3.2 - the pre-v2.2 nested ``channels`` block is retired.
 
     Present-but-agreeing is a reporting gap (data drops it at A5, ADR-008).
     Present-and-DISAGREEING is a hard failure: two consumers reading two keys
@@ -2532,7 +2532,7 @@ def _check_legacy_nested_block(rep: ContractReport, stats: dict[str, Any]) -> No
     Non-finite handling, corrected under ADR-012. An explicit ``null`` IS
     agreement (that is how a categorical channel is written). A NaN or inf is
     NOT: it cannot be compared, and the previous code ``continue``-d past it
-    straight into "does not contradict" — an unverifiable value landing in the
+    straight into "does not contradict" - an unverifiable value landing in the
     pass branch, the exact shape this policy exists to forbid.
     """
     nested = stats.get(NORM_STATS_LEGACY_BLOCK)

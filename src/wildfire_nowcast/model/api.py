@@ -1,4 +1,4 @@
-"""C5 — the model prediction API. Baselines and the learned kernel share it.
+"""C5 - the model prediction API. Baselines and the learned kernel share it.
 
 INTERFACES C5::
 
@@ -81,7 +81,7 @@ class Predictor(Protocol):
 
 
 # --------------------------------------------------------------------------
-# validation — applied on both sides of the boundary
+# validation - applied on both sides of the boundary
 # --------------------------------------------------------------------------
 
 

@@ -147,14 +147,14 @@ synthetic one.
 
 running it. make install, then make test. make lint, make typecheck and make
 null-check are part of the same gate, and make ci is what github actions runs on
-every push — literally: the workflow has one gate step and it is make ci. that
+every push - literally: the workflow has one gate step and it is make ci. that
 sentence used to be an over-claim. until 2026-08-21 the workflow named its six
 targets itself and a test asserted the two lists agreed, so make ci was a
 faithful description of the gate rather than the gate. it now runs lint, types,
 the full suite including the slow playthroughs, the mutation-coverage gate over
 every playthrough, a freshly generated synthetic fire judged by the real c1-c3
 checker, and the do-nothing null check. what ci does not cover is written down in
-.github/workflows/ci.yml rather than left to be discovered — the fire corpus is
+.github/workflows/ci.yml rather than left to be discovered - the fire corpus is
 not in the repo, so the cross-fire split clauses run against a synthetic corpus
 there, elmfire is not built, and earth engine ingestion needs credentials. the
 contract version is parsed from the first line of docs/interfaces.md at import
@@ -165,8 +165,8 @@ the environment is installed, not resolved. make install runs uv pip sync
 package set by artifact hash rather than by a resolution each performs for
 itself. this is recent and it was bought expensively: the lock previously sat in
 the repo referenced by no install path, a clean clone resolved 15 of its 73
-packages to other versions, and one of those differences — numpy 2.5.1 against
-2.5.2, whose stubs disagree about a single overload — kept this badge red for
+packages to other versions, and one of those differences - numpy 2.5.1 against
+2.5.2, whose stubs disagree about a single overload - kept this badge red for
 seven days while make typecheck exited 0 locally. a lock file nobody installs
 from advertises a reproducibility that does not exist. make relock regenerates
 it and never upgrades anything; upgrading a package means deleting its pin on
@@ -182,7 +182,7 @@ environment rather than from .venv, so a developer tool cannot move the
 interpreter the numbers are produced on. it is honest about what it does not
 cover: 78 of the 119 modules are checked today, including all 28 of common, and
 the other 41 are listed by name in pyproject.toml with the reason each one is
-there. the list is a burn-down and it fails in both directions — adding a module
+there. the list is a burn-down and it fails in both directions - adding a module
 to it changes a pin in tests/test_typecheck_config.py, and a listed module that
 has become clean fails the build until it is retired, because an exemption list
 that only ever checks its ceiling turns into a permanent excuse. tests are not
@@ -212,5 +212,5 @@ this repo, one numbered entry per ruling, written before the result it governs
 wherever the ruling was a threshold or a prediction. docs/decisions.md is the
 readable summary of the ones that still bind. the citations are left in the code
 because knowing that a constant was argued about, and roughly when, is worth more
-than a clean comment — but they will not resolve to anything you can open, and
+than a clean comment - but they will not resolve to anything you can open, and
 that is a limitation of this repo rather than a hint that you missed a file.

@@ -1,4 +1,4 @@
-"""``stable_seed`` — the property CPython's ``hash`` does not have.
+"""``stable_seed`` - the property CPython's ``hash`` does not have.
 
 ``NoisyTruthOracle.predict`` seeded on the builtin ``hash`` of the fire id, folded
 into 31 bits. CPython randomises ``str`` hashing per process unless
@@ -26,7 +26,7 @@ FIRE = "2019_kincade"
 
 #: The seed for :data:`FIRE`, pinned. This is a VALUE other artifacts get keyed
 #: to, so changing the derivation must be a visible edit rather than a quiet
-#: drift — the same discipline that made ``split_fingerprint`` reproduce
+#: drift - the same discipline that made ``split_fingerprint`` reproduce
 #: ``4848f491e8d588fa`` byte-identically when it was re-homed.
 FIRE_SEED = 217_768_104
 

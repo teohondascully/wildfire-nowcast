@@ -1,10 +1,10 @@
-"""Build a 2022-2025 extension fire into ``data/interim/`` — and NOWHERE else.
+"""Build a 2022-2025 extension fire into ``data/interim/`` - and NOWHERE else.
 
 Why this module exists as a separate door rather than a flag on the normal
 builder: while modelling holds a running experiment, C-4 freezes tensors,
 manifests, norm stats and splits. The corpus swap into ``data/fires/`` is a
 separate, SERIALISED step the maintainer schedules. Every function here
-therefore refuses a destination under ``data/fires/`` outright — a guard is
+therefore refuses a destination under ``data/fires/`` outright - a guard is
 cheaper than remembering, and "temporarily" writing to the live path is exactly
 the failure ADR-015 and ADR-021 are both instances of.
 
@@ -101,8 +101,8 @@ def check_existing_blocks_unmoved(
 ) -> list[str]:
     """Fire ids whose ``spatial_block_id`` would change. MUST come back empty.
 
-    A silent block shift is invisible to every per-tensor check — it is the
-    ADR-015 shape exactly — so this is asserted, not trusted.
+    A silent block shift is invisible to every per-tensor check - it is the
+    ADR-015 shape exactly - so this is asserted, not trusted.
     """
     return [
         fid for fid, v in existing.items() if fid in blocks and blocks[fid] != v["spatial_block_id"]
@@ -118,7 +118,7 @@ def additive_assignment(
 
     THE BASE UNIVERSE IS ALL 28 GOFER FIRES, not the 12 built so far. That is
     not a detail: ``assign_blocks`` states it explicitly, and computing over the
-    built subset instead reproduces NONE of the 12 manifests — the guard below
+    built subset instead reproduces NONE of the 12 manifests - the guard below
     caught exactly that on the first run and named nine fires that would have
     silently changed block. Verified here rather than argued: over the 28-fire
     universe, ``assign_blocks`` and ``assign_folds`` reproduce all 12 built
@@ -147,7 +147,7 @@ def additive_assignment(
         load[fold] += f.n_hours
         fold_of_block[blocks[f.fire_id]] = fold
 
-    # new blocks, heaviest first, into the least-loaded fold — the same rule
+    # new blocks, heaviest first, into the least-loaded fold - the same rule
     # assign_folds uses, but seeded with the loads already on disk so no
     # existing fire can move.
     by_block: dict[int, list[str]] = {}
@@ -170,14 +170,14 @@ def additive_assignment(
 def plan_extension(fires: list[WfigsFire], *, k: int = N_FOLDS) -> dict[str, dict[str, Any]]:
     """Provisional block + fold for EVERY candidate at once, before any build.
 
-    Assignment must see all candidates together — computing it one fire at a
+    Assignment must see all candidates together - computing it one fire at a
     time would give two genuinely-overlapping new fires two different blocks,
     which is the landscape leakage C3.1 exists to stop.
 
     The domain used is the WFIGS reference perimeter bbox + 10 km, which is a
     SUPERSET of the C1 domain (the derived perimeter is inside the reference by
     construction, since stray removal clips to it). A superset can only merge
-    blocks that the true domains would have left separate, never split them —
+    blocks that the true domains would have left separate, never split them -
     conservative in the direction that avoids leakage, and recorded as such.
     """
     from wildfire_nowcast.data.sources.nifc import final_perimeter as _ref  # noqa: PLC0415
@@ -224,11 +224,11 @@ def build_extension_fire(
     """Labels -> 14 channels -> ``data/interim/{fire_id}/``. Two-pass by design.
 
     Pass 1 derives the labels (and therefore the C1 domain, which is the derived
-    final perimeter's bbox + 10 km — it cannot be known before the algorithm
+    final perimeter's bbox + 10 km - it cannot be known before the algorithm
     runs). Pass 2 asks for the fold/block assignment for that domain and writes.
     """
     # A caller that already resolved the FireSpec must still hand over the
-    # WFIGS record, or the neighbour exclusion silently becomes a no-op —
+    # WFIGS record, or the neighbour exclusion silently becomes a no-op -
     # which is exactly what happened on the first pass and is why no shipped
     # fire has been through it.
     wfigs = (

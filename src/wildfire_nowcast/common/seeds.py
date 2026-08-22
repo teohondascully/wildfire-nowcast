@@ -4,7 +4,7 @@
 label-noise oracle seeded its RNG on the builtin ``hash`` of the fire id, folded
 into 31 bits. CPython randomises :func:`hash` for ``str`` on every start unless
 ``PYTHONHASHSEED`` is set, so **every "same seed" claim we have made is false
-across processes** — the same fire_id produced a different draw in each run, and
+across processes** - the same fire_id produced a different draw in each run, and
 measured run-to-run movement was 0.018. Small, real, and quantified; the
 dangerous part is that it is invisible inside any single process, where the
 value is perfectly stable and reproducible.
@@ -39,7 +39,7 @@ MAX_SEED_BITS = 64
 SEED_BITS = 31
 
 #: ASCII unit separator. Joining parts with a byte that cannot occur in a fire id
-#: or a decimal integer keeps ``("a", "bc")`` and ``("ab", "c")`` distinct — an
+#: or a decimal integer keeps ``("a", "bc")`` and ``("ab", "c")`` distinct - an
 #: ambiguous concatenation is a silent collision between two different runs.
 _SEPARATOR = b"\x1f"
 
@@ -61,7 +61,7 @@ def _as_bytes(part: str | int | bytes) -> bytes:
 def stable_seed(*parts: str | int | bytes, bits: int = SEED_BITS) -> int:
     """A deterministic non-negative seed derived from ``parts``.
 
-    Deterministic across processes, machines and interpreter versions — which is
+    Deterministic across processes, machines and interpreter versions - which is
     exactly what :func:`hash` is not. Use this anywhere a seed is derived from an
     identifier (a fire id, a run id, an arm name).
 
