@@ -14,9 +14,10 @@ Three of its behaviours are load-bearing rather than cosmetic:
 1. **``reliability_curve`` drops empty bins.** Its own docstring names the
    failure it exists to prevent: *"Plotting an empty bin at (0, 0) would draw a
    perfectly-calibrated-looking point supported by no data at all, which is the
-   standard way a reliability diagram lies."* Reliability at 1/2/3 h is a
-   headline metric in CLAUDE.md, and a reliability diagram is read by eye -- an
-   unsupported point at the origin is indistinguishable from a good one.
+   standard way a reliability diagram lies."* Reliability at one, two and three
+   hours is one of this project's headline metrics (README.md), and a
+   reliability diagram is read by eye -- an unsupported point at the origin is
+   indistinguishable from a good one.
 2. **The C3.3 reportability banner.** The module docstring states the reason:
    *"a screenshot of a dashboard is exactly how a plumbing-only number gets
    quoted in a gate."* If ``reporting_status`` says the norm stats behind the
