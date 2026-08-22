@@ -98,13 +98,13 @@ jobs:
       # `*** [Makefile:NN: <target>] Error N` at the end of the log, which is
       # the same information one scroll further down.
       #
-      # What `make ci` runs, in order: lint · typecheck (mypy --strict over
-      # src/, plus the audit that fails when an exemption goes stale) ·
+      # What `make ci` runs, in order: lint / typecheck (mypy --strict over
+      # src/, plus the audit that fails when an exemption goes stale) /
       # test-all (the whole suite, INCLUDING the cases `make test` deselects as
-      # slow) · playthrough (ADR-030 mutation coverage: a playthrough that
-      # cannot fail turns this red) · synth + contract (C4 -> C1/C2/C3: a
+      # slow) / playthrough (ADR-030 mutation coverage: a playthrough that
+      # cannot fail turns this red) / synth + contract (C4 -> C1/C2/C3: a
       # generated fire judged by the same checker the real tensors are judged
-      # by, the only end-to-end artifact check that needs no data) ·
+      # by, the only end-to-end artifact check that needs no data) /
       # null-check (C6.0: no metric may lose to a model that predicts nothing).
       - name: make ci
         run: make ci

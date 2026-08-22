@@ -19,12 +19,16 @@ import re
 import subprocess
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from unittest import mock
 
 import pytest
 import yaml
 
 import commit_guard  # tools/commit_guard.py, via `pythonpath` in pyproject.toml
+import prose_scan  # tools/prose_scan.py, same route
 from wildfire_nowcast.common.paths import repo_root
+from wildfire_nowcast.eval import stage
+from wildfire_nowcast.eval.stage import estimand_digest
 
 SRC = repo_root() / "src" / "wildfire_nowcast"
 
@@ -1321,3 +1325,262 @@ def test_the_maintained_surface_is_pinned_and_is_the_only_one() -> None:
         f"the guard now hardcodes a host {hosts}, so rule 3 is no longer derived from the repo's "
         "own remotes"
     )
+
+
+# --------------------------------------------------------------------------
+# THE SOURCE-PROSE PIN
+#
+# The sweep of 2026-08-21 removed 1,732 typographic characters from prose, and
+# the guard that followed it covers commit MESSAGES. Nothing covered SOURCE: an
+# em dash planted in `common/paths.py` afterwards left this suite at 44 passed,
+# exit 0, and the tracked count drifted 407 -> 415 during the sweep itself. A
+# one-time cleanup with no mechanism is a snapshot; this is the mechanism.
+#
+# Scope is decided STRUCTURALLY, by `tools/prose_scan.py`, never by a list of
+# file names. Docstrings and comments are prose and are bounded; live string
+# literals are 467 occurrences of JSON field names, contract violation messages
+# and expected values a test compares against, where removing a character is a
+# behaviour change, and they are deliberately NOT bounded.
+# --------------------------------------------------------------------------
+
+#: MEASURED at `cc82876`, by `.venv/bin/python tools/prose_scan.py --repo .`:
+#: 14 in docstrings + 2 in comments = 16, of which exactly 1 is exempt. THIS
+#: NUMBER MAY FALL AND MAY NOT RISE, and it fails in both directions: a pin
+#: larger than the debt forgives the next regression, which is the failure mode
+#: seven allow-lists in this repository have already had.
+#: The 15 are 10 SECTION SIGN, 3 MIDDLE DOT and 2 more section signs across
+#: `common/`, `data/`, `sim/` and `tests/` - the DASH sweep did not widen to the
+#: class, exactly as the commit-message rule had to be widened at I11.
+PINNED_PROSE_OCCURRENCES = 15
+
+#: The one permanent exception, ADR-080 (2). Pinned as a COUNT so that it
+#: expires with its reason: see the test below for the two conditions that must
+#: both hold for it to be granted at all.
+PINNED_EXEMPT_OCCURRENCES = 1
+
+#: Tracked NON-Python text: everything except machine output and binaries, so
+#: `Makefile`, `LICENSE` and `.github/workflows/ci.yml` are IN. Separate number
+#: from the one above because these files have no literals to distinguish and a
+#: different set of owners.
+#: The deny-list shape earned itself immediately: an allow-list of `.md .rst
+#: .txt .cfg .ini` read 2, and inverting it to "not machine output" read 7 - the
+#: five it could not see were MIDDLE DOTs in the comment block of the CI
+#: workflow, the most public file in the repository. Swept here, comment-only,
+#: with the parsed YAML document compared before and after. The 2 that remain
+#: are in `docs/interfaces.md`, which is the contract document and is the
+#: maintainer's to edit, not infra's.
+PINNED_PROSE_FILE_OCCURRENCES = 2
+
+#: NOT a bound, and deliberately not pinned to equality: a lead adding a contract
+#: violation message moves it, and a pin that another lead's legitimate edit turns
+#: red is a pin that gets deleted. Recorded so that the boundary of the pin above
+#: is a measurement rather than a sentence. Measured at `cc82876`.
+MEASURED_LIVE_LITERALS = 467
+
+
+def _prose_scan() -> list[prose_scan.Occurrence]:
+    return prose_scan.scan_repository(repo_root())
+
+
+def _licensed_exempt_spans() -> list[prose_scan.Span]:
+    """The spans the published estimand digest hashes, or an assertion failure.
+
+    THIS is the exemption, and it is granted by a live measurement rather than by
+    a file name. `eval/stage.py:estimand_digest` hashes the source of four
+    top-level definitions INCLUDING their docstrings, and pins the hash to the
+    value that licensed the D3 estimand. An em dash inside those spans may not be
+    swept, because moving it would move `D3_LICENSED_ESTIMAND_SHA256` and break
+    the only link between published numbers and the code that computed them.
+
+    Two conditions, both checked here. If the digest stops hashing these spans -
+    a function leaving `ESTIMAND_FUNCTIONS`, a rename, a move out of module scope
+    - the spans derived here stop reproducing the digest and this fails. If the
+    digest is re-pinned or reads CHANGED, the reason for the exemption is gone and
+    this fails too. Neither can be satisfied by editing a list of paths.
+    """
+    spans, derived = prose_scan.estimand_hashed_spans(repo_root())
+    live = estimand_digest()
+    assert derived == live["sha256"], (
+        "the spans this exemption is derived from no longer reproduce the digest that "
+        f"licenses it (derived {derived}, live {live['sha256']}). The exemption is granted to "
+        "the BYTES eval/stage.estimand_digest hashes, not to a file. If the estimand moved, "
+        "sweep the dash and delete PINNED_EXEMPT_OCCURRENCES; do not re-derive around it."
+    )
+    assert live["outcome"] == "UNCHANGED_SINCE_D3", (
+        f"estimand_digest reads {live['outcome']}. The exemption exists because those bytes are "
+        "pinned to published numbers; once they are not, the reason is gone and the exemption "
+        "goes with it."
+    )
+    return spans
+
+
+def test_typographic_punctuation_in_prose_is_pinned_and_only_falls() -> None:
+    """The durability half. Bounded in BOTH directions, like the mypy burn-down."""
+    prose = [o for o in _prose_scan() if o.region in prose_scan.PROSE_REGIONS]
+    exempt, in_scope = prose_scan.partition_exempt(prose, _licensed_exempt_spans())
+
+    assert len(exempt) == PINNED_EXEMPT_OCCURRENCES, (
+        f"the licensed exemption now covers {len(exempt)} occurrence(s), not "
+        f"{PINNED_EXEMPT_OCCURRENCES}. If it is 0 the reason has evaporated and the constant "
+        "must go; if it grew, someone put new typography inside a hashed estimand."
+    )
+    assert len(in_scope) <= PINNED_PROSE_OCCURRENCES, (
+        f"typographic punctuation in docstrings and comments has GROWN to {len(in_scope)}, "
+        f"over the pin of {PINNED_PROSE_OCCURRENCES}. Prose is free to fix - the character is "
+        "a tell and nothing reads it - so fix it rather than raising the pin:\n  "
+        + "\n  ".join(str(o) for o in sorted(in_scope, key=lambda o: (o.path, o.line)))
+    )
+    assert len(in_scope) == PINNED_PROSE_OCCURRENCES, (
+        f"GOOD NEWS, and it needs one edit: the debt is down to {len(in_scope)}. Lower "
+        f"PINNED_PROSE_OCCURRENCES to {len(in_scope)} in this commit. A pin larger than the "
+        "debt is an allowance for the next one."
+    )
+
+
+def test_the_exemption_expires_with_its_reason_and_not_with_its_file_name() -> None:
+    """The plant for the exemption: take away its reason and it must stop applying.
+
+    Rebinding `ESTIMAND_FUNCTIONS` is the same manoeuvre as dropping a function
+    from it. The exempt occurrence must become IN SCOPE, and the derivation must
+    stop reproducing the published digest - so the burn-down would go red rather
+    than carry an exemption whose justification no longer exists.
+    """
+    prose = [o for o in _prose_scan() if o.region in prose_scan.PROSE_REGIONS]
+    licensed = prose_scan.estimand_hashed_spans(repo_root())
+    exempt_now, in_scope_now = prose_scan.partition_exempt(prose, licensed[0])
+    assert exempt_now, "nothing is exempt today, so this plant would prove nothing"
+
+    with mock.patch.object(stage, "ESTIMAND_FUNCTIONS", ("paired_stage_gap",)):
+        narrowed, digest = prose_scan.estimand_hashed_spans(repo_root())
+    assert digest != estimand_digest()["sha256"], (
+        "narrowing the estimand did not move the derived digest, so the derivation is not "
+        "actually reading ESTIMAND_FUNCTIONS and the exemption is pinned to nothing"
+    )
+    exempt_after, in_scope_after = prose_scan.partition_exempt(prose, narrowed)
+    assert not exempt_after, "the exemption survived the removal of the span that licensed it"
+    assert len(in_scope_after) == len(exempt_now) + len(in_scope_now), (
+        "the occurrence did not come back into scope, so the exemption is not a partition. "
+        "Measured against the LIVE split rather than against the pin, so that lowering the "
+        "pin cannot make this test say something it did not measure."
+    )
+
+
+def test_typographic_punctuation_in_tracked_prose_files_is_pinned_too() -> None:
+    """Markdown and friends. Whole-file prose, so there is no literal to exclude."""
+    found = [o for o in _prose_scan() if o.region == prose_scan.REGION_PROSE]
+    assert len(found) == PINNED_PROSE_FILE_OCCURRENCES, (
+        f"tracked prose files carry {len(found)} typographic characters against a pin of "
+        f"{PINNED_PROSE_FILE_OCCURRENCES}. Raising this pin is not a repair:\n  "
+        + "\n  ".join(str(o) for o in sorted(found, key=lambda o: (o.path, o.line)))
+    )
+
+
+def test_the_prose_corpus_is_a_REFUSAL_and_not_a_list_of_extensions() -> None:
+    """An allow-list of suffixes cannot see the files that have none.
+
+    This is the same defect twice on the record: a citation pattern rooted at
+    `/runs/` could not see `data/fires`, and a json-only pattern could not
+    see a subdirectory. Here it would have been `Makefile`, `LICENSE` and the CI
+    workflow. The rule is therefore stated as what is EXCLUDED - machine output
+    and binaries - so that a file nobody enumerated is in scope by default.
+    """
+    for rel in ("Makefile", "LICENSE", ".gitignore", ".github/workflows/ci.yml", "README.md"):
+        assert prose_scan.is_prose_file(rel), rel
+    for rel in ("runs/s1.json", "requirements.lock", "reports/figures/x.png"):
+        assert not prose_scan.is_prose_file(rel), rel
+    assert not prose_scan.is_prose_file("src/wildfire_nowcast/common/paths.py")
+
+    tracked = prose_scan.tracked_files(repo_root())
+    corpus = [rel for rel in tracked if prose_scan.is_prose_file(rel)]
+    assert "Makefile" in corpus and ".github/workflows/ci.yml" in corpus, (
+        "the extensionless and workflow files are not in the live corpus, so the rule above "
+        "is aspirational rather than what the pin actually measures"
+    )
+    assert not [rel for rel in corpus if rel.endswith(".json")], corpus[:5]
+
+
+def test_the_pin_is_not_bounding_the_live_literals() -> None:
+    """The control that proves the pin CAN pass, and is not passing by scoping to nothing.
+
+    467 typographic characters sit in live literals today. If the classifier ever
+    folded them into prose the pin could not be met at all, and if it ever folded
+    prose into literals the pin would pass vacuously. Measuring both halves on the
+    SAME corpus is what makes either number readable.
+    """
+    scanned = _prose_scan()
+    literals = [o for o in scanned if o.region == prose_scan.REGION_LITERAL]
+    assert len(literals) > 10 * PINNED_PROSE_OCCURRENCES, (
+        f"live literals are down to {len(literals)} against {MEASURED_LIVE_LITERALS} measured "
+        f"at cc82876, which puts them within an order of the {PINNED_PROSE_OCCURRENCES} the pin "
+        "bounds. Either a sweep has started rewriting literals - which changes behaviour and "
+        "artifact bytes - or the classifier has begun counting them as prose."
+    )
+    assert not [o for o in scanned if o.region == prose_scan.REGION_CODE], (
+        "a typographic character was found outside every comment, docstring and literal. "
+        "That should be a syntax error; the classifier is more likely to be wrong than Python"
+    )
+
+
+_SPECIMEN = '''"""A module docstring with an em dash — in it."""
+
+# A comment with a middle dot · in it.
+
+MESSAGE = "a live literal with an em dash — that may not be swept"
+
+
+def f() -> None:
+    """A docstring whose dash is ESCAPED \\u2014 and is invisible to a byte scan."""
+    return None
+'''
+
+
+def test_the_scanner_tells_prose_from_a_live_literal_structurally() -> None:
+    """C3.5: the classifier ships with the four cases it has to separate.
+
+    One specimen, four characters, four different verdicts - and no file name is
+    consulted to reach any of them.
+    """
+    found = prose_scan.scan_python_source("specimen.py", _SPECIMEN)
+    by_region: dict[str, list[prose_scan.Occurrence]] = {}
+    for occ in found:
+        by_region.setdefault(occ.region, []).append(occ)
+
+    assert len(by_region[prose_scan.REGION_DOCSTRING]) == 2, by_region
+    assert len(by_region[prose_scan.REGION_COMMENT]) == 1, by_region
+    assert len(by_region[prose_scan.REGION_LITERAL]) == 1, by_region
+    assert prose_scan.REGION_CODE not in by_region, by_region
+
+    escaped = [o for o in by_region[prose_scan.REGION_DOCSTRING] if o.line == 9]
+    assert escaped, (
+        "the ESCAPED dash was missed. A byte-level scan reads `\\u2014` as six ASCII "
+        "characters while every reader of help() sees an em dash; 31 such escapes are "
+        "already sitting in tracked artifacts because a scan claimed 0 non-ASCII bytes"
+    )
+    assert "—" not in _SPECIMEN[_SPECIMEN.index("ESCAPED") :], (
+        "the escaped case is only a test if the specimen really has no literal dash there"
+    )
+
+
+def test_the_plant_this_suite_missed_is_now_caught_and_the_control_passes() -> None:
+    """The maintainer's own plant, replayed: an em dash in `common/paths.py`.
+
+    It went into a docstring, the hygiene suite returned 44 passed, exit 0, and
+    that is the whole reason this pin exists. RED with the plant, GREEN without,
+    on the real file's real text.
+    """
+    text = (SRC / "common" / "paths.py").read_text()
+    clean = prose_scan.scan_python_source("common/paths.py", text)
+    assert not [o for o in clean if o.region in prose_scan.PROSE_REGIONS], (
+        "the control failed: common/paths.py is not clean, so a red result below would "
+        "not be attributable to the plant"
+    )
+
+    head, sep, tail = text.partition('"""')
+    assert sep, "common/paths.py has no docstring to plant in"
+    planted = head + sep + "planted — dash. " + tail
+    found = [
+        o
+        for o in prose_scan.scan_python_source("common/paths.py", planted)
+        if o.region in prose_scan.PROSE_REGIONS
+    ]
+    assert len(found) == 1 and found[0].char == "—", found
