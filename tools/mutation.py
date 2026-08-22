@@ -322,6 +322,33 @@ def equivalence_note(rel: str, source: str, site: Site) -> tuple[str, str] | Non
     return EQUIVALENT_MUTANTS.get(equivalence_key(rel, source, site))
 
 
+def equivalence_line_as_mutated(key: tuple[str, str, int, str, str]) -> str:
+    """The pinned line WITH its own declared mutation applied.
+
+    Needed because the registry's integrity check would otherwise kill the mutant
+    it exempts. That check asserts the pinned line is still in the file, so while
+    the sweep has that very line mutated it fails, the suite goes red, and the
+    mutant reads KILLED - by a test about the registry, not about behaviour. The
+    first corrected sweep reported ``equivalent 0`` with a proven-equivalent
+    mutant in the corpus, so the third state of the burn-down was unreachable.
+
+    A sweep applying the DECLARED mutation is not the pinned line moving on; it is
+    the sweep doing its job. Tolerating exactly this one variant is therefore the
+    smallest tolerance that makes EQUIVALENT reachable, and any other edit to the
+    line still breaks the key.
+    """
+    _rel, line_text, index, old, new = key
+    on_the_line = mutable_sites(line_text)
+    if index >= len(on_the_line):
+        raise ValueError(f"site {index} does not exist on {line_text!r}")
+    site = on_the_line[index]
+    if (site.old, site.new) != (old, new):
+        raise ValueError(
+            f"site {index} of {line_text!r} is {site.old!r}->{site.new!r}, not {old!r}->{new!r}"
+        )
+    return apply_site(line_text, site)
+
+
 def target_modules(repo: Path) -> list[str]:
     """Tracked modules under the swept packages, as repo-relative paths."""
     args = [

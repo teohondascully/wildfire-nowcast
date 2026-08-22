@@ -1847,9 +1847,16 @@ def test_every_declared_equivalent_mutant_names_a_proof_that_exists() -> None:
     for key, (reason, node) in mutation.EQUIVALENT_MUTANTS.items():
         rel, line_text, index, old, new = key
         assert (repo_root() / rel).is_file(), rel
-        assert line_text in (repo_root() / rel).read_text(), (
-            f"{rel} no longer contains {line_text!r}, so the proof was about a line that has "
-            "moved on. Re-prove it or delete the entry."
+        text = (repo_root() / rel).read_text()
+        # The mutated form is accepted, and ONLY that one. Without it this very
+        # assertion kills the mutant it exempts: the sweep has the pinned line
+        # mutated while the suite runs, this goes red, and EQUIVALENT becomes an
+        # unreachable state - which is exactly what the first corrected sweep
+        # reported, `equivalent 0` with a proven-equivalent mutant in the corpus.
+        mutated = mutation.equivalence_line_as_mutated(key)
+        assert line_text in text or mutated in text, (
+            f"{rel} contains neither {line_text!r} nor its declared mutant {mutated!r}, so the "
+            "proof was about a line that has moved on. Re-prove it or delete the entry."
         )
         assert len(reason) > 80, f"{key} is exempted without an argument"
         path, _, name = node.partition("::")
@@ -1960,3 +1967,36 @@ def test_a_probe_that_cannot_run_is_unmeasured_and_does_not_abort_the_sweep() ->
     assert mutation.budget_verdict(len(sweep.survivors), len(sweep.unmeasured), 0)[0] == 2, (
         "a sweep carrying an unmeasured mutant reported a verdict on the budget"
     )
+
+
+def test_the_registry_tolerates_its_own_mutant_and_nothing_else() -> None:
+    """The tolerance above is one line-form wide, not a hole in the check.
+
+    A sweep applying the DECLARED mutation is the sweep working; any other edit to
+    the pinned line is the proof going stale and must still break the key.
+
+    NO FILE IS READ HERE, AND THAT IS THE POINT. The first version of this test
+    asserted the pristine line was on disk, and the very next sweep killed the
+    equivalent mutant with it - I had reintroduced the defect I was fixing, one
+    function down. **A test that asserts on the text of a swept source file
+    manufactures a kill for every mutant of that file**, because the sweep has
+    that text mutated while the suite runs. So this is a property of two strings.
+    """
+    key = next(iter(mutation.EQUIVALENT_MUTANTS))
+    rel, line_text, index, old, new = key
+    mutated = mutation.equivalence_line_as_mutated(key)
+    assert mutated != line_text and old in line_text and new in mutated
+    assert len(mutation.mutable_sites(mutated)) == len(mutation.mutable_sites(line_text)), (
+        "the declared mutation changed how many sites the line has, so the index in the key "
+        "no longer means the same thing on the two forms"
+    )
+    assert rel.endswith(".py")
+
+    # A DIFFERENT mutation of the same line is not tolerated: the key stops
+    # resolving, which is what makes the entry expire rather than accumulate.
+    for wrong in (index + 1, index - 1):
+        if 0 <= wrong < len(mutation.mutable_sites(line_text)):
+            with pytest.raises(ValueError, match="not"):
+                mutation.equivalence_line_as_mutated((rel, line_text, wrong, old, new))
+    with pytest.raises(ValueError, match="does not exist"):
+        mutation.equivalence_line_as_mutated((rel, line_text, 99, old, new))
