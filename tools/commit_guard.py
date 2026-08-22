@@ -38,12 +38,15 @@ RULE 3  NO URL OUTSIDE THIS REPOSITORY'S OWN REMOTES.
     this repository pushes to.
 
 RULE 4  NO PICTOGRAPHS OR INVISIBLE FORMATTING.
-    Non-ASCII characters in the Unicode symbol and format categories. Prose uses
-    letters, digits and punctuation; a robot pictograph in a commit message is a
-    badge, not prose. Measured against the whole history before being adopted:
-    the only non-ASCII characters in any message are dash punctuation (category
-    Pd, rule 6 below) and the middle dot (category Po, 5 occurrences, not
-    covered by any rule).
+    Non-ASCII characters in the Unicode symbol, format and separator categories.
+    Prose uses letters, digits and punctuation; a robot pictograph in a commit
+    message is a badge, not prose, and a non-breaking space is invisible
+    formatting wearing a separator's category. Measured against the whole history
+    before being adopted, and again when ``Zs`` was added [I11]: the only
+    non-ASCII characters in any of the 157 reachable messages are dash
+    punctuation and the middle dot, both of which rule 6 now covers. The ``Zs``
+    half is therefore PROSPECTIVE and is controlled by a planted specimen rather
+    than by a find, which is stated so that nobody reads its silence as coverage.
 
 RULE 5  ATTRIBUTION CONSTRUCTIONS. THE ONE MAINTAINED SURFACE, DECLARED AS SUCH.
     Rules 1 to 4 catch every attribution that arrives with STRUCTURE, which is
@@ -57,10 +60,11 @@ RULE 5  ATTRIBUTION CONSTRUCTIONS. THE ONE MAINTAINED SURFACE, DECLARED AS SUCH.
     "someone else helped" is closed and centuries old. A vendor list would be
     the allow-list defect wearing its fifth costume.
 
-RULE 6  NO TYPOGRAPHIC DASH.
-    Any non-ASCII character in the Unicode dash category, ``Pd``. This is the
-    one rule here that is not about attribution, and it is stated as a separate
-    rule rather than folded into rule 4 so that nobody reads it as one.
+RULE 6  NO TYPOGRAPHIC PUNCTUATION.
+    Any non-ASCII character in a Unicode PUNCTUATION category, i.e. any category
+    whose first letter is ``P``: ``Pc Pd Pe Pf Pi Po Ps``. This is the one rule
+    here that is not about attribution, and it is stated as a separate rule
+    rather than folded into rule 4 so that nobody reads it as one.
 
     WHY IT EXISTS. The typographic dash is the largest single machine-writing
     signature on this repository's public surface, an order of magnitude more
@@ -79,12 +83,27 @@ RULE 6  NO TYPOGRAPHIC DASH.
     ``Pd`` as well, which is why the test is ``ord(char) > 127``: the rule is
     about the TYPOGRAPHIC dash, not about dashes. Write ``-`` instead.
 
-    WHAT THIS RULE DELIBERATELY DOES NOT COVER, STATED SO IT IS NOT DISCOVERED.
-    The history also carries 5 middle dots (U+00B7, category ``Po``). They are
-    the same class of tell and they are not covered, because the requirement
-    this rule was written for named the dash. The count is recorded here so
-    that widening it later is a decision with a number attached rather than a
-    rediscovery.
+    WIDENED FROM THE DASH TO THE CLASS [I11]. The first version of this rule
+    covered ``Pd`` alone, and recorded in this docstring that the history also
+    carried 5 middle dots (U+00B7, ``Po``) which it did not cover. Recording a
+    known gap is better than not knowing about it and is not a substitute for
+    closing it: the middle dot is the same tell in different clothes, exactly as
+    the en dash is, and the answer at the level of a character was already
+    rejected once. So the test is now the CATEGORY PREFIX. Measured across all
+    157 reachable messages when it was widened: 10 dashes in 7 commits and 5
+    middle dots in 1, and NOTHING ELSE non-ASCII in the entire corpus. The 5 join
+    the published debt because their commit is on ``origin/main`` and permanent.
+
+    THE DASH KEEPS ITS OWN FINDING ID inside the class (``em-dash`` vs
+    ``typographic-punctuation``), because the published debt is keyed by rule as
+    well as by sha. One id for the whole class would let a dash allowance forgive
+    a middle dot on the same commit, which is a smaller version of the allow-list
+    defect this file exists to avoid.
+
+    WHAT IS STILL NOT COVERED, MEASURED. Non-ASCII LETTERS and DIGITS (``L*``,
+    ``N*``) are not covered and should not be: a place name or a person's name
+    is prose. Non-ASCII whitespace is covered, but by rule 4 rather than here,
+    because a space is not punctuation - see ``Zs`` in ``_BADGE_CATEGORIES``.
 
 TWO LAYERS, BECAUSE ONE IS KNOWN TO BE INSUFFICIENT. This module is the engine of
 both. Layer (a) is the ``commit-msg`` hook wired through ``.pre-commit-config.yaml``
@@ -166,13 +185,28 @@ _URL_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s<>()\[\]\"'`]+")
 
 #: Unicode general categories that carry no prose at all: symbols and invisible
 #: formatting. Rule 4.
-_BADGE_CATEGORIES = frozenset({"So", "Sk", "Sm", "Cf"})
+#: ``Zs`` is here because the rule's own sentence is "pictographs or INVISIBLE
+#: FORMATTING", and a non-breaking space is invisible formatting that happens to
+#: be classified as a separator. Measured before adding: 0 in 157 messages, so
+#: this half is prospective and is controlled by a plant rather than by a find.
+_BADGE_CATEGORIES = frozenset({"So", "Sk", "Sm", "Cf", "Zs"})
 
 #: Rule 6, kept separate from the set above because it is a different claim. A
-#: pictograph is not prose; a typographic dash IS prose, and is banned for a
+#: pictograph is not prose; typographic punctuation IS prose, and is banned for a
 #: reason that has nothing to do with attribution. Folding it into
 #: ``_BADGE_CATEGORIES`` would make one rule carry two arguments and would make
 #: the finding say "is a symbol, not prose", which is false of a dash.
+#:
+#: A CATEGORY PREFIX, NOT A LIST OF CATEGORIES. Unicode's punctuation categories
+#: are ``Pc Pd Pe Pf Pi Po Ps``; enumerating them here would be the same defect
+#: as enumerating dash code points, one level up, and it would leave whichever
+#: one nobody thought of as the next gap. ``category[0] == "P"`` has no such gap.
+_PUNCTUATION_CATEGORY_PREFIX = "P"
+
+#: The dash keeps its OWN finding rule inside that class. The published debt in
+#: ``tests/test_hygiene.py`` is keyed by rule as well as by sha, so a dash
+#: allowance on a commit can never silently forgive a middle dot on the same
+#: commit. One rule id for the whole class would have made it able to.
 _DASH_CATEGORY = "Pd"
 
 _SCISSORS = "------------------------ >8 ------------------------"
@@ -313,10 +347,11 @@ def scan_message(
             continue
         category = unicodedata.category(char)
         if category in _BADGE_CATEGORIES:
+            what = "invisible formatting" if category in {"Cf", "Zs"} else "a symbol"
             findings.append(
                 Finding(
                     "badge-character",
-                    f"U+{ord(char):04X} ({category}) is a symbol, not prose",
+                    f"U+{ord(char):04X} ({category}) is {what}, not prose",
                 )
             )
         elif category == _DASH_CATEGORY:
@@ -325,6 +360,15 @@ def scan_message(
                 Finding(
                     "em-dash",
                     f"U+{ord(char):04X} ({name}) is a typographic dash. Write '-'",
+                )
+            )
+        elif category.startswith(_PUNCTUATION_CATEGORY_PREFIX):
+            name = unicodedata.name(char, "an unnamed punctuation mark")
+            findings.append(
+                Finding(
+                    "typographic-punctuation",
+                    f"U+{ord(char):04X} ({name}, category {category}) is typographic "
+                    "punctuation. Use its ASCII form",
                 )
             )
 
@@ -437,7 +481,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "commit-guard: this commit message is rejected. This repository is single\n"
         "author, its history carries no attribution on any commit, and its public\n"
-        "surface carries no typographic dash.\n",
+        "surface carries no typographic punctuation.\n",
         file=sys.stderr,
     )
     for finding in findings:

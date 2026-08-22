@@ -835,7 +835,23 @@ def test_every_attribution_rule_fires_on_its_own_specimen() -> None:
         # is itself scanned for the character, so writing it literally would put
         # the tell in the tree in order to test for it.
         "em-dash": "subject\n\na body \N{EM DASH} with a typographic dash.\n",
+        # [I11] Rule 6 widened from the dash to the whole non-ASCII punctuation
+        # class. One specimen per CATEGORY that has ever appeared or plausibly
+        # could: Po (the 5 already in this history), Pi/Pf (curly quotes), Pd is
+        # above. Each is spelled as an escape for the same reason the dash is.
+        "typographic-punctuation": "subject\n\na body \N{MIDDLE DOT} dot.\n",
     }
+    for extra in (
+        "subject\n\nquotes: \N{LEFT SINGLE QUOTATION MARK}x\N{RIGHT SINGLE QUOTATION MARK}\n",
+        "subject\n\na body with an ellipsis\N{HORIZONTAL ELLIPSIS}\n",
+        "subject\n\na body with an en dash \N{EN DASH} in it.\n",
+    ):
+        assert rules(extra) & {"typographic-punctuation", "em-dash"}, (
+            f"rule 6 missed a member of its own class: {extra!r}"
+        )
+    # Rule 4's Zs half is PROSPECTIVE - 0 in 157 messages - so it is controlled
+    # by a plant and never by a find.
+    assert "badge-character" in rules("subject\n\na body\N{NO-BREAK SPACE}with nbsp.\n")
     for expected_rule, message in specimens.items():
         assert expected_rule in rules(message), (
             f"rule {expected_rule!r} went blind: it no longer fires on its own specimen"
@@ -919,21 +935,29 @@ def test_the_specimens_are_caught_by_shape_and_not_by_name() -> None:
 #: quietly, because every entry names an object that already exists and no
 #: future commit can be added to it after the fact.
 #:
-#: Four of the seven are on `origin/main` and are the public ones; three are
-#: reachable only from the local pre-public archive ref, which is never pushed.
-PUBLISHED_EM_DASH_DEBT: dict[str, int] = {
-    "481722de2e442a7b5f311196817eaa94f06dd3e2": 2,
-    "56bf4e7bed0a99fdc92f6770971c2795ee11dd0e": 2,
-    "7d0e10d72a7ec2b302f8b0f5c6c9418ad5f4fe9e": 2,
-    "83a7cfb817fda54946c78bc0d0f02d25a2d7a657": 1,
-    "8639910f89a5af17e73d4506cfb8c7c2c81764c9": 1,
-    "ae3f26dccfb46389a6f09518b2f7344e65abf860": 1,
-    "f99f4870e21101bd28077198752f841fe2b60c83": 1,
+#: Four of the seven dash commits are on `origin/main` and are the public ones;
+#: three are reachable only from the local pre-public archive ref, which is never
+#: pushed. The middle-dot commit is on `origin/main`.
+#:
+#: [I11] KEYED BY RULE AS WELL AS BY SHA. Rule 6 was widened from the dash to the
+#: whole non-ASCII punctuation class, so the debt has to distinguish which tell
+#: it is forgiving on which commit. A single count per sha would let a dash
+#: allowance absorb a middle dot that appeared on the same commit, which is the
+#: allow-list defect in miniature. Both directions still fail, now per rule.
+PUBLISHED_PUNCTUATION_DEBT: dict[str, dict[str, int]] = {
+    "25ad15697ac5d5e977070b5fcf3eaf8170202c03": {"typographic-punctuation": 5},
+    "481722de2e442a7b5f311196817eaa94f06dd3e2": {"em-dash": 2},
+    "56bf4e7bed0a99fdc92f6770971c2795ee11dd0e": {"em-dash": 2},
+    "7d0e10d72a7ec2b302f8b0f5c6c9418ad5f4fe9e": {"em-dash": 2},
+    "83a7cfb817fda54946c78bc0d0f02d25a2d7a657": {"em-dash": 1},
+    "8639910f89a5af17e73d4506cfb8c7c2c81764c9": {"em-dash": 1},
+    "ae3f26dccfb46389a6f09518b2f7344e65abf860": {"em-dash": 1},
+    "f99f4870e21101bd28077198752f841fe2b60c83": {"em-dash": 1},
 }
 
-#: The rule whose findings the debt list may account for. Nothing else is ever
+#: The rules whose findings the debt list may account for. Nothing else is ever
 #: subtracted: an attribution finding on a debt-listed commit still fails.
-_DEBT_RULE = "em-dash"
+_DEBT_RULES = ("em-dash", "typographic-punctuation")
 
 
 def unaccounted(
@@ -942,15 +966,17 @@ def unaccounted(
     """Findings the debt list does not already account for, keyed by sha.
 
     Pure, so the planted-defect tests can feed it a hypothetical corpus. Only
-    :data:`_DEBT_RULE` findings are ever subtracted, and only up to the declared
-    count: a commit that acquires a SECOND kind of tell reports it even if it is
-    on the list.
+    :data:`_DEBT_RULES` findings are ever subtracted, PER RULE, and only up to the
+    declared count: a commit that acquires a SECOND kind of tell reports it even
+    if it is on the list, and a dash allowance never absorbs a middle dot.
     """
     out: dict[str, list[commit_guard.Finding]] = {}
     for sha, findings in offenders.items():
-        allowed = PUBLISHED_EM_DASH_DEBT.get(sha, 0)
-        accountable = [f for f in findings if f.rule == _DEBT_RULE]
-        remainder = [f for f in findings if f.rule != _DEBT_RULE] + accountable[allowed:]
+        declared = PUBLISHED_PUNCTUATION_DEBT.get(sha, {})
+        remainder = [f for f in findings if f.rule not in _DEBT_RULES]
+        for rule in _DEBT_RULES:
+            accountable = [f for f in findings if f.rule == rule]
+            remainder += accountable[declared.get(rule, 0) :]
         if remainder:
             out[sha] = remainder
     return out
@@ -959,17 +985,20 @@ def unaccounted(
 def stale_debt_entries(
     offenders: Mapping[str, list[commit_guard.Finding]],
 ) -> list[str]:
-    """Debt entries whose commit no longer carries that many dashes.
+    """Debt entries whose commit no longer carries that many of that tell.
 
     A burn-down that only ever fails upward is an excuse. This history is
     immutable, so the only ways an entry can go stale are a rewrite or a typo in
     the list, and both are things the scan must say out loud rather than absorb.
     """
     stale = []
-    for sha, expected in sorted(PUBLISHED_EM_DASH_DEBT.items()):
-        actual = len([f for f in offenders.get(sha, []) if f.rule == _DEBT_RULE])
-        if actual != expected:
-            stale.append(f"{sha}: the debt list says {expected}, the commit now carries {actual}")
+    for sha, declared in sorted(PUBLISHED_PUNCTUATION_DEBT.items()):
+        for rule, expected in sorted(declared.items()):
+            actual = len([f for f in offenders.get(sha, []) if f.rule == rule])
+            if actual != expected:
+                stale.append(
+                    f"{sha}: the debt list says {expected} {rule}, the commit now carries {actual}"
+                )
     return stale
 
 
@@ -984,7 +1013,7 @@ def test_no_commit_reachable_from_any_ref_carries_attribution() -> None:
     )
 
 
-def test_the_em_dash_debt_is_exactly_what_it_declares() -> None:
+def test_the_punctuation_debt_is_exactly_what_it_declares() -> None:
     """The debt list is measured against the real history in both directions.
 
     Without this, `unaccounted` would silently forgive a sha whose message was
@@ -992,26 +1021,44 @@ def test_the_em_dash_debt_is_exactly_what_it_declares() -> None:
     """
     offenders = _scan(commit_guard.commit_messages(repo_root()))
     stale = stale_debt_entries(offenders)
-    assert not stale, "the em dash debt list no longer describes this history:\n  " + "\n  ".join(
-        stale
+    assert not stale, "the punctuation debt list no longer describes this history:\n  " + (
+        "\n  ".join(stale)
     )
 
-    dashes = sum(
-        len([f for f in findings if f.rule == _DEBT_RULE]) for findings in offenders.values()
-    )
-    assert dashes == sum(PUBLISHED_EM_DASH_DEBT.values()), (
-        f"the scan found {dashes} typographic dashes across all refs but the debt list declares "
-        f"{sum(PUBLISHED_EM_DASH_DEBT.values())}"
-    )
+    for rule in _DEBT_RULES:
+        found = sum(len([f for f in findings if f.rule == rule]) for findings in offenders.values())
+        declared = sum(d.get(rule, 0) for d in PUBLISHED_PUNCTUATION_DEBT.values())
+        assert found == declared, (
+            f"the scan found {found} {rule} findings across all refs but the debt list declares "
+            f"{declared}"
+        )
+        # POSITIVE CONTROL, PER RULE. A debt list that accounted for everything,
+        # or a rule that had gone blind, would make the assertion above pass
+        # vacuously. Both counts are non-zero in this history: 10 dashes in 7
+        # commits, 5 middle dots in 1.
+        assert found > 0, f"rule 6 found no {rule} in a history known to contain some"
+        planted = dict(offenders)
+        planted[f"planted-{rule}"] = [commit_guard.Finding(rule, "planted")]
+        assert set(unaccounted(planted)) == {f"planted-{rule}"}, (
+            f"a {rule} finding on a commit the debt list does not name was forgiven"
+        )
 
-    # POSITIVE CONTROL. A debt list that accounted for everything, or a rule that
-    # had gone blind, would make the two assertions above pass vacuously.
-    assert dashes > 0, "rule 6 found nothing in a history known to contain seven offenders"
-    planted = dict(offenders)
-    planted["planted-em-dash"] = [commit_guard.Finding(_DEBT_RULE, "planted")]
-    assert set(unaccounted(planted)) == {"planted-em-dash"}, (
-        "a dash on a commit the debt list does not name was forgiven"
-    )
+
+def test_a_dash_allowance_does_not_forgive_a_middle_dot_on_the_same_commit() -> None:
+    """The reason the debt is keyed by RULE. Planted on a real debt-listed sha."""
+    sha = "481722de2e442a7b5f311196817eaa94f06dd3e2"
+    assert PUBLISHED_PUNCTUATION_DEBT[sha] == {"em-dash": 2}, "fixture sha changed"
+
+    within_allowance = {sha: [commit_guard.Finding("em-dash", "x")] * 2}
+    assert unaccounted(within_allowance) == {}, "its own declared dashes must be forgiven"
+
+    other_tell = {
+        sha: [commit_guard.Finding("em-dash", "x")] * 2
+        + [commit_guard.Finding("typographic-punctuation", "planted middle dot")]
+    }
+    left = unaccounted(other_tell)
+    assert list(left) == [sha], left
+    assert [f.rule for f in left[sha]] == ["typographic-punctuation"], left
 
 
 def test_the_history_scan_catches_a_PLANTED_commit_message() -> None:
