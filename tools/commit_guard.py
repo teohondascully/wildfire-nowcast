@@ -8,7 +8,9 @@ needed, and the fix that was reached for first was "remember to paste the rule
 into every dispatch". That is a hand-maintained instrument, and this project has
 now closed four separate defects of exactly that shape by deriving the check
 instead of maintaining it. So: no list of vendors, no list of assistant names, no
-list of trailer keys. Five rules, four of which have zero maintained entries.
+list of trailer keys. Six rules, five of which have zero maintained entries.
+Rule 6 is the odd one out and says so: it is a typographic rule, not an
+attribution rule, and it is here because this is the file git already runs.
 
 RULE 1  NO TRAILER BLOCK AT ALL.
     Adjudicated by ``git interpret-trailers --parse``, i.e. by git's own grammar,
@@ -39,8 +41,9 @@ RULE 4  NO PICTOGRAPHS OR INVISIBLE FORMATTING.
     Non-ASCII characters in the Unicode symbol and format categories. Prose uses
     letters, digits and punctuation; a robot pictograph in a commit message is a
     badge, not prose. Measured against the whole history before being adopted:
-    the only non-ASCII character in any message is an em dash
-    (category Pd), which this rule deliberately does not touch.
+    the only non-ASCII characters in any message are dash punctuation (category
+    Pd, rule 6 below) and the middle dot (category Po, 5 occurrences, not
+    covered by any rule).
 
 RULE 5  ATTRIBUTION CONSTRUCTIONS. THE ONE MAINTAINED SURFACE, DECLARED AS SUCH.
     Rules 1 to 4 catch every attribution that arrives with STRUCTURE, which is
@@ -53,6 +56,35 @@ RULE 5  ATTRIBUTION CONSTRUCTIONS. THE ONE MAINTAINED SURFACE, DECLARED AS SUCH.
     of vendors is open and grows without warning while the set of ways to say
     "someone else helped" is closed and centuries old. A vendor list would be
     the allow-list defect wearing its fifth costume.
+
+RULE 6  NO TYPOGRAPHIC DASH.
+    Any non-ASCII character in the Unicode dash category, ``Pd``. This is the
+    one rule here that is not about attribution, and it is stated as a separate
+    rule rather than folded into rule 4 so that nobody reads it as one.
+
+    WHY IT EXISTS. The typographic dash is the largest single machine-writing
+    signature on this repository's public surface, an order of magnitude more
+    common than every other tell put together. Six of them are already in four
+    published commit messages, two of those in subject lines. Published commit
+    messages cannot be edited without rewriting history, and rewriting this
+    history was measured and rejected: it would orphan the published commits
+    while leaving every one of them fetchable by sha, which multiplies the
+    exposure it is meant to remove. So those six are permanent. This rule cannot
+    repair them and does not pretend to. It exists so that the seventh is
+    impossible rather than merely discouraged.
+
+    WHY A CATEGORY AND NOT A CHARACTER. The en dash and the horizontal bar are
+    the same tell wearing a different code point, and pinning U+2014 alone would
+    be the allow-list defect again at length one. ASCII hyphen-minus is category
+    ``Pd`` as well, which is why the test is ``ord(char) > 127``: the rule is
+    about the TYPOGRAPHIC dash, not about dashes. Write ``-`` instead.
+
+    WHAT THIS RULE DELIBERATELY DOES NOT COVER, STATED SO IT IS NOT DISCOVERED.
+    The history also carries 5 middle dots (U+00B7, category ``Po``). They are
+    the same class of tell and they are not covered, because the requirement
+    this rule was written for named the dash. The count is recorded here so
+    that widening it later is a decision with a number attached rather than a
+    rediscovery.
 
 TWO LAYERS, BECAUSE ONE IS KNOWN TO BE INSUFFICIENT. This module is the engine of
 both. Layer (a) is the ``commit-msg`` hook wired through ``.pre-commit-config.yaml``
@@ -132,10 +164,16 @@ _CONSTRUCTION_RE = {k: re.compile(v, re.IGNORECASE) for k, v in ATTRIBUTION_CONS
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
 _URL_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s<>()\[\]\"'`]+")
 
-#: Unicode general categories that carry no prose. ``Pd`` (dashes) is pointedly
-#: absent: the history contains eight em dashes and flagging them would make this
-#: guard a style opinion, which is how a guard gets switched off.
+#: Unicode general categories that carry no prose at all: symbols and invisible
+#: formatting. Rule 4.
 _BADGE_CATEGORIES = frozenset({"So", "Sk", "Sm", "Cf"})
+
+#: Rule 6, kept separate from the set above because it is a different claim. A
+#: pictograph is not prose; a typographic dash IS prose, and is banned for a
+#: reason that has nothing to do with attribution. Folding it into
+#: ``_BADGE_CATEGORIES`` would make one rule carry two arguments and would make
+#: the finding say "is a symbol, not prose", which is false of a dash.
+_DASH_CATEGORY = "Pd"
 
 _SCISSORS = "------------------------ >8 ------------------------"
 
@@ -271,11 +309,22 @@ def scan_message(
             )
 
     for char in text:
-        if ord(char) > 127 and unicodedata.category(char) in _BADGE_CATEGORIES:
+        if ord(char) <= 127:
+            continue
+        category = unicodedata.category(char)
+        if category in _BADGE_CATEGORIES:
             findings.append(
                 Finding(
                     "badge-character",
-                    f"U+{ord(char):04X} ({unicodedata.category(char)}) is a symbol, not prose",
+                    f"U+{ord(char):04X} ({category}) is a symbol, not prose",
+                )
+            )
+        elif category == _DASH_CATEGORY:
+            name = unicodedata.name(char, "an unnamed dash")
+            findings.append(
+                Finding(
+                    "em-dash",
+                    f"U+{ord(char):04X} ({name}) is a typographic dash. Write '-'",
                 )
             )
 
@@ -386,8 +435,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print(
-        "commit-guard: this commit message carries attribution. This repository is\n"
-        "single author and its history carries none, on any of its commits.\n",
+        "commit-guard: this commit message is rejected. This repository is single\n"
+        "author, its history carries no attribution on any commit, and its public\n"
+        "surface carries no typographic dash.\n",
         file=sys.stderr,
     )
     for finding in findings:
