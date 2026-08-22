@@ -52,12 +52,36 @@ Six properties, each of which is the reason a rival form was rejected:
    than two conventions. Equal halves are what buy that identity, which is why
    the middle window of an odd sample is dropped rather than assigned.
 
-Growth, not growth-per-frontier-cell, deliberately: ADR-058 (4) measured that
-frontier length SATURATES while stage does not (Creek's frontier grows 2.088x
-while its growth falls 119.3x, needing an elasticity of -6.50 to explain), so
-dividing by frontier length would remove almost none of the effect while
-reintroducing the noisy denominator that made the two published elasticity
-estimators disagree by 2.6x.
+Growth, not growth-per-frontier-cell, deliberately. **The support this choice
+originally carried was ADR-058 (4), which ADR-060 (1) retracted IN FULL. It has
+been RE-DERIVED under the estimand above rather than deleted**, because a
+justification whose evidence is void is worth less than no justification: it
+reads as settled. Same rows, same held-out fold 3 (blocks 4/5/6/7/12, 1372
+windows, one fire per block), same corpus fingerprint ``b3e5dadad01eaef9``.
+Recorded at ``runs/m12_frontier.json``, whose control reproduces the five
+published truth values of ``runs/u0.json`` at a maximum absolute error of
+exactly 0.0 and was checked against a perturbed row so that it could have
+failed.
+
+* **Frontier length RISES on 5 of 5 held-out blocks** -- +0.277 Creek, +1.036
+  CZU, +0.678 Dolan, +0.617 July, +0.598 Borel -- while growth falls on 4 of 5.
+  Frontier length is not tracking stage on this fold.
+* **The per-frontier-cell RATE agrees in SIGN with growth on 5 of 5 and sits
+  BELOW it on 5 of 5**: -3.277 vs -2.175 Creek, -1.907 vs -1.184 CZU, -1.332 vs
+  -0.040 July, -2.451 vs -1.818 Borel, +0.546 vs +1.456 Dolan. It is computed
+  DIRECTLY on the rows, never as ``stage_decay(growth) - stage_decay(frontier)``:
+  the mean of a ratio is not the ratio of means. No window is dropped -- the
+  frontier is non-empty on all 1372.
+
+So dividing by frontier length does not remove the effect. It DEEPENS it on
+every block where truth decelerates, and it moves no block's direction, which is
+what makes the choice safe rather than lucky: growth is preferred on property 3's
+grounds alone, because the ratio reintroduces frontier length as a denominator
+and frontier length is the regressor whose treatment made two of our own
+estimators disagree (ADR-058 (2)). **No elasticity appears anywhere above:
+ADR-058 (2) rules that form estimator-dependent and unquotable, and the retracted
+paragraph's error was to quote a second estimator-dependent statistic while
+believing that the absence of a regression made it robust.**
 
 WHAT THIS MODULE DOES NOT DO
 ----------------------------
@@ -771,12 +795,14 @@ def known_beta_recovery() -> dict[str, Any]:
 
 
 def endpoint_log_ratio(bins: Sequence[Mapping[str, Any]], key: str) -> float | None:
-    """``log(last bin / first bin)`` — the statistic ADR-058 (4)'s table reads.
+    """``log(last bin / first bin)`` -- the statistic ADR-058 (4)'s table reads.
 
     Reproduced here so it can be COMPARED with :func:`stage_decay` rather than
     argued about. It is not the estimand: it reads two of 3-8 bins and discards
     the interior, and on this fold the interior contains the maximum on 3 of 5
-    fires.
+    fires. **ADR-060 (1) retracted ADR-058 (4) in full**, so this function
+    reproduces a retracted statistic ON PURPOSE, and nothing it returns may be
+    quoted as a result.
     """
     if len(bins) < 2:
         return None
