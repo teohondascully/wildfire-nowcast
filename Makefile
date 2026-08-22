@@ -5,7 +5,19 @@
 
 VENV   := .venv
 PY     := $(VENV)/bin/python
-PYTEST := $(VENV)/bin/pytest
+
+# PYTHONDONTWRITEBYTECODE IS LOAD-BEARING AND IS NOT A TIDINESS SETTING.
+# CPython invalidates a `.pyc` on (source mtime in WHOLE SECONDS, source size),
+# so a same-length edit made and reverted inside one wall-clock second is
+# INVISIBLE and the stale bytecode runs instead: a file that verifiably reads
+# `max(a, b)` executes `min(a, b)`. Reproduced here 2026-08-22, together with
+# the whole class it breaks - any by-hand edit-run-revert check, which is how a
+# mutant gets recorded as a survivor it never was, and how a red result gets
+# recorded against a tree byte-identical to HEAD.
+# Nothing here depends on a person remembering to clear a cache. `pytest` is
+# invoked through `env` so the setting travels to every target, to `make ci`, and
+# to the CI runner, all of which reach the suite through this one variable.
+PYTEST := env PYTHONDONTWRITEBYTECODE=1 $(VENV)/bin/pytest
 RUFF   := $(VENV)/bin/ruff
 UV     ?= $(shell command -v uv 2>/dev/null || echo $(HOME)/.local/bin/uv)
 
@@ -213,6 +225,21 @@ STRICT ?=
 null-check: | $(PY)
 	$(PY) -m wildfire_nowcast.common.null_check \
 	  $(if $(TENSOR_NULL),--tensor $(TENSOR_NULL),) $(if $(STRICT),--strict,)
+
+## mutation: plan Task 5.6 - the SURVIVOR BUDGET over common/ and eval/. Runs the
+##         suite once per single-token mutant and fails unless the survivor count
+##         equals `SURVIVOR_BUDGET` in tools/mutation.py: it may be lowered by a
+##         commit that kills one, never raised, and a pin ABOVE the debt is as
+##         loud as a regression because an over-estimate forgives the next gap.
+##         Mutants are applied in a git WORKTREE, never in this working copy -
+##         the sweep edits eval/ by construction and C-4 freezes that while any
+##         lead is running. Add `--pristine` for a number quotable against a sha,
+##         `--only common/states.py` to look at one module.
+##         DELIBERATELY NOT IN `make ci`: it is ~40 minutes against CI's job of
+##         returning a verdict in three. `make check` is the same argument.
+MUTATION_ARGS ?= --workers 4
+mutation: | $(PY)
+	$(PY) tools/mutation.py $(MUTATION_ARGS)
 
 ## playthrough: ADR-030 - run EVERY playthrough in the repo and require that each
 ##         one's planted defects are all detected. This is the mutation-coverage

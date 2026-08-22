@@ -15,8 +15,10 @@ hygiene rule is cheap to keep and expensive to restore.
 from __future__ import annotations
 
 import ast
+import os
 import re
 import subprocess
+import sys
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from unittest import mock
@@ -25,6 +27,7 @@ import pytest
 import yaml
 
 import commit_guard  # tools/commit_guard.py, via `pythonpath` in pyproject.toml
+import mutation  # tools/mutation.py, same route
 import prose_scan  # tools/prose_scan.py, same route
 from wildfire_nowcast.common.paths import repo_root
 from wildfire_nowcast.eval import stage
@@ -1584,3 +1587,228 @@ def test_the_plant_this_suite_missed_is_now_caught_and_the_control_passes() -> N
         if o.region in prose_scan.PROSE_REGIONS
     ]
     assert len(found) == 1 and found[0].char == "—", found
+
+
+# --------------------------------------------------------------------------
+# THE MUTATION GATE (plan Task 5.6)
+#
+# `make mutation` is the slow half and runs on demand; these are the assertions
+# that must hold on every commit, so that the gate cannot rot between sweeps.
+# The sweep itself is not run here: it takes about forty minutes and builds git
+# worktrees, and a suite that does that is a suite people stop running.
+# --------------------------------------------------------------------------
+
+_MUTATION_SNIPPET = """
+def f(a, b, flag):
+    if a >= b and not flag:
+        return a * 2 + 1
+    return len(b)
+"""
+
+
+def test_the_mutation_gate_is_a_make_target_and_is_deliberately_not_in_ci() -> None:
+    """The gate exists, it names the tool, and it stays out of the three-minute path."""
+    makefile = (repo_root() / "Makefile").read_text()
+    assert re.search(r"^mutation:", makefile, re.M), "make mutation has gone"
+    assert "tools/mutation.py" in makefile, "the target no longer invokes the sweep"
+    gate = re.search(r"^ci: (.*)$", makefile, re.M)
+    check = re.search(r"^check: (.*)$", makefile, re.M)
+    assert gate and check
+    assert "mutation" not in gate.group(1).split(), (
+        "make ci now runs the mutation sweep. That is a forty-minute gate on a path whose "
+        "job is a verdict in three, and a gate people wait out is a gate they route around. "
+        "If it belongs in CI it belongs in a scheduled job, which is a different edit."
+    )
+    assert "mutation" not in check.group(1).split(), check.group(1)
+
+
+def test_the_mutation_catalogue_finds_exactly_the_tokens_it_declares() -> None:
+    """The enumerator, with the control: a token outside the catalogue is not a site.
+
+    `len` and `return` are NAME tokens and `(` is an OP token, and none of the
+    three is mutable. Without that half, an enumerator that reported every token
+    would pass the first assertion and would make every survivor count meaningless.
+    """
+    found = {(s.old, s.new) for s in mutation.mutable_sites(_MUTATION_SNIPPET)}
+    assert (">=", ">") in found
+    assert ("and", "or") in found
+    assert ("not", "") in found
+    assert ("*", "/") in found
+    assert ("+", "-") in found
+    assert ("2", "3") in found and ("1", "2") in found
+    assert not {pair for pair in found if pair[0] in ("len", "return", "(", ")", ":", "f", "a")}, (
+        f"the enumerator reported an unmutable token: {sorted(found)}"
+    )
+    assert all(s.new != s.old for s in mutation.mutable_sites(_MUTATION_SNIPPET))
+
+
+def test_the_mutant_selection_is_deterministic_and_lands_inside_the_list() -> None:
+    """A sweep whose sample moved between runs could not carry a pin at all."""
+    sites = mutation.mutable_sites(_MUTATION_SNIPPET)
+    for fraction in mutation.SAMPLE_FRACTIONS:
+        first = mutation.select_site(sites, fraction)
+        assert first in sites
+        assert first == mutation.select_site(sites, fraction)
+    chosen = {mutation.select_site(sites, f) for f in mutation.SAMPLE_FRACTIONS}
+    assert len(chosen) == len(mutation.SAMPLE_FRACTIONS), (
+        f"the fractions collapse onto {len(chosen)} distinct site(s) on this snippet, so the "
+        "sample is smaller than it claims"
+    )
+
+
+def test_the_survivor_budget_is_a_number_with_its_method_attached() -> None:
+    """A pin without a reproduction recipe is a number someone has to believe."""
+    assert isinstance(mutation.SURVIVOR_BUDGET, int) and mutation.SURVIVOR_BUDGET >= 0
+    assert "mutants" in mutation.MEASURED_AT and "common/" in mutation.MEASURED_AT
+    assert mutation.TARGET_PACKAGES == ("common", "eval")
+
+
+def test_the_swept_corpus_is_not_empty_and_is_the_two_declared_packages() -> None:
+    """The vacuity check: a sweep over no module reports 0 survivors and passes."""
+    modules = mutation.target_modules(repo_root())
+    assert len(modules) > 30, modules
+    assert all(m.endswith(".py") for m in modules)
+    for package in mutation.TARGET_PACKAGES:
+        assert any(f"/{package}/" in m for m in modules), package
+    assert not [m for m in modules if "/model/" in m or "/sim/" in m or "/data/" in m], (
+        "the sweep has grown outside common/ and eval/, which changes what the budget counts"
+    )
+
+
+def test_the_sweep_reads_pytests_own_summary_and_not_the_progress_output() -> None:
+    """`failing_tests` decides what gets deselected, so it is pinned in both directions."""
+    output = (
+        "tests/test_a.py .F                             [ 50%]\n"
+        "FAILED tests/test_a.py::test_one - AssertionError: boom\n"
+        "ERROR tests/test_b.py::test_two\n"
+        "FAILED tests/test_a.py::test_one - AssertionError: boom\n"
+        "1 failed, 2 passed in 1.00s\n"
+    )
+    assert mutation.failing_tests(output) == [
+        "tests/test_a.py::test_one",
+        "tests/test_b.py::test_two",
+    ], "the deselect list must be de-duplicated, sorted, and must carry ERROR as well as FAILED"
+    assert mutation.failing_tests("2 passed in 0.1s\n") == []
+    assert mutation.failing_tests("a line mentioning FAILED in the middle\n") == []
+
+
+# --------------------------------------------------------------------------
+# THE STALE-BYTECODE HAZARD, MADE STRUCTURALLY IMPOSSIBLE
+#
+# CPython invalidates a `.pyc` on (source mtime in WHOLE SECONDS, source size).
+# A same-length edit made and reverted inside one wall-clock second is therefore
+# invisible and the stale bytecode runs instead: a file that verifiably reads
+# `max(a, b)` executes `min(a, b)`. Reproduced here, in this file, below.
+#
+# It breaks a whole class of by-hand verification. A mutant that never executes
+# leaves the suite green and is recorded as a SURVIVOR it never was; a mutant
+# left in the cache after a revert leaves the suite red against a tree that is
+# byte-identical to HEAD. Both directions are silent.
+#
+# A protocol that depends on a person remembering to clear a cache is not a
+# protocol, so the setting lives on the repository's own test path.
+# --------------------------------------------------------------------------
+
+
+def test_the_repo_test_path_disables_bytecode_writing() -> None:
+    """`make test`, `make test-all` and therefore `make ci` all reach pytest through
+    ONE variable, so the setting travels with them rather than with a habit."""
+    makefile = (repo_root() / "Makefile").read_text()
+    pytest_var = re.search(r"^PYTEST := (.*)$", makefile, re.M)
+    assert pytest_var, "the PYTEST variable has gone, so this test is checking nothing"
+    assert "PYTHONDONTWRITEBYTECODE=1" in pytest_var.group(1), (
+        "the test path no longer disables bytecode writing. A same-length source edit and "
+        "revert inside one second then runs stale bytecode, and every by-hand mutation check "
+        "in this repository silently stops measuring what it says it measures."
+    )
+    for target in ("test:", "test-all:", "playthrough:"):
+        body = re.search(rf"^{re.escape(target)}.*\n((?:\t.*\n)+)", makefile, re.M)
+        assert body and "$(PYTEST)" in body.group(1), (
+            f"{target} now invokes pytest directly and routes around the setting: {body}"
+        )
+
+
+def test_the_hazard_is_real_and_the_probe_the_sweep_uses_detects_it(tmp_path: Path) -> None:
+    """The positive control. Reproduce the defect, then show the guard reports it.
+
+    Written as an end-to-end reproduction rather than as a claim about CPython:
+    the module is imported, edited to a SAME-LENGTH variant within the same
+    second, re-imported, and returns the OLD answer. If a future CPython changes
+    its invalidation rule this fails, and that is the correct outcome, because the
+    guard downstream would then be defending against nothing.
+    """
+    victim = tmp_path / "victim.py"
+    victim.write_text("def pick(a, b):\n    return min(a, b)\n")
+    probe = (
+        "import importlib, importlib.util, marshal, pathlib, sys\n"
+        f"sys.path.insert(0, {str(tmp_path)!r})\n"
+        "import victim\n"
+        "first = victim.pick(1, 2)\n"
+        f"p = pathlib.Path({str(victim)!r})\n"
+        "p.write_text(p.read_text().replace('min(a, b)', 'max(a, b)'))\n"
+        "del sys.modules['victim']\n"
+        "importlib.invalidate_caches()\n"
+        "import victim as again\n"
+        "spec = importlib.util.find_spec('victim')\n"
+        "loaded = spec.loader.get_code('victim')\n"
+        "fresh = compile(pathlib.Path(spec.origin).read_text(), spec.origin, 'exec')\n"
+        "print(first, again.pick(1, 2),\n"
+        "      'MATCH' if marshal.dumps(loaded) == marshal.dumps(fresh) else 'STALE')\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": ""},
+    ).stdout.split()
+    assert out[0] == "1", out
+    assert out[1] == "1", (
+        "the same-length edit DID take effect, so this machine no longer reproduces the "
+        f"hazard and the STALE_BYTECODE verdict is defending against nothing: {out}"
+    )
+    assert out[2] == "STALE", (
+        f"the probe the mutation sweep relies on did not notice the stale bytecode: {out}"
+    )
+    assert (tmp_path / "__pycache__").is_dir()
+    assert mutation.purge_bytecode(tmp_path) == 1
+    assert not (tmp_path / "__pycache__").exists()
+
+
+def test_every_declared_equivalent_mutant_names_a_proof_that_exists() -> None:
+    """An EQUIVALENT verdict is an exemption, so it expires with its proof.
+
+    The registry names a test node id. If that test is renamed or deleted, the
+    justification is gone and the mutant goes back to being ordinary debt.
+    """
+    assert mutation.EQUIVALENT_MUTANTS, "the registry is empty, so this checks nothing"
+    for key, (reason, node) in mutation.EQUIVALENT_MUTANTS.items():
+        rel, line_text, index, old, new = key
+        assert (repo_root() / rel).is_file(), rel
+        assert line_text in (repo_root() / rel).read_text(), (
+            f"{rel} no longer contains {line_text!r}, so the proof was about a line that has "
+            "moved on. Re-prove it or delete the entry."
+        )
+        assert len(reason) > 80, f"{key} is exempted without an argument"
+        path, _, name = node.partition("::")
+        assert name and name in (repo_root() / path).read_text(), (
+            f"{node} does not exist, so nothing proves {key} is equivalent"
+        )
+        assert index >= 0 and old and new
+
+
+def test_the_equivalence_key_is_content_addressed_and_not_a_line_number() -> None:
+    """A key that moved with the file would go stale on any edit above it."""
+    source = "def f(a, b):\n    return max(a, 0) + min(b, 0)\n"
+    sites = mutation.mutable_sites(source)
+    zeros = [s for s in sites if s.old == "0"]
+    assert len(zeros) == 2, sites
+    first = mutation.equivalence_key("m.py", source, zeros[0])
+    second = mutation.equivalence_key("m.py", source, zeros[1])
+    assert first != second, "the two `0`s on one line share a key, so an exemption would cover both"
+    padded = "# a new line above\n" + source
+    moved = [s for s in mutation.mutable_sites(padded) if s.old == "0"]
+    assert mutation.equivalence_key("m.py", padded, moved[0]) == first, (
+        "inserting a line above the site changed its key, so every entry would go stale on an "
+        "unrelated edit"
+    )
