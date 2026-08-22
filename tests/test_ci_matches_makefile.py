@@ -1,13 +1,25 @@
-"""The CI workflow and ``make ci`` must run the same gate.
+"""The CI workflow must run ``make ci`` and nothing else.
 
 [A15] CI is new, and the failure mode it arrives with is well known here: two
 descriptions of one fact drift, and the one nobody executes becomes fiction. The
 README tells a reader to run ``make test``; the workflow file tells GitHub what
 to run; ``make ci`` claims to be the second one. Three statements, one fact.
 
-So this module reads BOTH files and asserts they agree, and — because a scan
-that matches nothing passes vacuously, which has produced four confident false
-negatives in this project — it checks its own parse first.
+[I8] The original construction here was: the workflow lists its six targets, the
+Makefile lists the same six, and a test asserts the two SETS are equal. That
+worked and never fired. It is still the weaker of the two available
+constructions, and the difference showed up the week the README's claim
+("make ci runs what github actions runs") was audited: the sentence was true of
+the target list and false of the mechanism, because CI invoked six targets
+individually and `make ci` was invoked by nobody — the gate a developer runs and
+the gate GitHub runs were two programs that a test kept in agreement.
+
+They are now one program. The workflow has ONE gate step, `make ci`, so the
+assertion below is no longer "the two lists agree" but "there is only one list".
+Drift is not detected here any more; it is unrepresentable. What this module
+still does, and must keep doing, is stop the list itself being quietly emptied:
+`test_the_gate_still_contains_the_checks_that_define_it` names the load-bearing
+steps, because two equal sets stay equal when you delete from both.
 
 It is deliberately not a yaml parse. The workflow's shell steps are the thing
 being audited, and matching ``make <target>`` in a ``run:`` block is what
@@ -66,20 +78,27 @@ def ci_target_prerequisites() -> list[str]:
 def test_the_parses_are_not_silently_empty() -> None:
     """Positive control. Both scans must find something before either can pass."""
     assert (repo_root() / WORKFLOW).is_file(), "there is no CI workflow to audit"
-    assert len(workflow_targets()) >= 4, workflow_targets()
+    assert len(workflow_targets()) >= 1, workflow_targets()
     assert len(ci_target_prerequisites()) >= 4, ci_target_prerequisites()
     assert _MAKE_CALL_RE.findall("        run: make lint") == ["lint"]
+    # ...and the scan must be able to see MORE than one target, or "exactly one"
+    # below would pass for a parser that only ever finds one thing.
+    assert _MAKE_CALL_RE.findall("run: |\n  make synth\n  make contract") == ["synth", "contract"]
 
 
-def test_make_ci_runs_exactly_what_the_workflow_runs() -> None:
-    """The whole point: ``make ci`` locally == the gate on GitHub."""
-    in_workflow = workflow_targets()
-    in_makefile = set(ci_target_prerequisites())
-    assert in_workflow == in_makefile, (
-        f"CI and `make ci` have drifted. Only in {WORKFLOW}: "
-        f"{sorted(in_workflow - in_makefile)}; only in `make ci`: "
-        f"{sorted(in_makefile - in_workflow)}. A gate described in two places is a gate that "
-        "will be described wrongly in one of them."
+def test_the_workflow_runs_make_ci_and_no_other_gate_target() -> None:
+    """[I8] One list, not two lists a test keeps equal.
+
+    If this ever fails with extra targets, the correct repair is to put the new
+    check into ``make ci`` -- not to add a step here. A step that runs outside
+    ``make ci`` is a check a developer cannot reproduce locally by the documented
+    command, which is how a gate stops being run before a push.
+    """
+    invoked = workflow_targets()
+    assert invoked == {"ci"}, (
+        f"{WORKFLOW} invokes {sorted(invoked)} instead of exactly ['ci']. The gate must be "
+        "ONE program that GitHub and a developer both run; listing targets here recreates the "
+        "two-descriptions-of-one-fact problem this module exists to prevent."
     )
 
 
@@ -93,14 +112,15 @@ def test_every_target_ci_runs_exists_in_the_makefile() -> None:
 def test_the_gate_still_contains_the_checks_that_define_it() -> None:
     """Equality is not enough: deleting a step from BOTH files keeps them equal.
 
-    [A17] ``test_make_ci_runs_exactly_what_the_workflow_runs`` compares two sets,
-    so dropping ``typecheck`` from the Makefile and the workflow in one commit
-    passes it. This names the gate's load-bearing steps so that removing one is
-    an argument someone has to make in a diff, not a two-line deletion that
-    stays green.
+    [A17] The test above compared two sets, so dropping ``typecheck`` from the
+    Makefile and the workflow in one commit passed it. [I8] There is now one
+    set, which removes that particular hole and leaves this one: emptying
+    ``make ci`` is still a one-line edit. This names the gate's load-bearing
+    steps so that removing one is an argument someone has to make in a diff,
+    not a deletion that stays green.
     """
     required = {"lint", "typecheck", "test-all"}
-    in_both = workflow_targets() & set(ci_target_prerequisites())
+    in_both = set(ci_target_prerequisites())
     missing = sorted(required - in_both)
     assert not missing, (
         f"the CI gate no longer runs {missing}. These are the checks a clean checkout can run "

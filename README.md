@@ -146,9 +146,12 @@ tests/ mirrors the contract rather than the module tree: the c1-c3 suite takes
 synthetic one.
 
 running it. make install, then make test. make lint, make typecheck and make
-null-check are part of the same gate, and make ci runs what github actions runs
-on every push: lint, types, the full suite including the slow playthroughs, the
-mutation-coverage gate over
+null-check are part of the same gate, and make ci is what github actions runs on
+every push — literally: the workflow has one gate step and it is make ci. that
+sentence used to be an over-claim. until 2026-08-21 the workflow named its six
+targets itself and a test asserted the two lists agreed, so make ci was a
+faithful description of the gate rather than the gate. it now runs lint, types,
+the full suite including the slow playthroughs, the mutation-coverage gate over
 every playthrough, a freshly generated synthetic fire judged by the real c1-c3
 checker, and the do-nothing null check. what ci does not cover is written down in
 .github/workflows/ci.yml rather than left to be discovered — the fire corpus is
@@ -156,6 +159,23 @@ not in the repo, so the cross-fire split clauses run against a synthetic corpus
 there, elmfire is not built, and earth engine ingestion needs credentials. the
 contract version is parsed from the first line of docs/interfaces.md at import
 with no fallback, so a drifted version fails loudly instead of silently.
+
+the environment is installed, not resolved. make install runs uv pip sync
+--require-hashes requirements.lock, so a laptop and the ci runner hold the same
+package set by artifact hash rather than by a resolution each performs for
+itself. this is recent and it was bought expensively: the lock previously sat in
+the repo referenced by no install path, a clean clone resolved 15 of its 73
+packages to other versions, and one of those differences — numpy 2.5.1 against
+2.5.2, whose stubs disagree about a single overload — kept this badge red for
+seven days while make typecheck exited 0 locally. a lock file nobody installs
+from advertises a reproducibility that does not exist. make relock regenerates
+it and never upgrades anything; upgrading a package means deleting its pin on
+purpose.
+
+a green make ci is a claim about your working copy, not about the repository.
+make ci-status is the other claim: it asks github for the conclusion of the run
+that built the exact commit on origin/main, prints whether your tree is dirty or
+unpushed, and exits non-zero when it cannot tell. unknown is not green.
 
 types. make typecheck runs mypy in strict mode over src, from a pinned isolated
 environment rather than from .venv, so a developer tool cannot move the

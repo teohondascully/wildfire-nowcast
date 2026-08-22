@@ -33,8 +33,8 @@ OUT    ?= outputs/synthetic_fire/tensor.zarr
 TENSOR ?= outputs/synthetic_fire/tensor.zarr
 MOVIE  ?= outputs/fire.mp4
 
-.PHONY: help venv install hooks test test-all lint typecheck format-check format synth contract contract-reporting \
-        contract-real contract-split contract-all-fires null-check check ci movie clean-outputs \
+.PHONY: help venv install relock hooks test test-all lint typecheck format-check format synth contract contract-reporting \
+        contract-real contract-split contract-all-fires null-check check ci ci-status movie clean-outputs \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
 
@@ -46,10 +46,54 @@ help:
 venv:
 	$(UV) venv --python $(PY_VERSION) $(VENV)
 
-## install: install the project + dev extras into .venv, and wire the git hooks
+## install: install EXACTLY `requirements.lock` into .venv, then the project
+##         itself, then wire the git hooks.
+##         `pip sync`, NOT `pip install`. Two things follow from that word and
+##         both are the point: the venv ends up holding the lock's set and
+##         NOTHING ELSE (a package someone added by hand is removed, which is
+##         C-4.3's frozen-environment clause made mechanical), and no version is
+##         ever resolved at install time.
+##         WHY THIS CHANGED (I8): until 2026-08-21 this line was
+##         `uv pip install -e ".[dev]"` and `requirements.lock` was named by no
+##         install path at all -- two pyproject comments, a ruff-pin test and an
+##         environment fingerprint, none of which install anything. A clean
+##         clone therefore RE-RESOLVED, and measured against the lock it moved
+##         15 of 73 packages and dropped a 16th. That is how the same source
+##         line was green here on numpy 2.5.1 and red in CI on numpy 2.5.2 for
+##         seven days. A lock nobody installs from is worse than no lock,
+##         because it advertises a reproducibility that does not exist.
+##         `--require-hashes` makes the pins binding on the artifact and not
+##         only on the version string. `-e . --no-deps` is separate because an
+##         editable path install cannot be hash-checked; its dependencies are
+##         already present, and `tests/test_lockfile.py` fails if pyproject
+##         declares a dependency the lock does not carry.
 install: venv
-	VIRTUAL_ENV=$(CURDIR)/$(VENV) $(UV) pip install --python $(PY) -e ".[dev]"
+	VIRTUAL_ENV=$(CURDIR)/$(VENV) $(UV) pip sync --python $(PY) --require-hashes requirements.lock
+	VIRTUAL_ENV=$(CURDIR)/$(VENV) $(UV) pip install --python $(PY) --no-deps -e .
 	@$(MAKE) --no-print-directory hooks
+
+## relock: regenerate requirements.lock. IT NEVER UPGRADES ANYTHING.
+##         The command constrains the resolution BY THE EXISTING LOCK (`-c
+##         requirements.lock`), so it is a fixpoint: running it twice on an
+##         unchanged tree reproduced the file byte for byte at I8 (sha equal
+##         across passes 2 and 3; pass 1 differs only because it converted a
+##         73-row file into a 94-row one). That is a MEASUREMENT, not a test --
+##         asserting it in the suite would put a network resolve on the gate.
+##         It exists to pick up a NEW dependency added to pyproject.toml, not
+##         to drift the old ones.
+##         TO UPGRADE ONE PACKAGE: delete its pin from requirements.lock, run
+##         this, and commit the result with the reason. That makes every version
+##         change a deliberate, reviewable line in a diff instead of a side
+##         effect of whoever cloned most recently.
+##         `--universal` resolves for every platform at once with environment
+##         markers, so the macOS dev machine and the Linux CI runner install
+##         from ONE file (the 21 CUDA rows are torch's Linux dependencies).
+##         `--python-version 3.12` is load-bearing: without it uv bounds the
+##         resolution by whatever interpreter it finds, so the same command
+##         succeeds in a directory with a .venv and fails in one without.
+relock:
+	$(UV) pip compile pyproject.toml --extra dev --universal --generate-hashes \
+	  --python-version $(PY_VERSION) -c requirements.lock -o requirements.lock
 
 ## hooks: install the pre-commit, commit-msg AND pre-push hooks (all three types,
 ##         see `default_install_hook_types` in .pre-commit-config.yaml), plus the
@@ -209,12 +253,30 @@ playthrough-baseline: | $(PY)
 ## check: lint + types + the full suite + every playthrough. The developer gate.
 check: lint typecheck test-all playthrough
 
-## ci: exactly what .github/workflows/ci.yml runs, in one command, so the gate
-##         can be reproduced locally instead of read off a log. `check` plus the
-##         two artifact-level checks that need no data: the synthetic fire judged
-##         by the real C1-C3 checker, and C6.0's do-nothing null.
-##         tests/test_ci_matches_makefile.py fails the build if the two drift.
+## ci: THE gate. `.github/workflows/ci.yml` has one gate step and it is
+##         `make ci`, so this list is not a copy of the workflow's list -- it is
+##         the only list. Until I8 the workflow named the same six targets
+##         itself and a test asserted the two agreed; agreement between two
+##         copies is a weaker property than having one copy, and the cost of
+##         the change is that GitHub's UI now shows one step instead of six
+##         (make still names the failing target in `*** [Makefile:NN: t] Error`).
+##         `check` plus the two artifact-level checks that need no data: the
+##         synthetic fire judged by the real C1-C3 checker, and C6.0's
+##         do-nothing null.
+##         SCOPE, because this is exactly what was over-claimed: a green
+##         `make ci` is a statement about THIS WORKING COPY on THIS MACHINE.
+##         It is not a statement about the repository. `make ci-status` is.
 ci: lint typecheck test-all playthrough synth contract null-check
+
+## ci-status: ask GITHUB whether the published head is green, rather than
+##         asking this machine whether it is happy. Exits non-zero unless the
+##         workflow run for the exact commit on origin/main concluded
+##         `success` -- and non-zero, loudly, when it cannot tell. UNKNOWN IS
+##         NOT GREEN: a badge stayed red here for seven days and thirteen
+##         commits while five local gate runs exited 0, because every one of
+##         those runs answered a question about a laptop.
+ci-status:
+	@$(PY) tools/ci_status.py $(ARGS)
 
 ## movie: render a fire movie from a tensor path -> $(MOVIE)
 movie: | $(PY)

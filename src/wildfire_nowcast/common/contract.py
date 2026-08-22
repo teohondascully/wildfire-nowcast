@@ -1206,9 +1206,28 @@ def _is_naive_iso(value: object) -> bool:
 
 
 def _as_seconds(value: np.datetime64) -> np.datetime64:
-    # numpy's stubs carry no (datetime64, unit) overload even though the runtime
-    # accepts it; the ignore is scoped to the two codes it needs, never bare.
-    return np.datetime64(value, "s")  # type: ignore[call-overload,no-any-return]
+    """Truncate a datetime64 to second resolution, keeping its static type.
+
+    NOT ``np.datetime64(value, "s")``, and the reason is a seven-day CI outage.
+    That spelling needs ``# type: ignore[call-overload, no-any-return]`` under
+    numpy 2.5.1 and is an UNUSED ignore under numpy 2.5.2, which added the
+    ``(datetime64, unit)`` overload to its stubs. With `strict` (so
+    `warn_unused_ignores`) the same source line was therefore green on a machine
+    holding 2.5.1 and red in a CI that resolved 2.5.2 -- opposite verdicts, no
+    diff between them. Suppressing it either way just picks a numpy to be right
+    on; `requirements.lock` now binds the resolution so the two cannot diverge
+    again, and this spelling needs no suppression under EITHER.
+
+    ``.astype(np.dtype("datetime64[s]"))`` is typed by both stub versions:
+    ``dtype("datetime64[s]")`` resolves to ``dtype[datetime64[datetime]]`` and
+    the ``astype(dtype[_SCT]) -> _SCT`` overload carries that through, so the
+    result is ``datetime64[datetime]`` rather than ``Any``. A bare string dtype
+    (``.astype("datetime64[s]")``) returns ``Any`` and would trade the ignore for
+    a silent hole. Measured identical to the old call -- 53 values across ten
+    units, NaT, pre-epoch and the ns bounds, equal in repr, dtype and bytes,
+    against a negative control that separates.
+    """
+    return value.astype(np.dtype("datetime64[s]"))
 
 
 def _epsg_of(value: object) -> int | None:

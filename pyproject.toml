@@ -22,7 +22,15 @@ classifiers = [
 # transitively via geopandas/rasterio/matplotlib, but they are imported BY NAME
 # in `data/`, `common/contract.py` and `sim/review.py`, and a package that
 # imports a name it does not declare breaks the day a transitive dep drops it.
-# Exact versions of the environment of record are in `requirements.lock`.
+# THESE ARE NOT THE VERSIONS ANYTHING INSTALLS. This list declares what `src/`
+# imports; `requirements.lock` decides which build of each one you get, and
+# `make install` syncs that lock with `--require-hashes` rather than resolving
+# from here. The distinction was not academic: until 2026-08-21 the lock was on
+# no install path at all, every clone re-resolved, and a clean clone landed 15
+# of its 73 packages on other versions — one of which (numpy 2.5.1 vs 2.5.2)
+# made a single `type: ignore[...]` in `common/contract.py` required on the
+# author's machine and unused in CI, and held the public badge red for seven
+# days. Add a dependency HERE, then `make relock`, then commit both.
 dependencies = [
     "numpy",
     "xarray",

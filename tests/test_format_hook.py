@@ -202,7 +202,10 @@ def test_the_hooks_ruff_is_the_ruff_the_gate_and_the_lockfile_pin() -> None:
     hook_version = str(_ruff_repo()["rev"]).lstrip("v")
 
     lock = (repo_root() / "requirements.lock").read_text()
-    pinned = re.findall(r"^ruff==(\S+)$", lock, flags=re.MULTILINE)
+    # [I8] The lock now carries hashes, so a pinned row is `ruff==X \` with the
+    # `--hash=` lines indented under it. The optional continuation is the ONLY
+    # relaxation: still exactly one row, still anchored, still an exact version.
+    pinned = re.findall(r"^ruff==(\S+?)(?: \\)?$", lock, flags=re.MULTILINE)
     assert len(pinned) == 1, f"requirements.lock pins ruff {pinned}"
 
     out = _run([str(_ruff()), "--version"], repo_root()).stdout.split()

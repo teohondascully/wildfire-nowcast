@@ -19,6 +19,16 @@
 #   * `make contract-reporting` is deliberately NOT run: a one-fire synthetic
 #     corpus fails C3.3's bootstrap guard (`n_train_blocks >= 2`) by
 #     construction, which is the guard working, not a defect to route around.
+#     RE-MEASURED at I8 in a clean clone: it is the only target outside this
+#     gate that exits non-zero there, it does so for exactly that one reason
+#     (63/64 checks pass, 1 reporting gap), and every gate this workflow DOES
+#     run is green in the same clone. So the exclusion is still one clause
+#     wide and is not hiding a second failure behind the first.
+#
+# WHAT MAKES THIS RUNNER THE SAME MACHINE AS A DEVELOPER'S. `make install`
+# syncs `requirements.lock` with `--require-hashes`, so the resolution is
+# performed once, by a human, and recorded — never performed here. That is new
+# at I8 and it is the fix for this workflow's longest outage.
 #
 # The python version is pinned to the interpreter of record (ADR-001, CPython
 # 3.12, the same one `make venv` builds). `pyproject.toml` declares
@@ -60,41 +70,41 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          cache-dependency-glob: pyproject.toml
+          # The lock is what is installed (see below), so it is what the cache
+          # must key on. Keying on `pyproject.toml` cached a resolution that
+          # `pyproject.toml` does not determine.
+          cache-dependency-glob: requirements.lock
 
-      # `make install` builds .venv on the pinned interpreter and installs the
-      # package with its dev extras, so every target below runs through exactly
-      # the interpreter a developer gets (never a system python — see ADR-001).
+      # `make install` builds .venv on the pinned interpreter and then
+      # `uv pip sync --require-hashes requirements.lock`, so this runner holds
+      # EXACTLY the package set a developer holds — by artifact hash, not by
+      # version string. Before I8 it re-resolved from `pyproject.toml` and
+      # landed 15 of 73 packages on different versions than the lock names;
+      # that divergence, on numpy 2.5.1 vs 2.5.2, is what kept this badge red
+      # for seven days while `make typecheck` exited 0 on the author's machine.
       - name: install
         run: make install
 
-      - name: lint
-        run: make lint
-
-      # mypy --strict over `src/`, plus the audit of the exemption list that
-      # lets it pass: a listed module that has become clean fails the build
-      # rather than sitting there as permanent debt. Runs from a pinned,
-      # isolated tool environment (Makefile: MYPY_VERSION), not from .venv.
-      - name: typecheck
-        run: make typecheck
-
-      # The whole suite, INCLUDING the cases `make test` deselects as slow.
-      - name: tests
-        run: make test-all
-
-      # ADR-030: every playthrough must detect all of its own planted defects.
-      # A playthrough that cannot fail turns this red.
-      - name: playthrough mutation coverage
-        run: make playthrough
-
-      # C4 -> C1/C2/C3: generate a synthetic fire and judge it with the same
-      # checker the real tensors are judged by. This is the only end-to-end
-      # artifact check that needs no data.
-      - name: synthetic fire passes the contract
-        run: |
-          make synth
-          make contract
-
-      # C6.0: no metric may lose to a model that predicts nothing.
-      - name: null check
-        run: make null-check
+      # ONE STEP, DELIBERATELY. `make ci` is the gate; this file's job is to
+      # invoke it, not to restate it. Until I8 this workflow listed the six
+      # targets itself and `tests/test_ci_matches_makefile.py` asserted that the
+      # two lists agreed — which worked, but "two descriptions that a test keeps
+      # equal" is a weaker construction than "one description". The test now
+      # asserts the stronger property: that this file runs `make ci` and no
+      # other gate target, so drift is not detected, it is impossible.
+      #
+      # THE COST, STATED: GitHub's job view shows one step rather than six, so
+      # the summary line no longer names the failing check. `make` prints
+      # `*** [Makefile:NN: <target>] Error N` at the end of the log, which is
+      # the same information one scroll further down.
+      #
+      # What `make ci` runs, in order: lint · typecheck (mypy --strict over
+      # src/, plus the audit that fails when an exemption goes stale) ·
+      # test-all (the whole suite, INCLUDING the cases `make test` deselects as
+      # slow) · playthrough (ADR-030 mutation coverage: a playthrough that
+      # cannot fail turns this red) · synth + contract (C4 -> C1/C2/C3: a
+      # generated fire judged by the same checker the real tensors are judged
+      # by, the only end-to-end artifact check that needs no data) ·
+      # null-check (C6.0: no metric may lose to a model that predicts nothing).
+      - name: make ci
+        run: make ci
