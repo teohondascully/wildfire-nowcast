@@ -554,3 +554,57 @@ def test_calibration_is_model_blind_by_construction() -> None:
         assert not [s for s in live_strings if "runs/" in s or "checkpoint" in s], (
             f"{rel} names a run directory or a checkpoint in live code"
         )
+
+
+# --------------------------------------------------------------------------
+# THE ONE-CELL BOUNDARY: `if total <= 0` AND THE MUTANT THAT MAKES IT `<= 1`
+#
+# `common/calibration.py:251` separates "nothing was scored" from "something
+# was". The audit moved the boundary by one and 745 tests passed, because this
+# file already checks 0 cells (None) and 40 cells (0.15) and nothing in between.
+# At `total <= 1` a single scored cell becomes UNSCOREABLE and the criterion
+# returns None - which reads, downstream, as "no calibration here" rather than
+# as "perfectly or maximally miscalibrated here". That is the same shape as the
+# defect ADR-022 records in `eval/validity.py`, where a None fell through to the
+# verdict that says the number is usable: an unmeasured quantity and a measured
+# one must never arrive at a gate wearing the same value.
+# --------------------------------------------------------------------------
+
+
+def test_a_single_scored_cell_is_scored_and_is_not_reported_as_unscoreable() -> None:
+    """One cell, maximal miscalibration: forecast 1.0, observed 0. Deviation 1.0."""
+    one = [K.Stratum(key=0, n=1, sum_p=1.0, sum_y=0.0)]
+    assert K.weighted_abs_deviation(one) == pytest.approx(1.0)
+
+    perfect = [K.Stratum(key=0, n=1, sum_p=0.25, sum_y=0.25)]
+    assert K.weighted_abs_deviation(perfect) == pytest.approx(0.0)
+
+    # 0.0 and None are DIFFERENT ANSWERS and must not be reachable from the same
+    # input. A perfectly calibrated single cell scores 0.0; an empty set has no
+    # calibration at all and scores None.
+    assert K.weighted_abs_deviation(perfect) is not None
+    assert K.weighted_abs_deviation([]) is None
+
+
+def test_the_boundary_is_at_zero_cells_and_not_at_one() -> None:
+    """Occupancy 0 -> None, occupancy 1 -> a number, occupancy 2 -> a number.
+
+    Empty strata beside the occupied one, because `total` is a SUM: a set that is
+    mostly empty bins with one occupant is the ordinary shape of a frontier ring
+    at short lead, not a contrived input.
+    """
+    empties = [K.Stratum(key=k, n=0, sum_p=0.0, sum_y=0.0) for k in range(1, 5)]
+    assert K.weighted_abs_deviation(empties) is None
+    assert K.weighted_abs_deviation(
+        [K.Stratum(key=0, n=1, sum_p=0.8, sum_y=0.0), *empties]
+    ) == pytest.approx(0.8)
+    assert K.weighted_abs_deviation(
+        [K.Stratum(key=0, n=2, sum_p=1.6, sum_y=0.0), *empties]
+    ) == pytest.approx(0.8)
+
+
+def test_one_cell_pools_with_many_exactly_as_the_sufficient_statistics_promise() -> None:
+    """The control: a single cell is not a special case in the arithmetic, only at the guard."""
+    single = K.Stratum(key=0, n=1, sum_p=1.0, sum_y=0.0)
+    bulk = K.Stratum(key=1, n=9, sum_p=0.0, sum_y=0.0)
+    assert K.weighted_abs_deviation([single, bulk]) == pytest.approx((1 * 1.0 + 9 * 0.0) / 10)

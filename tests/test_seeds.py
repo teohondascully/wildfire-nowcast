@@ -261,3 +261,48 @@ def test_the_fire_id_really_does_reach_the_draw_at_a_severity_that_cannot_move_i
         "both probe fires scored the same calibration IoU, so the fire id does not "
         "reach final_footprint_agreement either"
     )
+
+
+# --------------------------------------------------------------------------
+# THE `bits` RANGE, WHICH THE SUITE DID NOT CHECK AT EITHER END
+#
+# `common/seeds.py:76` reads `if not 1 <= bits <= MAX_SEED_BITS`. The audit
+# mutated it to `1 < bits` and 745 tests passed: the whole suite calls
+# `stable_seed` at the default 31 bits and never near a boundary, so a guard
+# that had silently narrowed to `[2, 64]` was indistinguishable from the real
+# one. The range IS the contract here - the mask is `(1 << bits) - 1`, so an
+# accepted `bits` of 0 returns a constant 0 for every input, which is a seed
+# derived from nothing wearing the costume of a derived value.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bits", [1, 2, 8, 31, 32, 63, MAX_SEED_BITS])
+def test_every_accepted_width_is_accepted_and_stays_inside_its_own_mask(bits: int) -> None:
+    """Both ENDS of the range, and the mask that makes the width mean something."""
+    seed = stable_seed(FIRE, bits=bits)
+    assert 0 <= seed < (1 << bits), f"bits={bits} produced {seed}, outside its own width"
+
+
+@pytest.mark.parametrize("bits", [0, -1, MAX_SEED_BITS + 1, 1000])
+def test_a_width_outside_the_range_is_refused_rather_than_clamped(bits: int) -> None:
+    """A rejected width names the interval, so a caller learns the rule from the error."""
+    with pytest.raises(ValueError, match=rf"bits must be in \[1, {MAX_SEED_BITS}\]"):
+        stable_seed(FIRE, bits=bits)
+
+
+def test_the_narrowest_and_widest_widths_are_both_reachable_and_are_not_the_same_seed() -> None:
+    """The control: without this, "1 is accepted" could be satisfied by a constant.
+
+    One bit is a coin, so it is asserted over several ids rather than one - a
+    single id landing on 0 says nothing, and both faces appearing says the width
+    is real.
+    """
+    ids = [f"2019_probe_{i}" for i in range(24)]
+    narrow = {stable_seed(fire, bits=1) for fire in ids}
+    assert narrow == {0, 1}, f"a 1-bit seed produced only {narrow} over {len(ids)} ids"
+    widest = {stable_seed(fire, bits=MAX_SEED_BITS) for fire in ids}
+    assert len(widest) == len(ids), "the widest width collided, which blake2b should not do here"
+    assert all(seed < (1 << MAX_SEED_BITS) for seed in widest)
+    assert stable_seed(FIRE, bits=SEED_BITS) == stable_seed(FIRE, bits=MAX_SEED_BITS) & (
+        (1 << SEED_BITS) - 1
+    ), "bits is meant to MASK one digest, so a narrow seed must be a prefix of a wide one"

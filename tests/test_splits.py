@@ -1460,3 +1460,109 @@ def test_the_derivation_tracks_the_bar_rather_than_restating_it() -> None:
     assert S.folds_expected_to_fail_c6_3(generous) == ()
     thin = {k: (k,) for k in range(5)}
     assert S.folds_expected_to_fail_c6_3(thin) == (0, 1, 2, 3, 4)
+
+
+# --------------------------------------------------------------------------
+# C-4.2 / C-4.3: THE CLAUSE THAT SAYS "SAMPLED AT BOTH ENDS", AND ITS OWN `not`
+#
+# `common/splits.py` carries four `not unpaired` sites across the code and
+# environment clauses. The audit removed one - the message conditional at what
+# is now line 1480 - and 745 tests passed. Nothing read those messages, so a
+# clause could report `ok=True` while printing "sampled at ONE end only", or
+# report a failure while printing "sampled at BOTH ends".
+#
+# This is the clause that exists because `eval/metrics.py` was rewritten nine
+# minutes into a gate-adjudicating run (ADR-022). Its own report saying the
+# opposite of its own verdict is exactly the failure it was built to catch, one
+# level up: a reader who trusts the sentence would draw the wrong conclusion,
+# and a reader who trusts the flag would not know the sentence disagreed.
+#
+# Both the FLAG and the SENTENCE are asserted, in both directions, for both
+# families. A test on the flag alone leaves the message free to invert.
+# --------------------------------------------------------------------------
+
+
+def _fingerprint_clauses(payload: dict[str, Any]) -> dict[str, tuple[bool, str]]:
+    """Run C8's fingerprint clauses over one synthetic artifact, keyed by check id."""
+    rep = S.ContractReport(target="synthetic")
+    S._add_code_fingerprint_clauses(rep, {"run.json": payload})
+    return {c.check_id: (c.ok, c.message) for c in rep.checks}
+
+
+_BOTH_ENDS = {
+    "common_code_before": "aaaa",
+    "common_code_after": "aaaa",
+    "scoring_code_before": "bbbb",
+    "scoring_code_after": "bbbb",
+    "environment_before": "cccc",
+    "environment_after": "cccc",
+}
+
+_ONE_END = {"common_code": "aaaa", "scoring_code": "bbbb", "environment": "cccc"}
+
+
+def test_a_both_ended_artifact_passes_AND_says_so() -> None:
+    """The clause and its sentence agree when the artifact is well-formed."""
+    clauses = _fingerprint_clauses(dict(_BOTH_ENDS))
+    for check in ("code_sampled_both_ends", "environment_sampled_both_ends"):
+        ok, message = clauses[check]
+        assert ok, f"{check} failed on an artifact stamped at both ends: {message}"
+        assert "BOTH ends" in message, (
+            f"{check} passed while reporting {message!r}. A clause whose verdict and whose "
+            "sentence disagree is worse than either being wrong alone: one of the two readers "
+            "of this report is always misled, and neither can tell which."
+        )
+        assert "ONE end only" not in message, message
+
+
+def test_a_one_ended_artifact_FAILS_AND_names_what_is_missing() -> None:
+    """The other direction, which is the case C-4.2 was written about."""
+    clauses = _fingerprint_clauses(dict(_ONE_END))
+    for check in ("code_sampled_both_ends", "environment_sampled_both_ends"):
+        ok, message = clauses[check]
+        assert not ok, f"{check} passed on an artifact sampled at ONE end: {message}"
+        assert "ONE end only" in message, (
+            f"{check} failed while reporting {message!r}, which reads as a pass. The C-4.2 "
+            "defect is a stamp that reassures; a message that reassures is the same defect "
+            "in the report."
+        )
+        assert "BOTH ends" not in message, message
+    assert "run.json:common_code" in clauses["code_sampled_both_ends"][1]
+    assert "run.json:environment" in clauses["environment_sampled_both_ends"][1]
+
+
+def test_a_disagreeing_pair_is_a_HARD_fail_and_a_missing_pair_is_only_reporting() -> None:
+    """The two severities are the whole point of C-4.2's tiering, so they are pinned.
+
+    Disagreement is a MEASUREMENT and hard-fails; absence is a bookkeeping gap that
+    every pre-clause artifact in `runs/` has, and demoting it would fail the entire
+    archive for a property none of it could have had.
+    """
+    moved = dict(_BOTH_ENDS)
+    moved["common_code_after"] = "zzzz"
+    moved["environment_after"] = "dddd"
+    rep = S.ContractReport(target="synthetic")
+    S._add_code_fingerprint_clauses(rep, {"run.json": moved})
+    by_id = {c.check_id: c for c in rep.checks}
+    assert not by_id["code_agrees_across_run"].ok
+    assert by_id["code_agrees_across_run"].severity == S.SEVERITY_FAIL
+    assert "MOVED DURING THIS RUN" in by_id["code_agrees_across_run"].message
+    assert not by_id["environment_agrees_across_run"].ok
+    assert by_id["environment_agrees_across_run"].severity == S.SEVERITY_FAIL
+
+    rep = S.ContractReport(target="synthetic")
+    S._add_code_fingerprint_clauses(rep, {"run.json": dict(_ONE_END)})
+    by_id = {c.check_id: c for c in rep.checks}
+    assert by_id["code_sampled_both_ends"].severity == S.SEVERITY_REPORTING
+    assert by_id["environment_sampled_both_ends"].severity == S.SEVERITY_REPORTING
+
+
+def test_an_artifact_with_no_fingerprints_at_all_emits_no_clause() -> None:
+    """The control: the assertions above are about a clause that has to be REACHED.
+
+    An artifact stamping nothing must add no check, so a green report over the
+    pre-clause archive is silence rather than a pass.
+    """
+    rep = S.ContractReport(target="synthetic")
+    S._add_code_fingerprint_clauses(rep, {"run.json": {"fingerprint": "4848f491e8d588fa"}})
+    assert rep.checks == []
