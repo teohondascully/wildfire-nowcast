@@ -74,12 +74,30 @@ from typing import Final
 
 #: The packages under sweep. ``common/`` is infra's and ``eval/`` is the scoring
 #: code every published number came out of; the plan names exactly these two.
+#:
+#: ``model/`` IS NOT SWEPT, AND THE REASON THIS SCOPE WAS CHOSEN HAS EXPIRED.
+#: The original argument was comparability with the external audit's 26 survivors
+#: of 66. ADR-085 (2) established that figure was wrong three separate ways,
+#: including three of its 55 "kills" being mutants that do not parse, so there is
+#: nothing left to be comparable with. What is left out is 16 modules and 9,208
+#: lines holding the transition kernel, the latent and both baselines, with 2,624
+#: mutable sites and zero mutation measurement.
+#: PRICED, so the decision is a decision and not an omission: adding ``"model"``
+#: here is the ONLY code change required, because ``target_modules`` derives the
+#: file list from ``git ls-files``. It would add 48 rows, 9 of them with no
+#: mutable site, so 39 mutants, at roughly 100 s each: about 17 minutes on four
+#: workers against the 43 measured here. The real cost is not the sweep, it is
+#: the burn-down: at the survivor rate the other two packages showed before this
+#: burst, 39 mutants would put something like 15 to 25 new survivors on the
+#: budget, all of them new debt against this gate. Widening is therefore a
+#: one-line config change plus a package's worth of work, and it is not done here.
 TARGET_PACKAGES: Final = ("common", "eval")
 
-#: Where in each module's site list the mutants are taken. Inherited unchanged
-#: from the audit sweep so that this gate's numbers are comparable with the 26 of
-#: 66 already on the record, rather than being a fresh number nothing can be read
-#: against.
+#: Where in each module's site list the mutants are taken. Three fractions, so a
+#: module contributes a site near its top, its middle and its end rather than one
+#: site that could be anywhere. The figure is arbitrary in the way a sample size
+#: is arbitrary: it is not derived from anything, and changing it changes the
+#: budget, so it is pinned here and moved deliberately or not at all.
 SAMPLE_FRACTIONS: Final = (0.2, 0.5, 0.8)
 
 #: Single-token substitutions. A boundary becomes its neighbour, an inequality
@@ -162,27 +180,32 @@ EQUIVALENT_MUTANTS: Final = {
 #: ``MEASURED_AT`` for the command. It may be lowered by a commit that kills a
 #: survivor; it may not be raised, and the gate fails in BOTH directions so that a
 #: stale over-estimate is as loud as a regression.
-SURVIVOR_BUDGET: Final = 58
+SURVIVOR_BUDGET: Final = 21
 
 #: How the number above was obtained, so that a reader can reproduce it rather
 #: than believe it.
 MEASURED_AT: Final = (
-    "`python tools/mutation.py --pristine --workers 3`, suite `pytest -x -m 'not slow'`, "
-    "42 modules x 3 fractions over common/ and eval/. "
-    "CURRENT, at 4071f6c: 126 rows, 9 with no mutable site, 117 mutants attempted, "
-    "58 KILLED, 58 SURVIVED, 1 EQUIVALENT, 0 unmeasured, 45.9 min. "
-    "PRIOR, at cc82876 before this gate existed: reported as 126 mutants / 55 killed / "
-    "62 survived, and that report was wrong twice. THREE of its kills were mutants that do "
-    "not parse (see mutable_sites), so the honest prior figure is 114 real mutants / "
-    "52 killed / 62 survived; and EQUIVALENT was unreachable, because the registry's own "
-    "integrity check failed on the line it pins. Both defects are fixed above, so the two "
-    "numbers are comparable in the survivor column only: 62 -> 58, the four killed by "
-    "Task 5.5. "
-    "ONE KNOWN COARSENESS, stated rather than hidden: the budget counts ROWS, and on a "
-    "module with few sites all three fractions can select the same one. Two sites are "
-    "selected three times each (common/paths.py:47, common/null_check/__main__.py:9), so "
-    "58 rows are 54 DISTINCT survivors. The gate is still correct in both directions; it "
-    "is simply coarser than the distinct debt."
+    "`python tools/mutation.py --pristine --workers 3 --no-budget`, suite "
+    "`pytest -x -m 'not slow'`, 42 modules x 3 fractions over common/ and eval/. "
+    "CURRENT, at 1a7c480: 126 rows, 9 with no mutable site, 117 mutants attempted, "
+    "94 KILLED, 21 SURVIVED, 2 EQUIVALENT, 0 unmeasured, 43.3 min. "
+    "The 21 survivors are 3 in common/ and 18 in eval/, and the drop from 58 is two "
+    "packages moving at once: 19 sites killed in common/ with a twentieth proved "
+    "unkillable, and 12 killed in eval/. A cross-check that could have disagreed and did "
+    "not: a separate `--only /eval/` sweep at 12e8dfb reports 18 survivors, the same 18 "
+    "this run finds. "
+    "PRIOR, at 4071f6c: 58 KILLED, 58 SURVIVED, 1 EQUIVALENT, 45.9 min. Before that, at "
+    "cc82876 and before this gate existed, it was reported as 126 mutants / 55 killed / 62 "
+    "survived, and that report was wrong twice: THREE of its kills were mutants that do not "
+    "parse (see mutable_sites), so the honest figure is 114 real mutants / 52 killed / 62 "
+    "survived, and EQUIVALENT was unreachable because the registry's own integrity check "
+    "failed on the line it pins. Both defects were fixed before the 58 was taken, so the "
+    "three numbers are comparable in the survivor column: 62 -> 58 -> 21. "
+    "THE ROW-VERSUS-SITE COARSENESS HAS GONE, and it went by being killed rather than by "
+    "being redefined. The budget counts ROWS, and on a module with few sites all three "
+    "fractions can select the same one; at 4071f6c two sites were selected three times each "
+    "(common/paths.py:47, common/null_check/__main__.py:9), so 58 rows were 54 DISTINCT "
+    "survivors. Both of those sites are now dead, and the 21 rows are 21 distinct sites."
 )
 
 _PYTEST_ARGS: Final = ("-x", "-q", "-m", "not slow", "-p", "no:randomly", "-p", "no:cacheprovider")
