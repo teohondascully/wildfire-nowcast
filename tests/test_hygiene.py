@@ -1096,11 +1096,26 @@ def test_the_debt_holds_on_THE_PUBLISHED_CORPUS_ALONE() -> None:
     """
     published = commit_guard.commit_messages(repo_root(), refs=("origin/main",))
     assert len(published) > 50, "the published corpus scan found almost nothing"
-    assert len(published) < len(commit_guard.commit_messages(repo_root())), (
-        "the two corpora are the same size, so this test is measuring nothing new"
+    assert set(published) <= set(commit_guard.commit_messages(repo_root())), (
+        "the published corpus is not a subset of every ref, so one of the two scans is wrong"
+    )
+
+    # NON-VACUITY THAT HOLDS IN A CLONE TOO, and the reason this is not phrased
+    # as "the two corpora differ": in a clone they do NOT differ, because the
+    # extra 52 commits live on a ref a clone never receives. An assertion that
+    # is true only on the maintainer's disk is the same defect this test exists
+    # to repair, one level up, and it turned CI red once before being fixed.
+    expected_here = {
+        sha: d for sha, d in PUBLISHED_PUNCTUATION_DEBT.items() if sha not in LOCAL_ONLY_DEBT_SHAS
+    }
+    assert set(expected_here) <= set(published), (
+        "a debt sha declared PUBLISHED is missing from the published corpus"
     )
 
     offenders = _scan(published)
+    assert sum(len(v) for v in offenders.values()) == sum(
+        sum(d.values()) for d in expected_here.values()
+    ), "the published corpus scan does not find the tells the debt list declares for it"
     assert not stale_debt_entries(offenders, corpus=published), (
         "the debt list does not describe the corpus a clone sees:\n  "
         + "\n  ".join(stale_debt_entries(offenders, corpus=published))

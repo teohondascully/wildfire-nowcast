@@ -501,6 +501,10 @@ def test_repo_relative_output_does_not_trip_the_home_path_scan() -> None:
 
     for path in (repo_root() / "runs" / "x", repo_root() / "data" / "fires"):
         assert not _HOME_PATH_RE.search(repo_relative(path))
-    # ...and the control: the raw absolute form DOES trip it, so the assertion
-    # above is about `repo_relative` and not about a scan that never fires.
-    assert _HOME_PATH_RE.search(str(repo_root() / "runs" / "x"))
+    # ...and the control, so the assertion above is about `repo_relative` and not
+    # about a scan that never fires. The specimen is CONSTRUCTED and is not this
+    # checkout's own root: whether the repository happens to live under a home
+    # directory is a property of the machine, and an assertion resting on that
+    # is the exact defect this task already paid for twice. It holds under
+    # `/tmp`, under a CI runner and on a laptop alike.
+    assert _HOME_PATH_RE.search("/U" + "sers/someone/Projects/wildfire-nowcast/runs/x")
