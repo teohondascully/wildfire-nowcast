@@ -1,0 +1,285 @@
+{
+ "purpose": "Measure whether the CONDITIONAL PRIOR explains the gate arms' EXTRA train->held-out growth loss (0.719 vs 0.819). Reads held-out WEATHER only, never held-out labels or scores.",
+ "split_fingerprint": {
+  "fingerprint": "4848f491e8d588fa",
+  "n_fires": 12,
+  "train_folds": [
+   0,
+   1,
+   2,
+   4
+  ],
+  "train_fire_ids": [
+   "2019_kincade",
+   "2019_walker",
+   "2020_glass",
+   "2020_july_complex",
+   "2020_scu_lightning_complex",
+   "2020_zogg",
+   "2021_caldor",
+   "2021_knp_complex"
+  ],
+  "heldout_fire_ids": [
+   "2020_bobcat",
+   "2020_creek",
+   "2020_czu_lightning_complex",
+   "2020_dolan"
+  ],
+  "train_blocks": [
+   0,
+   1,
+   2,
+   7,
+   8,
+   9,
+   10
+  ],
+  "heldout_blocks": [
+   3,
+   4,
+   5,
+   6
+  ],
+  "n_heldout_blocks": 4,
+  "unreadable_fires": [],
+  "c6_3_satisfied": true,
+  "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence."
+ },
+ "train_fire_ids": [
+  "2019_kincade",
+  "2019_walker",
+  "2020_glass",
+  "2020_july_complex",
+  "2020_scu_lightning_complex",
+  "2020_zogg",
+  "2021_caldor",
+  "2021_knp_complex"
+ ],
+ "heldout_fire_ids": [
+  "2020_bobcat",
+  "2020_creek",
+  "2020_czu_lightning_complex",
+  "2020_dolan"
+ ],
+ "covariates": [
+  "rh_2m",
+  "temp_2m",
+  "wind_speed"
+ ],
+ "covariate_means": {
+  "train": [
+   -0.5550364665308514,
+   0.3029204758815739,
+   -0.6033048454510778
+  ],
+  "heldout": [
+   -0.42347158977115196,
+   0.030356279128064302,
+   -0.5054234742241384
+  ],
+  "shift_heldout_minus_train": [
+   0.1315648767596994,
+   -0.27256419675350957,
+   0.0978813712269394
+  ]
+ },
+ "per_fire_covariate_means": {
+  "2019_kincade": [
+   -1.0102529154934297,
+   0.030915660653053872,
+   -0.3321635049183128
+  ],
+  "2019_walker": [
+   0.0025735609049569092,
+   -0.2571464315239804,
+   -0.682610030253316
+  ],
+  "2020_bobcat": [
+   -0.9382583147951662,
+   0.6658824747710714,
+   -0.39314246275935044
+  ],
+  "2020_creek": [
+   -0.6463272917196144,
+   -0.36103913321379055,
+   -0.5503019880725826
+  ],
+  "2020_czu_lightning_complex": [
+   0.6145391999306128,
+   0.43527387777549326,
+   -0.22827263871037007
+  ],
+  "2020_dolan": [
+   0.21435337874832144,
+   0.4473948372914678,
+   -0.5235596115891136
+  ],
+  "2020_glass": [
+   -0.6546330072073536,
+   0.8222689598193369,
+   -0.7634327509155543
+  ],
+  "2020_july_complex": [
+   -0.5405597719056459,
+   0.5185448544348423,
+   -0.5630598627804646
+  ],
+  "2020_scu_lightning_complex": [
+   -0.11398636842587336,
+   0.8256580719533103,
+   -0.4492575054711946
+  ],
+  "2020_zogg": [
+   -1.292607518729714,
+   0.9111848249122014,
+   -0.4153708448787974
+  ],
+  "2021_caldor": [
+   -0.7707273780580934,
+   0.29301181241965735,
+   -0.5685764692615467
+  ],
+  "2021_knp_complex": [
+   -0.5512621295189675,
+   -0.03632482478125317,
+   -0.740841505248417
+  ]
+ },
+ "per_arm": {
+  "m7_offstate_s1-20260809-053006": {
+   "sigma_gate": 1.3762209151945526,
+   "prior_net_w_gate": [
+    0.2416175353171171,
+    0.034654867784582266,
+    0.5784343423296081
+   ],
+   "prior_net_b_gate": -1.613810203352604,
+   "gate_prior_mean": -1.5,
+   "mu_train": -3.5863913188687517,
+   "mu_heldout": -3.5074306672211013,
+   "log_transfer_term": 0.10866730027488773,
+   "multiplier_heldout_over_train": 1.114791397845352,
+   "E_gate_multiplier_train": 0.0185242473150886,
+   "E_gate_multiplier_heldout": 0.020650671558420642
+  },
+  "m7_offstate_s2-20260809-053317": {
+   "sigma_gate": 0.80052313412199,
+   "prior_net_w_gate": [
+    0.13850514211469378,
+    0.11193668331670761,
+    0.1439160891891528
+   ],
+   "prior_net_b_gate": -0.22257744764309342,
+   "gate_prior_mean": -1.5,
+   "mu_train": -1.85237021288607,
+   "mu_heldout": -1.850571028957183,
+   "log_transfer_term": 0.001440288357614452,
+   "multiplier_heldout_over_train": 1.0014413260710333,
+   "E_gate_multiplier_train": 0.3127201542510262,
+   "E_gate_multiplier_heldout": 0.3131708859622857
+  },
+  "m7_offstate_s3-20260809-062900": {
+   "sigma_gate": 1.2382414694505797,
+   "prior_net_w_gate": [
+    0.19917921471049607,
+    0.05845675145612547,
+    0.5726646505978504
+   ],
+   "prior_net_b_gate": -1.255708628064812,
+   "gate_prior_mean": -1.5,
+   "mu_train": -3.194043967158767,
+   "mu_heldout": -3.1277189945740314,
+   "log_transfer_term": 0.08212633151459253,
+   "multiplier_heldout_over_train": 1.085592945768141,
+   "E_gate_multiplier_train": 0.041238758397041525,
+   "E_gate_multiplier_heldout": 0.04476850520806497
+  },
+  "m7_offstate_s20260808-20260809-063213": {
+   "sigma_gate": 1.2571182658132651,
+   "prior_net_w_gate": [
+    0.4010004825594646,
+    0.21759778484538536,
+    0.5403958852447077
+   ],
+   "prior_net_b_gate": -1.2532847051143226,
+   "gate_prior_mean": -1.5,
+   "mu_train": -3.2359632275251107,
+   "mu_heldout": -3.1896203236451726,
+   "log_transfer_term": 0.058258510958298634,
+   "multiplier_heldout_over_train": 1.0599889790616757,
+   "E_gate_multiplier_train": 0.037710552606791806,
+   "E_gate_multiplier_heldout": 0.03997277015752488
+  },
+  "m7_gate_nofix_s1-20260809-053621": {
+   "sigma_gate": 1.2146721107578056,
+   "prior_net_w_gate": [
+    0.18876522628963463,
+    -0.06412856339180245,
+    0.5888014754126377
+   ],
+   "prior_net_b_gate": -1.633950752356463,
+   "gate_prior_mean": -1.5,
+   "mu_train": -3.613374974625593,
+   "mu_heldout": -3.5134282547286033,
+   "log_transfer_term": 0.1214024932205956,
+   "multiplier_heldout_over_train": 1.1290792676744987,
+   "E_gate_multiplier_train": 0.025956021885114974,
+   "E_gate_multiplier_heldout": 0.02930640618178888
+  },
+  "m7_gate_nofix_s2-20260809-063530": {
+   "sigma_gate": 1.2292691460987115,
+   "prior_net_w_gate": [
+    0.12616932485986776,
+    0.19756282472189246,
+    0.6151562187096352
+   ],
+   "prior_net_b_gate": -1.0385692150779384,
+   "gate_prior_mean": -1.5,
+   "mu_train": -2.919878693908365,
+   "mu_heldout": -2.896915460654921,
+   "log_transfer_term": 0.02822799413312714,
+   "multiplier_heldout_over_train": 1.0286301793347228,
+   "E_gate_multiplier_train": 0.05879106026196293,
+   "E_gate_multiplier_heldout": 0.060474258860541426
+  },
+  "m7_gate_nofix_s3-20260809-063841": {
+   "sigma_gate": 1.6062034159392924,
+   "prior_net_w_gate": [
+    0.1272706582782854,
+    0.2210931616749427,
+    0.507708723835356
+   ],
+   "prior_net_b_gate": -1.4909235269492407,
+   "gate_prior_mean": -1.5,
+   "mu_train": -3.3008928708319942,
+   "mu_heldout": -3.294715376307226,
+   "log_transfer_term": 0.009922312807629192,
+   "multiplier_heldout_over_train": 1.0099717021704324,
+   "E_gate_multiplier_train": 0.018097875956022115,
+   "E_gate_multiplier_heldout": 0.018278342584972997
+  },
+  "m7_gate_nofix_s20260808-20260809-064146": {
+   "sigma_gate": 1.275755885810668,
+   "prior_net_w_gate": [
+    0.3569668340456743,
+    0.19988750415733542,
+    0.37331670192564254
+   ],
+   "prior_net_b_gate": -1.1286146059762687,
+   "gate_prior_mean": -1.5,
+   "mu_train": -2.991417973491121,
+   "mu_heldout": -2.9623951022879087,
+   "log_transfer_term": 0.0370260987606228,
+   "multiplier_heldout_over_train": 1.0377201036933208,
+   "E_gate_multiplier_train": 0.04966064321991657,
+   "E_gate_multiplier_heldout": 0.05153384783164883
+  }
+ },
+ "log_transfer_term_mean": 0.05588391625342101,
+ "multiplier_mean": 1.0574749209606291,
+ "target_if_hypothesis_true": {
+  "observed_extra_gap_log": -0.13022272613202274,
+  "observed_extra_gap": 0.8778998778998779,
+  "note": "gate arms transfer at 0.719 of their train growth, non-gate arms at 0.819. If the conditional prior is the cause, multiplier_mean ~ 0.878."
+ }
+}

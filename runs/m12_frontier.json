@@ -1,0 +1,193 @@
+{
+  "task": "M12 repair (a) -- frontier saturation under the licensed estimand",
+  "estimand": "stage_decay: log(mean over LATE half) - log(mean over EARLY half), windows ordered by t0, middle window dropped when the count is odd",
+  "split_fingerprint": "b3e5dadad01eaef9",
+  "split_before": "b3e5dadad01eaef9",
+  "split_after": "b3e5dadad01eaef9",
+  "scoring_code_before": "bacc6ae6e2f87d13",
+  "scoring_code_after": "bacc6ae6e2f87d13",
+  "common_code_before": "6fd893fbeb438d9c",
+  "common_code_after": "6fd893fbeb438d9c",
+  "fold": "leave-fold-out fold 3 held out; blocks 4/5/6/7/12, one fire per block",
+  "n_heldout_windows": 1372,
+  "source_artifact": "runs/m9_response.json (rows), runs/u0.json (published control)",
+  "control_reproduces_published_truth_stage_decay": {
+    "4": {
+      "recomputed": -2.1751095672564533,
+      "published": -2.1751095672564533,
+      "abs_error": 0.0
+    },
+    "5": {
+      "recomputed": -1.1835529653171932,
+      "published": -1.1835529653171932,
+      "abs_error": 0.0
+    },
+    "6": {
+      "recomputed": 1.4559581484320758,
+      "published": 1.4559581484320758,
+      "abs_error": 0.0
+    },
+    "7": {
+      "recomputed": -0.039845908547199604,
+      "published": -0.039845908547199604,
+      "abs_error": 0.0
+    },
+    "12": {
+      "recomputed": -1.8179291869614398,
+      "published": -1.8179291869614398,
+      "abs_error": 0.0
+    }
+  },
+  "control_max_abs_error": 0.0,
+  "control_can_fail": true,
+  "licensed": {
+    "4": {
+      "fire_id": "2020_creek",
+      "n_windows": 785,
+      "growth": {
+        "outcome": "OK",
+        "stage_decay": -2.1751095672564533,
+        "late_over_early": 0.11359570661896241
+      },
+      "frontier_cells": {
+        "outcome": "OK",
+        "stage_decay": 0.2766150092582258,
+        "late_over_early": 1.3186586019447215
+      },
+      "growth_per_frontier_cell": {
+        "outcome": "OK",
+        "stage_decay": -3.2773889205119153,
+        "late_over_early": 0.03772663555817385
+      },
+      "model_growth_stage_decay": 0.577078094688281
+    },
+    "5": {
+      "fire_id": "2020_czu_lightning_complex",
+      "n_windows": 53,
+      "growth": {
+        "outcome": "OK",
+        "stage_decay": -1.1835529653171932,
+        "late_over_early": 0.30618892508143325
+      },
+      "frontier_cells": {
+        "outcome": "OK",
+        "stage_decay": 1.0363210923867183,
+        "late_over_early": 2.818827708703374
+      },
+      "growth_per_frontier_cell": {
+        "outcome": "OK",
+        "stage_decay": -1.9066610642019755,
+        "late_over_early": 0.14857564385523409
+      },
+      "model_growth_stage_decay": 0.46370770078892065
+    },
+    "6": {
+      "fire_id": "2020_dolan",
+      "n_windows": 346,
+      "growth": {
+        "outcome": "OK",
+        "stage_decay": 1.4559581484320758,
+        "late_over_early": 4.288590604026846
+      },
+      "frontier_cells": {
+        "outcome": "OK",
+        "stage_decay": 0.6783560440598002,
+        "late_over_early": 1.9706354300385116
+      },
+      "growth_per_frontier_cell": {
+        "outcome": "OK",
+        "stage_decay": 0.5463793367283505,
+        "late_over_early": 1.7269888394087605
+      },
+      "model_growth_stage_decay": 1.145256914895064
+    },
+    "7": {
+      "fire_id": "2020_july_complex",
+      "n_windows": 98,
+      "growth": {
+        "outcome": "OK",
+        "stage_decay": -0.039845908547199604,
+        "late_over_early": 0.9609375000000001
+      },
+      "frontier_cells": {
+        "outcome": "OK",
+        "stage_decay": 0.616679634656288,
+        "late_over_early": 1.8527659574468083
+      },
+      "growth_per_frontier_cell": {
+        "outcome": "OK",
+        "stage_decay": -1.3318902413657991,
+        "late_over_early": 0.26397780763290535
+      },
+      "model_growth_stage_decay": 1.0890781552454218
+    },
+    "12": {
+      "fire_id": "2024_borel",
+      "n_windows": 90,
+      "growth": {
+        "outcome": "OK",
+        "stage_decay": -1.8179291869614398,
+        "late_over_early": 0.16236162361623616
+      },
+      "frontier_cells": {
+        "outcome": "OK",
+        "stage_decay": 0.5983606066668767,
+        "late_over_early": 1.8191340782122911
+      },
+      "growth_per_frontier_cell": {
+        "outcome": "OK",
+        "stage_decay": -2.4512949666683452,
+        "late_over_early": 0.08618191150446591
+      },
+      "model_growth_stage_decay": 0.1567661632840771
+    }
+  },
+  "summary": {
+    "n_blocks": 5,
+    "n_blocks_frontier_rises": 5,
+    "n_blocks_growth_falls": 4,
+    "n_blocks_rate_and_growth_agree_in_sign": 5,
+    "n_blocks_rate_decays_more_steeply_than_growth": 5,
+    "n_windows_dropped_for_zero_frontier": 0
+  },
+  "retracted_estimator_for_comparison_only": {
+    "4": {
+      "fire_id": "2020_creek",
+      "n_bins": 8,
+      "growth_first_over_last": 119.28282828282828,
+      "frontier_last_over_first": 2.0875722140153,
+      "endpoint_log_ratio_frontier": 0.7360017706847941
+    },
+    "5": {
+      "fire_id": "2020_czu_lightning_complex",
+      "n_bins": 3,
+      "growth_first_over_last": 12.868055555555555,
+      "frontier_last_over_first": 6.305084745762711,
+      "endpoint_log_ratio_frontier": 1.8413564103674274
+    },
+    "6": {
+      "fire_id": "2020_dolan",
+      "n_bins": 8,
+      "growth_first_over_last": 1.8676767676767676,
+      "frontier_last_over_first": 3.834696395120391,
+      "endpoint_log_ratio_frontier": 1.3440902648327886
+    },
+    "7": {
+      "fire_id": "2020_july_complex",
+      "n_bins": 4,
+      "growth_first_over_last": 2.828108108108108,
+      "frontier_last_over_first": 2.9601318944844124,
+      "endpoint_log_ratio_frontier": 1.0852338262906853
+    },
+    "12": {
+      "fire_id": "2024_borel",
+      "n_bins": 4,
+      "growth_first_over_last": 3.311036789297659,
+      "frontier_last_over_first": 3.483028720626632,
+      "endpoint_log_ratio_frontier": 1.2479022372949231
+    }
+  },
+  "elasticity_not_computed": "ADR-058 (2): the elasticity form is estimator-dependent and is not quoted here.",
+  "not_a_verdict": "stage_decay is NOT LICENSED to adjudicate (ADR-060 (7.1), C6.6). This is a descriptive comparison of two candidate targets, and it decides nothing.",
+  "code_fingerprints_agree": true
+}

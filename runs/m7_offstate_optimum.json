@@ -1,0 +1,23 @@
+{
+ "split_fingerprint": "4848f491e8d588fa",
+ "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/m6_fair_s1-20260809-023104",
+ "w_nll": 1.0,
+ "w_brier": 2.0,
+ "off_log_multiplier": -12.0,
+ "n_windows": 2358,
+ "n_dormant": 1408,
+ "n_growing": 950,
+ "mean_d_loss_dormant": -0.001969229316980382,
+ "mean_d_loss_growing": 0.0561674482531714,
+ "loss_asymmetry_ratio": 28.522553350616686,
+ "n_windows_where_off_alone_helps": 1438,
+ "n_dormant_where_off_alone_helps": 1408,
+ "n_growing_where_off_alone_helps": 30,
+ "optimal_k": 205,
+ "optimal_total_loss_change": -0.18248136756368358,
+ "optimal_dormant_off_rate": 0.1434659090909091,
+ "optimal_false_off_rate": 0.003157894736842105,
+ "optimal_precision": 0.9853658536585366,
+ "oracle_dormant_off_rate": 1.0,
+ "note": "`optimal_*` is the best policy of the form 'switch off the top k windows by a leave-one-fire-out dormancy score', evaluated with a HARD gate \u2014 an upper bound on what any p(z_t|weather) could buy, since a stochastic prior leaves some members on. `oracle_*` switches off exactly the windows where doing so helps, which no covariate-driven gate can reach."
+}

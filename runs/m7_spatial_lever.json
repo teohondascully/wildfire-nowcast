@@ -1,0 +1,139 @@
+{
+ "split_fingerprint": "4848f491e8d588fa",
+ "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/m6_fair_s1-20260809-023104",
+ "sigma_global_fitted": [
+  0.12556546131154864,
+  0.14691826817463802,
+  0.11339296564046918
+ ],
+ "mode_names": [
+  "intensity_grad_east",
+  "intensity_grad_north",
+  "intensity_radial"
+ ],
+ "n_windows_pooled": 2358,
+ "rms_lever_pooled": [
+  0.30128670180564887,
+  0.2953004704211549,
+  1.1450951407989556
+ ],
+ "mean_lever_pooled": [
+  0.08579901584171709,
+  -0.12229533965499323,
+  1.0033634295244707
+ ],
+ "abs_lever_p90": [
+  0.48025604742547184,
+  0.4770922875963644,
+  1.4562019629824783
+ ],
+ "predicted_log_area_sd_gain_if_sigma_equal_R2": 1.085346048279479,
+ "predicted_log_area_sd_gain_if_sigma_equal_R3": 1.5777258716257592,
+ "per_fire": {
+  "2019_kincade": {
+   "n_windows": 131,
+   "mean_lever": [
+    0.15517326352627206,
+    0.059623969581738115,
+    1.1773003382775369
+   ],
+   "rms_lever": [
+    0.3770785007961495,
+    0.4488512247007511,
+    1.2597185607711512
+   ]
+  },
+  "2019_walker": {
+   "n_windows": 190,
+   "mean_lever": [
+    0.10862898261540943,
+    -0.06787314469735015,
+    1.3227038957386617
+   ],
+   "rms_lever": [
+    0.321721826148695,
+    0.25070841606977096,
+    1.4252591409315851
+   ]
+  },
+  "2020_glass": {
+   "n_windows": 186,
+   "mean_lever": [
+    0.18161686763793655,
+    -0.16364503674902892,
+    1.2357783873590584
+   ],
+   "rms_lever": [
+    0.3209691556391499,
+    0.3753870911000955,
+    1.2878478325503881
+   ]
+  },
+  "2020_july_complex": {
+   "n_windows": 195,
+   "mean_lever": [
+    0.2498962677906829,
+    -0.3853238285824097,
+    1.5249980505234346
+   ],
+   "rms_lever": [
+    0.33742243470792643,
+    0.49194244106052576,
+    1.7352090631037524
+   ]
+  },
+  "2020_scu_lightning_complex": {
+   "n_windows": 342,
+   "mean_lever": [
+    0.2263930846853041,
+    -0.08041196506449612,
+    0.7101477978850511
+   ],
+   "rms_lever": [
+    0.34658565827720694,
+    0.20825727084443446,
+    0.8017964844647233
+   ]
+  },
+  "2020_zogg": {
+   "n_windows": 67,
+   "mean_lever": [
+    -0.23302293156594125,
+    -0.3396776831688523,
+    0.9498827951392156
+   ],
+   "rms_lever": [
+    0.3263643836100371,
+    0.47560221953819976,
+    1.0192806155874412
+   ]
+  },
+  "2021_caldor": {
+   "n_windows": 617,
+   "mean_lever": [
+    -0.012506354754001487,
+    -0.04332108673683373,
+    0.8828309237521634
+   ],
+   "rms_lever": [
+    0.2951684584670238,
+    0.18287384275532154,
+    1.0029532995403712
+   ]
+  },
+  "2021_knp_complex": {
+   "n_windows": 630,
+   "mean_lever": [
+    0.03926807598702128,
+    -0.15987733758618836,
+    0.923717632233402
+   ],
+   "rms_lever": [
+    0.22682944658078832,
+    0.26205677773059494,
+    1.0482945313928285
+   ]
+  }
+ },
+ "note": "lever_m = <phi_m>_lambda on the model's own one-step hazard restricted to the growth band. d log(area) / d c_m = lever_m, so a spatial mode with scale sigma_m contributes |lever_m| * sigma_m to the SD of log area, against the global mode's sigma_0 * 1. A lever of 0 would mean the mode is first-order useless for AREA however well it moves SHAPE \u2014 which is what G3's area_dispersion_ratio scores."
+}

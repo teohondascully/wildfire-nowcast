@@ -1,0 +1,2402 @@
+{
+ "task": "S1 \u2014 arm S against arm A on ADR-061 (6)'s paired per-block sign criterion",
+ "criterion": "over 14 spatial blocks under FULL leave-fold-out CV, count the blocks where arm S is CLOSER to truth's stage_decay than arm A. BAR >= 11/14 (exact one-sided p = 0.0287). Fixed in ADR-061 (6); not re-derived here.",
+ "interpretation_limit": {
+  "citation": "ADR-062 (3), declared before this number existed",
+  "if_the_bar_clears": "a count >= 11/14 establishes that arm S lands CLOSER TO TRUTH PER BLOCK than arm A on stage_decay. It establishes NOTHING about structure. It may NOT be described as the model having learned fire stage.",
+  "why": "arm S decelerates everywhere, so it lands closer on the decelerating blocks and further on the accelerating ones. A uniform shift in a useful direction can clear a per-block closeness count without reproducing any structure at all. The quantity that speaks to structure is SIGN AGREEMENT with truth, reported here and adjudicating nothing.",
+  "non_adjudicating": "`stage_decay` is NOT a licensed gate criterion (C6.6 [v2.15]); `eval.stage.licence()` is called on every run of this script and returns NOT_LICENSED. This artifact is therefore a per-block COMPARISON, not a gate."
+ },
+ "cv_matrix": {
+  "n_members": 15,
+  "members": {
+   "fold0_arm_a_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f0-20260821-181817",
+    "split_fingerprint": "485706acb537b9ac"
+   },
+   "fold1_arm_a_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f1-20260821-184356",
+    "split_fingerprint": "606d5904b7254f1a"
+   },
+   "fold2_arm_a_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f2-20260821-190545",
+    "split_fingerprint": "27d06a388cfd8946"
+   },
+   "fold3_arm_a_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f3-20260821-180258",
+    "split_fingerprint": "b3e5dadad01eaef9"
+   },
+   "fold4_arm_a_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f4-20260821-192638",
+    "split_fingerprint": "5847b50cda6e0e9a"
+   },
+   "fold0_arm_s_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f0-20260821-183222",
+    "split_fingerprint": "485706acb537b9ac"
+   },
+   "fold1_arm_s_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f1-20260821-185509",
+    "split_fingerprint": "606d5904b7254f1a"
+   },
+   "fold2_arm_s_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f2-20260821-191656",
+    "split_fingerprint": "27d06a388cfd8946"
+   },
+   "fold3_arm_s_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1-20260816-015710",
+    "split_fingerprint": "b3e5dadad01eaef9"
+   },
+   "fold4_arm_s_seed1": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f4-20260821-193656",
+    "split_fingerprint": "5847b50cda6e0e9a"
+   },
+   "fold0_arm_a_seed2": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f0-20260821-194836",
+    "split_fingerprint": "485706acb537b9ac"
+   },
+   "fold1_arm_a_seed2": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f1-20260821-200024",
+    "split_fingerprint": "606d5904b7254f1a"
+   },
+   "fold2_arm_a_seed2": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f2-20260821-202033",
+    "split_fingerprint": "27d06a388cfd8946"
+   },
+   "fold3_arm_a_seed2": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f3-20260821-202903",
+    "split_fingerprint": "b3e5dadad01eaef9"
+   },
+   "fold4_arm_a_seed2": {
+    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f4-20260821-204046",
+    "split_fingerprint": "5847b50cda6e0e9a"
+   }
+  },
+  "clause": "C8.1 [v2.16] (ADR-062 (6))",
+  "n_folds": 5,
+  "n_arms": 3,
+  "fold_fingerprints": {
+   "0": "485706acb537b9ac",
+   "1": "606d5904b7254f1a",
+   "2": "27d06a388cfd8946",
+   "3": "b3e5dadad01eaef9",
+   "4": "5847b50cda6e0e9a"
+  },
+  "folds": {
+   "0": {
+    "heldout_blocks": [
+     2
+    ],
+    "arms": {
+     "a_seed1": {
+      "rows_file": "runs/s1_rows_a_s1_f0.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f0-20260821-181817",
+      "split_fingerprint": "485706acb537b9ac",
+      "split": {
+       "fingerprint": "485706acb537b9ac",
+       "n_fires": 21,
+       "train_folds": [
+        1,
+        2,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mosquito",
+        "2023_york",
+        "2024_borel",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2020_zogg",
+        "2022_mckinney",
+        "2023_kelly"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        2
+       ],
+       "n_heldout_blocks": 1,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold0.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [0] hold out 1 spatial block(s) [2], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 1
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_zogg",
+       "2022_mckinney",
+       "2023_kelly"
+      ],
+      "n_rows": 960,
+      "blocks": [
+       2
+      ],
+      "elapsed_s": 138.2,
+      "seconds_per_window": 0.144,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f0-20260821-181817",
+       "training_split_fingerprint": "485706acb537b9ac",
+       "evaluation_split_fingerprint": "485706acb537b9ac",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     },
+     "s_seed1": {
+      "rows_file": "runs/s1_rows_s_s1_f0.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f0-20260821-183222",
+      "split_fingerprint": "485706acb537b9ac",
+      "split": {
+       "fingerprint": "485706acb537b9ac",
+       "n_fires": 21,
+       "train_folds": [
+        1,
+        2,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mosquito",
+        "2023_york",
+        "2024_borel",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2020_zogg",
+        "2022_mckinney",
+        "2023_kelly"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        2
+       ],
+       "n_heldout_blocks": 1,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold0.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [0] hold out 1 spatial block(s) [2], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 1
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_zogg",
+       "2022_mckinney",
+       "2023_kelly"
+      ],
+      "n_rows": 960,
+      "blocks": [
+       2
+      ],
+      "elapsed_s": 108.5,
+      "seconds_per_window": 0.113,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f0-20260821-183222",
+       "training_split_fingerprint": "485706acb537b9ac",
+       "evaluation_split_fingerprint": "485706acb537b9ac",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": {
+       "log_amplitude_coeff": {
+        "z": 0.6189262866973877,
+        "z^2": -0.31816810369491577,
+        "z^3": -0.13342978060245514
+       },
+       "log_reach_coeff_z": -0.648848831653595,
+       "d_log_hazard_d_log_area_at_centre": 0.30946314334869385,
+       "d_log_reach_d_log_area": -0.3244244158267975,
+       "centre_log1p_cells": 7.0,
+       "scale": 2.0,
+       "n_parameters": 4
+      }
+     },
+     "a_seed2": {
+      "rows_file": "runs/s1_rows_a_s2_f0.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f0-20260821-194836",
+      "split_fingerprint": "485706acb537b9ac",
+      "split": {
+       "fingerprint": "485706acb537b9ac",
+       "n_fires": 21,
+       "train_folds": [
+        1,
+        2,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mosquito",
+        "2023_york",
+        "2024_borel",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2020_zogg",
+        "2022_mckinney",
+        "2023_kelly"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        2
+       ],
+       "n_heldout_blocks": 1,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold0.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [0] hold out 1 spatial block(s) [2], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 1
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_zogg",
+       "2022_mckinney",
+       "2023_kelly"
+      ],
+      "n_rows": 960,
+      "blocks": [
+       2
+      ],
+      "elapsed_s": 125.2,
+      "seconds_per_window": 0.1304,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f0-20260821-194836",
+       "training_split_fingerprint": "485706acb537b9ac",
+       "evaluation_split_fingerprint": "485706acb537b9ac",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     }
+    }
+   },
+   "1": {
+    "heldout_blocks": [
+     1
+    ],
+    "arms": {
+     "a_seed1": {
+      "rows_file": "runs/s1_rows_a_s1_f1.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f1-20260821-184356",
+      "split_fingerprint": "606d5904b7254f1a",
+      "split": {
+       "fingerprint": "606d5904b7254f1a",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        2,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_borel",
+        "2024_bridge",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2019_walker",
+        "2024_park"
+       ],
+       "train_blocks": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        1
+       ],
+       "n_heldout_blocks": 1,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold1.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [1] hold out 1 spatial block(s) [1], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 1
+       }
+      },
+      "heldout_fire_ids": [
+       "2019_walker",
+       "2024_park"
+      ],
+      "n_rows": 575,
+      "blocks": [
+       1
+      ],
+      "elapsed_s": 89.6,
+      "seconds_per_window": 0.1558,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f1-20260821-184356",
+       "training_split_fingerprint": "606d5904b7254f1a",
+       "evaluation_split_fingerprint": "606d5904b7254f1a",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     },
+     "s_seed1": {
+      "rows_file": "runs/s1_rows_s_s1_f1.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f1-20260821-185509",
+      "split_fingerprint": "606d5904b7254f1a",
+      "split": {
+       "fingerprint": "606d5904b7254f1a",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        2,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_borel",
+        "2024_bridge",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2019_walker",
+        "2024_park"
+       ],
+       "train_blocks": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        1
+       ],
+       "n_heldout_blocks": 1,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold1.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [1] hold out 1 spatial block(s) [1], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 1
+       }
+      },
+      "heldout_fire_ids": [
+       "2019_walker",
+       "2024_park"
+      ],
+      "n_rows": 575,
+      "blocks": [
+       1
+      ],
+      "elapsed_s": 111.6,
+      "seconds_per_window": 0.1941,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f1-20260821-185509",
+       "training_split_fingerprint": "606d5904b7254f1a",
+       "evaluation_split_fingerprint": "606d5904b7254f1a",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": {
+       "log_amplitude_coeff": {
+        "z": 0.5567249059677124,
+        "z^2": -0.1748519241809845,
+        "z^3": -0.01888168230652809
+       },
+       "log_reach_coeff_z": -0.6598072648048401,
+       "d_log_hazard_d_log_area_at_centre": 0.2783624529838562,
+       "d_log_reach_d_log_area": -0.32990363240242004,
+       "centre_log1p_cells": 7.0,
+       "scale": 2.0,
+       "n_parameters": 4
+      }
+     },
+     "a_seed2": {
+      "rows_file": "runs/s1_rows_a_s2_f1.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f1-20260821-200024",
+      "split_fingerprint": "606d5904b7254f1a",
+      "split": {
+       "fingerprint": "606d5904b7254f1a",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        2,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_borel",
+        "2024_bridge",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2019_walker",
+        "2024_park"
+       ],
+       "train_blocks": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        1
+       ],
+       "n_heldout_blocks": 1,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold1.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [1] hold out 1 spatial block(s) [1], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 1
+       }
+      },
+      "heldout_fire_ids": [
+       "2019_walker",
+       "2024_park"
+      ],
+      "n_rows": 575,
+      "blocks": [
+       1
+      ],
+      "elapsed_s": 294.1,
+      "seconds_per_window": 0.5115,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f1-20260821-200024",
+       "training_split_fingerprint": "606d5904b7254f1a",
+       "evaluation_split_fingerprint": "606d5904b7254f1a",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     }
+    }
+   },
+   "2": {
+    "heldout_blocks": [
+     3,
+     9,
+     13
+    ],
+    "arms": {
+     "a_seed1": {
+      "rows_file": "runs/s1_rows_a_s1_f2.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f2-20260821-190545",
+      "split_fingerprint": "27d06a388cfd8946",
+      "split": {
+       "fingerprint": "27d06a388cfd8946",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_borel",
+        "2024_park"
+       ],
+       "heldout_fire_ids": [
+        "2020_bobcat",
+        "2021_knp_complex",
+        "2024_bridge",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12
+       ],
+       "heldout_blocks": [
+        3,
+        9,
+        13
+       ],
+       "n_heldout_blocks": 3,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold2.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [2] hold out 3 spatial block(s) [3, 9, 13], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 3
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_bobcat",
+       "2021_knp_complex",
+       "2024_bridge",
+       "2025_gifford",
+       "2025_madre"
+      ],
+      "n_rows": 987,
+      "blocks": [
+       3,
+       9,
+       13
+      ],
+      "elapsed_s": 108.4,
+      "seconds_per_window": 0.1098,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f2-20260821-190545",
+       "training_split_fingerprint": "27d06a388cfd8946",
+       "evaluation_split_fingerprint": "27d06a388cfd8946",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     },
+     "s_seed1": {
+      "rows_file": "runs/s1_rows_s_s1_f2.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f2-20260821-191656",
+      "split_fingerprint": "27d06a388cfd8946",
+      "split": {
+       "fingerprint": "27d06a388cfd8946",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_borel",
+        "2024_park"
+       ],
+       "heldout_fire_ids": [
+        "2020_bobcat",
+        "2021_knp_complex",
+        "2024_bridge",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12
+       ],
+       "heldout_blocks": [
+        3,
+        9,
+        13
+       ],
+       "n_heldout_blocks": 3,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold2.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [2] hold out 3 spatial block(s) [3, 9, 13], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 3
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_bobcat",
+       "2021_knp_complex",
+       "2024_bridge",
+       "2025_gifford",
+       "2025_madre"
+      ],
+      "n_rows": 987,
+      "blocks": [
+       3,
+       9,
+       13
+      ],
+      "elapsed_s": 91.5,
+      "seconds_per_window": 0.0927,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f2-20260821-191656",
+       "training_split_fingerprint": "27d06a388cfd8946",
+       "evaluation_split_fingerprint": "27d06a388cfd8946",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": {
+       "log_amplitude_coeff": {
+        "z": 0.41484513878822327,
+        "z^2": -0.22220484912395477,
+        "z^3": -0.06721591204404831
+       },
+       "log_reach_coeff_z": -0.5979607105255127,
+       "d_log_hazard_d_log_area_at_centre": 0.20742256939411163,
+       "d_log_reach_d_log_area": -0.29898035526275635,
+       "centre_log1p_cells": 7.0,
+       "scale": 2.0,
+       "n_parameters": 4
+      }
+     },
+     "a_seed2": {
+      "rows_file": "runs/s1_rows_a_s2_f2.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f2-20260821-202033",
+      "split_fingerprint": "27d06a388cfd8946",
+      "split": {
+       "fingerprint": "27d06a388cfd8946",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        3,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_glass",
+        "2020_july_complex",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_borel",
+        "2024_park"
+       ],
+       "heldout_fire_ids": [
+        "2020_bobcat",
+        "2021_knp_complex",
+        "2024_bridge",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12
+       ],
+       "heldout_blocks": [
+        3,
+        9,
+        13
+       ],
+       "n_heldout_blocks": 3,
+       "unreadable_fires": [],
+       "c6_3_satisfied": false,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold2.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       },
+       "c6_3_expected_false": {
+        "citation": "ADR-062 (7), corrected by ADR-066 (2)",
+        "why": "leave-fold-out fold(s) [2] hold out 3 spatial block(s) [3, 9, 13], below C6.3's minimum of four. This fold is one cell of a CV matrix that pools all 14 blocks and adjudicates nothing gate-shaped, so the shortfall is a property of the partition and not of this run. It stays FALSE: no G2-shaped number may be quoted from this fold alone.",
+        "clause": "C6.3 (addition) [v2.16]",
+        "min_heldout_blocks_for_g2": 4,
+        "n_heldout_blocks": 3
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_bobcat",
+       "2021_knp_complex",
+       "2024_bridge",
+       "2025_gifford",
+       "2025_madre"
+      ],
+      "n_rows": 987,
+      "blocks": [
+       3,
+       9,
+       13
+      ],
+      "elapsed_s": 93.6,
+      "seconds_per_window": 0.0949,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f2-20260821-202033",
+       "training_split_fingerprint": "27d06a388cfd8946",
+       "evaluation_split_fingerprint": "27d06a388cfd8946",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     }
+    }
+   },
+   "3": {
+    "heldout_blocks": [
+     4,
+     5,
+     6,
+     7,
+     12
+    ],
+    "arms": {
+     "a_seed1": {
+      "rows_file": "runs/s1_rows_a_s1_f3.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f3-20260821-180258",
+      "split_fingerprint": "b3e5dadad01eaef9",
+      "split": {
+       "fingerprint": "b3e5dadad01eaef9",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        2,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_bobcat",
+        "2020_glass",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_july_complex",
+        "2024_borel"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        2,
+        3,
+        8,
+        9,
+        10,
+        11,
+        13
+       ],
+       "heldout_blocks": [
+        4,
+        5,
+        6,
+        7,
+        12
+       ],
+       "n_heldout_blocks": 5,
+       "unreadable_fires": [],
+       "c6_3_satisfied": true,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold3.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_creek",
+       "2020_czu_lightning_complex",
+       "2020_dolan",
+       "2020_july_complex",
+       "2024_borel"
+      ],
+      "n_rows": 1372,
+      "blocks": [
+       4,
+       5,
+       6,
+       7,
+       12
+      ],
+      "elapsed_s": 229.4,
+      "seconds_per_window": 0.1672,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f3-20260821-180258",
+       "training_split_fingerprint": "b3e5dadad01eaef9",
+       "evaluation_split_fingerprint": "b3e5dadad01eaef9",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     },
+     "s_seed1": {
+      "rows_file": "runs/s1_rows_s_s1_f3.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1-20260816-015710",
+      "split_fingerprint": "b3e5dadad01eaef9",
+      "split": {
+       "fingerprint": "b3e5dadad01eaef9",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        2,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_bobcat",
+        "2020_glass",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_july_complex",
+        "2024_borel"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        2,
+        3,
+        8,
+        9,
+        10,
+        11,
+        13
+       ],
+       "heldout_blocks": [
+        4,
+        5,
+        6,
+        7,
+        12
+       ],
+       "n_heldout_blocks": 5,
+       "unreadable_fires": [],
+       "c6_3_satisfied": true,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold3.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_creek",
+       "2020_czu_lightning_complex",
+       "2020_dolan",
+       "2020_july_complex",
+       "2024_borel"
+      ],
+      "n_rows": 1372,
+      "blocks": [
+       4,
+       5,
+       6,
+       7,
+       12
+      ],
+      "elapsed_s": 220.6,
+      "seconds_per_window": 0.1608,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1-20260816-015710",
+       "training_split_fingerprint": "b3e5dadad01eaef9",
+       "evaluation_split_fingerprint": "b3e5dadad01eaef9",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": {
+       "log_amplitude_coeff": {
+        "z": 0.5996065139770508,
+        "z^2": -0.07210949808359146,
+        "z^3": -0.1036657989025116
+       },
+       "log_reach_coeff_z": -0.6331305503845215,
+       "d_log_hazard_d_log_area_at_centre": 0.2998032569885254,
+       "d_log_reach_d_log_area": -0.31656527519226074,
+       "centre_log1p_cells": 7.0,
+       "scale": 2.0,
+       "n_parameters": 4
+      }
+     },
+     "a_seed2": {
+      "rows_file": "runs/s1_rows_a_s2_f3.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f3-20260821-202903",
+      "split_fingerprint": "b3e5dadad01eaef9",
+      "split": {
+       "fingerprint": "b3e5dadad01eaef9",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        2,
+        4
+       ],
+       "train_fire_ids": [
+        "2019_kincade",
+        "2019_walker",
+        "2020_bobcat",
+        "2020_glass",
+        "2020_scu_lightning_complex",
+        "2020_zogg",
+        "2021_caldor",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2022_mosquito",
+        "2023_kelly",
+        "2023_york",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_july_complex",
+        "2024_borel"
+       ],
+       "train_blocks": [
+        0,
+        1,
+        2,
+        3,
+        8,
+        9,
+        10,
+        11,
+        13
+       ],
+       "heldout_blocks": [
+        4,
+        5,
+        6,
+        7,
+        12
+       ],
+       "n_heldout_blocks": 5,
+       "unreadable_fires": [],
+       "c6_3_satisfied": true,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold3.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       }
+      },
+      "heldout_fire_ids": [
+       "2020_creek",
+       "2020_czu_lightning_complex",
+       "2020_dolan",
+       "2020_july_complex",
+       "2024_borel"
+      ],
+      "n_rows": 1372,
+      "blocks": [
+       4,
+       5,
+       6,
+       7,
+       12
+      ],
+      "elapsed_s": 207.1,
+      "seconds_per_window": 0.1509,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f3-20260821-202903",
+       "training_split_fingerprint": "b3e5dadad01eaef9",
+       "evaluation_split_fingerprint": "b3e5dadad01eaef9",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     }
+    }
+   },
+   "4": {
+    "heldout_blocks": [
+     0,
+     8,
+     10,
+     11
+    ],
+    "arms": {
+     "a_seed1": {
+      "rows_file": "runs/s1_rows_a_s1_f4.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f4-20260821-192638",
+      "split_fingerprint": "5847b50cda6e0e9a",
+      "split": {
+       "fingerprint": "5847b50cda6e0e9a",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        2,
+        3
+       ],
+       "train_fire_ids": [
+        "2019_walker",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_july_complex",
+        "2020_zogg",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2023_kelly",
+        "2024_borel",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2019_kincade",
+        "2020_glass",
+        "2020_scu_lightning_complex",
+        "2021_caldor",
+        "2022_mosquito",
+        "2023_york"
+       ],
+       "train_blocks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        9,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        0,
+        8,
+        10,
+        11
+       ],
+       "n_heldout_blocks": 4,
+       "unreadable_fires": [],
+       "c6_3_satisfied": true,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold4.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       }
+      },
+      "heldout_fire_ids": [
+       "2019_kincade",
+       "2020_glass",
+       "2020_scu_lightning_complex",
+       "2021_caldor",
+       "2022_mosquito",
+       "2023_york"
+      ],
+      "n_rows": 1452,
+      "blocks": [
+       0,
+       8,
+       10,
+       11
+      ],
+      "elapsed_s": 186.0,
+      "seconds_per_window": 0.1281,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f4-20260821-192638",
+       "training_split_fingerprint": "5847b50cda6e0e9a",
+       "evaluation_split_fingerprint": "5847b50cda6e0e9a",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     },
+     "s_seed1": {
+      "rows_file": "runs/s1_rows_s_s1_f4.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f4-20260821-193656",
+      "split_fingerprint": "5847b50cda6e0e9a",
+      "split": {
+       "fingerprint": "5847b50cda6e0e9a",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        2,
+        3
+       ],
+       "train_fire_ids": [
+        "2019_walker",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_july_complex",
+        "2020_zogg",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2023_kelly",
+        "2024_borel",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2019_kincade",
+        "2020_glass",
+        "2020_scu_lightning_complex",
+        "2021_caldor",
+        "2022_mosquito",
+        "2023_york"
+       ],
+       "train_blocks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        9,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        0,
+        8,
+        10,
+        11
+       ],
+       "n_heldout_blocks": 4,
+       "unreadable_fires": [],
+       "c6_3_satisfied": true,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold4.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       }
+      },
+      "heldout_fire_ids": [
+       "2019_kincade",
+       "2020_glass",
+       "2020_scu_lightning_complex",
+       "2021_caldor",
+       "2022_mosquito",
+       "2023_york"
+      ],
+      "n_rows": 1452,
+      "blocks": [
+       0,
+       8,
+       10,
+       11
+      ],
+      "elapsed_s": 222.0,
+      "seconds_per_window": 0.1529,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f4-20260821-193656",
+       "training_split_fingerprint": "5847b50cda6e0e9a",
+       "evaluation_split_fingerprint": "5847b50cda6e0e9a",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": {
+       "log_amplitude_coeff": {
+        "z": 0.6301460862159729,
+        "z^2": -0.1505737155675888,
+        "z^3": -0.08374013006687164
+       },
+       "log_reach_coeff_z": -0.5930308103561401,
+       "d_log_hazard_d_log_area_at_centre": 0.31507304310798645,
+       "d_log_reach_d_log_area": -0.29651540517807007,
+       "centre_log1p_cells": 7.0,
+       "scale": 2.0,
+       "n_parameters": 4
+      }
+     },
+     "a_seed2": {
+      "rows_file": "runs/s1_rows_a_s2_f4.json",
+      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f4-20260821-204046",
+      "split_fingerprint": "5847b50cda6e0e9a",
+      "split": {
+       "fingerprint": "5847b50cda6e0e9a",
+       "n_fires": 21,
+       "train_folds": [
+        0,
+        1,
+        2,
+        3
+       ],
+       "train_fire_ids": [
+        "2019_walker",
+        "2020_bobcat",
+        "2020_creek",
+        "2020_czu_lightning_complex",
+        "2020_dolan",
+        "2020_july_complex",
+        "2020_zogg",
+        "2021_knp_complex",
+        "2022_mckinney",
+        "2023_kelly",
+        "2024_borel",
+        "2024_bridge",
+        "2024_park",
+        "2025_gifford",
+        "2025_madre"
+       ],
+       "heldout_fire_ids": [
+        "2019_kincade",
+        "2020_glass",
+        "2020_scu_lightning_complex",
+        "2021_caldor",
+        "2022_mosquito",
+        "2023_york"
+       ],
+       "train_blocks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        9,
+        12,
+        13
+       ],
+       "heldout_blocks": [
+        0,
+        8,
+        10,
+        11
+       ],
+       "n_heldout_blocks": 4,
+       "unreadable_fires": [],
+       "c6_3_satisfied": true,
+       "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
+       "split_context": {
+        "stats_path": "data/norm_stats_heldout_fold4.json",
+        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "clause": "C8.2 [v2.16] (ADR-062 (5))"
+       }
+      },
+      "heldout_fire_ids": [
+       "2019_kincade",
+       "2020_glass",
+       "2020_scu_lightning_complex",
+       "2021_caldor",
+       "2022_mosquito",
+       "2023_york"
+      ],
+      "n_rows": 1452,
+      "blocks": [
+       0,
+       8,
+       10,
+       11
+      ],
+      "elapsed_s": 119.0,
+      "seconds_per_window": 0.0819,
+      "model_split_check": {
+       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f4-20260821-204046",
+       "training_split_fingerprint": "5847b50cda6e0e9a",
+       "evaluation_split_fingerprint": "5847b50cda6e0e9a",
+       "match": true,
+       "source": "model.provenance"
+      },
+      "stage_report": null
+     }
+    }
+   }
+  },
+  "why_members_are_cells_not_folds": "C8.1's count clause exists so a fold that silently does not exist cannot move the denominator of a >= 11/14 count. Declaring one member per CELL (fold x arm) checks the same property for every run that contributed a number, which is strictly more than declaring five. The cost is that `cv_matrix_members_distinct` REPORTS duplicates: 15 members carry 5 fingerprints, three cells per fold by design. That clause is REPORTING precisely for this case (the null rung IS the same split twice, ADR-062 (4)) and the artifact says which it is, as the clause asks.",
+  "expected_reporting_flags": [
+   "C8.1.cv_matrix_members_distinct \u2014 15 members, 5 distinct fingerprints, 3 cells per fold (arm A seed 1, arm S seed 1, arm A seed 2). By design, not a defect."
+  ]
+ },
+ "matrix_integrity": {
+  "arm_a_seed1": {
+   "ok": true,
+   "problems": [],
+   "n_rows": 5346,
+   "n_fires": 21,
+   "n_blocks": 14,
+   "n_folds": 5,
+   "n_duplicate_window_keys": 0,
+   "all_rows_are_heldout": true
+  },
+  "arm_s_seed1": {
+   "ok": true,
+   "problems": [],
+   "n_rows": 5346,
+   "n_fires": 21,
+   "n_blocks": 14,
+   "n_folds": 5,
+   "n_duplicate_window_keys": 0,
+   "all_rows_are_heldout": true
+  },
+  "arm_a_seed2": {
+   "ok": true,
+   "problems": [],
+   "n_rows": 5346,
+   "n_fires": 21,
+   "n_blocks": 14,
+   "n_folds": 5,
+   "n_duplicate_window_keys": 0,
+   "all_rows_are_heldout": true
+  }
+ },
+ "common_code_before": "0ebd997542cb02af",
+ "common_code_after": "0ebd997542cb02af",
+ "scoring_code_before": "85ecff60dff714b8",
+ "scoring_code_after": "85ecff60dff714b8",
+ "inputs": {
+  "arm_a": {
+   "rows_files": [
+    "runs/s1_rows_a_s1_f0.json",
+    "runs/s1_rows_a_s1_f1.json",
+    "runs/s1_rows_a_s1_f2.json",
+    "runs/s1_rows_a_s1_f3.json",
+    "runs/s1_rows_a_s1_f4.json"
+   ],
+   "n_rows": 5346
+  },
+  "arm_s": {
+   "rows_files": [
+    "runs/s1_rows_s_s1_f0.json",
+    "runs/s1_rows_s_s1_f1.json",
+    "runs/s1_rows_s_s1_f2.json",
+    "runs/s1_rows_s_s1_f3.json",
+    "runs/s1_rows_s_s1_f4.json"
+   ],
+   "n_rows": 5346
+  },
+  "null": {
+   "rows_files": [
+    "runs/s1_rows_a_s2_f0.json",
+    "runs/s1_rows_a_s2_f1.json",
+    "runs/s1_rows_a_s2_f2.json",
+    "runs/s1_rows_a_s2_f3.json",
+    "runs/s1_rows_a_s2_f4.json"
+   ],
+   "n_rows": 5346
+  }
+ },
+ "cost_gate": {
+  "wall_clock": {
+   "outcome": "MEASURED",
+   "started_utc": "2026-08-21T18:04:33Z",
+   "finished_utc": "2026-08-21T20:42:47Z",
+   "wall_clock_h": 2.64,
+   "note": "the matrix only; the arm-A bitwise identity control (~9 min) and the aggregation are not in it"
+  },
+  "per_process_seconds_are_contended": true,
+  "outcome": "MEASURED",
+  "trainings": {
+   "s1_train_a_s1.json": {
+    "arm": "a",
+    "seed": 1,
+    "elapsed_s": 476.7,
+    "n_train_fires": 16
+   },
+   "s1_train_a_s1_f0.json": {
+    "arm": "a",
+    "seed": 1,
+    "elapsed_s": 823.0,
+    "n_train_fires": 18
+   },
+   "s1_train_a_s1_f1.json": {
+    "arm": "a",
+    "seed": 1,
+    "elapsed_s": 692.7,
+    "n_train_fires": 19
+   },
+   "s1_train_a_s1_f2.json": {
+    "arm": "a",
+    "seed": 1,
+    "elapsed_s": 634.8,
+    "n_train_fires": 16
+   },
+   "s1_train_a_s1_f4.json": {
+    "arm": "a",
+    "seed": 1,
+    "elapsed_s": 581.3,
+    "n_train_fires": 15
+   },
+   "s1_train_a_s2_f0.json": {
+    "arm": "a",
+    "seed": 2,
+    "elapsed_s": 698.7,
+    "n_train_fires": 18
+   },
+   "s1_train_a_s2_f1.json": {
+    "arm": "a",
+    "seed": 2,
+    "elapsed_s": 707.4,
+    "n_train_fires": 19
+   },
+   "s1_train_a_s2_f2.json": {
+    "arm": "a",
+    "seed": 2,
+    "elapsed_s": 1206.7,
+    "n_train_fires": 16
+   },
+   "s1_train_a_s2_f3.json": {
+    "arm": "a",
+    "seed": 2,
+    "elapsed_s": 509.0,
+    "n_train_fires": 16
+   },
+   "s1_train_a_s2_f4.json": {
+    "arm": "a",
+    "seed": 2,
+    "elapsed_s": 701.1,
+    "n_train_fires": 15
+   },
+   "s1_train_s_s1.json": {
+    "arm": "s",
+    "seed": 1,
+    "elapsed_s": 486.8,
+    "n_train_fires": 16
+   },
+   "s1_train_s_s1_f0.json": {
+    "arm": "s",
+    "seed": 1,
+    "elapsed_s": 843.9,
+    "n_train_fires": 18
+   },
+   "s1_train_s_s1_f1.json": {
+    "arm": "s",
+    "seed": 1,
+    "elapsed_s": 671.5,
+    "n_train_fires": 19
+   },
+   "s1_train_s_s1_f2.json": {
+    "arm": "s",
+    "seed": 1,
+    "elapsed_s": 668.8,
+    "n_train_fires": 16
+   },
+   "s1_train_s_s1_f4.json": {
+    "arm": "s",
+    "seed": 1,
+    "elapsed_s": 616.4,
+    "n_train_fires": 15
+   }
+  },
+  "mean_train_s_per_arm_per_fold": 687.9,
+  "mean_score_s_per_window": 0.1592,
+  "n_windows_one_full_pass": 5346,
+  "projected_training_s": 10319.0,
+  "projected_scoring_s": 2553.0,
+  "projected_total_h": 3.58,
+  "already_spent_s": 12664.0,
+  "projected_remaining_h": 0.06,
+  "gate_h": 4.0,
+  "under_gate": true,
+  "caveat": "folds 0 and 1 have the largest train sets by hours x cells (0.04e9 vs 0.03e9), so their trainings are up to ~15% dearer than the measured fold-3 pair. The projection uses the measured mean and does not include that uplift."
+ },
+ "null_rung_proposal": {
+  "adopted": "RETRAIN arm A at seed 2 on every fold and run the identical scoring and the identical per-block sign computation with arm S replaced by arm A(seed 2). Cost: 5 extra trainings + 1 extra full scoring pass (~40 min + ~9 min measured).",
+  "why": "The criterion compares two INDEPENDENTLY FITTED arms, so its null distribution has to contain optimisation noise. Retraining is the only perturbation whose ONLY difference from the real comparison is which of the two models carries the stage head.",
+  "rejected_cheaper_option": "Re-score ONE arm-A checkpoint at a different `predict` seed and call that arm A vs arm A. It costs one scoring pass and no training, and it is INVALID: both sides are the same fit, so it measures only 24-member Monte-Carlo noise, is centred at 7/14 by construction and essentially cannot leave the [4,10] band. A control that cannot fail is not a control \u2014 the same defect as ADR-060 (3)'s closure identity, where a 1%-effective arm scored what a perfect arm scored.",
+  "reported_alongside": "The inference-seed comparison is worth reporting anyway as a NOISE FLOOR, since it separates 'the ensemble is noisy' from 'the fit is noisy'. It is not the rung."
+ },
+ "scorer_rewrite_reproduction": {
+  "a": {
+   "outcome": "REPRODUCED",
+   "legacy": "runs/s1_rows_a_s1.json",
+   "new": "runs/s1_rows_a_s1_f3.json",
+   "n_shared_windows": 1372,
+   "n_only_legacy": 0,
+   "n_only_new": 0,
+   "max_abs_model_growth_delta": 0.0,
+   "max_abs_truth_growth_delta": 0.0
+  },
+  "s": {
+   "outcome": "REPRODUCED",
+   "legacy": "runs/s1_rows_s_s1.json",
+   "new": "runs/s1_rows_s_s1_f3.json",
+   "n_shared_windows": 1372,
+   "n_only_legacy": 0,
+   "n_only_new": 0,
+   "max_abs_model_growth_delta": 0.0,
+   "max_abs_truth_growth_delta": 0.0
+  }
+ },
+ "pairing": {
+  "same_window_keys": true,
+  "n_shared_windows": 5346,
+  "n_only_in_a": 0,
+  "n_only_in_b": 0,
+  "n_truth_disagreements": 0,
+  "first_disagreements": [],
+  "positive_control_detects_a_planted_difference": true,
+  "paired": true
+ },
+ "null_pairing": {
+  "same_window_keys": true,
+  "n_shared_windows": 5346,
+  "n_only_in_a": 0,
+  "n_only_in_b": 0,
+  "n_truth_disagreements": 0,
+  "first_disagreements": [],
+  "positive_control_detects_a_planted_difference": true,
+  "paired": true
+ },
+ "truth_reproduces_u0b": {
+  "outcome": "REPRODUCED",
+  "source": "runs/u0b.json",
+  "n_blocks_compared": 14,
+  "blocks_not_compared": [],
+  "max_abs_delta": 0.0,
+  "per_block_delta": {
+   "0": 0.0,
+   "1": 0.0,
+   "2": 0.0,
+   "3": 0.0,
+   "4": 0.0,
+   "5": 0.0,
+   "6": 0.0,
+   "7": 0.0,
+   "8": 0.0,
+   "9": 0.0,
+   "10": 0.0,
+   "11": 0.0,
+   "12": 0.0,
+   "13": 0.0
+  },
+  "note": "truth needs no forecast, so this is a check on the CONCATENATION of the five per-fold row files against a number published before this matrix existed"
+ },
+ "truth_stage_decay_by_block": {
+  "0": -1.0957953853969962,
+  "1": -8.049107721326406,
+  "2": -3.595598464110711,
+  "3": -0.07553790566715235,
+  "4": -2.1751095672564533,
+  "5": -1.1835529653171932,
+  "6": 1.4559581484320758,
+  "7": -0.039845908547199604,
+  "8": -2.4312316930659623,
+  "9": 0.032682647430358425,
+  "10": -0.6048212247034694,
+  "11": -6.148468295917646,
+  "12": -1.8179291869614398,
+  "13": -3.3106983049542404
+ },
+ "truth_outcomes": {
+  "0": "OK",
+  "1": "OK",
+  "2": "OK",
+  "3": "OK",
+  "4": "OK",
+  "5": "OK",
+  "6": "OK",
+  "7": "OK",
+  "8": "OK",
+  "9": "OK",
+  "10": "OK",
+  "11": "OK",
+  "12": "OK",
+  "13": "OK"
+ },
+ "primary": {
+  "challenger": "arm_s",
+  "incumbent": "arm_a",
+  "per_block": {
+   "0": {
+    "fire_hint": null,
+    "truth": -1.0957953853969962,
+    "arm_s": -0.011316479561847004,
+    "arm_a": 0.24608686700238103,
+    "distance_challenger": 1.0844789058351492,
+    "distance_incumbent": 1.3418822523993772,
+    "margin_incumbent_minus_challenger": 0.25740334656422803,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "1": {
+    "fire_hint": null,
+    "truth": -8.049107721326406,
+    "arm_s": -0.8292442445502963,
+    "arm_a": 0.45535514080799677,
+    "distance_challenger": 7.219863476776109,
+    "distance_incumbent": 8.504462862134403,
+    "margin_incumbent_minus_challenger": 1.2845993853582938,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "2": {
+    "fire_hint": null,
+    "truth": -3.595598464110711,
+    "arm_s": -0.049734566673937275,
+    "arm_a": 0.2944429029650184,
+    "distance_challenger": 3.5458638974367735,
+    "distance_incumbent": 3.8900413670757295,
+    "margin_incumbent_minus_challenger": 0.3441774696389559,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "3": {
+    "fire_hint": null,
+    "truth": -0.07553790566715235,
+    "arm_s": -0.23259094591771645,
+    "arm_a": 0.6007268678741087,
+    "distance_challenger": 0.1570530402505641,
+    "distance_incumbent": 0.676264773541261,
+    "margin_incumbent_minus_challenger": 0.5192117332906969,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "4": {
+    "fire_hint": null,
+    "truth": -2.1751095672564533,
+    "arm_s": 0.19601995404999772,
+    "arm_a": 0.577078094688281,
+    "distance_challenger": 2.371129521306451,
+    "distance_incumbent": 2.7521876619447343,
+    "margin_incumbent_minus_challenger": 0.38105814063828314,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "5": {
+    "fire_hint": null,
+    "truth": -1.1835529653171932,
+    "arm_s": -1.2667053344636952,
+    "arm_a": 0.46370770078892065,
+    "distance_challenger": 0.08315236914650193,
+    "distance_incumbent": 1.647260666106114,
+    "margin_incumbent_minus_challenger": 1.564108296959612,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "6": {
+    "fire_hint": "2020_dolan",
+    "truth": 1.4559581484320758,
+    "arm_s": -0.28436531982578706,
+    "arm_a": 1.145256914895064,
+    "distance_challenger": 1.7403234682578628,
+    "distance_incumbent": 0.31070123353701184,
+    "margin_incumbent_minus_challenger": -1.429622234720851,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": true
+   },
+   "7": {
+    "fire_hint": null,
+    "truth": -0.039845908547199604,
+    "arm_s": 0.019064702204990347,
+    "arm_a": 1.0890781552454218,
+    "distance_challenger": 0.05891061075218995,
+    "distance_incumbent": 1.1289240637926214,
+    "margin_incumbent_minus_challenger": 1.0700134530404315,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "8": {
+    "fire_hint": null,
+    "truth": -2.4312316930659623,
+    "arm_s": -0.5644001895307666,
+    "arm_a": 0.17347563413598044,
+    "distance_challenger": 1.8668315035351957,
+    "distance_incumbent": 2.6047073272019428,
+    "margin_incumbent_minus_challenger": 0.7378758236667471,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "9": {
+    "fire_hint": "2021_knp_complex",
+    "truth": 0.032682647430358425,
+    "arm_s": -0.36138112353392016,
+    "arm_a": 0.4836548733223346,
+    "distance_challenger": 0.3940637709642786,
+    "distance_incumbent": 0.45097222589197616,
+    "margin_incumbent_minus_challenger": 0.05690845492769758,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": true
+   },
+   "10": {
+    "fire_hint": null,
+    "truth": -0.6048212247034694,
+    "arm_s": 0.1551787461252706,
+    "arm_a": 1.0193985348998138,
+    "distance_challenger": 0.75999997082874,
+    "distance_incumbent": 1.6242197596032832,
+    "margin_incumbent_minus_challenger": 0.8642197887745432,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "11": {
+    "fire_hint": null,
+    "truth": -6.148468295917646,
+    "arm_s": -0.03200836874233426,
+    "arm_a": 0.02567731169529397,
+    "distance_challenger": 6.1164599271753115,
+    "distance_incumbent": 6.174145607612941,
+    "margin_incumbent_minus_challenger": 0.05768568043762912,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "12": {
+    "fire_hint": null,
+    "truth": -1.8179291869614398,
+    "arm_s": -0.530483711060473,
+    "arm_a": 0.1567661632840771,
+    "distance_challenger": 1.2874454759009668,
+    "distance_incumbent": 1.974695350245517,
+    "margin_incumbent_minus_challenger": 0.6872498743445501,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "13": {
+    "fire_hint": null,
+    "truth": -3.3106983049542404,
+    "arm_s": -0.2335128967142821,
+    "arm_a": 0.40222143880256755,
+    "distance_challenger": 3.0771854082399583,
+    "distance_incumbent": 3.712919743756808,
+    "margin_incumbent_minus_challenger": 0.6357343355168497,
+    "closer": "arm_s",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": false
+   }
+  },
+  "n_blocks_scored": 14,
+  "n_favourable_to_challenger": 13,
+  "n_ties": 0,
+  "sign_test": {
+   "outcome": "OK",
+   "p_one_sided": 0.00091552734375,
+   "k": 13,
+   "n": 14,
+   "fraction": 0.9285714285714286,
+   "tail_numerator": 15,
+   "denominator": 16384,
+   "note": "One-sided exact binomial tail at p=0.5, i.e. the chance of seeing at least this many blocks pointing one way if each block were a coin flip. It tests DIRECTION and says nothing about magnitude."
+  },
+  "meets_bar": true,
+  "bar": {
+   "n_blocks": 14,
+   "favourable_required": 11,
+   "p_at_bar": 0.0286865234375,
+   "p_one_short": 0.08978271484375,
+   "source": "ADR-061 (6), fixed before the run; not re-derived here"
+  }
+ },
+ "null_rung": {
+  "challenger": "arm_a_other_seed",
+  "incumbent": "arm_a",
+  "per_block": {
+   "0": {
+    "fire_hint": null,
+    "truth": -1.0957953853969962,
+    "arm_a_other_seed": 0.3091612176826782,
+    "arm_a": 0.24608686700238103,
+    "distance_challenger": 1.4049566030796743,
+    "distance_incumbent": 1.3418822523993772,
+    "margin_incumbent_minus_challenger": -0.0630743506802971,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "1": {
+    "fire_hint": null,
+    "truth": -8.049107721326406,
+    "arm_a_other_seed": 0.35583409012930245,
+    "arm_a": 0.45535514080799677,
+    "distance_challenger": 8.404941811455709,
+    "distance_incumbent": 8.504462862134403,
+    "margin_incumbent_minus_challenger": 0.09952105067869432,
+    "closer": "arm_a_other_seed",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "2": {
+    "fire_hint": null,
+    "truth": -3.595598464110711,
+    "arm_a_other_seed": 0.22924343370737454,
+    "arm_a": 0.2944429029650184,
+    "distance_challenger": 3.824841897818086,
+    "distance_incumbent": 3.8900413670757295,
+    "margin_incumbent_minus_challenger": 0.06519946925764364,
+    "closer": "arm_a_other_seed",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "3": {
+    "fire_hint": null,
+    "truth": -0.07553790566715235,
+    "arm_a_other_seed": 0.5741484424030057,
+    "arm_a": 0.6007268678741087,
+    "distance_challenger": 0.649686348070158,
+    "distance_incumbent": 0.676264773541261,
+    "margin_incumbent_minus_challenger": 0.026578425471103007,
+    "closer": "arm_a_other_seed",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "4": {
+    "fire_hint": null,
+    "truth": -2.1751095672564533,
+    "arm_a_other_seed": 0.5789846459570236,
+    "arm_a": 0.577078094688281,
+    "distance_challenger": 2.754094213213477,
+    "distance_incumbent": 2.7521876619447343,
+    "margin_incumbent_minus_challenger": -0.0019065512687426178,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "5": {
+    "fire_hint": null,
+    "truth": -1.1835529653171932,
+    "arm_a_other_seed": 0.5194011884683871,
+    "arm_a": 0.46370770078892065,
+    "distance_challenger": 1.7029541537855803,
+    "distance_incumbent": 1.647260666106114,
+    "margin_incumbent_minus_challenger": -0.05569348767946636,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "6": {
+    "fire_hint": "2020_dolan",
+    "truth": 1.4559581484320758,
+    "arm_a_other_seed": 1.2168963903785488,
+    "arm_a": 1.145256914895064,
+    "distance_challenger": 0.23906175805352703,
+    "distance_incumbent": 0.31070123353701184,
+    "margin_incumbent_minus_challenger": 0.07163947548348482,
+    "closer": "arm_a_other_seed",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": true
+   },
+   "7": {
+    "fire_hint": null,
+    "truth": -0.039845908547199604,
+    "arm_a_other_seed": 1.0470544790032594,
+    "arm_a": 1.0890781552454218,
+    "distance_challenger": 1.086900387550459,
+    "distance_incumbent": 1.1289240637926214,
+    "margin_incumbent_minus_challenger": 0.04202367624216241,
+    "closer": "arm_a_other_seed",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "8": {
+    "fire_hint": null,
+    "truth": -2.4312316930659623,
+    "arm_a_other_seed": 0.4888477015651782,
+    "arm_a": 0.17347563413598044,
+    "distance_challenger": 2.9200793946311405,
+    "distance_incumbent": 2.6047073272019428,
+    "margin_incumbent_minus_challenger": -0.31537206742919777,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "9": {
+    "fire_hint": "2021_knp_complex",
+    "truth": 0.032682647430358425,
+    "arm_a_other_seed": 0.22812327709922642,
+    "arm_a": 0.4836548733223346,
+    "distance_challenger": 0.195440629668868,
+    "distance_incumbent": 0.45097222589197616,
+    "margin_incumbent_minus_challenger": 0.25553159622310817,
+    "closer": "arm_a_other_seed",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": true,
+    "sign_agrees_with_truth_incumbent": true
+   },
+   "10": {
+    "fire_hint": null,
+    "truth": -0.6048212247034694,
+    "arm_a_other_seed": 1.0357677603126647,
+    "arm_a": 1.0193985348998138,
+    "distance_challenger": 1.6405889850161341,
+    "distance_incumbent": 1.6242197596032832,
+    "margin_incumbent_minus_challenger": -0.016369225412850907,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "11": {
+    "fire_hint": null,
+    "truth": -6.148468295917646,
+    "arm_a_other_seed": 0.05068621618292468,
+    "arm_a": 0.02567731169529397,
+    "distance_challenger": 6.199154512100571,
+    "distance_incumbent": 6.174145607612941,
+    "margin_incumbent_minus_challenger": -0.025008904487630268,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "12": {
+    "fire_hint": null,
+    "truth": -1.8179291869614398,
+    "arm_a_other_seed": 0.21174356310683007,
+    "arm_a": 0.1567661632840771,
+    "distance_challenger": 2.02967275006827,
+    "distance_incumbent": 1.974695350245517,
+    "margin_incumbent_minus_challenger": -0.05497739982275296,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   },
+   "13": {
+    "fire_hint": null,
+    "truth": -3.3106983049542404,
+    "arm_a_other_seed": 0.4693443030531952,
+    "arm_a": 0.40222143880256755,
+    "distance_challenger": 3.7800426080074354,
+    "distance_incumbent": 3.712919743756808,
+    "margin_incumbent_minus_challenger": -0.06712286425062741,
+    "closer": "arm_a",
+    "outcome": "OK",
+    "sign_agrees_with_truth_challenger": false,
+    "sign_agrees_with_truth_incumbent": false
+   }
+  },
+  "n_blocks_scored": 14,
+  "n_favourable_to_challenger": 6,
+  "n_ties": 0,
+  "sign_test": {
+   "outcome": "OK",
+   "p_one_sided": 0.78802490234375,
+   "k": 6,
+   "n": 14,
+   "fraction": 0.42857142857142855,
+   "tail_numerator": 12911,
+   "denominator": 16384,
+   "note": "One-sided exact binomial tail at p=0.5, i.e. the chance of seeing at least this many blocks pointing one way if each block were a coin flip. It tests DIRECTION and says nothing about magnitude."
+  },
+  "meets_bar": false,
+  "bar": {
+   "n_blocks": 14,
+   "favourable_required": 11,
+   "p_at_bar": 0.0286865234375,
+   "p_one_short": 0.08978271484375,
+   "source": "ADR-061 (6), fixed before the run; not re-derived here"
+  },
+  "in_band": true,
+  "band": [
+   4,
+   10
+  ]
+ },
+ "licence": {
+  "metric": "stage_decay",
+  "gate": "the S1 arm comparison",
+  "may_adjudicate": false,
+  "outcome": "NOT_LICENSED",
+  "registry_refusal": "'stage_decay' is not in C6_METRICS, so nothing has ruled on whether it may decide the S1 arm comparison. An unregistered metric is an unchecked metric; register it with a direction and a gate_eligible flag before letting it decide anything.",
+  "checked_by": "common.null_check.assert_may_adjudicate"
+ },
+ "n_blocks_expected": 14,
+ "verdict": "arm S is closer to truth on 13/14 blocks (one-sided p = 0.0009); the bar is 11/14. PASSES. Null rung 6/14 \u2014 in band. LIMIT (ADR-062 (3)): this is closeness per block and says NOTHING about structure.",
+ "contract_check": {
+  "checks": [
+   {
+    "clause": "C8",
+    "check": "readable",
+    "ok": true,
+    "severity": "fail",
+    "detail": "1 JSON artifact(s) read"
+   },
+   {
+    "clause": "C8",
+    "check": "stamped",
+    "ok": true,
+    "severity": "fail",
+    "detail": "a CV matrix declaring 5 member fingerprint(s) ['27d06a388cfd8946', '485706acb537b9ac', '5847b50cda6e0e9a', '606d5904b7254f1a', 'b3e5dadad01eaef9'] (C8.1)"
+   },
+   {
+    "clause": "C8",
+    "check": "internally_consistent",
+    "ok": true,
+    "severity": "fail",
+    "detail": "CV matrix: this aggregate carries no split stamp of its own, so there is no train-vs-eval pair here to disagree. Its 5 member fingerprint(s) are checked against the fold run dirs by C8.1, which is stricter than this clause (ADR-062 (6))"
+   },
+   {
+    "clause": "C8.1",
+    "check": "cv_matrix_well_formed",
+    "ok": true,
+    "severity": "fail",
+    "detail": "the CV matrix declaration in 1 artifact(s) parses: 15 member(s), each with a run and a split fingerprint"
+   },
+   {
+    "clause": "C8.1",
+    "check": "cv_matrix_member_count",
+    "ok": true,
+    "severity": "fail",
+    "detail": "every declared member run is present: 15 of 15"
+   },
+   {
+    "clause": "C8.1",
+    "check": "cv_matrix_member_stamps",
+    "ok": true,
+    "severity": "fail",
+    "detail": "all 15 member run(s) stamp exactly the fingerprint the matrix claims for them"
+   },
+   {
+    "clause": "C8.1",
+    "check": "cv_matrix_members_distinct",
+    "ok": false,
+    "severity": "reporting",
+    "detail": "C8.1 \u2014 two or more members share one split fingerprint: 27d06a388cfd8946 <- ['<payload>:fold2_arm_a_seed1', '<payload>:fold2_arm_a_seed2', '<payload>:fold2_arm_s_seed1']; 485706acb537b9ac <- ['<payload>:fold0_arm_a_seed1', '<payload>:fold0_arm_a_seed2', '<payload>:fold0_arm_s_seed1']; 5847b50cda6e0e9a <- ['<payload>:fold4_arm_a_seed1', '<payload>:fold4_arm_a_seed2', '<payload>:fold4_arm_s_seed1']; 606d5904b7254f1a <- ['<payload>:fold1_arm_a_seed1', '<payload>:fold1_arm_a_seed2', '<payload>:fold1_arm_s_seed1']. In a leave-fold-out matrix that means two folds trained on the same partition, so one of them held out nothing new. LEGITIMATE for a null rung (the same arm at a second seed IS the same split by design, ADR-062 (4)) \u2014 which is why this reports rather than blocks. Say which it is in the artifact"
+   },
+   {
+    "clause": "C6.3",
+    "check": "c6_3_expected_false_did_not_flip",
+    "ok": true,
+    "severity": "fail",
+    "detail": "all 9 expected-false declaration(s) sit beside a c6_3_satisfied that is still False, and each cites an ADR"
+   },
+   {
+    "clause": "C6.3",
+    "check": "c6_3_expected_false_declared",
+    "ok": true,
+    "severity": "reporting",
+    "detail": "every c6_3_satisfied=false in this artifact is declared expected (9)"
+   },
+   {
+    "clause": "C8",
+    "check": "code_agrees_across_run",
+    "ok": true,
+    "severity": "fail",
+    "detail": "all 2 both-ended code fingerprint(s) agree across the run"
+   },
+   {
+    "clause": "C8",
+    "check": "code_sampled_both_ends",
+    "ok": true,
+    "severity": "reporting",
+    "detail": "every code fingerprint family is sampled at BOTH ends (2 pair(s))"
+   },
+   {
+    "clause": "C8",
+    "check": "matches_current",
+    "ok": true,
+    "severity": "reporting",
+    "detail": "fingerprint matches the split on disk now (b3e5dadad01eaef9; 21 fires, train folds [0, 1, 2, 4])"
+   }
+  ],
+  "n_failures": 0,
+  "ok": true
+ }
+}

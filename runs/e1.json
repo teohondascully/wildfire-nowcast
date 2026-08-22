@@ -1,0 +1,461 @@
+{
+ "task": "E1 \u2014 does the physics baseline decelerate? (ADR-064)",
+ "question": "ELMFIRE is Rothermel, i.e. rate of spread along a perimeter, so it is perimeter-proportional like our kernel. Does it ACCELERATE as a fire ages, the way our kernel does, or DECELERATE, the way real fires do?",
+ "pre_registration": {
+  "source": "ADR-064 (4), written before any ELMFIRE output existed",
+  "E-P1": "ELMFIRE's stage_decay is POSITIVE (accelerating) on >= 4 of the 5 currently held-out blocks",
+  "E-P2": "its magnitude sits BETWEEN our kernel's and truth's",
+  "E-P3": "it gets DOLAN (block 6) closer to right than arm S does, because Dolan is remote and least suppressed",
+  "decision_rule": ">=4/5 positive -> the defect belongs to the model CLASS. >=4/5 negative -> E-P1 REFUTED and the defect is ours. 3/5 either way -> not_a_verdict."
+ },
+ "estimator": "eval/stage.py UNCHANGED \u2014 the same code that judged truth, arm A and arm S. No second implementation exists in this module (ADR-064 (6)).",
+ "split_fingerprint": "b3e5dadad01eaef9",
+ "scoring_code_fingerprint": {
+  "fingerprint": "103933d98cb7687a",
+  "per_file": {
+   "eval/__init__.py": "e3b0c44298fc1c14",
+   "eval/baseline_run.py": "e946612b0dc2c145",
+   "eval/labelfloor.py": "d7b314e5799f46e8",
+   "eval/masks.py": "c32378d51f7b49b2",
+   "eval/meanfield.py": "58554cad69087e66",
+   "eval/metrics.py": "c4cb9753f0ec458f",
+   "eval/playthrough_first_moment.py": "1e70140e7b954f72",
+   "eval/power.py": "cc124af0c01ffcbb",
+   "eval/regime_calibration.py": "5f5f53225b5ec4f2",
+   "eval/reporting.py": "342ceaba76cabb5b",
+   "eval/response.py": "eaaec719f75b601e",
+   "eval/selftest.py": "96da545faf5fcd81",
+   "eval/stage.py": "5e070a9924f43dc0",
+   "eval/validity.py": "f79a1d00a1f1bd0d",
+   "model/__init__.py": "8c7e3467fd535d2e",
+   "model/api.py": "c19f69b71c218843",
+   "model/baselines/__init__.py": "c761106cb2c9c70c",
+   "model/baselines/ellipse.py": "87086feb9cbe9cbc",
+   "model/baselines/persistence.py": "7810c37b9b429ad1",
+   "model/controls.py": "ad84eb45633f851e",
+   "model/degrade.py": "fcdeffc5da400a54",
+   "model/direct.py": "55494d2f3e5c4489",
+   "model/inputs.py": "73a2b81a324bb8ff",
+   "model/kernel.py": "c34a7bd3cd00e565",
+   "model/labelnoise.py": "ff2d7989f3a8bf0b",
+   "model/latent.py": "25b1a1fb37afc2b5",
+   "model/noiseoracle.py": "ef83dc3229c94086",
+   "model/spread.py": "d16528e36729fe92",
+   "model/stagehead.py": "8bd9ac6917c30c4a",
+   "model/train.py": "db350d722deff407"
+  },
+  "modules": [
+   "eval/__init__.py",
+   "eval/baseline_run.py",
+   "eval/labelfloor.py",
+   "eval/masks.py",
+   "eval/meanfield.py",
+   "eval/metrics.py",
+   "eval/playthrough_first_moment.py",
+   "eval/power.py",
+   "eval/regime_calibration.py",
+   "eval/reporting.py",
+   "eval/response.py",
+   "eval/selftest.py",
+   "eval/stage.py",
+   "eval/validity.py",
+   "model/__init__.py",
+   "model/api.py",
+   "model/baselines/__init__.py",
+   "model/baselines/ellipse.py",
+   "model/baselines/persistence.py",
+   "model/controls.py",
+   "model/degrade.py",
+   "model/direct.py",
+   "model/inputs.py",
+   "model/kernel.py",
+   "model/labelnoise.py",
+   "model/latent.py",
+   "model/noiseoracle.py",
+   "model/spread.py",
+   "model/stagehead.py",
+   "model/train.py"
+  ],
+  "subtrees": [
+   "eval",
+   "model"
+  ],
+  "status": "PROPOSAL \u2014 reported, not enforced. `git_sha` is real but NOT identifying while `git_dirty` is true for every run; this is."
+ },
+ "metric": "stage_decay",
+ "licence": {
+  "metric": "stage_decay",
+  "gate": "the E1 ELMFIRE stage experiment",
+  "may_adjudicate": false,
+  "outcome": "NOT_LICENSED",
+  "registry_refusal": "'stage_decay' is not in C6_METRICS, so nothing has ruled on whether it may decide the E1 ELMFIRE stage experiment. An unregistered metric is an unchecked metric; register it with a direction and a gate_eligible flag before letting it decide anything.",
+  "checked_by": "common.null_check.assert_may_adjudicate"
+ },
+ "n_members_as_run": [
+  2,
+  4
+ ],
+ "headline_member_prefix": 2,
+ "headline_member_prefix_note": "every block is read at the SAME ensemble size \u2014 the minimum available across the fires \u2014 so no block's number comes from a bigger ensemble than another's. `member_prefix_sensitivity` shows the same estimator at every other available size.",
+ "horizon_h": 3,
+ "stride": 2,
+ "per_fire": {
+  "2020_czu_lightning_complex": {
+   "spatial_block_id": 5,
+   "n_windows": 53,
+   "n_windows_expected": 53,
+   "complete": true,
+   "scored": true,
+   "n_members": 2,
+   "elapsed_s": 303.2,
+   "elmfire_max_runtime_s": 600.0,
+   "max_seconds_per_member": 51.2,
+   "max_runtime_margin": 11.72,
+   "n_windows_near_max_runtime": 0,
+   "n_windows_without_timing_so_uncheckable": 0,
+   "rows_path": "runs/e1_rows_2020_czu_lightning_complex.json"
+  },
+  "2020_dolan": {
+   "spatial_block_id": 6,
+   "n_windows": 346,
+   "n_windows_expected": 346,
+   "complete": true,
+   "scored": true,
+   "n_members": 2,
+   "elapsed_s": 769.5,
+   "elmfire_max_runtime_s": 600.0,
+   "max_seconds_per_member": 234.9,
+   "max_runtime_margin": 2.55,
+   "n_windows_near_max_runtime": 0,
+   "n_windows_without_timing_so_uncheckable": 0,
+   "rows_path": "runs/e1_rows_2020_dolan.json"
+  },
+  "2020_july_complex": {
+   "spatial_block_id": 7,
+   "n_windows": 98,
+   "n_windows_expected": 98,
+   "complete": true,
+   "scored": true,
+   "n_members": 2,
+   "elapsed_s": 284.0,
+   "elmfire_max_runtime_s": 600.0,
+   "max_seconds_per_member": 58.3,
+   "max_runtime_margin": 10.29,
+   "n_windows_near_max_runtime": 0,
+   "n_windows_without_timing_so_uncheckable": 0,
+   "rows_path": "runs/e1_rows_2020_july_complex.json"
+  },
+  "2024_borel": {
+   "spatial_block_id": 12,
+   "n_windows": 90,
+   "n_windows_expected": 90,
+   "complete": true,
+   "scored": true,
+   "n_members": 4,
+   "elapsed_s": 1073.0,
+   "elmfire_max_runtime_s": 600.0,
+   "max_seconds_per_member": 44.2,
+   "max_runtime_margin": 13.58,
+   "n_windows_near_max_runtime": 0,
+   "n_windows_without_timing_so_uncheckable": 0,
+   "rows_path": "runs/e1_rows_2024_borel.json"
+  }
+ },
+ "n_rows": 587,
+ "held_out_blocks_expected": [
+  4,
+  5,
+  6,
+  7,
+  12
+ ],
+ "blocks_scored": [
+  5,
+  6,
+  7,
+  12
+ ],
+ "blocks_missing": [
+  4
+ ],
+ "complete": false,
+ "verdict_determined_without_the_missing_blocks": true,
+ "declared_deviations_from_elmfire_defaults": [
+  {
+   "namelist": "&TIME_CONTROL SIMULATION_DT",
+   "elmfire_default": 5.0,
+   "ours": 1.0,
+   "where_set": "sim.elmfire.ElmfireConfig.simulation_dt_s, chosen at S3/S4",
+   "direction": "FINER than the default, i.e. a more accurate level-set solve, not a faster or more favourable one. It is not a Rothermel parameter.",
+   "cost": "5x the runtime. This is the single reason block 4 (Creek, 785 windows, 78% of the total compute) is expensive: at t0=62 one window already costs ~717 s. It was NOT changed mid-experiment \u2014 altering a solver setting after seeing that a run is slow is how one experiment becomes two. A future full-14-block run should decide it BEFORE starting."
+  },
+  {
+   "namelist": "&SIMULATOR MAX_RUNTIME",
+   "elmfire_default": 999999.0,
+   "ours": 600.0,
+   "where_set": "sim.elmfire.ElmfireConfig.max_runtime_s, chosen at S3/S4",
+   "direction": "DANGEROUS, and it is why this is declared rather than left implicit. `elmfire_level_set.f90:1263` compares it against WALL-CLOCK elapsed time and, when exceeded, sets `T = TSTOP + 1` and stops the simulation early. Nothing in the rasters says so. A capped run therefore UNDER-reports late-window growth, which biases stage_decay DOWN \u2014 toward deceleration, i.e. AGAINST E-P1 \u2014 and, because the cap is wall-clock, whether it bites depends on machine load and worker count rather than on the fire.",
+   "cost": "MEASURED, not assumed: across the scored blocks the worst window costs 235 s/member against a 600 s cap on the four blocks scored here (2.55x margin, 0 windows within 50% of the cap), so those blocks are cap-independent; Creek reaches 385 s/member by t0=124 and rises, which is why it is the block that did not finish. Any window within `TRUNCATION_FRACTION` of the cap is refused by `score`."
+  },
+  {
+   "namelist": "&SPOTTING ENABLE_SPOTTING",
+   "elmfire_default": false,
+   "ours": false,
+   "where_set": "upstream default, elmfire_namelists.f90:695 \u2014 untouched",
+   "direction": "we take ELMFIRE's own default. Recorded because our kernel HAS a long-range spot component, so the comparison is a spotting model against a non-spotting one. Carried from S4's fairness note.",
+   "cost": "none"
+  }
+ ],
+ "per_block": {
+  "5": {
+   "outcome": "OK",
+   "elmfire": 1.252762968495368,
+   "truth_this_run": -1.1835529653171932,
+   "truth_reference": -1.1836,
+   "arm_a_reference": 0.4637,
+   "arm_s_reference": -1.2667,
+   "sign": "positive",
+   "distance_to_truth": 2.4363629684953683,
+   "truth_detail": {
+    "outcome": "OK",
+    "stage_decay": -1.1835529653171932,
+    "n_windows": 53,
+    "n_per_half": 26,
+    "n_dropped_middle": 1,
+    "early_mean_growth": 11.807692307692308,
+    "late_mean_growth": 3.6153846153846154
+   },
+   "elmfire_detail": {
+    "outcome": "OK",
+    "stage_decay": 1.252762968495368,
+    "n_windows": 53,
+    "n_per_half": 26,
+    "n_dropped_middle": 1,
+    "early_mean_growth": 0.19230769230769232,
+    "late_mean_growth": 0.6730769230769231
+   }
+  },
+  "6": {
+   "outcome": "OK",
+   "elmfire": 1.6648624464339652,
+   "truth_this_run": 1.4559581484320758,
+   "truth_reference": 1.456,
+   "arm_a_reference": 1.1453,
+   "arm_s_reference": -0.2844,
+   "sign": "positive",
+   "distance_to_truth": 0.20886244643396523,
+   "truth_detail": {
+    "outcome": "OK",
+    "stage_decay": 1.4559581484320758,
+    "n_windows": 346,
+    "n_per_half": 173,
+    "n_dropped_middle": 0,
+    "early_mean_growth": 0.861271676300578,
+    "late_mean_growth": 3.69364161849711
+   },
+   "elmfire_detail": {
+    "outcome": "OK",
+    "stage_decay": 1.6648624464339652,
+    "n_windows": 346,
+    "n_per_half": 173,
+    "n_dropped_middle": 0,
+    "early_mean_growth": 1.0751445086705202,
+    "late_mean_growth": 5.682080924855492
+   }
+  },
+  "7": {
+   "outcome": "OK",
+   "elmfire": 1.871516176613642,
+   "truth_this_run": -0.039845908547199604,
+   "truth_reference": -0.0398,
+   "arm_a_reference": 1.0891,
+   "arm_s_reference": 0.0191,
+   "sign": "positive",
+   "distance_to_truth": 1.911316176613642,
+   "truth_detail": {
+    "outcome": "OK",
+    "stage_decay": -0.039845908547199604,
+    "n_windows": 98,
+    "n_per_half": 49,
+    "n_dropped_middle": 0,
+    "early_mean_growth": 2.6122448979591835,
+    "late_mean_growth": 2.510204081632653
+   },
+   "elmfire_detail": {
+    "outcome": "OK",
+    "stage_decay": 1.871516176613642,
+    "n_windows": 98,
+    "n_per_half": 49,
+    "n_dropped_middle": 0,
+    "early_mean_growth": 5.489795918367347,
+    "late_mean_growth": 35.673469387755105
+   }
+  },
+  "12": {
+   "outcome": "OK",
+   "elmfire": 0.2609204403631815,
+   "truth_this_run": -1.8179291869614398,
+   "truth_reference": -1.8179,
+   "arm_a_reference": 0.1568,
+   "arm_s_reference": -0.5305,
+   "sign": "positive",
+   "distance_to_truth": 2.078820440363182,
+   "truth_detail": {
+    "outcome": "OK",
+    "stage_decay": -1.8179291869614398,
+    "n_windows": 90,
+    "n_per_half": 45,
+    "n_dropped_middle": 0,
+    "early_mean_growth": 6.022222222222222,
+    "late_mean_growth": 0.9777777777777777
+   },
+   "elmfire_detail": {
+    "outcome": "OK",
+    "stage_decay": 0.2609204403631815,
+    "n_windows": 90,
+    "n_per_half": 45,
+    "n_dropped_middle": 0,
+    "early_mean_growth": 22.511111111111113,
+    "late_mean_growth": 29.22222222222222
+   }
+  }
+ },
+ "n_blocks_positive": 4,
+ "n_blocks_scored": 4,
+ "sign_test_positive_direction": {
+  "outcome": "OK",
+  "p_one_sided": 0.0625,
+  "k": 4,
+  "n": 4,
+  "fraction": 1.0,
+  "tail_numerator": 1,
+  "denominator": 16,
+  "note": "One-sided exact binomial tail at p=0.5, i.e. the chance of seeing at least this many blocks pointing one way if each block were a coin flip. It tests DIRECTION and says nothing about magnitude."
+ },
+ "member_prefix_sensitivity": {
+  "1": {
+   "5": 1.504077396776274,
+   "6": 1.6799277901886451,
+   "7": 1.8388773922051251,
+   "12": 0.2231435513142097
+  },
+  "2": {
+   "5": 1.252762968495368,
+   "6": 1.6648624464339652,
+   "7": 1.871516176613642,
+   "12": 0.2609204403631815
+  },
+  "3": {
+   "12": 0.2633304235520799
+  },
+  "4": {
+   "12": 0.26442883509789095
+  }
+ },
+ "reference_rows_pairing": {
+  "reference": "runs/s1_rows_a_s1.json",
+  "n_ours": 587,
+  "n_reference_same_fires": 587,
+  "n_shared_windows": 587,
+  "n_only_in_ours": 0,
+  "n_only_in_reference": 0,
+  "n_truth_disagreements": 0,
+  "first_disagreements": [],
+  "paired": true
+ },
+ "reference_values": {
+  "truth": {
+   "4": -2.1751,
+   "5": -1.1836,
+   "6": 1.456,
+   "7": -0.0398,
+   "12": -1.8179
+  },
+  "arm_a": {
+   "4": 0.5771,
+   "5": 0.4637,
+   "6": 1.1453,
+   "7": 1.0891,
+   "12": 0.1568
+  },
+  "arm_s": {
+   "4": 0.196,
+   "5": -1.2667,
+   "6": -0.2844,
+   "7": 0.0191,
+   "12": -0.5305
+  }
+ },
+ "verdict": "E-P1_HELD_defect_belongs_to_the_model_class",
+ "verdict_reason": "4 of 4 scored blocks are POSITIVE (accelerating), with 1 block(s) not scored. The count can only RISE, so the final tally is >= 4/5 under every possible completion and ADR-064 (4)'s >=4/5 threshold is met either way. The MAGNITUDE columns are still incomplete; only the sign count is determined.",
+ "mapping_compromises": [
+  {
+   "field": "fine lattice",
+   "issue": "30 m does not divide 1000 m, so a true-30 m grid is not nested",
+   "choice": "exactly nested refine=33 -> 30.303 m (1.01% off native)",
+   "bias": "none directional. The alternative puts area conservation inside partial-overlap weights, where an area loss can hide."
+  },
+  {
+   "field": "output coarsening",
+   "issue": "C5 must return uint8 fire_state on the 1 km C1 lattice",
+   "choice": "fractional-area occupancy: block-mean the binary fine mask over the exactly nested R x R sub-cell block, burned iff covered fraction >= 0.5. Identical in form and threshold to data/rasterize.polygon_mask, which defines TRUTH.",
+   "bias": "measured, not asserted: exact on resolvable features; a fire finger narrower than 1 km is UNREPRESENTABLE at 1 km by any binary rule (500 m finger retains 67% of its area in 6 fragments). Biases ELMFIRE LOW on fine fingering, which is the flattering direction and is why it is measured in reports/figures/playthrough_coarsening.json."
+  },
+  {
+   "field": "weather resolution",
+   "issue": "ELMFIRE would ideally take RTMA on its own grid",
+   "choice": "C1 channels 1-4 + 11 at 1 km, written as a separate coarser weather raster",
+   "bias": "none: RTMA is natively 2.5 km, so the 1 km C1 field is an UPSAMPLING and carries everything RTMA had."
+  },
+  {
+   "field": "WX_BILINEAR_INTERPOLATION",
+   "issue": "elmfire_subs.f90:815 `J2 = MAX(MIN(J2+1, NROW_WX),1)` reads J2, an INTENT(OUT) argument, before it is set \u2014 the x-axis line above it correctly uses I1+1. A second uninitialised read, found by simviz.",
+   "choice": "set .FALSE. (nearest weather cell) rather than patch the physics",
+   "bias": "negligible at 1 km weather over a 2.5 km native product. Deliberately NOT patched: my standard for touching a baseline's source is that the change be provably output-neutral, and J1+1 would change results."
+  },
+  {
+   "field": "m1 / m10 / m100",
+   "issue": "C1 carries ONE fuel_moisture_proxy; Rothermel wants three dead classes",
+   "choice": "m1 = proxy, m10 = proxy + 1 pt, m100 = proxy + 2 pt",
+   "bias": "unknown, small; the +1/+2 offsets are conventional, not measured here"
+  },
+  {
+   "field": "ws",
+   "issue": "RTMA is 10 m wind in m/s; ELMFIRE wants 20 ft wind in mph",
+   "choice": "log profile z0=0.03 m -> x0.8703, then x2.23694 m/s->mph",
+   "bias": "none intended; the factor is stated so it can be disputed"
+  },
+  {
+   "field": "wd",
+   "issue": "our (u, v) is the vector the wind blows TOWARD; ELMFIRE wd is FROM",
+   "choice": "wd = (270 - degrees(atan2(v, u))) mod 360",
+   "bias": "an error here is a 180 deg flip and would be catastrophic and silent"
+  },
+  {
+   "field": "initial front",
+   "issue": "ELMFIRE normally starts from a point ignition",
+   "choice": "our x0 is replicated onto the fine lattice and written into ELMFIRE's level-set field phi (negative inside the burned region)",
+   "bias": "essential. A point-ignition mapping makes ELMFIRE re-grow the fire from scratch inside every window and look absurdly weak for a reason that is ours. Replication is exact \u2014 it invents no sub-cell detail."
+  },
+  {
+   "field": "topography vintage",
+   "issue": "LFPS publishes exactly one topographic vintage, LF2020",
+   "choice": "LF2020 Elev/SlpD/Asp for every fire year",
+   "bias": "none. Terrain is time-invariant at these scales; it is not a leak."
+  },
+  {
+   "field": "ensemble",
+   "issue": "ELMFIRE is deterministic; its &MONTE_CARLO randomises ignition LOCATION",
+   "choice": "M replicates with ws/wd/moisture perturbed from a declared PDF",
+   "bias": "OUR construction. Any dispersion number is about the PDF we chose."
+  },
+  {
+   "field": "barrier / burn scar",
+   "issue": "C1 channels 12 and 13 have no ELMFIRE equivalent",
+   "choice": "not pushed into fuels; native FBFM40 passes through unchanged",
+   "bias": "deliberate \u2014 ADR-022 (5) bars a hard non-burnable mask anywhere"
+  }
+ ],
+ "not_a_gate": "G5 IS NOT ATTEMPTED AND IS NOT ADJUDICATED HERE. `stage_decay` is not licensed to decide a gate and the C6 registry refuses it; that refusal is recorded in `licence` above and is CORRECT.",
+ "incomplete": "4 of 4 scored blocks are POSITIVE (accelerating), with 1 block(s) not scored. The count can only RISE, so the final tally is >= 4/5 under every possible completion and ADR-064 (4)'s >=4/5 threshold is met either way. The MAGNITUDE columns are still incomplete; only the sign count is determined."
+}

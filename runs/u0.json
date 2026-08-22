@@ -1,0 +1,2489 @@
+{
+ "task": "U0 \u2014 license the stage_decay channel (ADR-058, ADR-059)",
+ "metric": "stage_decay",
+ "split_before": "b3e5dadad01eaef9",
+ "split_after": "b3e5dadad01eaef9",
+ "scoring_code_before": "597dc8994b89fba4",
+ "scoring_code_after": "597dc8994b89fba4",
+ "common_code_before": "70c1670c4296a1d8",
+ "common_code_after": "70c1670c4296a1d8",
+ "code_fingerprints_agree": {
+  "scoring_code": true,
+  "common_code": true
+ },
+ "source_artifacts": {
+  "response": "runs/m9_response.json",
+  "scaling": "runs/m9_scaling.json"
+ },
+ "n_heldout_windows": 1372,
+ "d1_reproduction": {
+  "fire_stage_by_t0": {
+   "n_cells": 135,
+   "n_reproduced": 135,
+   "max_abs_error": 0.0,
+   "outcome": "REPRODUCED",
+   "failures": [],
+   "cells": [
+    {
+     "cell": "block 4 bin 0 t0_mean",
+     "recomputed": 100.0,
+     "published": 100.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 0 n",
+     "recomputed": 99.0,
+     "published": 99.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 0 frontier_mean",
+     "recomputed": 107.86868686868686,
+     "published": 107.86868686868686,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 0 truth_growth",
+     "recomputed": 14.606060606060606,
+     "published": 14.606060606060606,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 0 model_growth",
+     "recomputed": 5.907828282828284,
+     "published": 5.907828282828284,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 1 t0_mean",
+     "recomputed": 297.0,
+     "published": 297.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 1 n",
+     "recomputed": 98.0,
+     "published": 98.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 1 frontier_mean",
+     "recomputed": 165.79591836734693,
+     "published": 165.79591836734693,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 1 truth_growth",
+     "recomputed": 4.295918367346939,
+     "published": 4.295918367346939,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 1 model_growth",
+     "recomputed": 6.5276360544217695,
+     "published": 6.5276360544217695,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 2 t0_mean",
+     "recomputed": 493.0,
+     "published": 493.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 2 n",
+     "recomputed": 98.0,
+     "published": 98.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 2 frontier_mean",
+     "recomputed": 189.8877551020408,
+     "published": 189.8877551020408,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 2 truth_growth",
+     "recomputed": 2.010204081632653,
+     "published": 2.010204081632653,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 2 model_growth",
+     "recomputed": 7.025935374149661,
+     "published": 7.025935374149661,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 3 t0_mean",
+     "recomputed": 689.0,
+     "published": 689.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 3 n",
+     "recomputed": 98.0,
+     "published": 98.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 3 frontier_mean",
+     "recomputed": 203.96938775510205,
+     "published": 203.96938775510205,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 3 truth_growth",
+     "recomputed": 1.7551020408163265,
+     "published": 1.7551020408163265,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 3 model_growth",
+     "recomputed": 10.213010204081632,
+     "published": 10.213010204081632,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 4 t0_mean",
+     "recomputed": 885.0,
+     "published": 885.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 4 n",
+     "recomputed": 98.0,
+     "published": 98.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 4 frontier_mean",
+     "recomputed": 219.81632653061226,
+     "published": 219.81632653061226,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 4 truth_growth",
+     "recomputed": 0.9897959183673469,
+     "published": 0.9897959183673469,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 4 model_growth",
+     "recomputed": 6.977891156462584,
+     "published": 6.977891156462584,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 5 t0_mean",
+     "recomputed": 1081.0,
+     "published": 1081.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 5 n",
+     "recomputed": 98.0,
+     "published": 98.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 5 frontier_mean",
+     "recomputed": 216.35714285714286,
+     "published": 216.35714285714286,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 5 truth_growth",
+     "recomputed": 1.0714285714285714,
+     "published": 1.0714285714285714,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 5 model_growth",
+     "recomputed": 8.224489795918368,
+     "published": 8.224489795918368,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 6 t0_mean",
+     "recomputed": 1277.0,
+     "published": 1277.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 6 n",
+     "recomputed": 98.0,
+     "published": 98.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 6 frontier_mean",
+     "recomputed": 217.3673469387755,
+     "published": 217.3673469387755,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 6 truth_growth",
+     "recomputed": 0.40816326530612246,
+     "published": 0.40816326530612246,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 6 model_growth",
+     "recomputed": 26.969812925170068,
+     "published": 26.969812925170068,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 7 t0_mean",
+     "recomputed": 1473.0,
+     "published": 1473.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 7 n",
+     "recomputed": 98.0,
+     "published": 98.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 7 frontier_mean",
+     "recomputed": 225.18367346938774,
+     "published": 225.18367346938774,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 7 truth_growth",
+     "recomputed": 0.12244897959183673,
+     "published": 0.12244897959183673,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 bin 7 model_growth",
+     "recomputed": 10.683248299319727,
+     "published": 10.683248299319727,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 0 t0_mean",
+     "recomputed": 33.0,
+     "published": 33.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 0 n",
+     "recomputed": 18.0,
+     "published": 18.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 0 frontier_mean",
+     "recomputed": 9.833333333333334,
+     "published": 9.833333333333334,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 0 truth_growth",
+     "recomputed": 6.055555555555555,
+     "published": 6.055555555555555,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 0 model_growth",
+     "recomputed": 0.4097222222222222,
+     "published": 0.4097222222222222,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 1 t0_mean",
+     "recomputed": 69.0,
+     "published": 69.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 1 n",
+     "recomputed": 18.0,
+     "published": 18.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 1 frontier_mean",
+     "recomputed": 54.05555555555556,
+     "published": 54.05555555555556,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 1 truth_growth",
+     "recomputed": 16.38888888888889,
+     "published": 16.38888888888889,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 1 model_growth",
+     "recomputed": 1.6064814814814816,
+     "published": 1.6064814814814816,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 2 t0_mean",
+     "recomputed": 104.0,
+     "published": 104.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 2 n",
+     "recomputed": 17.0,
+     "published": 17.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 2 frontier_mean",
+     "recomputed": 62.0,
+     "published": 62.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 2 truth_growth",
+     "recomputed": 0.47058823529411764,
+     "published": 0.47058823529411764,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 bin 2 model_growth",
+     "recomputed": 1.0784313725490196,
+     "published": 1.0784313725490196,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 0 t0_mean",
+     "recomputed": 45.0,
+     "published": 45.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 0 n",
+     "recomputed": 44.0,
+     "published": 44.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 0 frontier_mean",
+     "recomputed": 23.136363636363637,
+     "published": 23.136363636363637,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 0 truth_growth",
+     "recomputed": 1.9545454545454546,
+     "published": 1.9545454545454546,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 0 model_growth",
+     "recomputed": 0.7424242424242423,
+     "published": 0.7424242424242423,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 1 t0_mean",
+     "recomputed": 133.0,
+     "published": 133.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 1 n",
+     "recomputed": 44.0,
+     "published": 44.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 1 frontier_mean",
+     "recomputed": 36.36363636363637,
+     "published": 36.36363636363637,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 1 truth_growth",
+     "recomputed": 0.1590909090909091,
+     "published": 0.1590909090909091,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 1 model_growth",
+     "recomputed": 0.6164772727272726,
+     "published": 0.6164772727272726,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 2 t0_mean",
+     "recomputed": 220.0,
+     "published": 220.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 2 n",
+     "recomputed": 43.0,
+     "published": 43.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 2 frontier_mean",
+     "recomputed": 39.83720930232558,
+     "published": 39.83720930232558,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 2 truth_growth",
+     "recomputed": 0.8604651162790697,
+     "published": 0.8604651162790697,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 2 model_growth",
+     "recomputed": 0.871124031007752,
+     "published": 0.871124031007752,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 3 t0_mean",
+     "recomputed": 306.0,
+     "published": 306.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 3 n",
+     "recomputed": 43.0,
+     "published": 43.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 3 frontier_mean",
+     "recomputed": 45.27906976744186,
+     "published": 45.27906976744186,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 3 truth_growth",
+     "recomputed": 0.4418604651162791,
+     "published": 0.4418604651162791,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 3 model_growth",
+     "recomputed": 0.5726744186046513,
+     "published": 0.5726744186046513,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 4 t0_mean",
+     "recomputed": 392.0,
+     "published": 392.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 4 n",
+     "recomputed": 43.0,
+     "published": 43.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 4 frontier_mean",
+     "recomputed": 47.2093023255814,
+     "published": 47.2093023255814,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 4 truth_growth",
+     "recomputed": 0.7209302325581395,
+     "published": 0.7209302325581395,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 4 model_growth",
+     "recomputed": 1.125968992248062,
+     "published": 1.125968992248062,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 5 t0_mean",
+     "recomputed": 478.0,
+     "published": 478.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 5 n",
+     "recomputed": 43.0,
+     "published": 43.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 5 frontier_mean",
+     "recomputed": 63.81395348837209,
+     "published": 63.81395348837209,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 5 truth_growth",
+     "recomputed": 10.348837209302326,
+     "published": 10.348837209302326,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 5 model_growth",
+     "recomputed": 2.717054263565891,
+     "published": 2.717054263565891,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 6 t0_mean",
+     "recomputed": 564.0,
+     "published": 564.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 6 n",
+     "recomputed": 43.0,
+     "published": 43.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 6 frontier_mean",
+     "recomputed": 84.79069767441861,
+     "published": 84.79069767441861,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 6 truth_growth",
+     "recomputed": 2.744186046511628,
+     "published": 2.744186046511628,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 6 model_growth",
+     "recomputed": 2.328488372093023,
+     "published": 2.328488372093023,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 7 t0_mean",
+     "recomputed": 650.0,
+     "published": 650.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 7 n",
+     "recomputed": 43.0,
+     "published": 43.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 7 frontier_mean",
+     "recomputed": 88.72093023255815,
+     "published": 88.72093023255815,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 7 truth_growth",
+     "recomputed": 1.0465116279069768,
+     "published": 1.0465116279069768,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 bin 7 model_growth",
+     "recomputed": 2.7093023255813957,
+     "published": 2.7093023255813957,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 0 t0_mean",
+     "recomputed": 24.0,
+     "published": 24.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 0 n",
+     "recomputed": 25.0,
+     "published": 25.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 0 frontier_mean",
+     "recomputed": 16.68,
+     "published": 16.68,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 0 truth_growth",
+     "recomputed": 4.36,
+     "published": 4.36,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 0 model_growth",
+     "recomputed": 0.6116666666666667,
+     "published": 0.6116666666666667,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 1 t0_mean",
+     "recomputed": 74.0,
+     "published": 74.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 1 n",
+     "recomputed": 25.0,
+     "published": 25.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 1 frontier_mean",
+     "recomputed": 31.68,
+     "published": 31.68,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 1 truth_growth",
+     "recomputed": 0.76,
+     "published": 0.76,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 1 model_growth",
+     "recomputed": 1.265,
+     "published": 1.265,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 2 t0_mean",
+     "recomputed": 123.0,
+     "published": 123.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 2 n",
+     "recomputed": 24.0,
+     "published": 24.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 2 frontier_mean",
+     "recomputed": 39.916666666666664,
+     "published": 39.916666666666664,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 2 truth_growth",
+     "recomputed": 3.5833333333333335,
+     "published": 3.5833333333333335,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 2 model_growth",
+     "recomputed": 1.2100694444444444,
+     "published": 1.2100694444444444,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 3 t0_mean",
+     "recomputed": 171.0,
+     "published": 171.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 3 n",
+     "recomputed": 24.0,
+     "published": 24.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 3 frontier_mean",
+     "recomputed": 49.375,
+     "published": 49.375,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 3 truth_growth",
+     "recomputed": 1.5416666666666667,
+     "published": 1.5416666666666667,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 bin 3 model_growth",
+     "recomputed": 4.34375,
+     "published": 4.34375,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 0 t0_mean",
+     "recomputed": 24.0,
+     "published": 24.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 0 n",
+     "recomputed": 23.0,
+     "published": 23.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 0 frontier_mean",
+     "recomputed": 16.652173913043477,
+     "published": 16.652173913043477,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 0 truth_growth",
+     "recomputed": 1.9565217391304348,
+     "published": 1.9565217391304348,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 0 model_growth",
+     "recomputed": 0.9710144927536232,
+     "published": 0.9710144927536232,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 1 t0_mean",
+     "recomputed": 70.0,
+     "published": 70.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 1 n",
+     "recomputed": 23.0,
+     "published": 23.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 1 frontier_mean",
+     "recomputed": 48.0,
+     "published": 48.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 1 truth_growth",
+     "recomputed": 10.478260869565217,
+     "published": 10.478260869565217,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 1 model_growth",
+     "recomputed": 5.369565217391305,
+     "published": 5.369565217391305,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 2 t0_mean",
+     "recomputed": 115.0,
+     "published": 115.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 2 n",
+     "recomputed": 22.0,
+     "published": 22.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 2 frontier_mean",
+     "recomputed": 57.90909090909091,
+     "published": 57.90909090909091,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 2 truth_growth",
+     "recomputed": 0.7272727272727273,
+     "published": 0.7272727272727273,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 2 model_growth",
+     "recomputed": 3.770833333333333,
+     "published": 3.770833333333333,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 3 t0_mean",
+     "recomputed": 159.0,
+     "published": 159.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 3 n",
+     "recomputed": 22.0,
+     "published": 22.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 3 frontier_mean",
+     "recomputed": 58.0,
+     "published": 58.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 3 truth_growth",
+     "recomputed": 0.5909090909090909,
+     "published": 0.5909090909090909,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 bin 3 model_growth",
+     "recomputed": 3.4981060606060597,
+     "published": 3.4981060606060597,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    }
+   ],
+   "interior_exceeds_both_endpoints": {
+    "4": {
+     "truth_growth": false,
+     "model_growth": true
+    },
+    "5": {
+     "truth_growth": true,
+     "model_growth": true
+    },
+    "6": {
+     "truth_growth": true,
+     "model_growth": true
+    },
+    "7": {
+     "truth_growth": false,
+     "model_growth": false
+    },
+    "12": {
+     "truth_growth": true,
+     "model_growth": true
+    }
+   },
+   "endpoint_log_ratio": {
+    "4": {
+     "truth_growth": -4.781497381466691,
+     "model_growth": 0.592398636113048
+    },
+    "5": {
+     "truth_growth": -2.554747926709359,
+     "model_growth": 0.9677834081784263
+    },
+    "6": {
+     "truth_growth": -0.6246952882584891,
+     "model_growth": 1.294525601227992
+    },
+    "7": {
+     "truth_growth": -1.0396079750646643,
+     "model_growth": 1.9603058374925413
+    },
+    "12": {
+     "truth_growth": -1.1972613697379493,
+     "model_growth": 1.2816355816992715
+    }
+   },
+   "published_endpoint_fold_change": {
+    "4": {
+     "truth_growth": 0.008383436362096711,
+     "model_growth": 1.8083207208936143
+    },
+    "5": {
+     "truth_growth": 0.07771181867242312,
+     "model_growth": 2.6321036889332006
+    },
+    "6": {
+     "truth_growth": 0.5354245538128719,
+     "model_growth": 3.6492643569055536
+    },
+    "7": {
+     "truth_growth": 0.35359327217125375,
+     "model_growth": 7.101498637602179
+    },
+    "12": {
+     "truth_growth": 0.30202020202020197,
+     "model_growth": 3.602527137042061
+    }
+   }
+  },
+  "elasticities_from_bin_means": {
+   "n_cells": 6,
+   "n_reproduced": 6,
+   "max_abs_error": 0.0,
+   "outcome": "REPRODUCED",
+   "failures": [],
+   "cells": [
+    {
+     "cell": "truth_growth elasticity",
+     "recomputed": -0.7667974954600242,
+     "published": -0.7667974954600242,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "truth_growth se",
+     "recomputed": 0.027459558382127738,
+     "published": 0.027459558382127738,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "model_growth elasticity",
+     "recomputed": 1.1959562558949937,
+     "published": 1.1959562558949937,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "model_growth se",
+     "recomputed": 0.012499033138322601,
+     "published": 0.012499033138322601,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_growth elasticity",
+     "recomputed": 0.6106969924076087,
+     "published": 0.6106969924076087,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_growth se",
+     "recomputed": 0.018387332482645655,
+     "published": 0.018387332482645655,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    }
+   ],
+   "rate_unit_check": {
+    "truth_growth": {
+     "stored_growth_elasticity": -0.7667974954600242,
+     "as_rate_elasticity": -1.766797495460024,
+     "adr058_quoted_rate": -1.7668,
+     "abs_error_vs_adr": 2.5045399758560905e-06
+    },
+    "model_growth": {
+     "stored_growth_elasticity": 1.1959562558949937,
+     "as_rate_elasticity": 0.19595625589499366,
+     "adr058_quoted_rate": 0.196,
+     "abs_error_vs_adr": 4.3744105006349177e-05
+    },
+    "ellipse_growth": {
+     "stored_growth_elasticity": 0.6106969924076087,
+     "as_rate_elasticity": -0.38930300759239134,
+     "adr058_quoted_rate": -0.3893,
+     "abs_error_vs_adr": 3.0075923913575053e-06
+    }
+   },
+   "rate_unit_note": "ADR-058 (2) quotes RATE elasticities; the artifact key 'elasticities_from_bin_means' stores GROWTH elasticities and does not say so. The conversion is exactly -1 and is correct; the missing unit is the defect."
+  },
+  "within_block_elasticities": {
+   "n_cells": 30,
+   "n_reproduced": 30,
+   "max_abs_error": 0.0,
+   "outcome": "REPRODUCED",
+   "failures": [],
+   "cells": [
+    {
+     "cell": "block 4 truth_growth elasticity",
+     "recomputed": -4.933296207588333,
+     "published": -4.933296207588333,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 truth_growth se",
+     "recomputed": 0.11734265420635615,
+     "published": 0.11734265420635615,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 model_growth elasticity",
+     "recomputed": 1.0592831661643773,
+     "published": 1.0592831661643773,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 model_growth se",
+     "recomputed": 0.05610184391756507,
+     "published": 0.05610184391756507,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 ellipse_growth elasticity",
+     "recomputed": 0.3503517285476297,
+     "published": 0.3503517285476297,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 4 ellipse_growth se",
+     "recomputed": 0.04922202825976625,
+     "published": 0.04922202825976625,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 truth_growth elasticity",
+     "recomputed": -0.4571252126229633,
+     "published": -0.4571252126229633,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 truth_growth se",
+     "recomputed": 0.37536688296829396,
+     "published": 0.37536688296829396,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 model_growth elasticity",
+     "recomputed": 0.6625422577678223,
+     "published": 0.6625422577678223,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 model_growth se",
+     "recomputed": 0.030828455016645363,
+     "published": 0.030828455016645363,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 5 ellipse_growth elasticity",
+     "recomputed": NaN,
+     "published": NaN,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED_nan"
+    },
+    {
+     "cell": "block 5 ellipse_growth se",
+     "recomputed": NaN,
+     "published": NaN,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED_nan"
+    },
+    {
+     "cell": "block 6 truth_growth elasticity",
+     "recomputed": 0.8266824223320856,
+     "published": 0.8266824223320856,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 truth_growth se",
+     "recomputed": 0.1263860144122227,
+     "published": 0.1263860144122227,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 model_growth elasticity",
+     "recomputed": 1.2062841361071128,
+     "published": 1.2062841361071128,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 model_growth se",
+     "recomputed": 0.040704712197350494,
+     "published": 0.040704712197350494,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 ellipse_growth elasticity",
+     "recomputed": 1.9297980969334256,
+     "published": 1.9297980969334256,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 6 ellipse_growth se",
+     "recomputed": 0.08873984610350834,
+     "published": 0.08873984610350834,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 truth_growth elasticity",
+     "recomputed": -0.7429892982711116,
+     "published": -0.7429892982711116,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 truth_growth se",
+     "recomputed": 0.21373182064366616,
+     "published": 0.21373182064366616,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 model_growth elasticity",
+     "recomputed": 1.518967239471893,
+     "published": 1.518967239471893,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 model_growth se",
+     "recomputed": 0.12733871129235405,
+     "published": 0.12733871129235405,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 ellipse_growth elasticity",
+     "recomputed": 2.050297685761268,
+     "published": 2.050297685761268,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 7 ellipse_growth se",
+     "recomputed": 0.22156250122016766,
+     "published": 0.22156250122016766,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 truth_growth elasticity",
+     "recomputed": -0.4366004590662401,
+     "published": -0.4366004590662401,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 truth_growth se",
+     "recomputed": 0.3179516338306932,
+     "published": 0.3179516338306932,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 model_growth elasticity",
+     "recomputed": 1.1569529380496222,
+     "published": 1.1569529380496222,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 model_growth se",
+     "recomputed": 0.07227436731074462,
+     "published": 0.07227436731074462,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 ellipse_growth elasticity",
+     "recomputed": 0.8219479403793382,
+     "published": 0.8219479403793382,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "block 12 ellipse_growth se",
+     "recomputed": 0.03562151831765801,
+     "published": 0.03562151831765801,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    }
+   ],
+   "within_block_rate_elasticity_truth": {
+    "4": -5.933296207588333,
+    "5": -1.4571252126229632,
+    "6": -0.17331757766791445,
+    "7": -1.7429892982711115,
+    "12": -1.43660045906624
+   }
+  },
+  "response_log_rate_regression": {
+   "n_cells": 18,
+   "n_reproduced": 18,
+   "max_abs_error": 0.0,
+   "outcome": "REPRODUCED",
+   "failures": [],
+   "cells": [
+    {
+     "cell": "heldout n",
+     "recomputed": 402.0,
+     "published": 402.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout truth joint log_frontier_cells slope",
+     "recomputed": -0.7814426933905501,
+     "published": -0.7814426933905501,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout truth joint log_frontier_cells se",
+     "recomputed": 0.08165004303335266,
+     "published": 0.08165004303335266,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout truth univariate log_frontier_cells slope",
+     "recomputed": -0.9101964463643588,
+     "published": -0.9101964463643588,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout truth univariate log_frontier_cells se",
+     "recomputed": 0.05720756725195203,
+     "published": 0.05720756725195203,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout model joint log_frontier_cells slope",
+     "recomputed": -0.0360527237887948,
+     "published": -0.0360527237887948,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout model joint log_frontier_cells se",
+     "recomputed": 0.026471533979726194,
+     "published": 0.026471533979726194,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout model univariate log_frontier_cells slope",
+     "recomputed": 0.06327887234367141,
+     "published": 0.06327887234367141,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "heldout model univariate log_frontier_cells se",
+     "recomputed": 0.03199704050768664,
+     "published": 0.03199704050768664,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout n",
+     "recomputed": 362.0,
+     "published": 362.0,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout truth joint log_frontier_cells slope",
+     "recomputed": -0.8237868647108652,
+     "published": -0.8237868647108652,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout truth joint log_frontier_cells se",
+     "recomputed": 0.0897753462923534,
+     "published": 0.0897753462923534,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout truth univariate log_frontier_cells slope",
+     "recomputed": -0.8849113696251703,
+     "published": -0.8849113696251703,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout truth univariate log_frontier_cells se",
+     "recomputed": 0.059736866904062984,
+     "published": 0.059736866904062984,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout model joint log_frontier_cells slope",
+     "recomputed": -0.03570127356499645,
+     "published": -0.03570127356499645,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout model joint log_frontier_cells se",
+     "recomputed": 0.09778516226562652,
+     "published": 0.09778516226562652,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout model univariate log_frontier_cells slope",
+     "recomputed": -0.1995150463091752,
+     "published": -0.1995150463091752,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    },
+    {
+     "cell": "ellipse_vs_truth_heldout model univariate log_frontier_cells se",
+     "recomputed": 0.08054287394703412,
+     "published": 0.08054287394703412,
+     "abs_error": 0.0,
+     "outcome": "REPRODUCED"
+    }
+   ]
+  },
+  "outcome": "REPRODUCED",
+  "max_abs_error": 0.0
+ },
+ "d2_estimand": {
+  "metric": "stage_decay",
+  "per_block": {
+   "4": {
+    "truth": {
+     "outcome": "OK",
+     "stage_decay": -2.1751095672564533,
+     "n_windows": 785,
+     "n_per_half": 392,
+     "n_dropped_middle": 1,
+     "early_mean_growth": 5.704081632653061,
+     "late_mean_growth": 0.6479591836734694
+    },
+    "model": {
+     "outcome": "OK",
+     "stage_decay": 0.577078094688281,
+     "n_windows": 785,
+     "n_per_half": 392,
+     "n_dropped_middle": 1,
+     "early_mean_growth": 7.420068027210885,
+     "late_mean_growth": 13.213860544217686
+    },
+    "gap_model_minus_truth": 2.7521876619447343,
+    "outcome": "OK"
+   },
+   "5": {
+    "truth": {
+     "outcome": "OK",
+     "stage_decay": -1.1835529653171932,
+     "n_windows": 53,
+     "n_per_half": 26,
+     "n_dropped_middle": 1,
+     "early_mean_growth": 11.807692307692308,
+     "late_mean_growth": 3.6153846153846154
+    },
+    "model": {
+     "outcome": "OK",
+     "stage_decay": 0.46370770078892065,
+     "n_windows": 53,
+     "n_per_half": 26,
+     "n_dropped_middle": 1,
+     "early_mean_growth": 0.7660256410256411,
+     "late_mean_growth": 1.2179487179487178
+    },
+    "gap_model_minus_truth": 1.647260666106114,
+    "outcome": "OK"
+   },
+   "6": {
+    "truth": {
+     "outcome": "OK",
+     "stage_decay": 1.4559581484320758,
+     "n_windows": 346,
+     "n_per_half": 173,
+     "n_dropped_middle": 0,
+     "early_mean_growth": 0.861271676300578,
+     "late_mean_growth": 3.69364161849711
+    },
+    "model": {
+     "outcome": "OK",
+     "stage_decay": 1.145256914895064,
+     "n_windows": 346,
+     "n_per_half": 173,
+     "n_dropped_middle": 0,
+     "early_mean_growth": 0.7027938342967245,
+     "late_mean_growth": 2.2090558766859343
+    },
+    "gap_model_minus_truth": -0.31070123353701184,
+    "outcome": "OK"
+   },
+   "7": {
+    "truth": {
+     "outcome": "OK",
+     "stage_decay": -0.039845908547199604,
+     "n_windows": 98,
+     "n_per_half": 49,
+     "n_dropped_middle": 0,
+     "early_mean_growth": 2.6122448979591835,
+     "late_mean_growth": 2.510204081632653
+    },
+    "model": {
+     "outcome": "OK",
+     "stage_decay": 1.0890781552454218,
+     "n_windows": 98,
+     "n_per_half": 49,
+     "n_dropped_middle": 0,
+     "early_mean_growth": 0.9260204081632653,
+     "late_mean_growth": 2.751700680272109
+    },
+    "gap_model_minus_truth": 1.1289240637926214,
+    "outcome": "OK"
+   },
+   "12": {
+    "truth": {
+     "outcome": "OK",
+     "stage_decay": -1.8179291869614398,
+     "n_windows": 90,
+     "n_per_half": 45,
+     "n_dropped_middle": 0,
+     "early_mean_growth": 6.022222222222222,
+     "late_mean_growth": 0.9777777777777777
+    },
+    "model": {
+     "outcome": "OK",
+     "stage_decay": 0.1567661632840771,
+     "n_windows": 90,
+     "n_per_half": 45,
+     "n_dropped_middle": 0,
+     "early_mean_growth": 3.1314814814814813,
+     "late_mean_growth": 3.662962962962963
+    },
+    "gap_model_minus_truth": 1.974695350245517,
+    "outcome": "OK"
+   }
+  },
+  "n_blocks": 5,
+  "outcome": "OK",
+  "equal_block_mean_gap": 1.438473301710395,
+  "sd_across_blocks": 1.1415344885948353,
+  "n_blocks_model_above_truth": 4,
+  "unanimous_sign": false,
+  "uncertainty_basis": "SD ACROSS HELD-OUT BLOCKS (ADR-042). Never seeds, never windows.",
+  "published_endpoint_statistic": {
+   "4": {
+    "truth_growth": -4.781497381466691,
+    "model_growth": 0.592398636113048
+   },
+   "5": {
+    "truth_growth": -2.554747926709359,
+    "model_growth": 0.9677834081784263
+   },
+   "6": {
+    "truth_growth": -0.6246952882584891,
+    "model_growth": 1.294525601227992
+   },
+   "7": {
+    "truth_growth": -1.0396079750646643,
+    "model_growth": 1.9603058374925413
+   },
+   "12": {
+    "truth_growth": -1.1972613697379493,
+    "model_growth": 1.2816355816992715
+   }
+  },
+  "estimator_disagreement": {
+   "published_truth_falls_on": 5,
+   "published_model_rises_on": 5,
+   "stage_decay_truth_falls_on": 4,
+   "stage_decay_model_rises_on": 5,
+   "gap_sign_is_unanimous": false,
+   "note": "ADR-058 (4) reads 5/5 and 5/5 off the endpoint statistic. On the estimand this module defends, truth falls on 4 of 5 and the model-minus-truth gap is NOT unanimous: Dolan's sign is opposite. The unanimity was a property of the estimator, not of the fold."
+  },
+  "gap_in_block_sd": 1.2601225071010116
+ },
+ "d3_known_beta_recovery": {
+  "outcome": "OK",
+  "recovery": [
+   {
+    "beta": -3.0,
+    "n": 40,
+    "amplitude": 1.0,
+    "expected": -1.5,
+    "measured": -1.5000000000000002,
+    "abs_error": 2.220446049250313e-16,
+    "outcome": "OK"
+   },
+   {
+    "beta": -3.0,
+    "n": 400,
+    "amplitude": 987.65,
+    "expected": -1.5,
+    "measured": -1.5,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": -3.0,
+    "n": 4000,
+    "amplitude": 0.001,
+    "expected": -1.5,
+    "measured": -1.5000000000000009,
+    "abs_error": 8.881784197001252e-16,
+    "outcome": "OK"
+   },
+   {
+    "beta": -2.0,
+    "n": 40,
+    "amplitude": 1.0,
+    "expected": -1.0,
+    "measured": -1.0,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": -2.0,
+    "n": 400,
+    "amplitude": 987.65,
+    "expected": -1.0,
+    "measured": -1.0,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": -2.0,
+    "n": 4000,
+    "amplitude": 0.001,
+    "expected": -1.0,
+    "measured": -1.0,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": -0.7,
+    "n": 40,
+    "amplitude": 1.0,
+    "expected": -0.35,
+    "measured": -0.3500000000000001,
+    "abs_error": 1.1102230246251565e-16,
+    "outcome": "OK"
+   },
+   {
+    "beta": -0.7,
+    "n": 400,
+    "amplitude": 987.65,
+    "expected": -0.35,
+    "measured": -0.34999999999999964,
+    "abs_error": 3.3306690738754696e-16,
+    "outcome": "OK"
+   },
+   {
+    "beta": -0.7,
+    "n": 4000,
+    "amplitude": 0.001,
+    "expected": -0.35,
+    "measured": -0.34999999999999964,
+    "abs_error": 3.3306690738754696e-16,
+    "outcome": "OK"
+   },
+   {
+    "beta": 0.0,
+    "n": 40,
+    "amplitude": 1.0,
+    "expected": 0.0,
+    "measured": 0.0,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": 0.0,
+    "n": 400,
+    "amplitude": 987.65,
+    "expected": 0.0,
+    "measured": 0.0,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": 0.0,
+    "n": 4000,
+    "amplitude": 0.001,
+    "expected": 0.0,
+    "measured": 0.0,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": 0.5,
+    "n": 40,
+    "amplitude": 1.0,
+    "expected": 0.25,
+    "measured": 0.24999999999999994,
+    "abs_error": 5.551115123125783e-17,
+    "outcome": "OK"
+   },
+   {
+    "beta": 0.5,
+    "n": 400,
+    "amplitude": 987.65,
+    "expected": 0.25,
+    "measured": 0.25,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": 0.5,
+    "n": 4000,
+    "amplitude": 0.001,
+    "expected": 0.25,
+    "measured": 0.25,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   },
+   {
+    "beta": 3.0,
+    "n": 40,
+    "amplitude": 1.0,
+    "expected": 1.5,
+    "measured": 1.4999999999999998,
+    "abs_error": 2.220446049250313e-16,
+    "outcome": "OK"
+   },
+   {
+    "beta": 3.0,
+    "n": 400,
+    "amplitude": 987.65,
+    "expected": 1.5,
+    "measured": 1.4999999999999991,
+    "abs_error": 8.881784197001252e-16,
+    "outcome": "OK"
+   },
+   {
+    "beta": 3.0,
+    "n": 4000,
+    "amplitude": 0.001,
+    "expected": 1.5,
+    "measured": 1.5,
+    "abs_error": 0.0,
+    "outcome": "OK"
+   }
+  ],
+  "recovery_exact": true,
+  "zero_beta_is_exactly_zero": true,
+  "max_recovery_abs_error": 8.881784197001252e-16,
+  "agreement": {
+   "shared_beta": -1.3,
+   "same_beta_different_amplitude_and_n": 5.551115123125783e-16,
+   "bit_identical_pair_difference": 0.0,
+   "self_separation_sd": 0.0,
+   "self_blocks_favouring": 0
+  },
+  "agrees_at_identity": true,
+  "cases": {
+   "x_late_recovery": {
+    "stage_decay": -0.4855078157817009,
+    "stage_decay_closed_form": -0.48550781578170077,
+    "stage_decay_abs_error": 1.1102230246251565e-16,
+    "endpoint_log_ratio": -0.6931471805599456,
+    "endpoint_closed_form": -0.6931471805599453,
+    "endpoint_abs_error": 3.3306690738754696e-16,
+    "n_bins": 8
+   },
+   "y_late_collapse": {
+    "stage_decay": -0.137621377876048,
+    "stage_decay_closed_form": -0.13762137787604772,
+    "stage_decay_abs_error": 2.7755575615628914e-16,
+    "endpoint_log_ratio": -2.302585092994046,
+    "endpoint_closed_form": -2.3025850929940455,
+    "endpoint_abs_error": 4.440892098500626e-16,
+    "n_bins": 8
+   },
+   "z_monotone_decline": {
+    "stage_decay": -0.6359887667199966,
+    "stage_decay_closed_form": -0.6359887667199967,
+    "stage_decay_abs_error": 1.1102230246251565e-16,
+    "endpoint_log_ratio": -1.2039728043259361,
+    "endpoint_closed_form": -1.2039728043259361,
+    "endpoint_abs_error": 0.0,
+    "n_bins": 8
+   },
+   "w_flat": {
+    "stage_decay": 0.0,
+    "stage_decay_closed_form": 0.0,
+    "stage_decay_abs_error": 0.0,
+    "endpoint_log_ratio": 0.0,
+    "endpoint_closed_form": 0.0,
+    "endpoint_abs_error": 0.0,
+    "n_bins": 8
+   }
+  },
+  "magnitudes_exact": true,
+  "order_reverses": true,
+  "statistics_agree_on_the_control_pair": true,
+  "refuses_zero_half": true,
+  "antisymmetric_under_time_reversal": true,
+  "age_scale_invariant": true,
+  "not_a_verdict": "Known-answer verification on SYNTHETIC and hand-built series. It licenses the ESTIMATOR, never an arm, and it says nothing about any held-out fire."
+ },
+ "d4_minimum_detectable_effect": {
+  "bar_block_sd": 2.0,
+  "n_blocks": 5,
+  "reference_arm": "arm A (M9 probe s1), stage_decay distance to truth per block",
+  "reference_distance_by_block": {
+   "4": 2.7521876619447343,
+   "5": 1.647260666106114,
+   "6": 0.31070123353701184,
+   "7": 1.1289240637926214,
+   "12": 1.974695350245517
+  },
+  "truth_stage_decay_by_block": {
+   "4": -2.1751095672564533,
+   "5": -1.1835529653171932,
+   "6": 1.4559581484320758,
+   "7": -0.039845908547199604,
+   "12": -1.8179291869614398
+  },
+  "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+  "curve": [
+   {
+    "model": "u0_stage_delta+0.00",
+    "family": "stage_slope",
+    "level": 0.0,
+    "severity": 0.0,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.0,
+    "abs_separation_sd": 0.0,
+    "blocks_favouring": 0,
+    "mean_margin": 0.0,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.5627537951251997,
+    "stage_decay_by_block": {
+     "4": 0.577078094688281,
+     "5": 0.46370770078892065,
+     "6": 1.145256914895064,
+     "7": 1.0890781552454218,
+     "12": 0.1567661632840771
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.05",
+    "family": "stage_slope",
+    "level": -0.05,
+    "severity": 0.012135489776428183,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5554607252234249,
+    "abs_separation_sd": 0.5554607252234249,
+    "blocks_favouring": 4,
+    "mean_margin": 0.012484048648710689,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.550269746476489,
+    "stage_decay_by_block": {
+     "4": 0.5520463601822927,
+     "5": 0.44550395164470546,
+     "6": 1.118069903790831,
+     "7": 1.0621832408663836,
+     "12": 0.13728930696553254
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.10",
+    "family": "stage_slope",
+    "level": -0.1,
+    "severity": 0.024164640254332247,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5552646067017146,
+    "abs_separation_sd": 0.5552646067017146,
+    "blocks_favouring": 4,
+    "mean_margin": 0.024960049926581452,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.5377937451986186,
+    "stage_decay_by_block": {
+     "4": 0.5269943987950487,
+     "5": 0.4273220007432183,
+     "6": 1.0908757207113007,
+     "7": 1.0352976728153787,
+     "12": 0.11783459783638439
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.15",
+    "family": "stage_slope",
+    "level": -0.15,
+    "severity": 0.03609111458418957,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5550693919617962,
+    "abs_separation_sd": 0.5550693919617962,
+    "blocks_favouring": 4,
+    "mean_margin": 0.03742805588767721,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.5253257392375228,
+    "stage_decay_by_block": {
+     "4": 0.5019222152272254,
+     "5": 0.40916149037878274,
+     "6": 1.0636744010020391,
+     "7": 1.0084217041249044,
+     "12": 0.09840191094437722
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.20",
+    "family": "stage_slope",
+    "level": -0.2,
+    "severity": 0.047918532735544264,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5548750933688429,
+    "abs_separation_sd": 0.5548750933688429,
+    "blocks_favouring": 4,
+    "mean_margin": 0.049888119282158305,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.5128656758430414,
+    "stage_decay_by_block": {
+     "4": 0.4768298175326864,
+     "5": 0.39102205892276803,
+     "6": 1.0364659811262986,
+     "7": 0.9815555886627482,
+     "12": 0.07899111870894115
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.30",
+    "family": "stage_slope",
+    "level": -0.3,
+    "severity": 0.07129047347387153,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5544892938290857,
+    "abs_separation_sd": 0.5544892938290857,
+    "blocks_favouring": 4,
+    "mean_margin": 0.07478463284216434,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.4879691622830353,
+    "stage_decay_by_block": {
+     "4": 0.42658442880716363,
+     "5": 0.3548049669481342,
+     "6": 0.9820279922927124,
+     "7": 0.9278539366691988,
+     "12": 0.040234694769030854
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.40",
+    "family": "stage_slope",
+    "level": -0.4,
+    "severity": 0.09430861523199638,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5541073059597771,
+    "abs_separation_sd": 0.5541073059597771,
+    "blocks_favouring": 4,
+    "mean_margin": 0.09965002646647876,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.463103768658721,
+    "stage_decay_by_block": {
+     "4": 0.37625836448397987,
+     "5": 0.31866775551437765,
+     "6": 0.927562068109434,
+     "7": 0.8741947619141043,
+     "12": 0.001564252976215208
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.50",
+    "family": "stage_slope",
+    "level": -0.5,
+    "severity": 0.11700051408594636,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5537292267503163,
+    "abs_separation_sd": 0.5537292267503163,
+    "blocks_favouring": 4,
+    "mean_margin": 0.12448474705087098,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.4382690480743288,
+    "stage_decay_by_block": {
+     "4": 0.3258518106248034,
+     "5": 0.2826073962945984,
+     "6": 0.8730685400605313,
+     "7": 0.8205801184365228,
+     "12": -0.03702132143811143
+    }
+   },
+   {
+    "model": "u0_stage_delta-0.75",
+    "family": "stage_slope",
+    "level": -0.75,
+    "severity": 0.17247893134532585,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5528017570229983,
+    "abs_separation_sd": 0.5528017570229983,
+    "blocks_favouring": 4,
+    "mean_margin": 0.18644038580509098,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.3763134093201086,
+    "stage_decay_by_block": {
+     "4": 0.19948499587293256,
+     "5": 0.19277234403778032,
+     "6": 0.7367162847770292,
+     "7": 0.6867518671650664,
+     "12": -0.13312165221256844
+    }
+   },
+   {
+    "model": "u0_stage_delta-1.00",
+    "family": "stage_slope",
+    "level": -1.0,
+    "severity": 0.2264947033310202,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5519007869991082,
+    "abs_separation_sd": 0.5519007869991082,
+    "blocks_favouring": 4,
+    "mean_margin": 0.24821466322696245,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.3145391318982373,
+    "stage_decay_by_block": {
+     "4": 0.07262201636938048,
+     "5": 0.1033485144809531,
+     "6": 0.6001996487044723,
+     "7": 0.5532470906819221,
+     "12": -0.22871808985095887
+    }
+   },
+   {
+    "model": "u0_stage_delta-1.25",
+    "family": "stage_slope",
+    "level": -1.25,
+    "severity": 0.27944116846412786,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.551027746711568,
+    "abs_separation_sd": 0.551027746711568,
+    "blocks_favouring": 4,
+    "mean_margin": 0.3098154579776601,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.2529383371475395,
+    "stage_decay_by_block": {
+     "4": -0.05472976956884068,
+     "5": 0.014284301163315798,
+     "6": 0.46352519239327344,
+     "7": 0.42009797100512547,
+     "12": -0.323831400982991
+    }
+   },
+   {
+    "model": "u0_stage_delta-1.50",
+    "family": "stage_slope",
+    "level": -1.5,
+    "severity": 0.3317000304617569,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5501840190433827,
+    "abs_separation_sd": 0.5501840190433827,
+    "blocks_favouring": 4,
+    "mean_margin": 0.3712510722493346,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.191502722875865,
+    "stage_decay_by_block": {
+     "4": -0.18256091786258422,
+     "5": -0.07447361498259045,
+     "6": 0.3267000893334924,
+     "7": 0.2873363491228755,
+     "12": -0.41848388907924494
+    }
+   },
+   {
+    "model": "u0_stage_delta-2.00",
+    "family": "stage_slope",
+    "level": -2.0,
+    "severity": 0.43564670360973307,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.5485897733102643,
+    "abs_separation_sd": 0.5485897733102643,
+    "blocks_favouring": 4,
+    "mean_margin": 0.4936620809427078,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.0690917141824918,
+    "stage_decay_by_block": {
+     "4": -0.4396134172296384,
+     "5": -0.251290959763129,
+     "6": 0.05262947192732276,
+     "7": 0.023099624766864835,
+     "12": -0.6065029814486766
+    }
+   },
+   {
+    "model": "u0_stage_delta-2.50",
+    "family": "stage_slope",
+    "level": -2.5,
+    "severity": 0.5413006976256375,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.49845554461380837,
+    "abs_separation_sd": 0.49845554461380837,
+    "blocks_favouring": 4,
+    "mean_margin": 0.5357706656390079,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.0269831294861917,
+    "stage_decay_by_block": {
+     "4": -0.6984206215077418,
+     "5": -0.427555028325393,
+     "6": -0.22194410258381553,
+     "7": -0.23922561995555736,
+     "12": -0.7929823846952414
+    }
+   },
+   {
+    "model": "u0_stage_delta-3.00",
+    "family": "stage_slope",
+    "level": -3.0,
+    "severity": 0.6516836560756964,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.43718690649526554,
+    "abs_separation_sd": 0.43718690649526554,
+    "blocks_favouring": 4,
+    "mean_margin": 0.5530823774329885,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 1.009671417692211,
+    "stage_decay_by_block": {
+     "4": -0.9588395445222424,
+     "5": -0.6037284611874707,
+     "6": -0.4969455986125593,
+     "7": -0.4994250958420615,
+     "12": -0.9781495597038143
+    }
+   },
+   {
+    "model": "u0_stage_delta-4.00",
+    "family": "stage_slope",
+    "level": -4.0,
+    "severity": 0.8997437588839532,
+    "severity_unit": "equal-block mean of sum|growth' - growth| / sum(growth), i.e. the fraction of the block's total forecast growth the perturbation MOVES. Cell counts only.",
+    "n_blocks": 5,
+    "separation_sd": 0.3458390430687714,
+    "abs_separation_sd": 0.3458390430687714,
+    "blocks_favouring": 4,
+    "mean_margin": 0.589485185010812,
+    "undefined_reason": "",
+    "detected": false,
+    "mean_distance_to_truth": 0.9732686101143877,
+    "stage_decay_by_block": {
+     "4": -1.4838261327825972,
+     "5": -0.9576561809824982,
+     "6": -1.0479081378365558,
+     "7": -1.0127552814670844,
+     "12": -1.3455420143865688
+    }
+   }
+  ],
+  "null_rung": {
+   "level": 0.0,
+   "separation_sd": 0.0,
+   "blocks_favouring": 0,
+   "is_exactly_zero": true,
+   "note": "The identity rung runs the whole injection path rather than short-circuiting, so a non-zero reading here would be a defect in the ladder, not an effect."
+  },
+  "positive_control_homogeneous_margins": {
+   "separation_sd": 6.324555320336753,
+   "blocks_favouring": 5,
+   "clears_bar": true,
+   "note": "Margins made deliberately homogeneous across the same 5 blocks. It clears the bar, so n=5 and the separation path are NOT what fails below."
+  },
+  "proportional_closure_ceiling": {
+   "outcome": "OK",
+   "separation_sd": 1.7083015869758378,
+   "n_blocks": 5,
+   "mean_distance": 1.5627537951251997,
+   "sd_distance": 0.9147997092783262,
+   "distance_cv": 0.5853767318511213,
+   "invariant_to_the_fraction_closed": true,
+   "note": "Separation of a proportional-closure arm from the reference. Independent of the fraction closed BY CONSTRUCTION, so it is a ceiling for that whole family of arms."
+  },
+  "proportional_closure_fraction_check": [
+   {
+    "fraction_of_gap_closed": 0.01,
+    "separation_sd": 1.708301586975836,
+    "blocks_favouring": 5,
+    "abs_error_vs_identity": 1.7763568394002505e-15
+   },
+   {
+    "fraction_of_gap_closed": 0.5,
+    "separation_sd": 1.7083015869758378,
+    "blocks_favouring": 5,
+    "abs_error_vs_identity": 0.0
+   },
+   {
+    "fraction_of_gap_closed": 1.0,
+    "separation_sd": 1.7083015869758378,
+    "blocks_favouring": 5,
+    "abs_error_vs_identity": 0.0
+   }
+  ],
+  "mde": {
+   "mde": null,
+   "bound": "greater_than",
+   "largest_severity_tested": 0.8997437588839532,
+   "largest_separation_sd": 0.3458390430687714,
+   "reason": "no rung reached 2.0 block-SD; the channel did not detect a severity of 0.8997 in this unit"
+  },
+  "verdict": "CANNOT_ADJUDICATE"
+ },
+ "d5_rebaseline_under_new_seeding": {
+  "task": "U0 deliverable 5 \u2014 re-baseline arm A under common.seeds.stable_seed",
+  "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/m9_probe_s1-20260809-222011",
+  "source_rows": "runs/m9_response.json",
+  "split_before": "b3e5dadad01eaef9",
+  "seed_base": 20260807,
+  "control_seed_base": 20261807,
+  "n_blocks_rebaselined": 5,
+  "agreement_vs_published_rows": {
+   "n_rows_new": 1372,
+   "n_rows_old": 1372,
+   "n_rows_unmatched": 0,
+   "n_cells": 6860,
+   "n_bitwise_identical": 6860,
+   "max_abs_error": 0.0,
+   "worst_cell": {
+    "key": null,
+    "field": null,
+    "abs_error": 0.0
+   },
+   "outcome": "BITWISE_IDENTICAL"
+  },
+  "positive_control_different_seed": {
+   "n_rows_new": 53,
+   "n_rows_old": 1372,
+   "n_rows_unmatched": 0,
+   "n_cells": 265,
+   "n_bitwise_identical": 197,
+   "max_abs_error": 1.0,
+   "worst_cell": {
+    "key": [
+     "2020_czu_lightning_complex",
+     92
+    ],
+    "field": "model_growth",
+    "abs_error": 1.0
+   },
+   "outcome": "DIFFERS",
+   "fire_id": "2020_czu_lightning_complex",
+   "spatial_block_id": 5,
+   "stage_decay_old": 0.46370770078892065,
+   "stage_decay_control_seed": 0.4863915984287086,
+   "control_is_capable_of_reporting_a_difference": true
+  },
+  "stage_decay_movement_by_block": {
+   "4": {
+    "old_seeding": 0.577078094688281,
+    "new_seeding": 0.577078094688281,
+    "abs_movement": 0.0
+   },
+   "5": {
+    "old_seeding": 0.46370770078892065,
+    "new_seeding": 0.46370770078892065,
+    "abs_movement": 0.0
+   },
+   "6": {
+    "old_seeding": 1.145256914895064,
+    "new_seeding": 1.145256914895064,
+    "abs_movement": 0.0
+   },
+   "7": {
+    "old_seeding": 1.0890781552454218,
+    "new_seeding": 1.0890781552454218,
+    "abs_movement": 0.0
+   },
+   "12": {
+    "old_seeding": 0.1567661632840771,
+    "new_seeding": 0.1567661632840771,
+    "abs_movement": 0.0
+   }
+  },
+  "max_stage_decay_movement": 0.0,
+  "gap_new_seeding": {
+   "metric": "stage_decay",
+   "per_block": {
+    "4": {
+     "truth": {
+      "outcome": "OK",
+      "stage_decay": -2.1751095672564533,
+      "n_windows": 785,
+      "n_per_half": 392,
+      "n_dropped_middle": 1,
+      "early_mean_growth": 5.704081632653061,
+      "late_mean_growth": 0.6479591836734694
+     },
+     "model": {
+      "outcome": "OK",
+      "stage_decay": 0.577078094688281,
+      "n_windows": 785,
+      "n_per_half": 392,
+      "n_dropped_middle": 1,
+      "early_mean_growth": 7.420068027210885,
+      "late_mean_growth": 13.213860544217686
+     },
+     "gap_model_minus_truth": 2.7521876619447343,
+     "outcome": "OK"
+    },
+    "5": {
+     "truth": {
+      "outcome": "OK",
+      "stage_decay": -1.1835529653171932,
+      "n_windows": 53,
+      "n_per_half": 26,
+      "n_dropped_middle": 1,
+      "early_mean_growth": 11.807692307692308,
+      "late_mean_growth": 3.6153846153846154
+     },
+     "model": {
+      "outcome": "OK",
+      "stage_decay": 0.46370770078892065,
+      "n_windows": 53,
+      "n_per_half": 26,
+      "n_dropped_middle": 1,
+      "early_mean_growth": 0.7660256410256411,
+      "late_mean_growth": 1.2179487179487178
+     },
+     "gap_model_minus_truth": 1.647260666106114,
+     "outcome": "OK"
+    },
+    "6": {
+     "truth": {
+      "outcome": "OK",
+      "stage_decay": 1.4559581484320758,
+      "n_windows": 346,
+      "n_per_half": 173,
+      "n_dropped_middle": 0,
+      "early_mean_growth": 0.861271676300578,
+      "late_mean_growth": 3.69364161849711
+     },
+     "model": {
+      "outcome": "OK",
+      "stage_decay": 1.145256914895064,
+      "n_windows": 346,
+      "n_per_half": 173,
+      "n_dropped_middle": 0,
+      "early_mean_growth": 0.7027938342967245,
+      "late_mean_growth": 2.2090558766859343
+     },
+     "gap_model_minus_truth": -0.31070123353701184,
+     "outcome": "OK"
+    },
+    "7": {
+     "truth": {
+      "outcome": "OK",
+      "stage_decay": -0.039845908547199604,
+      "n_windows": 98,
+      "n_per_half": 49,
+      "n_dropped_middle": 0,
+      "early_mean_growth": 2.6122448979591835,
+      "late_mean_growth": 2.510204081632653
+     },
+     "model": {
+      "outcome": "OK",
+      "stage_decay": 1.0890781552454218,
+      "n_windows": 98,
+      "n_per_half": 49,
+      "n_dropped_middle": 0,
+      "early_mean_growth": 0.9260204081632653,
+      "late_mean_growth": 2.751700680272109
+     },
+     "gap_model_minus_truth": 1.1289240637926214,
+     "outcome": "OK"
+    },
+    "12": {
+     "truth": {
+      "outcome": "OK",
+      "stage_decay": -1.8179291869614398,
+      "n_windows": 90,
+      "n_per_half": 45,
+      "n_dropped_middle": 0,
+      "early_mean_growth": 6.022222222222222,
+      "late_mean_growth": 0.9777777777777777
+     },
+     "model": {
+      "outcome": "OK",
+      "stage_decay": 0.1567661632840771,
+      "n_windows": 90,
+      "n_per_half": 45,
+      "n_dropped_middle": 0,
+      "early_mean_growth": 3.1314814814814813,
+      "late_mean_growth": 3.662962962962963
+     },
+     "gap_model_minus_truth": 1.974695350245517,
+     "outcome": "OK"
+    }
+   },
+   "n_blocks": 5,
+   "outcome": "OK",
+   "equal_block_mean_gap": 1.438473301710395,
+   "sd_across_blocks": 1.1415344885948353,
+   "n_blocks_model_above_truth": 4,
+   "unanimous_sign": false,
+   "uncertainty_basis": "SD ACROSS HELD-OUT BLOCKS (ADR-042). Never seeds, never windows."
+  },
+  "elapsed_s": 200.0,
+  "scoring_code_before": "597dc8994b89fba4",
+  "scoring_code_after": "597dc8994b89fba4",
+  "common_code_before": "70c1670c4296a1d8",
+  "common_code_after": "70c1670c4296a1d8",
+  "split_after": "b3e5dadad01eaef9",
+  "not_a_verdict": "Diagnostic. No gate is adjudicated here and no arm is proposed."
+ },
+ "d6_registry_guard": {
+  "metric": "stage_decay",
+  "gate": "the stage experiment",
+  "may_adjudicate": false,
+  "outcome": "NOT_LICENSED",
+  "registry_refusal": "'stage_decay' is not in C6_METRICS, so nothing has ruled on whether it may decide the stage experiment. An unregistered metric is an unchecked metric; register it with a direction and a gate_eligible flag before letting it decide anything.",
+  "checked_by": "common.null_check.assert_may_adjudicate"
+ },
+ "channel_can_adjudicate_the_stage_experiment": false,
+ "not_a_verdict": "NOT A VERDICT. D3 (known-beta recovery) passes and D4 (MDE at 2.0 block-SD, n=5) FAILS, so this channel is not licensed to adjudicate anything, and the C6 registry independently refuses it (see d6_registry_guard). Every number here is a property of the INSTRUMENT or of arm A as already published; no architecture arm was built, trained or scored."
+}

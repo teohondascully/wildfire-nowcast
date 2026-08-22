@@ -1,0 +1,58 @@
+{
+ "rho_lag1_pooled": 0.5143806420996772,
+ "n_pairs": 2350,
+ "n_fires": 8,
+ "per_fire_rho_min": 0.2170697683324483,
+ "per_fire_rho_max": 0.6223701957001688,
+ "per_fire": [
+  {
+   "fire_id": "2019_kincade",
+   "n_pairs": 130,
+   "rho": 0.34038344228920436,
+   "innovation_sd": 0.7509160512165888
+  },
+  {
+   "fire_id": "2019_walker",
+   "n_pairs": 189,
+   "rho": 0.4399197408518609,
+   "innovation_sd": 0.7439591021567613
+  },
+  {
+   "fire_id": "2020_glass",
+   "n_pairs": 185,
+   "rho": 0.48294448533728196,
+   "innovation_sd": 0.8076591754400656
+  },
+  {
+   "fire_id": "2020_july_complex",
+   "n_pairs": 194,
+   "rho": 0.4957037683394349,
+   "innovation_sd": 0.7271635339534077
+  },
+  {
+   "fire_id": "2020_scu_lightning_complex",
+   "n_pairs": 341,
+   "rho": 0.6223701957001688,
+   "innovation_sd": 1.098658184912201
+  },
+  {
+   "fire_id": "2020_zogg",
+   "n_pairs": 66,
+   "rho": 0.2170697683324483,
+   "innovation_sd": 0.8963351669762142
+  },
+  {
+   "fire_id": "2021_caldor",
+   "n_pairs": 616,
+   "rho": 0.598154090931951,
+   "innovation_sd": 0.954424167033415
+  },
+  {
+   "fire_id": "2021_knp_complex",
+   "n_pairs": 629,
+   "rho": 0.27447695508536696,
+   "innovation_sd": 0.5768625109841827
+  }
+ ],
+ "estimand": "lag-1 autocorrelation of log1p(observed new cells) - log1p(predicted new cells) at a 1 h step on the growth band, per-fire mean removed; TRAIN fires only. This is the autocorrelation of the innovation z_t[0] carries."
+}

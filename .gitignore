@@ -24,8 +24,40 @@ env/
 /data/*
 !/data/norm_stats.json
 /outputs/
-/runs/
 *.mp4
+
+# `runs/` is 92 MB of evidence and stays out of the public tree, EXCEPT for the
+# twelve artifacts that tracked public source cites BY NAME. Twelve of twelve
+# were unopenable to a reader, including `s1.json` and `e1.json`, the two
+# headline results: source that cites evidence the repository does not contain
+# reads as fabricated provenance even though every file is real and present.
+# They total 4,338,332 bytes, 4.5% of the directory. Tracking them also PINS
+# them, so a silent regeneration becomes a diff.
+#
+# NOTE the `/*` form, for the same reason `/data/*` uses it above: git cannot
+# re-include a file whose PARENT DIRECTORY is excluded, so `/runs/` plus a
+# `!` line would silently not work. `/runs/*` excludes each entry individually,
+# which leaves the negations below able to bite and leaves every subdirectory
+# (`runs/baselines-*/`, every per-run directory) excluded as a unit.
+#
+# THIS LIST IS NOT THE WHOLE CLASS AND SAYS SO. Nine further `runs/` paths are
+# cited by tracked source and remain unopenable: four `baselines-*/results.json`
+# (12.7 MB, ten times the budget these twelve cost) and five `runs/_*.py` scratch
+# scripts, which are a C0 problem rather than a size one. Adding a file here is
+# a deliberate edit, which is the intended cost.
+/runs/*
+!/runs/e1.json
+!/runs/m6_innovation_autocorr.json
+!/runs/m7_offstate_optimum.json
+!/runs/m7_spatial_lever.json
+!/runs/m8_partition_probe.json
+!/runs/m8_transfer_probe.json
+!/runs/m9_scaling.json
+!/runs/m12_frontier.json
+!/runs/s1.json
+!/runs/s1_rows_a_s1.json
+!/runs/u0.json
+!/runs/u0b.json
 
 # Generated figures and the review page (32.8 MB, rebuilt by sim/review.py).
 # WARNING: these are only regenerable together with /runs/, which is ALSO
