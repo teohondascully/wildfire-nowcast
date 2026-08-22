@@ -247,6 +247,11 @@ class Sweep:
 
     results: list[Result] = field(default_factory=list)
     deselected: list[str] = field(default_factory=list)
+    #: The sha actually swept, read out of the WORKSPACE rather than the repo.
+    #: Without it a pinned number is attributable only by comparing the process
+    #: start time against commit timestamps - which this session had to do, with a
+    #: five-second margin, to find out which commit a budget of 21 was measured at.
+    head: str = ""
     carried: int = 0
     seconds: float = 0.0
 
@@ -275,6 +280,7 @@ class Sweep:
         return {
             "budget": SURVIVOR_BUDGET,
             "measured_at": MEASURED_AT,
+            "head": self.head,
             "n_mutants": len(self.results),
             "n_killed": len(self.killed),
             "n_survived": len(self.survivors),
@@ -725,6 +731,12 @@ def sweep(
     for space in spaces:
         out.carried = build_workspace(repo, space, pristine=pristine)
         assert_workspace_is_self_contained(space, python)
+    out.head = subprocess.run(
+        ["git", "-C", str(spaces[0]), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     out.deselected = baseline(spaces[0], python)
     deselect = [arg for node in out.deselected for arg in ("--deselect", node)]
 
@@ -825,6 +837,8 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     n_survived = len(result.survivors)
+    # The sha FIRST, because it is the only line that says what the rest is about.
+    print(f"swept {result.head[:7]} ({'pristine' if args.pristine else 'working tree'})")
     print(
         f"mutants {len(result.results)}  killed {len(result.killed)}  survived {n_survived}  "
         f"equivalent {len(result.equivalent)}  unmeasured {len(result.unmeasured)}"

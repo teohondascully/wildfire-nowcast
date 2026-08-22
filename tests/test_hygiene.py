@@ -2221,3 +2221,21 @@ def test_the_isolated_runner_returns_pytests_own_exit_code() -> None:
         "the isolated runner no longer passes pytest's exit code through"
     )
     assert "check=False" in source, "a non-zero pytest exit would raise instead of reporting"
+
+
+def test_the_sweep_records_the_sha_it_actually_measured() -> None:
+    """A pinned number that cannot name its commit is not attributable.
+
+    This session had to infer which commit a budget of 21 was measured at by
+    comparing a process start time against commit timestamps five seconds apart.
+    The sha is read out of the WORKSPACE, not the repo, because the repo can move
+    during a 45-minute run and the workspace cannot.
+    """
+    assert "head" in mutation.Sweep().to_dict()
+    source = inspect.getsource(mutation.sweep)
+    assert 'str(spaces[0]), "rev-parse", "HEAD"' in source, (
+        "the swept sha is no longer read from the workspace, so a sweep that outlives a "
+        "commit would report the wrong one"
+    )
+    printer = inspect.getsource(mutation.main)
+    assert "result.head" in printer, "the sha is recorded but never shown"
