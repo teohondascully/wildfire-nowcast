@@ -11,63 +11,63 @@
   "n_members": 15,
   "members": {
    "fold0_arm_a_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f0-20260821-181817",
+    "run": "runs/s1_arma_s1_f0-20260821-181817",
     "split_fingerprint": "485706acb537b9ac"
    },
    "fold1_arm_a_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f1-20260821-184356",
+    "run": "runs/s1_arma_s1_f1-20260821-184356",
     "split_fingerprint": "606d5904b7254f1a"
    },
    "fold2_arm_a_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f2-20260821-190545",
+    "run": "runs/s1_arma_s1_f2-20260821-190545",
     "split_fingerprint": "27d06a388cfd8946"
    },
    "fold3_arm_a_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f3-20260821-180258",
+    "run": "runs/s1_arma_s1_f3-20260821-180258",
     "split_fingerprint": "b3e5dadad01eaef9"
    },
    "fold4_arm_a_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f4-20260821-192638",
+    "run": "runs/s1_arma_s1_f4-20260821-192638",
     "split_fingerprint": "5847b50cda6e0e9a"
    },
    "fold0_arm_s_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f0-20260821-183222",
+    "run": "runs/s1_arms_s1_f0-20260821-183222",
     "split_fingerprint": "485706acb537b9ac"
    },
    "fold1_arm_s_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f1-20260821-185509",
+    "run": "runs/s1_arms_s1_f1-20260821-185509",
     "split_fingerprint": "606d5904b7254f1a"
    },
    "fold2_arm_s_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f2-20260821-191656",
+    "run": "runs/s1_arms_s1_f2-20260821-191656",
     "split_fingerprint": "27d06a388cfd8946"
    },
    "fold3_arm_s_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1-20260816-015710",
+    "run": "runs/s1_arms_s1-20260816-015710",
     "split_fingerprint": "b3e5dadad01eaef9"
    },
    "fold4_arm_s_seed1": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f4-20260821-193656",
+    "run": "runs/s1_arms_s1_f4-20260821-193656",
     "split_fingerprint": "5847b50cda6e0e9a"
    },
    "fold0_arm_a_seed2": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f0-20260821-194836",
+    "run": "runs/s1_arma_s2_f0-20260821-194836",
     "split_fingerprint": "485706acb537b9ac"
    },
    "fold1_arm_a_seed2": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f1-20260821-200024",
+    "run": "runs/s1_arma_s2_f1-20260821-200024",
     "split_fingerprint": "606d5904b7254f1a"
    },
    "fold2_arm_a_seed2": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f2-20260821-202033",
+    "run": "runs/s1_arma_s2_f2-20260821-202033",
     "split_fingerprint": "27d06a388cfd8946"
    },
    "fold3_arm_a_seed2": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f3-20260821-202903",
+    "run": "runs/s1_arma_s2_f3-20260821-202903",
     "split_fingerprint": "b3e5dadad01eaef9"
    },
    "fold4_arm_a_seed2": {
-    "run": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f4-20260821-204046",
+    "run": "runs/s1_arma_s2_f4-20260821-204046",
     "split_fingerprint": "5847b50cda6e0e9a"
    }
   },
@@ -89,7 +89,7 @@
     "arms": {
      "a_seed1": {
       "rows_file": "runs/s1_rows_a_s1_f0.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f0-20260821-181817",
+      "checkpoint": "runs/s1_arma_s1_f0-20260821-181817",
       "split_fingerprint": "485706acb537b9ac",
       "split": {
        "fingerprint": "485706acb537b9ac",
@@ -149,7 +149,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold0.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -172,7 +172,7 @@
       "elapsed_s": 138.2,
       "seconds_per_window": 0.144,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f0-20260821-181817",
+       "model": "arm checkpoint runs/s1_arma_s1_f0-20260821-181817",
        "training_split_fingerprint": "485706acb537b9ac",
        "evaluation_split_fingerprint": "485706acb537b9ac",
        "match": true,
@@ -182,7 +182,7 @@
      },
      "s_seed1": {
       "rows_file": "runs/s1_rows_s_s1_f0.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f0-20260821-183222",
+      "checkpoint": "runs/s1_arms_s1_f0-20260821-183222",
       "split_fingerprint": "485706acb537b9ac",
       "split": {
        "fingerprint": "485706acb537b9ac",
@@ -242,7 +242,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold0.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -265,7 +265,7 @@
       "elapsed_s": 108.5,
       "seconds_per_window": 0.113,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f0-20260821-183222",
+       "model": "arm checkpoint runs/s1_arms_s1_f0-20260821-183222",
        "training_split_fingerprint": "485706acb537b9ac",
        "evaluation_split_fingerprint": "485706acb537b9ac",
        "match": true,
@@ -287,7 +287,7 @@
      },
      "a_seed2": {
       "rows_file": "runs/s1_rows_a_s2_f0.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f0-20260821-194836",
+      "checkpoint": "runs/s1_arma_s2_f0-20260821-194836",
       "split_fingerprint": "485706acb537b9ac",
       "split": {
        "fingerprint": "485706acb537b9ac",
@@ -347,7 +347,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold0.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -370,7 +370,7 @@
       "elapsed_s": 125.2,
       "seconds_per_window": 0.1304,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f0-20260821-194836",
+       "model": "arm checkpoint runs/s1_arma_s2_f0-20260821-194836",
        "training_split_fingerprint": "485706acb537b9ac",
        "evaluation_split_fingerprint": "485706acb537b9ac",
        "match": true,
@@ -387,7 +387,7 @@
     "arms": {
      "a_seed1": {
       "rows_file": "runs/s1_rows_a_s1_f1.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f1-20260821-184356",
+      "checkpoint": "runs/s1_arma_s1_f1-20260821-184356",
       "split_fingerprint": "606d5904b7254f1a",
       "split": {
        "fingerprint": "606d5904b7254f1a",
@@ -447,7 +447,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold1.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -469,7 +469,7 @@
       "elapsed_s": 89.6,
       "seconds_per_window": 0.1558,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f1-20260821-184356",
+       "model": "arm checkpoint runs/s1_arma_s1_f1-20260821-184356",
        "training_split_fingerprint": "606d5904b7254f1a",
        "evaluation_split_fingerprint": "606d5904b7254f1a",
        "match": true,
@@ -479,7 +479,7 @@
      },
      "s_seed1": {
       "rows_file": "runs/s1_rows_s_s1_f1.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f1-20260821-185509",
+      "checkpoint": "runs/s1_arms_s1_f1-20260821-185509",
       "split_fingerprint": "606d5904b7254f1a",
       "split": {
        "fingerprint": "606d5904b7254f1a",
@@ -539,7 +539,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold1.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -561,7 +561,7 @@
       "elapsed_s": 111.6,
       "seconds_per_window": 0.1941,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f1-20260821-185509",
+       "model": "arm checkpoint runs/s1_arms_s1_f1-20260821-185509",
        "training_split_fingerprint": "606d5904b7254f1a",
        "evaluation_split_fingerprint": "606d5904b7254f1a",
        "match": true,
@@ -583,7 +583,7 @@
      },
      "a_seed2": {
       "rows_file": "runs/s1_rows_a_s2_f1.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f1-20260821-200024",
+      "checkpoint": "runs/s1_arma_s2_f1-20260821-200024",
       "split_fingerprint": "606d5904b7254f1a",
       "split": {
        "fingerprint": "606d5904b7254f1a",
@@ -643,7 +643,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold1.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -665,7 +665,7 @@
       "elapsed_s": 294.1,
       "seconds_per_window": 0.5115,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f1-20260821-200024",
+       "model": "arm checkpoint runs/s1_arma_s2_f1-20260821-200024",
        "training_split_fingerprint": "606d5904b7254f1a",
        "evaluation_split_fingerprint": "606d5904b7254f1a",
        "match": true,
@@ -684,7 +684,7 @@
     "arms": {
      "a_seed1": {
       "rows_file": "runs/s1_rows_a_s1_f2.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f2-20260821-190545",
+      "checkpoint": "runs/s1_arma_s1_f2-20260821-190545",
       "split_fingerprint": "27d06a388cfd8946",
       "split": {
        "fingerprint": "27d06a388cfd8946",
@@ -744,7 +744,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold2.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -771,7 +771,7 @@
       "elapsed_s": 108.4,
       "seconds_per_window": 0.1098,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f2-20260821-190545",
+       "model": "arm checkpoint runs/s1_arma_s1_f2-20260821-190545",
        "training_split_fingerprint": "27d06a388cfd8946",
        "evaluation_split_fingerprint": "27d06a388cfd8946",
        "match": true,
@@ -781,7 +781,7 @@
      },
      "s_seed1": {
       "rows_file": "runs/s1_rows_s_s1_f2.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f2-20260821-191656",
+      "checkpoint": "runs/s1_arms_s1_f2-20260821-191656",
       "split_fingerprint": "27d06a388cfd8946",
       "split": {
        "fingerprint": "27d06a388cfd8946",
@@ -841,7 +841,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold2.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -868,7 +868,7 @@
       "elapsed_s": 91.5,
       "seconds_per_window": 0.0927,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f2-20260821-191656",
+       "model": "arm checkpoint runs/s1_arms_s1_f2-20260821-191656",
        "training_split_fingerprint": "27d06a388cfd8946",
        "evaluation_split_fingerprint": "27d06a388cfd8946",
        "match": true,
@@ -890,7 +890,7 @@
      },
      "a_seed2": {
       "rows_file": "runs/s1_rows_a_s2_f2.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f2-20260821-202033",
+      "checkpoint": "runs/s1_arma_s2_f2-20260821-202033",
       "split_fingerprint": "27d06a388cfd8946",
       "split": {
        "fingerprint": "27d06a388cfd8946",
@@ -950,7 +950,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold2.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        },
        "c6_3_expected_false": {
@@ -977,7 +977,7 @@
       "elapsed_s": 93.6,
       "seconds_per_window": 0.0949,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f2-20260821-202033",
+       "model": "arm checkpoint runs/s1_arma_s2_f2-20260821-202033",
        "training_split_fingerprint": "27d06a388cfd8946",
        "evaluation_split_fingerprint": "27d06a388cfd8946",
        "match": true,
@@ -998,7 +998,7 @@
     "arms": {
      "a_seed1": {
       "rows_file": "runs/s1_rows_a_s1_f3.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f3-20260821-180258",
+      "checkpoint": "runs/s1_arma_s1_f3-20260821-180258",
       "split_fingerprint": "b3e5dadad01eaef9",
       "split": {
        "fingerprint": "b3e5dadad01eaef9",
@@ -1058,7 +1058,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold3.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        }
       },
@@ -1080,7 +1080,7 @@
       "elapsed_s": 229.4,
       "seconds_per_window": 0.1672,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f3-20260821-180258",
+       "model": "arm checkpoint runs/s1_arma_s1_f3-20260821-180258",
        "training_split_fingerprint": "b3e5dadad01eaef9",
        "evaluation_split_fingerprint": "b3e5dadad01eaef9",
        "match": true,
@@ -1090,7 +1090,7 @@
      },
      "s_seed1": {
       "rows_file": "runs/s1_rows_s_s1_f3.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1-20260816-015710",
+      "checkpoint": "runs/s1_arms_s1-20260816-015710",
       "split_fingerprint": "b3e5dadad01eaef9",
       "split": {
        "fingerprint": "b3e5dadad01eaef9",
@@ -1150,7 +1150,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold3.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        }
       },
@@ -1172,7 +1172,7 @@
       "elapsed_s": 220.6,
       "seconds_per_window": 0.1608,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1-20260816-015710",
+       "model": "arm checkpoint runs/s1_arms_s1-20260816-015710",
        "training_split_fingerprint": "b3e5dadad01eaef9",
        "evaluation_split_fingerprint": "b3e5dadad01eaef9",
        "match": true,
@@ -1194,7 +1194,7 @@
      },
      "a_seed2": {
       "rows_file": "runs/s1_rows_a_s2_f3.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f3-20260821-202903",
+      "checkpoint": "runs/s1_arma_s2_f3-20260821-202903",
       "split_fingerprint": "b3e5dadad01eaef9",
       "split": {
        "fingerprint": "b3e5dadad01eaef9",
@@ -1254,7 +1254,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold3.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        }
       },
@@ -1276,7 +1276,7 @@
       "elapsed_s": 207.1,
       "seconds_per_window": 0.1509,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f3-20260821-202903",
+       "model": "arm checkpoint runs/s1_arma_s2_f3-20260821-202903",
        "training_split_fingerprint": "b3e5dadad01eaef9",
        "evaluation_split_fingerprint": "b3e5dadad01eaef9",
        "match": true,
@@ -1296,7 +1296,7 @@
     "arms": {
      "a_seed1": {
       "rows_file": "runs/s1_rows_a_s1_f4.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f4-20260821-192638",
+      "checkpoint": "runs/s1_arma_s1_f4-20260821-192638",
       "split_fingerprint": "5847b50cda6e0e9a",
       "split": {
        "fingerprint": "5847b50cda6e0e9a",
@@ -1356,7 +1356,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold4.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        }
       },
@@ -1378,7 +1378,7 @@
       "elapsed_s": 186.0,
       "seconds_per_window": 0.1281,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1_f4-20260821-192638",
+       "model": "arm checkpoint runs/s1_arma_s1_f4-20260821-192638",
        "training_split_fingerprint": "5847b50cda6e0e9a",
        "evaluation_split_fingerprint": "5847b50cda6e0e9a",
        "match": true,
@@ -1388,7 +1388,7 @@
      },
      "s_seed1": {
       "rows_file": "runs/s1_rows_s_s1_f4.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f4-20260821-193656",
+      "checkpoint": "runs/s1_arms_s1_f4-20260821-193656",
       "split_fingerprint": "5847b50cda6e0e9a",
       "split": {
        "fingerprint": "5847b50cda6e0e9a",
@@ -1448,7 +1448,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold4.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        }
       },
@@ -1470,7 +1470,7 @@
       "elapsed_s": 222.0,
       "seconds_per_window": 0.1529,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arms_s1_f4-20260821-193656",
+       "model": "arm checkpoint runs/s1_arms_s1_f4-20260821-193656",
        "training_split_fingerprint": "5847b50cda6e0e9a",
        "evaluation_split_fingerprint": "5847b50cda6e0e9a",
        "match": true,
@@ -1492,7 +1492,7 @@
      },
      "a_seed2": {
       "rows_file": "runs/s1_rows_a_s2_f4.json",
-      "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f4-20260821-204046",
+      "checkpoint": "runs/s1_arma_s2_f4-20260821-204046",
       "split_fingerprint": "5847b50cda6e0e9a",
       "split": {
        "fingerprint": "5847b50cda6e0e9a",
@@ -1552,7 +1552,7 @@
        "c6_3_note": "C6.3: G2 requires >= 4 DISTINCT held-out spatial blocks. More fires from the same block are the same evidence with false confidence, not more evidence.",
        "split_context": {
         "stats_path": "data/norm_stats_heldout_fold4.json",
-        "fires_root": "/Users/thondascully/Projects/wildfire-nowcast/data/fires",
+        "fires_root": "data/fires",
         "clause": "C8.2 [v2.16] (ADR-062 (5))"
        }
       },
@@ -1574,7 +1574,7 @@
       "elapsed_s": 119.0,
       "seconds_per_window": 0.0819,
       "model_split_check": {
-       "model": "arm checkpoint /Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s2_f4-20260821-204046",
+       "model": "arm checkpoint runs/s1_arma_s2_f4-20260821-204046",
        "training_split_fingerprint": "5847b50cda6e0e9a",
        "evaluation_split_fingerprint": "5847b50cda6e0e9a",
        "match": true,

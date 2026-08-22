@@ -1,6 +1,6 @@
 {
  "split_fingerprint": "4848f491e8d588fa",
- "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/m6_fair_s1-20260809-023104",
+ "checkpoint": "runs/m6_fair_s1-20260809-023104",
  "w_nll": 1.0,
  "w_brier": 2.0,
  "off_log_multiplier": -12.0,

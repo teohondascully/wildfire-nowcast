@@ -2276,7 +2276,7 @@
  },
  "d5_rebaseline_under_new_seeding": {
   "task": "U0 deliverable 5 \u2014 re-baseline arm A under common.seeds.stable_seed",
-  "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/m9_probe_s1-20260809-222011",
+  "checkpoint": "runs/m9_probe_s1-20260809-222011",
   "source_rows": "runs/m9_response.json",
   "split_before": "b3e5dadad01eaef9",
   "seed_base": 20260807,

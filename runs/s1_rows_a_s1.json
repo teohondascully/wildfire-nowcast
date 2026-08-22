@@ -1,6 +1,6 @@
 {
  "task": "S1 \u2014 window rows for one arm",
- "checkpoint": "/Users/thondascully/Projects/wildfire-nowcast/runs/s1_arma_s1-20260816-014902",
+ "checkpoint": "runs/s1_arma_s1-20260816-014902",
  "model_kind": "contagion_kernel",
  "stage_scalar": false,
  "stage_report": null,
