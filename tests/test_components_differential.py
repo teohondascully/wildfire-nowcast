@@ -33,6 +33,7 @@ WHAT IS COMPARED, AND WHY BOTH
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 
 import numpy as np
 import pytest
@@ -211,39 +212,133 @@ def _random_masks(n: int = 400) -> list[tuple[str, np.ndarray]]:
 ALL_MASKS = _handmade_masks() + _random_masks()
 
 
-def test_the_mask_corpus_is_not_empty_and_actually_varies() -> None:
-    """Guard the corpus before trusting any agreement it reports.
+#: A 4-CONNECTED reference, written here so the corpus and the comparison loop
+#: can both be shown to separate it from the shipped 8-connected rule. It is a
+#: reference, not a copy of production code: the only thing that differs from
+#: ``common/components.py`` is the neighbourhood, which is precisely the defect
+#: these two tests exist to be capable of seeing.
+_NBR4: tuple[tuple[int, int], ...] = ((-1, 0), (0, -1), (0, 1), (1, 0))
 
-    A differential test over a corpus of identical or trivial masks agrees
-    perfectly and proves nothing - the same shape as every other confident empty
-    result this project has produced.
+
+def _four_connected_reference(mask: np.ndarray) -> tuple[np.ndarray, int]:
+    """4-connected labelling, same label conventions as the shipped 8-connected one."""
+    m = np.asarray(mask, dtype=bool)
+    labels = np.zeros(m.shape, dtype=np.int32)
+    h, w = m.shape
+    n = 0
+    for sy, sx in zip(*np.nonzero(m), strict=True):
+        if labels[sy, sx]:
+            continue
+        n += 1
+        queue: deque[tuple[int, int]] = deque([(int(sy), int(sx))])
+        labels[sy, sx] = n
+        while queue:
+            y, x = queue.popleft()
+            for dy, dx in _NBR4:
+                yy, xx = y + dy, x + dx
+                if 0 <= yy < h and 0 <= xx < w and m[yy, xx] and not labels[yy, xx]:
+                    labels[yy, xx] = n
+                    queue.append((yy, xx))
+    return labels, n
+
+
+def _disagreements(candidate: Callable[[np.ndarray], tuple[np.ndarray, int]]) -> list[str]:
+    """Run ``candidate`` against BOTH archived originals over the whole corpus.
+
+    The comparison loop lives here rather than inside one test so that the SAME
+    loop can be asked two questions: does it stay silent for the implementation
+    we ship, and can it speak at all when handed one we know to be wrong. An
+    all-clear from a loop that has never been shown to produce a non-clear is the
+    class of result this repository has published and had to retract.
     """
+    out: list[str] = []
+    for name, mask in ALL_MASKS:
+        want_lab, want_n = _data_original(mask)
+        alt_lab, alt_n = _sim_original(mask)
+        got_lab, got_n = candidate(mask)
+        got_part, want_part, alt_part = (_partition(x) for x in (got_lab, want_lab, alt_lab))
+        if not (got_n == want_n == alt_n):
+            out.append(f"{name}: candidate {got_n}, data {want_n}, sim {alt_n}")
+        elif not (got_part == want_part == alt_part):
+            out.append(f"{name}: same count {got_n}, DIFFERENT partition")
+        elif not (np.array_equal(got_lab, want_lab) and np.array_equal(got_lab, alt_lab)):
+            out.append(f"{name}: same partition, different label ids")
+    return out
+
+
+def _labelling_differences(
+    left: Callable[[np.ndarray], tuple[np.ndarray, int]],
+    right: Callable[[np.ndarray], tuple[np.ndarray, int]],
+) -> list[str]:
+    """Masks on which two labellings disagree, by count or by exact labels."""
+    out: list[str] = []
+    for name, mask in ALL_MASKS:
+        left_lab, left_n = left(mask)
+        right_lab, right_n = right(mask)
+        if left_n != right_n or not np.array_equal(left_lab, right_lab):
+            out.append(f"{name}: {left_n} vs {right_n}")
+    return out
+
+
+def test_the_mask_corpus_can_still_discriminate_the_LIVE_implementation() -> None:
+    """Guard the corpus, measured on the function actually under test.
+
+    WHAT WOULD MAKE THIS FAIL: a corpus on which the shipped labelling and a
+    4-connected labelling agree everywhere, or a shipped labelling that has
+    become 4-connected, since either leaves nothing here able to tell them apart.
+
+    This used to compute its counts from ``_data_original``, one of the frozen
+    2019-era archives at the top of this file. It therefore certified that the
+    corpus exercises an implementation nobody ships, and would have gone on
+    certifying it after the live function was replaced wholesale. The variety
+    assertions are unchanged in substance and now read the live module, and the
+    discrimination clause is new: a differential is only worth its green light if
+    the corpus it runs on still contains a case that separates right from wrong.
+    """
+    from wildfire_nowcast.common.components import label_components
+
     assert len(ALL_MASKS) >= 400
-    counts = {int(_data_original(m)[1]) for _, m in ALL_MASKS}
+    counts = {int(label_components(m)[1]) for _, m in ALL_MASKS}
     assert 0 in counts and 1 in counts
     assert max(counts) >= 5, f"no mask produced 5+ components; corpus is too easy: {sorted(counts)}"
     assert any(m.size == 1 for _, m in ALL_MASKS)
     assert any(m.all() for _, m in ALL_MASKS) and any(not m.any() for _, m in ALL_MASKS)
 
+    separating = _labelling_differences(label_components, _four_connected_reference)
+    assert separating, (
+        "no mask in the corpus distinguishes the shipped labelling from a 4-connected "
+        "one, so every agreement this file reports is compatible with the connectivity "
+        "rule having been changed"
+    )
+    assert any(entry.startswith("main_diagonal") for entry in separating), separating[:10]
 
-# --------------------------------------------------------------------------
-# (a) the two ORIGINALS agree - landed green BEFORE the hoist
-# --------------------------------------------------------------------------
 
+def test_the_differential_can_report_a_connectivity_defect_and_the_shipped_rule_is_not_one() -> (
+    None
+):
+    """The positive control this file never had, plus the claim it makes meaningful.
 
-def test_the_two_ORIGINAL_implementations_agree_on_every_mask() -> None:
-    """400+ masks, partition structure AND exact labels. 0 disagreements expected."""
-    disagreements: list[str] = []
-    for name, mask in ALL_MASKS:
-        a_lab, a_n = _sim_original(mask)
-        b_lab, b_n = _data_original(mask)
-        if a_n != b_n:
-            disagreements.append(f"{name}: count {a_n} vs {b_n}")
-        elif _partition(a_lab) != _partition(b_lab):
-            disagreements.append(f"{name}: same count {a_n}, DIFFERENT partition")
-        elif not np.array_equal(a_lab, b_lab):
-            disagreements.append(f"{name}: same partition, different label ids")
-    assert not disagreements, disagreements[:10]
+    WHAT WOULD MAKE THIS FAIL: a comparison loop that returns no disagreement
+    when handed a 4-connected labelling, or a shipped labelling that a
+    4-connected one is indistinguishable from on this corpus.
+
+    This replaces an assertion that compared the two ARCHIVED originals with each
+    other. Both are frozen by this file's own docstring and neither is imported
+    by anything, so the outcome of that comparison was fixed at the moment they
+    were pasted in and no change to any shipped module could move it. Its
+    historical content is not lost: ``_disagreements`` compares a candidate
+    against BOTH archives, so an archive pair that had drifted apart would leave
+    no candidate able to match both, and the first clause below would fail.
+    """
+    from wildfire_nowcast.common.components import label_components
+
+    reported = _disagreements(_four_connected_reference)
+    assert reported, (
+        "the differential reported nothing against a labelling that is 4-connected by "
+        "construction, so its silence for the shipped implementation means nothing"
+    )
+    assert any(entry.startswith("main_diagonal") for entry in reported), reported[:10]
+    assert not _disagreements(label_components), _disagreements(label_components)[:10]
 
 
 # --------------------------------------------------------------------------

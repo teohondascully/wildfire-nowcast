@@ -504,22 +504,178 @@ def test_the_encoder_cannot_be_asked_to_infer_what_it_cannot_see() -> None:
     assert mu.shape[-1] == head.dim == 5
 
 
-def test_the_innovation_encoder_differences_out_the_common_mode() -> None:
-    """[M7] item 60(c): the fix has to actually remove the burned blob.
+#: A step that GREW: four cells that are unburned in ``b`` and burned in ``y``.
+#: Written as coordinates rather than derived from the block, so the expected
+#: innovation below is arithmetic anyone can do on paper.
+NEW_CELLS: tuple[tuple[int, int], ...] = ((3, 5), (3, 6), (4, 8), (7, 8))
 
-    Known by construction: on a DORMANT step ``y == b``, so the realised-new-burn
-    channel is EXACTLY zero everywhere and the innovation channel is exactly
-    ``-expected``. The shipped 3-channel encoder instead receives two large
-    near-identical fields and has to find their difference through two ReLU
-    convolutions and a global mean, which is why ``q`` never saw dormancy.
+#: The model's own step probability at ``z = 0``, held CONSTANT over the domain
+#: so that every quantity the encoder should build has a closed form.
+P_ZERO = 0.25
+
+
+def _grown() -> torch.Tensor:
+    """``y_k``: the burned block plus :data:`NEW_CELLS`."""
+    y = _burned()
+    for row, col in NEW_CELLS:
+        assert y[row, col] == 0.0, f"({row},{col}) is already burned in b; the scenario is wrong"
+        y[row, col] = 1.0
+    return y
+
+
+def _hand_expected_new_burn() -> torch.Tensor:
+    """``p^0 (1 - b)``, written out from the block geometry rather than the formula.
+
+    Restating the module's own expression here would make the comparison a
+    tautology in the same way the assertion this replaced was one, so the field
+    is built from the two facts the scenario declares: ``p^0`` is constant at
+    :data:`P_ZERO`, and the burned block is :data:`BLOCK` square at
+    ``(ROW0, COL0)``.
+    """
+    field = torch.full((H, W), P_ZERO, dtype=torch.float64)
+    field[ROW0 : ROW0 + BLOCK, COL0 : COL0 + BLOCK] = 0.0
+    return field
+
+
+def _encoder_input(head: LatentHead, b_prev, y_now, p_zero, basis) -> torch.Tensor:
+    """The tensor the first convolution ACTUALLY receives, captured at that boundary.
+
+    Read off the live forward pass rather than reconstructed, because a
+    reconstruction is a second implementation of the thing under test and would
+    agree with a defect that lived in both.
+    """
+    seen: list[torch.Tensor] = []
+
+    def _capture(_module: Any, inputs: tuple[torch.Tensor, ...]) -> None:
+        seen.append(inputs[0].detach().clone())
+
+    handle = head.encoder.conv1.register_forward_pre_hook(_capture)
+    try:
+        head.posterior(b_prev, y_now, p_zero, basis)
+    finally:
+        handle.remove()
+    assert len(seen) == 1, f"the convolution ran {len(seen)} times; the capture is ambiguous"
+    return seen[0].reshape(seen[0].shape[-3:])
+
+
+def _single_channel_tap(head: LatentHead, channel: int, sign: float) -> None:
+    """Rewire the encoder so its posterior mean is ``sign * channel``, pooled by mean.
+
+    The shipped encoder is ZERO-INITIALISED on purpose (``q == prior`` at step
+    one), so ``mu`` is identically 0 whatever it is fed, and an end-to-end
+    assertion on the untouched network would pass against ANY input tensor. That
+    is the trap the assertion this file used to carry fell into from the other
+    direction. Three taps make the whole network one closed-form functional of
+    one input channel: a centre-tap convolution, an identity second convolution,
+    and a head that reads the first MEAN statistic.
+    """
+    enc = head.encoder
+    with torch.no_grad():
+        for layer in (enc.conv1, enc.conv2, enc.head):
+            layer.weight.zero_()
+            layer.bias.zero_()
+        enc.conv1.weight[0, channel, 1, 1] = sign
+        enc.conv2.weight[0, 0, 1, 1] = 1.0
+        enc.head.weight[0, 0] = 1.0
+
+
+def test_the_encoder_is_handed_the_innovation_and_not_the_fields_it_is_the_difference_of() -> None:
+    """[M7] item 60(c): channel 3 is ``realised - expected``, cell by cell.
+
+    WHAT WOULD MAKE THIS FAIL: an encoder that stacks anything other than
+    ``realised - expected`` into channel 3, including the ``realised`` the
+    difference is taken from.
+
+    Every expected field here is written from the scenario's own declared
+    geometry - a ``BLOCK`` square at ``(ROW0, COL0)``, four named new cells, a
+    constant ``p^0`` - so nothing in this test is derived from the code it
+    checks. The assertion it replaces computed ``b - b`` and asserted the result
+    was zero, which is a property of subtraction and was true of every possible
+    implementation of the encoder, including one that had been deleted.
+    """
+    b, y = _burned(), _grown()
+    p_zero = torch.full((H, W), P_ZERO, dtype=torch.float64)
+
+    realised = torch.zeros((H, W), dtype=torch.float64)
+    for row, col in NEW_CELLS:
+        realised[row, col] = 1.0
+    expected = _hand_expected_new_burn()
+    innovation = -expected.clone()
+    for row, col in NEW_CELLS:
+        innovation[row, col] = 1.0 - P_ZERO
+
+    head = LatentHead(LatentConfig(dim=3, innovation_channels=True, encoder_channels=4))
+    x = _encoder_input(head, b, y, p_zero, None)
+    assert tuple(x.shape) == (4, H, W), x.shape
+    assert torch.equal(x[0], b), "channel 0 is not b_{k-1}"
+    assert torch.equal(x[1], realised), "channel 1 is not the realised new burn"
+    assert torch.equal(x[2], expected), "channel 2 is not the expected new burn"
+    assert torch.equal(x[3], innovation), (
+        "channel 3 is not realised - expected; max deviation from the hand-computed "
+        f"innovation is {float((x[3] - innovation).abs().max())}"
+    )
+    # The gap the defect would have to hide inside, stated as a number: dropping
+    # the subtraction leaves channel 3 EQUAL to channel 1, and the two differ by
+    # exactly `expected`, whose largest value is P_ZERO.
+    assert float((x[3] - x[1]).abs().max()) == P_ZERO
+
+    # The legacy branch is the contrast the fix was written against, and it is
+    # checked here so a swap between the two branches cannot pass unnoticed.
+    legacy = LatentHead(LatentConfig(dim=3, innovation_channels=False, encoder_channels=4))
+    x3 = _encoder_input(legacy, b, y, p_zero, None)
+    assert tuple(x3.shape) == (3, H, W), x3.shape
+    assert torch.equal(x3[1], y), "the legacy encoder is supposed to receive y_k itself"
+
+
+def test_the_innovation_reaches_the_posterior_mean_on_a_GROWING_step() -> None:
+    """The channel is not merely built, it is READ, and the value is closed form.
+
+    WHAT WOULD MAKE THIS FAIL: an encoder whose posterior mean does not equal the
+    domain mean of ``relu(realised - expected)``, which is
+    ``4 x (1 - 0.25) / 315`` for this scenario.
+
+    With the taps in place the network computes exactly
+    ``mean_x relu(channel 3)``. On a growing step ``relu(realised - expected)``
+    is ``1 - p^0`` at each new cell and 0 everywhere else, because every other
+    cell is either burned already (0 - 0) or unburned and unlit (``-p^0``).
+    """
+    b, y = _burned(), _grown()
+    p_zero = torch.full((H, W), P_ZERO, dtype=torch.float64)
+    head = LatentHead(LatentConfig(dim=3, innovation_channels=True, encoder_channels=4))
+    _single_channel_tap(head, channel=3, sign=1.0)
+
+    mu, _log_var = head.posterior(b, y, p_zero, None)
+    got = float(mu[0].detach())
+    want = len(NEW_CELLS) * (1.0 - P_ZERO) / (H * W)
+    if_subtraction_dropped = len(NEW_CELLS) / (H * W)
+    assert got == pytest.approx(want, abs=1e-12), (got, want)
+    assert got != pytest.approx(if_subtraction_dropped, abs=1e-9), (
+        "the posterior mean reads the value an encoder handed the RAW realised field "
+        "would produce, so the subtraction is not reaching the network"
+    )
+
+
+def test_the_innovation_is_the_only_reason_the_encoder_can_see_a_DORMANT_step() -> None:
+    """The dormant step is the one this fix exists for, and it separates to zero.
+
+    WHAT WOULD MAKE THIS FAIL: an encoder that returns a posterior mean of 0 on a
+    step where nothing burned, which is what it returns when channel 3 carries
+    ``realised`` instead of ``realised - expected``.
+
+    On a dormant step ``y == b``, so ``realised`` is identically zero and the
+    innovation is exactly ``-expected``. The tap is NEGATIVE here so the rectifier
+    passes that field rather than clipping it, and the closed form is the mean of
+    ``p^0`` over the unburned cells. Under the defect the same number is EXACTLY
+    0.0: not a shifted estimate, an encoder with nothing on its input.
     """
     b = _burned()
-    p0 = torch.full_like(b, 0.01) * (1.0 - b)
-    realised = b - b
-    expected = p0 * (1.0 - b)
-    assert float(realised.abs().max()) == 0.0
-    innovation = realised - expected
-    assert float((innovation + expected).abs().max()) == 0.0
-    # the common mode is what the shipped encoder had to subtract for itself
-    assert float(b.sum()) == BLOCK * BLOCK
-    assert float(b.sum()) / float(expected.sum()) > 1.0
+    p_zero = torch.full((H, W), P_ZERO, dtype=torch.float64)
+    head = LatentHead(LatentConfig(dim=3, innovation_channels=True, encoder_channels=4))
+    _single_channel_tap(head, channel=3, sign=-1.0)
+
+    mu, _log_var = head.posterior(b, b, p_zero, None)
+    got = float(mu[0].detach())
+    n_unburned = H * W - BLOCK * BLOCK
+    want = P_ZERO * n_unburned / (H * W)
+    assert got == pytest.approx(want, abs=1e-12), (got, want)
+    assert got > 0.0, "the encoder saw nothing at all on a dormant step"
