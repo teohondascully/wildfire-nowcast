@@ -15,6 +15,7 @@ hygiene rule is cheap to keep and expensive to restore.
 from __future__ import annotations
 
 import ast
+import inspect
 import os
 import re
 import subprocess
@@ -1894,4 +1895,68 @@ def test_the_gates_verdict_is_the_right_way_round_in_all_four_states() -> None:
     assert mutation.budget_verdict(budget - 5, 3, 0)[0] == 2, (
         "an unmeasured mutant was allowed to be reported as a debt reduction, which is the "
         "one way a broken sweep looks like progress"
+    )
+
+
+def test_a_mutant_that_does_not_parse_is_not_offered_as_a_mutant() -> None:
+    """The fake kill, which is the false survivor's mirror and was in the first baseline.
+
+    ``*`` is mutated to ``/`` by token, and the token rules cannot see grammar, so
+    the unpack in ``run(["git", *args])`` becomes ``[..., /args]``. That file does
+    not compile, every test fails on a collection error, and the mutant reads
+    KILLED - crediting a test with noticing something it never saw. Three of the
+    126 baseline mutants were this, all three counted as kills.
+    """
+    unpack = 'def f(*args):\n    return run(["git", *args])\n'
+    assert not [s for s in mutation.mutable_sites(unpack) if s.old == "*"], (
+        "an unpack `*` is still offered as a mutation site, so `/args` would be run "
+        "and its collection error counted as a test doing its job"
+    )
+
+    # The control: an ordinary multiplication on the same corpus is still offered,
+    # so the filter is removing what does not compile and not the operator itself.
+    product = "def f(a, b):\n    return a * b\n"
+    stars = [s for s in mutation.mutable_sites(product) if s.old == "*"]
+    assert len(stars) == 1 and stars[0].new == "/", stars
+    assert mutation.apply_site(product, stars[0]) == "def f(a, b):\n    return a / b\n"
+
+    for source in (unpack, product, "x = 1\n", "y = not True\n"):
+        for site in mutation.mutable_sites(source):
+            ast.parse(mutation.apply_site(source, site))  # raises if the filter leaked
+
+
+def test_the_three_fake_kills_the_first_baseline_contained_are_gone_from_the_real_corpus() -> None:
+    """Named sites, on the live tree, because the general rule was found through them."""
+    for rel, line in (
+        ("src/wildfire_nowcast/common/runs.py", 59),
+        ("src/wildfire_nowcast/common/runs.py", 80),
+        ("src/wildfire_nowcast/common/seeds.py", 61),
+    ):
+        source = (repo_root() / rel).read_text()
+        assert "*" in source.splitlines()[line - 1], f"{rel}:{line} no longer holds a star"
+        offered = [s for s in mutation.mutable_sites(source) if s.line == line and s.old == "*"]
+        assert not offered, f"{rel}:{line} is offered again and would be a fake kill: {offered}"
+
+
+def test_a_probe_that_cannot_run_is_unmeasured_and_does_not_abort_the_sweep() -> None:
+    """One unmeasurable mutant is one unmeasured verdict, not the loss of the sweep.
+
+    The first version raised out of ``_read_back`` with ``check=True`` and killed a
+    42-minute run in its 39th minute, discarding every measurement taken beside it.
+    """
+    assert issubclass(mutation.ProbeFailed, Exception)
+    source = inspect.getsource(mutation._read_back)
+    assert "check=False" in source, "a probe failure aborts the sweep again"
+
+    sweep = mutation.Sweep(
+        results=[
+            mutation.Result("m.py", 0.2, "PROBE_FAILED", "d", 1),
+            mutation.Result("m.py", 0.5, "SURVIVED", "d", 1),
+            mutation.Result("m.py", 0.8, "KILLED", "d", 1),
+        ]
+    )
+    assert [r.verdict for r in sweep.unmeasured] == ["PROBE_FAILED"]
+    assert len(sweep.survivors) == 1 and len(sweep.killed) == 1
+    assert mutation.budget_verdict(len(sweep.survivors), len(sweep.unmeasured), 0)[0] == 2, (
+        "a sweep carrying an unmeasured mutant reported a verdict on the budget"
     )

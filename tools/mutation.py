@@ -23,7 +23,7 @@ differs in the working tree is copied over it and the number of carried files is
 PRINTED, so the sweep measures the tree the developer is looking at and says how
 it got there.
 
-**Four controls, because a sweep that reports zero survivors is exactly what a
+**Five controls, because a sweep that reports zero survivors is exactly what a
 broken sweep reports.**
 
 1. The workspace must import ITS OWN copy of ``wildfire_nowcast``. The editable
@@ -42,7 +42,13 @@ broken sweep reports.**
    against a fresh ``compile`` of the file on disk. A mismatch is
    ``STALE_BYTECODE``: a refusal to measure, which is a different claim from
    "nothing caught it" and is never counted as one.
-4. The unmutated workspace must exit 0 first. Any test that fails there is an
+4. A MUTANT THAT DOES NOT PARSE IS NOT A MUTANT. The token rules are blind to
+   grammar, so ``*`` becomes ``/`` inside ``run(["git", *args])`` too, and the
+   result does not compile. Every test then fails on a collection error and the
+   mutant reads KILLED: a test is credited with noticing something it never saw,
+   which is the exact mirror of the false survivor. The first baseline contained
+   three. Such sites are dropped at enumeration.
+5. The unmutated workspace must exit 0 first. Any test that fails there is an
    environment artifact of the sandbox (no ``.venv`` of its own, no installed
    hooks), is deselected for the sweep, and is NAMED in the output rather than
    quietly dropped, because a suite that is already red kills every mutant.
@@ -51,6 +57,7 @@ broken sweep reports.**
 from __future__ import annotations
 
 import argparse
+import ast
 import concurrent.futures
 import io
 import json
@@ -206,7 +213,11 @@ class Sweep:
     @property
     def unmeasured(self) -> list[Result]:
         """Mutants that never executed. NOT survivors, and not quietly dropped."""
-        return [r for r in self.results if r.verdict in ("STALE_BYTECODE", "NOT_APPLIED")]
+        return [
+            r
+            for r in self.results
+            if r.verdict in ("STALE_BYTECODE", "NOT_APPLIED", "PROBE_FAILED")
+        ]
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -229,13 +240,35 @@ class Sweep:
 # --------------------------------------------------------------------------
 
 
+def apply_site(source: str, site: Site) -> str:
+    """``source`` with one token replaced. The only place a mutant is constructed."""
+    lines = source.splitlines(keepends=True)
+    line = lines[site.line - 1]
+    lines[site.line - 1] = line[: site.col_start] + site.new + line[site.col_end :]
+    return "".join(lines)
+
+
 def mutable_sites(source: str) -> list[Site]:
-    """Every single-token mutation site in ``source``, in file order.
+    """Every single-token mutation site in ``source`` THAT STILL PARSES, in file order.
 
     Token-level rather than AST-level on purpose: the mutant must be byte-identical
     to the original everywhere else, and an AST round-trip reformats the file, which
     would make the diff unreadable and would move the code fingerprint for reasons
     that have nothing to do with the mutation.
+
+    THE PARSE FILTER IS NOT TIDINESS; IT REMOVES FAKE KILLS. The token rules are
+    blind to grammar, so ``*`` is mutated to ``/`` wherever it appears - including
+    the unpack in ``subprocess.run(["git", *args])``, which yields ``[..., /args]``
+    and does not compile. Every test then fails on a collection error, the mutant
+    reads KILLED, and the sweep credits a test that noticed nothing. That is the
+    exact mirror of the false survivor this tool was written to prevent, and the
+    first baseline had **three** of them (``common/runs.py`` twice,
+    ``common/seeds.py`` once), all three counted as kills.
+
+    Stated as a general rule rather than a special case for ``*args``: a mutation
+    that cannot be compiled is not a mutation, because a suite cannot fail to
+    notice a file the parser rejects. Costs one parse per site, about 24 s over the
+    whole corpus, against a sweep measured in tens of minutes.
     """
     out: list[Site] = []
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
@@ -250,7 +283,12 @@ def mutable_sites(source: str) -> list[Site]:
             new = _mutate_number(token.string)
         if new is None:
             continue
-        out.append(Site(token.start[0], token.start[1], token.end[1], token.string, new))
+        site = Site(token.start[0], token.start[1], token.end[1], token.string, new)
+        try:
+            ast.parse(apply_site(source, site))
+        except SyntaxError:
+            continue
+        out.append(site)
     return out
 
 
@@ -460,17 +498,32 @@ print("BYTECODE_MATCHES_SOURCE" if marshal.dumps(loaded) == marshal.dumps(fresh)
 """
 
 
+class ProbeFailed(Exception):
+    """The read-back could not be performed, so nothing about this mutant is known."""
+
+
 def _read_back(workspace: Path, python: Path, rel: str, site: Site) -> tuple[str, bool]:
-    """Return ``(the line the interpreter reads, whether its bytecode is that source)``."""
+    """Return ``(the line the interpreter reads, whether its bytecode is that source)``.
+
+    ``check=False`` DELIBERATELY. The first version raised, and a single probe
+    failure aborted a 42-minute sweep at the 39th minute with a traceback and no
+    partial result. One unmeasurable mutant is one unmeasured verdict, not the loss
+    of every measurement taken beside it; the caller turns this into
+    ``PROBE_FAILED``, which the budget counts as unmeasured and never as a pass.
+    """
     proc = subprocess.run(
         [str(python), "-c", _PROBE.format(name=module_name(rel), index=site.line - 1)],
         cwd=workspace,
         env=_child_env(workspace, python),
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
     lines = proc.stdout.rstrip("\n").splitlines()
+    if proc.returncode != 0 or len(lines) < 2:
+        raise ProbeFailed(
+            f"exit {proc.returncode}: {(proc.stderr.strip().splitlines() or [''])[-1]}"
+        )
     return lines[0], lines[-1] == "BYTECODE_MATCHES_SOURCE"
 
 
@@ -498,16 +551,25 @@ def run_one(
     if not sites:
         return Result(rel, fraction, "NO_SITES", "", 0)
     site = select_site(sites, fraction)
-    lines = original.splitlines(keepends=True)
-    line = lines[site.line - 1]
-    lines[site.line - 1] = line[: site.col_start] + site.new + line[site.col_end :]
+    mutated = apply_site(original, site)
+    expected = mutated.splitlines()[site.line - 1]
     descriptor = f"{rel.split('wildfire_nowcast/')[-1]}:{site.line} {site.old!r}->{site.new!r}"
     started = time.monotonic()
     try:
-        path.write_text("".join(lines), encoding="utf-8")
+        path.write_text(mutated, encoding="utf-8")
         purge_bytecode(workspace / "src")
-        seen, bytecode_is_fresh = _read_back(workspace, python, rel, site)
-        if seen != lines[site.line - 1].rstrip("\n"):
+        try:
+            seen, bytecode_is_fresh = _read_back(workspace, python, rel, site)
+        except ProbeFailed as exc:
+            return Result(
+                rel,
+                fraction,
+                "PROBE_FAILED",
+                descriptor,
+                len(sites),
+                detail=f"the read-back could not run, so this mutant was not measured: {exc}",
+            )
+        if seen != expected:
             return Result(
                 rel,
                 fraction,
