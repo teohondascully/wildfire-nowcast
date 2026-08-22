@@ -604,6 +604,32 @@ def sweep(
     return out
 
 
+def budget_verdict(survived: int, unmeasured: int, equivalent: int) -> tuple[int, str]:
+    """``(exit code, message)``. Pure, so the gate's decision is testable in a millisecond.
+
+    Extracted from ``main`` deliberately: a 40-minute sweep is not a way to find out
+    whether the comparison is the right way round, and a gate whose verdict logic is
+    only reachable through the slow path is a gate nobody checks.
+    """
+    if unmeasured:
+        return 2, (
+            f"FAIL: {unmeasured} mutant(s) never executed, so this sweep did not measure what "
+            "it claims. A refusal to measure is not a pass and not a survivor."
+        )
+    if survived > SURVIVOR_BUDGET:
+        return 1, (
+            f"FAIL: {survived} survivors against a budget of {SURVIVOR_BUDGET}. "
+            "The budget never rises."
+        )
+    if survived < SURVIVOR_BUDGET:
+        return 1, (
+            f"FAIL: {survived} survivors against a budget of {SURVIVOR_BUDGET}. Lower "
+            f"SURVIVOR_BUDGET to {survived} in this commit: a budget larger than the debt "
+            "forgives the next regression."
+        )
+    return 0, (f"OK: {survived} survivors, exactly the budget; {equivalent} proved unkillable.")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=".")
@@ -664,24 +690,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.only or args.no_budget:
         return 0
-    if result.unmeasured:
-        print(
-            f"FAIL: {len(result.unmeasured)} mutant(s) never executed, so this sweep did not "
-            "measure what it claims. A refusal to measure is not a pass and not a survivor."
-        )
-        return 2
-    n = n_survived
-    if n > SURVIVOR_BUDGET:
-        print(f"FAIL: {n} survivors against a budget of {SURVIVOR_BUDGET}. The budget never rises.")
-        return 1
-    if n < SURVIVOR_BUDGET:
-        print(
-            f"FAIL: {n} survivors against a budget of {SURVIVOR_BUDGET}. Lower SURVIVOR_BUDGET to "
-            f"{n} in this commit: a budget larger than the debt forgives the next regression."
-        )
-        return 1
-    print(f"OK: {n} survivors, exactly the budget; {len(result.equivalent)} proved unkillable.")
-    return 0
+    code, message = budget_verdict(n_survived, len(result.unmeasured), len(result.equivalent))
+    print(message)
+    return code
 
 
 if __name__ == "__main__":

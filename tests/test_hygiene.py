@@ -1732,20 +1732,33 @@ def test_the_hazard_is_real_and_the_probe_the_sweep_uses_detects_it(tmp_path: Pa
     """The positive control. Reproduce the defect, then show the guard reports it.
 
     Written as an end-to-end reproduction rather than as a claim about CPython:
-    the module is imported, edited to a SAME-LENGTH variant within the same
-    second, re-imported, and returns the OLD answer. If a future CPython changes
-    its invalidation rule this fails, and that is the correct outcome, because the
-    guard downstream would then be defending against nothing.
+    the module is imported, edited to a SAME-LENGTH variant, re-imported, and
+    returns the OLD answer. If a future CPython changes its invalidation rule this
+    fails, and that is the correct outcome, because the guard downstream would then
+    be defending against nothing.
+
+    THE TIMESTAMPS ARE SET, NOT WAITED FOR. The first version of this test simply
+    edited the file quickly and hoped both writes landed in the same wall-clock
+    second; it passed alone and went RED under load, when the two writes straddled
+    a second boundary and the hazard did not reproduce. A test for a timing hazard
+    that is itself timing-dependent reports the load on the machine. So the mtime is
+    pinned to a fixed whole second and then advanced by half of one: the mutated
+    file is genuinely NEWER than the bytecode and the same size, which is the exact
+    condition CPython cannot see, and it is now reproduced on every run rather than
+    on a lucky one.
     """
     victim = tmp_path / "victim.py"
     victim.write_text("def pick(a, b):\n    return min(a, b)\n")
     probe = (
-        "import importlib, importlib.util, marshal, pathlib, sys\n"
+        "import importlib, importlib.util, marshal, os, pathlib, sys\n"
         f"sys.path.insert(0, {str(tmp_path)!r})\n"
+        f"p = pathlib.Path({str(victim)!r})\n"
+        "STAMP = 1700000000.0\n"
+        "os.utime(p, (STAMP, STAMP))\n"
         "import victim\n"
         "first = victim.pick(1, 2)\n"
-        f"p = pathlib.Path({str(victim)!r})\n"
         "p.write_text(p.read_text().replace('min(a, b)', 'max(a, b)'))\n"
+        "os.utime(p, (STAMP + 0.5, STAMP + 0.5))\n"
         "del sys.modules['victim']\n"
         "importlib.invalidate_caches()\n"
         "import victim as again\n"
@@ -1764,7 +1777,7 @@ def test_the_hazard_is_real_and_the_probe_the_sweep_uses_detects_it(tmp_path: Pa
     ).stdout.split()
     assert out[0] == "1", out
     assert out[1] == "1", (
-        "the same-length edit DID take effect, so this machine no longer reproduces the "
+        "the same-length edit DID take effect, so this interpreter no longer reproduces the "
         f"hazard and the STALE_BYTECODE verdict is defending against nothing: {out}"
     )
     assert out[2] == "STALE", (
@@ -1811,4 +1824,26 @@ def test_the_equivalence_key_is_content_addressed_and_not_a_line_number() -> Non
     assert mutation.equivalence_key("m.py", padded, moved[0]) == first, (
         "inserting a line above the site changed its key, so every entry would go stale on an "
         "unrelated edit"
+    )
+
+
+def test_the_gates_verdict_is_the_right_way_round_in_all_four_states() -> None:
+    """The decision itself, in a millisecond rather than through a 40-minute sweep.
+
+    A gate whose comparison is only reachable by running the slow path is a gate
+    nobody ever checks the direction of.
+    """
+    budget = mutation.SURVIVOR_BUDGET
+    assert mutation.budget_verdict(budget, 0, 1)[0] == 0
+    assert mutation.budget_verdict(budget + 1, 0, 1)[0] == 1
+    assert mutation.budget_verdict(budget - 1, 0, 1)[0] == 1
+    assert "never rises" in mutation.budget_verdict(budget + 1, 0, 0)[1]
+    assert "Lower SURVIVOR_BUDGET" in mutation.budget_verdict(budget - 1, 0, 0)[1]
+
+    # An unexecuted mutant outranks everything else: the sweep did not measure.
+    code, message = mutation.budget_verdict(budget, 1, 0)
+    assert code == 2 and "never executed" in message, message
+    assert mutation.budget_verdict(budget - 5, 3, 0)[0] == 2, (
+        "an unmeasured mutant was allowed to be reported as a debt reduction, which is the "
+        "one way a broken sweep looks like progress"
     )
