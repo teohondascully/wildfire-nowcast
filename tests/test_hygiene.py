@@ -643,7 +643,7 @@ TRAILER_FORM = (
     "a body paragraph that is entirely ordinary.\n"
     "\n"
     "Co-Authored-By: Some Assistant (1M context) <noreply@vendor.example>\n"
-    "Tool-Session: https://vendor.example/code/session_01Gm5QZEXd8tcB6Jg\n"
+    "Tool-Session: https://vendor.example/code/session_00000000000000000\n"
 )
 BADGE_FORM = (
     "readme: correct two public over-claims\n"
