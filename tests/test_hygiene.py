@@ -28,6 +28,7 @@ import pytest
 import yaml
 
 import commit_guard  # tools/commit_guard.py, via `pythonpath` in pyproject.toml
+import isolated_suite  # tools/isolated_suite.py, same route
 import mutation  # tools/mutation.py, same route
 import prose_scan  # tools/prose_scan.py, same route
 from wildfire_nowcast.common.paths import repo_root
@@ -2168,3 +2169,55 @@ def test_a_kill_carries_the_node_that_caught_it_including_an_ERROR_node() -> Non
         "an ERROR-only run still reports no node, which is the case that produced the two "
         "unattributable kills"
     )
+
+
+# --------------------------------------------------------------------------
+# isolation: a suite run that a neighbour's plant cannot enter
+# --------------------------------------------------------------------------
+
+
+def test_the_isolated_runner_is_a_make_target_that_reaches_the_script() -> None:
+    """Isolation has to be a command. It cannot be a thing people remember."""
+    makefile = (repo_root() / "Makefile").read_text()
+    body = re.search(r"^test-isolated:.*\n((?:\t.*\n)+)", makefile, re.M)
+    assert body and "tools/isolated_suite.py" in body.group(1), body
+    assert (repo_root() / "tools" / "isolated_suite.py").is_file()
+
+
+def test_the_isolated_runner_carries_nothing_from_the_working_tree() -> None:
+    """`pristine=True` is the whole point, so it is asserted rather than assumed.
+
+    Carrying the working tree would overlay exactly the neighbour edit the run
+    exists to exclude, and the result would look identical to a correct one.
+    """
+    source = inspect.getsource(isolated_suite.isolate)
+    assert "pristine=True" in source, (
+        "the isolated runner would overlay the shared working tree, which is the one "
+        "thing it must not do"
+    )
+
+
+def test_the_isolation_check_REFUSES_when_the_import_escapes_the_workspace(
+    tmp_path: Path,
+) -> None:
+    """The negative control, and it is the test that makes the rest mean anything.
+
+    The editable install puts the real `src/` on `sys.path`, so a workspace whose
+    own `src/` is missing silently imports the shared tree. Pointed at an empty
+    directory, the check must refuse rather than proceed - otherwise a green
+    isolated run could be a green shared run wearing its name.
+    """
+    python = repo_root() / ".venv" / "bin" / "python"
+    if not python.exists():  # pragma: no cover - provisioned environments only
+        pytest.skip("no .venv in this tree")
+    with pytest.raises(SystemExit, match="REFUSING TO RUN"):
+        isolated_suite.assert_self_contained(tmp_path, python)
+
+
+def test_the_isolated_runner_returns_pytests_own_exit_code() -> None:
+    """A wrapper that reports its own success is a wrapper that hides failures."""
+    source = inspect.getsource(isolated_suite.main)
+    assert "return proc.returncode" in source, (
+        "the isolated runner no longer passes pytest's exit code through"
+    )
+    assert "check=False" in source, "a non-zero pytest exit would raise instead of reporting"

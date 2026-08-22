@@ -45,7 +45,7 @@ OUT    ?= outputs/synthetic_fire/tensor.zarr
 TENSOR ?= outputs/synthetic_fire/tensor.zarr
 MOVIE  ?= outputs/fire.mp4
 
-.PHONY: help venv install relock hooks test test-all purge-bytecode lint typecheck format-check format synth contract contract-reporting \
+.PHONY: help venv install relock hooks test test-all test-isolated purge-bytecode lint typecheck format-check format synth contract contract-reporting \
         contract-real contract-split contract-all-fires null-check check ci ci-status movie clean-outputs \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
@@ -143,6 +143,19 @@ test: purge-bytecode | $(PY)
 ## test-all: the whole suite INCLUDING slow playthroughs. What a release runs.
 test-all: purge-bytecode | $(PY)
 	$(PYTEST)
+
+## test-isolated: the suite in a detached worktree at HEAD, immune to neighbours.
+##         Four leads share this tree and three run plant-and-revert protocols, in
+##         which a file is deliberately broken for a few seconds. A full-suite run
+##         inside that window measures the plant, and `git status` is clean again
+##         by the time anyone looks. Two leads hit this independently before it was
+##         understood. Isolation cannot be achieved by being careful, because the
+##         reader cannot know the window was open - so it is a target.
+##         Use it for any number you are going to REPORT. `make test` is still the
+##         right thing for a fast local loop.
+ISOLATED_ARGS ?= -q
+test-isolated: | $(PY)
+	$(PY) tools/isolated_suite.py $(ISOLATED_ARGS)
 
 ## purge-bytecode: delete every __pycache__ under the source trees.
 ##         The second half of the guard above, and it is not the same half.
