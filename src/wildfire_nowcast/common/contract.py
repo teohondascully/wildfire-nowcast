@@ -206,6 +206,20 @@ CONTRACT_VERSION = _read_contract_version()
 #: declaring a weakness is a gate, omitting it is a failure. Printed on every
 #: report and carried in ``--json``; emptying this dict is the goal.
 DEFERRED_CLAUSES: dict[str, str] = {
+    "C6.7": (
+        "an instrument may adjudicate at a lead where it has power, and MUST report at "
+        "1/2/3 h with its power at each lead beside the verdict. RATIFIED AND NOT ENFORCED: "
+        "no code yet checks that an artifact carrying a collapse verdict also carries the "
+        "lead profile, so today this holds only because the leads were told to. It is "
+        "deferred rather than process BECAUSE AN ARTIFACT CAN CARRY IT - the enforcement is "
+        "writable and simply is not written. Enforcing it means asserting, wherever a "
+        "collapse verdict is emitted, that a per-lead power profile is emitted with it; that "
+        "sits in eval/ and sim/, not here, so it is external work this registry cannot do. "
+        "WHY IT EXISTS: [v2.8] forbids picking the horizon where the OPPONENT is weakest and "
+        "nobody wrote the mirror, so our own collapse check came to adjudicate at the lead "
+        "where IT is strongest - 97-100% power at leads 5-6 while carrying 6.0% at lead 1, "
+        "and this project forecasts 1-3 h (ADR-123)."
+    ),
     "C1.6": (
         "leakage smoke alarm (|2·AUC−1| <= 0.6 for a static channel vs the final footprint). "
         "NOT ENFORCED, and RE-MEASURED at n=12 fires / 11 spatial blocks (A10): burnable-cell "
@@ -639,6 +653,13 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
     # precedent). THIRD clause-authoring crossing; A14's auto-discovery still
     # does not cover clause classification, so writing a clause still compels an
     # edit to this file. The mechanism fix remains owed.
+    "C6.7": ClauseImpl(
+        CLAUSE_DEFERRED,
+        note="see DEFERRED_CLAUSES['C6.7']; ratified at v2.18 and deliberately not enforced "
+        "yet. Classified DEFERRED and not PROCESS because an artifact CAN carry the lead "
+        "profile - the check is writable and unwritten, which is a different and more "
+        "fixable thing than a rule no artifact could ever hold.",
+    ),
     "C6.6": ClauseImpl(
         CLAUSE_ENFORCED,
         where=(

@@ -1,4 +1,17 @@
-# INTERFACES v2.17 (bump version + DECISIONS.md entry to change anything here)
+# INTERFACES v2.18 (bump version + DECISIONS.md entry to change anything here)
+# v2.18 ADR-123: THREE ADDITIONS, ALL ADDITIVE - every previously valid
+#       address resolves identically and no emitted key changed value.
+#       **C5** records the latent-off ABLATION ARM: `<address>__independent`
+#       resolves, `available_models()` lists it, and the arm SHARES THE
+#       MODEL'S PARAMETERS by identity - checked on every call, because an
+#       arm that were merely EQUAL would confound the sampler with the fit
+#       and still read as a clean result. **C6.1** records that
+#       `area_dispersion_ratio_by_horizon` is emitted beside the criterion
+#       and is REPORTED, NOT ADJUDICATING. **C6.7** is the one that is not
+#       bookkeeping: [v2.8] told us not to pick the horizon where our
+#       OPPONENT is weakest, nobody wrote the mirror, and so an instrument
+#       of OURS came to adjudicate at the lead where IT is strongest. It
+#       may still do that; it may no longer do it silently. [v2.18]
 # v2.17 ADR-113: THE FROZEN SET NAMED A FILE THAT HAS NOT EXISTED SINCE
 #       `b4cdb33`. C-4's SCORING CODE parenthetical enumerated
 #       `common/iou_terms.py`, `common/calibration.py` and
@@ -428,6 +441,22 @@ src/wildfire_nowcast/model/api.py
 Checkpoint loading behind load_model(path) -> object exposing predict.
 Baselines (persistence, ellipse) implement the SAME signature.
 
+**[v2.18] (ADR-123) THE LATENT-OFF ABLATION ARM IS ADDRESSABLE.**
+`load_model('<address>__independent')` resolves to the model's ablation arm and
+`available_models()` lists it. The arm is **DERIVED, NEVER REGISTERED**: the
+suffix is stripped, the base resolves through this same function, and the sampler
+is switched on THAT object.
+**BINDING: the arm's parameters must BE the model's own objects, not equal to
+them**, asserted on every call. A copy, a re-load or a second construction from
+the same spec would make any difference between the two ensembles attributable to
+the sampler OR to the parameters, and the collapse comparison would be confounded
+exactly where it claims not to be - **while still reading as a clean result.**
+That is why the check is identity and why it raises.
+**A BIT-IDENTICAL ARM MAY BE LOADED AND MAY NOT BE SCORED.** A model configured
+with no latent has an arm identical to itself, which scores a perfect null BY
+CONSTRUCTION. Loading it is legitimate; taking a verdict from it is not, and the
+refusal belongs at the VERDICT, not at the load.
+
 ## C6. Metrics API (modelling implements in eval/; everyone consumes)
 src/wildfire_nowcast/eval/metrics.py
   evaluate(samples, truth: uint8[T,H,W]) -> dict with keys:
@@ -458,6 +487,12 @@ IMPLEMENTED BY: infra, model-agnostically in C6, BEFORE any G2
 re-adjudication (C-2 applies: this clause is fiction until confirmed in code).
 
 ### [v2.5] C6.1 Which metric adjudicates which gate (ADR-011)
+**[v2.18] (ADR-123) `area_dispersion_ratio_by_horizon` is emitted beside the
+criterion and is REPORTED, NOT ADJUDICATING.** It exists so ADR-114(b) - a 1-3 h
+statement is three verdict calls - is executable for G3's dispersion half, which
+had no per-horizon form at all. Recombination to the pooled criterion is
+**5.6e-17 per window, 0.0 pooled**; a pre-v2.18 block pools to `None`. The
+adjudicating criterion is unchanged.
 **G3 IS ADJUDICATED ON `area_dispersion_ratio`, NOT `dispersion_ratio`.**
 `dispersion_ratio` is ANTI-CORRELATED with collapse: measured, it scores the
 COLLAPSED ensemble at exactly 1.000 and the healthy one at 1.051, so the
@@ -486,6 +521,21 @@ calibration horizon is a free parameter worth ~4.7× in over-prediction ratio.
 the model must beat the ellipse's own best-calibrated form AT THAT HORIZON.**
 We do not get to pick the horizon where our opponent is weakest. Report 1/2/3 h.
 The barred Brier fit is retained as a CONTROL (still degenerate, 0.005×).
+
+### [v2.18] C6.7 NOR THE HORIZON WHERE OUR OWN INSTRUMENT IS STRONGEST (ADR-123)
+The clause above governs the OPPONENT. The mirror was never written, and it is
+what happened: `eval/`'s collapse check adjudicates at the lead where **it** has
+the most power. Measured at each lead's own p99 bar, the treatment clears in
+**6.0 / 17.2 / 64.2 / 96.2 / 100.0 / 97.0 %** at leads 1-6. **This project
+forecasts 1-3 h.** Inside that range the instrument carries 6.0% power at 1 h.
+**BINDING: an instrument MAY adjudicate at a lead where it has power, and MUST
+REPORT at 1/2/3 h with its power at each lead**, beside the verdict, in the same
+invocation. An instrument adjudicating at lead 5 while carrying 6% power at lead
+1 is not wrong. **One that does so without saying so is.**
+NOT A HORIZON RULE ONLY: it is the general form of choosing an operating point
+after seeing the distribution. The bar, the lead and the scene are all free
+parameters, and a gate that reports only the cell it chose has published a
+SELECTION, not a measurement.
 
 ## C8. Split fingerprint [v2.8] (ADR-015) - HARD FAIL on mismatch
 Every run stamps `split_fingerprint`; every reported number carries it. A
