@@ -191,6 +191,13 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             ("tests/test_sim_review.py", "reports/figures/elmfire_degeneracy_verdict.json"),
             ("tests/test_sim_review.py", "reports/review.html"),
             ("tests/test_sim_s5_report.py", "reports/figures/s5_block5_anatomy.json"),
+            ("src/wildfire_nowcast/data/cli.py", "data/qa_audit.json"),
+            ("src/wildfire_nowcast/data/crossings.py", "data/events/crossings.json"),
+            ("src/wildfire_nowcast/data/isotropy.py", "data/events/subthreshold_isotropy.json"),
+            (
+                "src/wildfire_nowcast/data/leakage.py",
+                "data/leakage/c1_6_channel_leakage.json",
+            ),
             # Declared at S12 by the owner of `sim/`, for that package only. The
             # test applied is ROLE and it is stated so the next reader can apply it:
             # PLUMBING - where a program of this tree PUTS an artifact or GETS
@@ -244,6 +251,12 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             ("tests/test_adopted_selftests.py", "data/events/crossings.json"),
             ("tests/test_data_crossings_rules.py", "data/events/crossings.json"),
             ("tests/test_data_leakage_stats.py", "data/leakage/c1_6_channel_leakage.json"),
+            (
+                "src/wildfire_nowcast/data/crossings_selftest.py",
+                "data/events/crossings.json",
+            ),
+            ("src/wildfire_nowcast/data/isotropy.py", "data/events/crossings.json"),
+            ("src/wildfire_nowcast/data/isotropy.py", "data/qa_audit.json"),
             # S12: both are command lines a reader types after building
             # the corpus, in the usage block at the top of the module.
             (
@@ -330,14 +343,7 @@ DECLARATION_FILES: Final[tuple[str, ...]] = (
 #: repaired in the commit that added this file.
 DEBT: Final[dict[str, int]] = {
     "docs/interfaces.md": 1,
-    "src/wildfire_nowcast/data/audit.py": 1,
-    "src/wildfire_nowcast/data/cli.py": 1,
-    "src/wildfire_nowcast/data/crossings.py": 1,
-    "src/wildfire_nowcast/data/crossings_selftest.py": 1,
     "src/wildfire_nowcast/data/gofer.py": 1,
-    "src/wildfire_nowcast/data/isotropy.py": 3,
-    "src/wildfire_nowcast/data/leakage.py": 1,
-    "src/wildfire_nowcast/data/sources/barriers.py": 1,
     "src/wildfire_nowcast/eval/regime_calibration.py": 1,
     # S12: 26 of the 27 discharged - 22 declared above by ROLE and 4
     # repaired in source, where the citation was PROVENANCE for a published

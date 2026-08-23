@@ -127,7 +127,11 @@ PLANTED_KAPPAS: tuple[float, ...] = (0.02, 0.05, 0.10, 0.20, 0.40, 0.80)
 
 
 def isotropy_path() -> Path:
-    """``data/events/subthreshold_isotropy.json``. Additive; nothing else moves."""
+    """``data/events/subthreshold_isotropy.json``. Additive; nothing else moves.
+
+    A DESTINATION, not a citation: ``write_report`` below produces it from a
+    built corpus and no clone carries it.
+    """
     return data_dir() / "events" / "subthreshold_isotropy.json"
 
 
@@ -1123,7 +1127,11 @@ def build_report() -> dict[str, Any]:
         "does_not_modify": (
             "data/events/crossings.json's 12-event record, data/fires/*, "
             "data/norm_stats.json, data/qa_audit.json and the split are READ "
-            "ONLY here. This file is additive."
+            "ONLY here. This file is additive. Those are untracked artifacts of "
+            "a built corpus, so a reader who cloned the repository has none of "
+            "them; the claim is enforced by write_report, which refuses any "
+            "destination inside the corpus root or named like one of them, "
+            "rather than by this sentence."
         ),
         "pool_definition": {
             "what": (

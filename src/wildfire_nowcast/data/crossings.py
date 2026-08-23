@@ -160,7 +160,11 @@ FBFM40_OPEN_WATER = 98
 
 
 def crossings_path() -> Path:
-    """``data/events/crossings.json``. A NEW directory; nothing else moves."""
+    """``data/events/crossings.json``. A NEW directory; nothing else moves.
+
+    A DESTINATION, not a citation: ``write_crossings`` produces it and no clone
+    carries it. Read it only through a guard that handles absence.
+    """
     return data_dir() / "events" / "crossings.json"
 
 

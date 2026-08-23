@@ -391,7 +391,9 @@ def audit_built_fires(
 
     Writes the audit into ``manifest['provenance']['qa']['physical_audit']`` so
     the per-fire QA report the charter asks for actually contains it, and returns
-    the dataset-level roll-up for ``data/qa_audit.json``.
+    the dataset-level roll-up. This function does not write that roll-up
+    anywhere: the ``audit`` command in ``data/cli.py`` is what serialises it, and
+    the destination is named there once rather than claimed here twice.
     """
     from wildfire_nowcast.common.paths import fires_dir, norm_stats_path  # noqa: PLC0415
     from wildfire_nowcast.common.zarr_io import open_tensor  # noqa: PLC0415

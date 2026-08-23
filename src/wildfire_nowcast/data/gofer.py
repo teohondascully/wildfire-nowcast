@@ -4,7 +4,11 @@ GOFER is a *published file archive*, not a GEE asset: a single ``GOFER.zip``
 containing shapefiles in EPSG:4326. It therefore needs no Earth Engine
 authentication, which is why labels lead ingestion (ADR-003).
 
-Archive layout (v0.12)::
+Archive layout (v0.12). Every path in this block is a MEMBER OF ``GOFER.zip``
+and none of them is a repository path: **A CLONE CANNOT OPEN THESE PATHS**, and
+no check in this tree can tell you whether they are still spelled this way
+upstream. Download the record above and unpack it, and the layout below is what
+you get::
 
     GOFER/fireData.csv                       28 fires: name, year, acres, ignition hour
     GOFER/GOFER_{Combined,East,West}/
@@ -17,8 +21,13 @@ Archive layout (v0.12)::
 
 ``Combined`` fuses GOES-East and GOES-West and is the default label source;
 ``East`` and ``West`` are kept because their disagreement is a *direct*
-observation of viewing-geometry (parallax) label noise - see
-docs/decisions.md.
+observation of viewing-geometry (parallax) label noise. That is not an argument,
+it is measured and the measurement is in the tree:
+``data/interim/_index/label_noise_east_west.json`` carries all 28 fires, and its
+``dataset_mean`` reads a **1.6394 km mean centroid offset** with East the larger
+perimeter in **90.1%** of timesteps. A systematic offset of 1.6 km on a 1 km grid
+is the label-noise floor this corpus imposes, which is why the two variants are
+ingested rather than discarded.
 """
 
 from __future__ import annotations

@@ -160,7 +160,11 @@ _SPATIAL_NULL_DRAWS = 200
 
 
 def leakage_path() -> Path:
-    """``data/leakage/c1_6_channel_leakage.json`` - the one file D11 writes."""
+    """``data/leakage/c1_6_channel_leakage.json`` - the one file D11 writes.
+
+    A DESTINATION, not a citation: ``write_report`` below produces it from a
+    built corpus and no clone carries it.
+    """
     return data_dir() / "leakage" / "c1_6_channel_leakage.json"
 
 

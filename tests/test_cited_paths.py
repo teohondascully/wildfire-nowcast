@@ -205,8 +205,19 @@ def test_a_risen_count_fails() -> None:
 
 
 def test_a_fallen_count_fails_so_a_sweep_is_recorded() -> None:
-    rel = next(rel for rel, count in C.DEBT.items() if count > 1)
-    problems = C._audit_debt({rel: C.DEBT[rel] - 1})
+    """On a SYNTHETIC entry, because the live table stopped being able to supply one.
+
+    This selected a real ``DEBT`` entry carrying more than one citation and
+    decremented it. When ``data/isotropy.py``'s 3 were discharged at D15 no entry
+    with a count above 1 was left anywhere, and the generator expression raised
+    ``StopIteration`` - so paying the debt down broke the test that proves the
+    pin notices a payment. A capability parameterised off the live burn-down
+    loses its power exactly when the burn-down is worked, which is the one moment
+    it has to keep it. ``_audit_debt`` takes its table as an argument for this
+    reason and the three neighbouring directions already use synthetic input.
+    """
+    rel = _SPECIMEN_NEW_CITER
+    problems = C._audit_debt({rel: 2}, debt={rel: 3})
     assert any(p.startswith("FALLEN") for p in problems), problems
 
 

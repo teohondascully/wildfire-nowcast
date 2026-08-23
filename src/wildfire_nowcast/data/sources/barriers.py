@@ -2,8 +2,10 @@
 
 A barrier is anything a 1 km cell of fire has to *jump*: open water, a major
 river, a multi-lane highway. Channel 12 is the feature the barrier-crossing
-episode mining (P3, ``data/events/crossings.json``) is defined against, so its
-definition has to be stable before crossings are mined.
+episode mining (P3) is defined against: ``data/crossings.py`` binds
+``BARRIER_CHANNEL`` to this channel's name and every episode verdict is read off
+it. So this definition has to be stable before crossings are mined, and the
+module that consumes it is in the tree even though the mined artifact is not.
 
 Sources, all GEE:
 
