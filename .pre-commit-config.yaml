@@ -37,13 +37,27 @@
 # tree is lint-clean so removing it is behaviour-identical today). `make format`
 # is how you format, scoped to your own directory, on purpose.
 #
-# CONSEQUENCE, STATED SO IT IS NOT DISCOVERED: while those 88 files exist, a
-# commit that touches one of them FAILS here. That is the intended loud failure.
-# Format that file in its own labelled commit -- or, if its fingerprint is bound
-# to results that are not yet committed, use `SKIP=ruff-format git commit` for
-# that one commit, which skips this hook ALONE and leaves the commit-message
-# guard and everything else running. `--no-verify` is not the answer and is
-# forbidden by the commit rule.
+# THAT DEBT IS NOW DISCHARGED AND THIS PARAGRAPH USED TO SAY OTHERWISE. It read
+# "while those 88 files exist, a commit that touches one of them FAILS here",
+# in the present tense, for as long as it took someone to measure it: the debt
+# was cleared in its own labelled commit and `ruff format --check` has reported
+# a fully conformant tree since. A caveat is a claim, and this one outlived its
+# subject. Do not restate a file count here; the gate below is what keeps it
+# true.
+#
+# WHAT KEEPS IT TRUE, AS OF I20: `make lint` runs `ruff check` AND
+# `ruff format --check`, so the target every lead quotes now covers what this
+# file enforces. Until I20 it ran `ruff check` alone, and this hook refused a
+# commit seconds after `make lint` reported zero -- which is the only event that
+# can expose a gate whose name overclaims, because every report it produced was
+# accurate. `tests/test_format_hook.py` derives the subcommands from THIS file
+# and asserts the Makefile runs all of them.
+#
+# IF THIS HOOK EVER REFUSES A COMMIT: format the file in its own labelled commit
+# -- or, if its fingerprint is bound to results that are not yet committed, use
+# `SKIP=ruff-format git commit` for that one commit, which skips this hook ALONE
+# and leaves the commit-message guard and everything else running. `--no-verify`
+# is not the answer and is forbidden by the commit rule.
 
 # WITHOUT THIS KEY, `pre-commit install` INSTALLS ONLY THE `pre-commit` HOOK and
 # the commit-message guard below would have to be installed by a second command

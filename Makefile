@@ -169,13 +169,36 @@ test-isolated: | $(PY)
 purge-bytecode:
 	@find src tests tools -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
-## lint: lint src, tests, tools and the tracked runs/ scripts (the CI gate).
-##         `runs` resolves to the five tracked analysis scripts and nothing
-##         else: ruff respects .gitignore, and /runs/* is ignored except for
-##         the negated entries. So the scope maintains itself - track a new
-##         runs/ script and it is linted, with no second list to update.
+# ONE SCOPE, READ BY BOTH HALVES OF `lint` AND BY `format-check`. Spelling the
+# roots three times is how the halves come to disagree about what they cover.
+# `runs` resolves to the five tracked analysis scripts and nothing else: ruff
+# respects .gitignore, and /runs/* is ignored except for the negated entries. So
+# the scope maintains itself - track a new runs/ script and it is linted, with
+# no second list to update.
+LINT_PATHS := src tests tools runs
+
+## lint: BOTH halves of what the commit hook enforces - `ruff check` AND
+##         `ruff format --check` - over $(LINT_PATHS). This is the CI gate.
+##
+##         THE SECOND LINE IS NEW AT I20 AND EVERY "LINT CLEAN" BEFORE IT WAS A
+##         WEAKER CLAIM THAN IT READ. This target was `ruff check` alone while
+##         `.pre-commit-config.yaml` ran `ruff` AND `ruff-format --check`, so the
+##         gate a developer runs and reports was strictly narrower than the gate
+##         that decides whether the work can land. It surfaced the only way it
+##         could: the stronger check refused a commit seconds after this target
+##         reported zero. Nobody was going to catch it by reading reports,
+##         because the reports were accurate.
+##         `tests/test_format_hook.py` now DERIVES the hook's subcommands from
+##         the config and asserts this recipe runs all of them, so the two
+##         cannot part again without turning the suite red.
+##
+##         `--check` IS LOAD-BEARING, NOT A PREFERENCE. A bare `ruff format`
+##         here would rewrite source during a gate run, which moves
+##         `scoring_code_fingerprint` under every artifact bound to it (C-4.2).
+##         `make format` is how you format, scoped to your own directory.
 lint: | $(PY)
-	$(RUFF) check src tests tools runs
+	$(RUFF) check $(LINT_PATHS)
+	$(RUFF) format --check $(LINT_PATHS)
 
 ## typecheck: mypy --strict over src, PLUS an audit of the burn-down list that
 ##         lets it pass. The audit is the half that cannot rot: it re-runs mypy
@@ -186,15 +209,22 @@ lint: | $(PY)
 typecheck: | $(PY)
 	MYPY="$(MYPY)" $(PY) tools/typecheck.py --python-executable $(PY)
 
-## format-check: report formatting debt. ADVISORY, and NOT in `make ci` -- 88 of
-##         150 files are non-conformant, so wiring it into the gate today would
-##         turn CI red for reasons unrelated to anyone's science. The pre-commit
-##         hook REPORTS the same thing and does NOT fix it: a hook that rewrites
-##         files during a commit moves `scoring_code_fingerprint`, which every
-##         run artifact stamps at both ends. See .pre-commit-config.yaml.
-##         Discharge the debt in its own commit, then this becomes a gate.
+## format-check: the second half of `make lint`, on its own, for a fast loop.
+##         IT IS NO LONGER ADVISORY. It was, and the reason it was is worth
+##         keeping: when the hook was changed, 88 of 150 files were
+##         non-conformant, so wiring it into the gate then would have turned CI
+##         red for reasons unrelated to anyone's science. That debt was
+##         discharged deliberately, in its own commit (see
+##         `tests/test_code_fingerprint_pins.py`, which records the fingerprint
+##         transition it caused), and the tree has been conformant since. `lint`
+##         now runs this, and `ci` depends on `lint`, so the debt cannot silently
+##         return.
+##         The pre-commit hook REPORTS the same thing and does NOT fix it: a hook
+##         that rewrites files during a commit moves `scoring_code_fingerprint`,
+##         which every run artifact stamps at both ends. See
+##         .pre-commit-config.yaml.
 format-check: | $(PY)
-	$(RUFF) format --check src tests tools runs
+	$(RUFF) format --check $(LINT_PATHS)
 
 ## format: autofix lint + formatting. Scope this to YOUR directory, e.g.
 ##         make format DIRS="src/wildfire_nowcast/data" - never reformat another lead's code.

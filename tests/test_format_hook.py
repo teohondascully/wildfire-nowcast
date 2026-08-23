@@ -28,6 +28,18 @@ WHAT IS ASSERTED HERE, IN ORDER OF STRENGTH.
      command nobody runs.
   3. That the hook's ruff is the ruff `make lint` runs, which is what makes (1)
      a faithful stand-in for the hook rather than an analogy.
+  4. [I20] That `make lint` runs every ruff SUBCOMMAND this config enforces.
+     (3) pinned the binary and left the commands unpinned, so the two agreed
+     about which ruff and disagreed about what it was asked to do.
+
+WHAT (4) IS FOR, AND IT IS THE DEFECT THIS MODULE ALMOST HAD. `make lint` was
+`ruff check` alone for the whole life of this repository, while the hooks below
+run `ruff` AND `ruff-format --check`. Every "lint clean" ever reported here was
+therefore strictly narrower than any reader would take it, INCLUDING the people
+who asked for it. Nothing false was ever said, which is why no amount of reading
+reports would have found it: it surfaced when the stronger check refused a
+commit seconds after the weaker one reported zero. A check that passes is not
+evidence until you know what it declines to look at.
 
 STATED LIMIT. (1) invokes ruff directly with the args this repo contributes,
 rather than through `pre-commit`. Going through `pre-commit` would clone
@@ -214,4 +226,141 @@ def test_the_hooks_ruff_is_the_ruff_the_gate_and_the_lockfile_pin() -> None:
     assert hook_version == pinned[0] == installed, (
         f"the pre-commit hook runs ruff {hook_version}, requirements.lock pins {pinned[0]}, "
         f".venv has {installed}. Bump all three in one commit."
+    )
+
+
+# --------------------------------------------------------------------------
+# 4. [I20] The gate must run what the hook enforces, not merely the same binary
+# --------------------------------------------------------------------------
+
+#: ruff-pre-commit's hook-id to subcommand mapping. A DECLARED residue, like
+#: ``MUTATING_FLAGS`` above: it is not derivable from the config, it belongs to
+#: the upstream repository, and growing it is a visible edit. A hook id absent
+#: from this map is REFUSED below rather than skipped, because a new ruff hook
+#: that this map has never heard of is exactly the thing that would slip past.
+HOOK_SUBCOMMAND = {"ruff": "check", "ruff-format": "format"}
+
+#: The Makefile target that every status report in this project quotes.
+GATE_TARGET = "lint"
+
+
+def _makefile_recipe(target: str) -> list[str]:
+    """The recipe lines of ``target``, read from the Makefile.
+
+    Tab-indented lines following ``target:`` up to the next non-indented,
+    non-blank, non-comment line. Deliberately not a make invocation: running
+    ``make -n`` would need the venv and would report what make WOULD do on this
+    machine, and the subject here is what the file says every machine does.
+    """
+    lines = (repo_root() / "Makefile").read_text().splitlines()
+    out: list[str] = []
+    collecting = False
+    for line in lines:
+        if re.match(rf"^{re.escape(target)}\s*:", line):
+            collecting = True
+            continue
+        if collecting:
+            if line.startswith("\t"):
+                out.append(line.strip())
+            elif line.strip() == "" or line.lstrip().startswith("#"):
+                continue
+            else:
+                break
+    return out
+
+
+def _ruff_subcommands_in(recipe: list[str]) -> set[str]:
+    """Every ``$(RUFF) <subcommand>`` the recipe invokes."""
+    found = set()
+    for line in recipe:
+        for match in re.finditer(r"\$\(RUFF\)\s+([a-z-]+)", line):
+            found.add(match.group(1))
+    return found
+
+
+def test_the_makefile_parse_is_not_silently_empty() -> None:
+    """POSITIVE CONTROL, first. A parser that finds nothing agrees with everything."""
+    recipe = _makefile_recipe(GATE_TARGET)
+    assert recipe, (
+        f"the Makefile has no `{GATE_TARGET}:` target, or its recipe could not be read. "
+        "Every assertion below would pass vacuously."
+    )
+    assert _ruff_subcommands_in(recipe), f"no `$(RUFF) <cmd>` found in `{GATE_TARGET}`: {recipe}"
+    # ...and it must be able to see MORE than one, or "covers all of them" below
+    # is satisfied by a parser that only ever finds the first.
+    probe = ["$(RUFF) check a b", "$(RUFF) format --check a b"]
+    assert _ruff_subcommands_in(probe) == {"check", "format"}
+
+
+def test_every_hook_id_is_one_this_test_knows_how_to_read() -> None:
+    """A ruff hook this map has never heard of must be LOUD, not silently uncovered."""
+    unknown = sorted(set(_ruff_hooks()) - set(HOOK_SUBCOMMAND))
+    assert not unknown, (
+        f"the config runs ruff hook(s) {unknown} that this module cannot map to a "
+        "subcommand, so the coverage assertion below would not see them. Add the "
+        "mapping to HOOK_SUBCOMMAND in the same edit that adds the hook."
+    )
+
+
+def test_make_lint_runs_every_ruff_subcommand_the_commit_hook_enforces() -> None:
+    """[I20] The gate a lead runs must not be narrower than the gate that decides landing.
+
+    This is the assertion that would have failed for the whole life of the
+    repository. `make lint` ran `ruff check`; the hook ran `ruff` AND
+    `ruff-format --check`; both were reported as "lint clean" and neither report
+    was false.
+    """
+    enforced = {HOOK_SUBCOMMAND[h] for h in _ruff_hooks()}
+    covered = _ruff_subcommands_in(_makefile_recipe(GATE_TARGET))
+    missing = sorted(enforced - covered)
+    assert not missing, (
+        f"`make {GATE_TARGET}` does not run `ruff {' / '.join(missing)}`, which "
+        ".pre-commit-config.yaml enforces on every commit. The gate a lead runs and "
+        "reports would be strictly weaker than the gate that decides whether the work "
+        "can land, and both would be called lint. Add the missing command to the "
+        f"`{GATE_TARGET}` recipe; do not remove the hook to make this pass."
+    )
+
+
+def test_the_gate_formats_in_report_mode_so_it_cannot_rewrite_source() -> None:
+    """`make lint` runs in CI and locally. A bare `ruff format` there is the C-4.2 hazard.
+
+    The whole reason the hook carries ``--check`` is that a rewrite moves
+    ``scoring_code_fingerprint`` under artifacts bound to it. Putting the
+    formatter into the gate without ``--check`` would reintroduce that in the one
+    place nobody looks, because a gate is expected to be read-only.
+    """
+    for line in _makefile_recipe(GATE_TARGET):
+        if re.search(r"\$\(RUFF\)\s+format", line) and not (
+            set(line.split()) & NON_MUTATING_FORMAT_FLAGS
+        ):
+            raise AssertionError(
+                f"`make {GATE_TARGET}` runs the formatter in REWRITE mode: {line!r}. "
+                f"Give it one of {sorted(NON_MUTATING_FORMAT_FLAGS)}."
+            )
+
+
+def _path_operands(line: str) -> tuple[str, ...]:
+    """The path operands of one ``$(RUFF) <subcommand> [flags] <paths...>`` line.
+
+    Everything up to and including the subcommand is dropped, then flags. Written
+    as its own function because the first version of the caller kept the
+    subcommand and reported `check` and `format` as two different path sets --
+    a check that fails on a correct tree, found by running the control first.
+    """
+    after = re.sub(r"^.*\$\(RUFF\)\s+[a-z-]+\s*", "", line)
+    return tuple(a for a in after.split() if not a.startswith("-"))
+
+
+def test_both_halves_of_the_gate_cover_the_same_paths() -> None:
+    """Two halves with two path lists is how a gate half goes blind on a directory.
+
+    Asserted on the recipe text rather than by running ruff twice: the failure
+    being prevented is somebody adding a root to one line and not the other.
+    """
+    assert _path_operands("\t$(RUFF) format --check src tests") == ("src", "tests")
+    scopes = {_path_operands(line) for line in _makefile_recipe(GATE_TARGET) if "$(RUFF)" in line}
+    assert len(scopes) == 1, (
+        f"the halves of `make {GATE_TARGET}` lint different path sets: {sorted(scopes)}. "
+        "Use the shared LINT_PATHS variable so they cannot drift."
     )

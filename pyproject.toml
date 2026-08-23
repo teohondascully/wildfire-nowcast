@@ -75,8 +75,26 @@ where = ["src"]
 # It says the annotations are THERE, which they are - how strictly they are
 # CHECKED is the separate question `[tool.mypy]` below answers, with a named list
 # of what is not checked yet.
+#
+# THE SECOND ENTRY IS THE SAME DEFECT AS THE FIRST, ONE ARTIFACT LATER. Until
+# I20 this list held `py.typed` ALONE, so a built wheel carried
+# `model/reference.py` and NOT `model/reference_fit/model.json` - the archived
+# fit that module exists to load, tracked precisely so a reader could CHECK a
+# published number instead of only re-running it. `git clone` gave you both;
+# `pip install .` gave you the reader without its data, and the resulting
+# missing-file error surfaces at call time in someone else's session. A claim
+# about what a reader can reach is CHANNEL DEPENDENT, and nothing said so.
+#
+# ANY NEW NON-PYTHON FILE UNDER `src/` NEEDS A LINE HERE.
+# `tests/test_wheel_contents.py` derives the required set from `git ls-files
+# src`, BUILDS a wheel through the declared PEP 517 backend and inspects the
+# zip, so forgetting one is red rather than discovered. It builds rather than
+# reading this table because a test that asserts a string is written here
+# cannot fail for the reason that matters: it never learns whether the pattern
+# MATCHES, whether the backend honours it for a file inside a sub-package, or
+# whether the bytes that arrive are the bytes that were tracked.
 [tool.setuptools.package-data]
-wildfire_nowcast = ["py.typed"]
+wildfire_nowcast = ["py.typed", "model/reference_fit/*.json"]
 
 [tool.ruff]
 line-length = 100
