@@ -348,7 +348,7 @@ PLAYTHROUGH = PT.Playthrough(
             lambda o: o["e_multiplier_quiet_hour"] < 0.5 * o["e_multiplier_active_hour"],
             note="ONLY the unconditional part of the prior mean is removed, so a quiet hour "
             "is still predicted quieter than an active one. That is a DESIGN DECISION about "
-            "the OFF-state route, so it is asserted here rather than left in a docstring — "
+            "the OFF-state route, so it is asserted here rather than left in a docstring - "
             "D5 plants the tidier variant that deletes it.",
         ),
         PT.Probe(
@@ -415,13 +415,13 @@ PLAYTHROUGH = PT.Playthrough(
             "sigma_gate to 0.30 and E[m] returns to ~1 on its own: the growth number is "
             "repaired, `gate_mean_preserving: true` still prints, and the ASYMMETRY that "
             "ADR-034 (2) identifies as the working mechanism is gone. Only the two asymmetry "
-            "probes can see it — no mean-based check can, because the mean is CORRECT.",
+            "probes can see it - no mean-based check can, because the mean is CORRECT.",
         ),
         PT.Defect(
             "the_conditional_prior_silently_stops_being_conditional",
             PT.attribute_defect((LatentHead, "prior_mean", _prior_is_silently_unconditional)),
             note="`prior_net` still exists, still trains, still serialises, and the artifact "
-            "still prints `conditional_prior: true` — but every hour gets the same prior "
+            "still prints `conditional_prior: true` - but every hour gets the same prior "
             "mean. THE ONLY PROBE THAT CAN SEE THIS IS THE CONDITIONAL-ROUTE ONE: the "
             "correction pins the UNCONDITIONAL mean to 1, so every mean-based check passes. "
             "Planted because without it that probe caught nothing on its own and the design "
@@ -432,7 +432,7 @@ PLAYTHROUGH = PT.Playthrough(
             PT.no_defect(),
             note="DECLARED BLIND SPOT and the harness's own control: a defect that mutates "
             "nothing must be caught by nothing, or the coverage map is hallucinating. It "
-            "also stands for what this playthrough provably CANNOT see — everything "
+            "also stands for what this playthrough provably CANNOT see - everything "
             "DOWNSTREAM of the multiplier distribution, i.e. whether the corrected effect "
             "actually reaches the hazard field. That wiring is covered separately by "
             "`eval/selftest.check_latent_off_reproduces_the_g2_kernel_bitwise` and "

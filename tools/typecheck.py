@@ -187,7 +187,7 @@ def audit(config: dict[str, Any], python_executable: str | None, show_errors: bo
         )
     if retire:
         print(
-            "\nRETIRE THESE — they are exempt in pyproject.toml and they now PASS:\n  "
+            "\nRETIRE THESE - they are exempt in pyproject.toml and they now PASS:\n  "
             + "\n  ".join(retire)
             + "\n\nDelete each from its [[tool.mypy.overrides]] block and from the pinned set in "
             "tests/test_typecheck_config.py, in the same change. An exemption for a module that "
@@ -210,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--show-errors",
         action="store_true",
-        help="print the audit run's errors — what each exempt module still owes",
+        help="print the audit run's errors - what each exempt module still owes",
     )
     args = parser.parse_args(argv)
 

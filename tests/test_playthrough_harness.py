@@ -399,7 +399,7 @@ HARNESS_PLAYTHROUGH = Playthrough(
         Defect(
             "inner_defect_mutates_nothing",
             data_defect(lambda pt: replace(pt, defects=(Defect("noop", no_defect(), note="x"),))),
-            note="a declared defect that changes nothing — the harness must not credit itself "
+            note="a declared defect that changes nothing - the harness must not credit itself "
             "with catching it.",
         ),
     ),

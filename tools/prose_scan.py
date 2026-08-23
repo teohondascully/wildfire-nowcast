@@ -43,7 +43,7 @@ import subprocess
 import tokenize
 import unicodedata
 from collections import Counter
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -66,7 +66,63 @@ REGION_CODE: Final = "code"
 #: distinguish and the region is reported separately from Python docstrings.
 REGION_PROSE: Final = "prose"
 
+#: **A LIVE LITERAL THAT REACHES A READER** (ADR-097). It is a literal, so the
+#: exclusion above still applies to the OTHER literals; this is the half of that
+#: exclusion that was silent. ``eval/reporting.py:213`` holds
+#: ``status="PROPOSAL <dash> reported, not enforced."`` and that string is
+#: PRINTED. An em dash in a docstring is invisible to the senior engineer this
+#: repository is written for; an em dash in a report is exactly what they see.
+#: This is the FAILING category.
+REGION_OUTPUT: Final = "output"
+
+#: A literal that reaches a reader only on an ERROR path: a ``raise`` message or
+#: an ``assert`` message. DECLARED AND COUNTED, not failing. It is reader-facing
+#: too, and widening the gate to it is a PROPOSAL rather than a decision infra
+#: may take alone: contract violation messages are compared against by tests in
+#: three other leads' packages, so rewriting one is a behaviour change on a
+#: surface infra does not own.
+REGION_ERROR: Final = "err-msg"
+
+#: What each region MEANS, printed beside its count on every run. The general
+#: rule ADR-097 (4) draws from three defects in one day: **a tool that excludes a
+#: category prints what it excluded next to its verdict, every time.** A tally
+#: without this legend is what let `literal 473` read as a neutral number while
+#: 63 of those characters were being shown to a reader.
+REGION_LEGEND: Final[dict[str, str]] = {
+    REGION_DOCSTRING: "prose, BOUNDED by the pin in tests/test_hygiene.py",
+    REGION_COMMENT: "prose, BOUNDED by the same pin",
+    REGION_CODE: "impossible for a punctuation category; non-zero means the classifier is wrong",
+    REGION_OUTPUT: "FAILING: a live literal a READER SEES (printed, or passed by keyword)",
+    REGION_ERROR: "EXCLUDED and DECLARED: reaches a reader only on a raise/assert path",
+    REGION_LITERAL: "EXCLUDED and DECLARED: internal; rewriting one changes behaviour or bytes",
+    REGION_PROSE: "tracked non-Python text, BOUNDED by its own pin",
+}
+
+#: The scanner's OWN blind spot, printed on every run rather than left to be
+#: discovered. A literal appended to a list that a formatter prints later is
+#: reader-facing and is NOT seen here: the sinks are direct. One instance was
+#: found by hand in `common/playthrough.py` and fixed; the class is a PROPOSAL
+#: to widen, not a silent gap.
+UNSEEN_BY_CONSTRUCTION: Final = (
+    "a literal STORED and formatted elsewhere (appended to a failures list, returned "
+    "from a message builder). The sinks here are direct: print/warn/logging arguments "
+    "and any keyword argument."
+)
+
 PROSE_REGIONS: Final = frozenset({REGION_DOCSTRING, REGION_COMMENT, REGION_CODE})
+
+#: Every region a report prints, in the order it prints them. Enumerated once so
+#: that a new region cannot be added and then omitted from the verdict, which is
+#: the exact shape of the defect this module is being extended to repair.
+ALL_REGIONS: Final[tuple[str, ...]] = (
+    REGION_DOCSTRING,
+    REGION_COMMENT,
+    REGION_CODE,
+    REGION_OUTPUT,
+    REGION_ERROR,
+    REGION_LITERAL,
+    REGION_PROSE,
+)
 
 #: Suffixes NOT scanned as prose, and the reason for each kind. A DENY-LIST, not
 #: an allow-list, because an allow-list of extensions cannot see ``Makefile``,
@@ -200,6 +256,127 @@ def _token_regions(text: str, doc_starts: frozenset[tuple[int, int]]) -> list[_T
     return regions
 
 
+# --------------------------------------------------------------------------
+# WHICH LITERALS REACH A READER (ADR-097)
+# --------------------------------------------------------------------------
+
+#: Functions whose arguments are, by definition, shown to a person. Matched on
+#: the ATTRIBUTE or NAME, so ``print``, ``sys.stderr.write`` and
+#: ``logger.warning`` are all caught without resolving imports.
+_OUTPUT_FUNCTIONS: Final = frozenset({"print", "warn", "write"})
+
+#: Logging emissions. A diagnostic is read by a person too.
+_OUTPUT_LOG_METHODS: Final = frozenset(
+    {"debug", "info", "warning", "error", "exception", "critical", "log"}
+)
+
+#: Receivers whose method call is a logging emission rather than something else
+#: that happens to be spelled ``.info``.
+_LOG_RECEIVERS: Final = frozenset({"logger", "logging", "LOGGER", "_logger", "log"})
+
+
+def _call_name(func: ast.expr) -> str:
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    if isinstance(func, ast.Name):
+        return func.id
+    return ""
+
+
+def _is_output_call(node: ast.Call) -> bool:
+    """``print(...)``, ``warnings.warn(...)``, ``f.write(...)``, ``logger.info(...)``."""
+    name = _call_name(node.func)
+    if name in _OUTPUT_FUNCTIONS:
+        return True
+    if name in _OUTPUT_LOG_METHODS and isinstance(node.func, ast.Attribute):
+        receiver = node.func.value
+        return isinstance(receiver, ast.Name) and receiver.id in _LOG_RECEIVERS
+    return False
+
+
+def _string_spans(node: ast.AST) -> Iterator[tuple[tuple[int, int], tuple[int, int]]]:
+    """Every string-bearing node in a subtree, as a half-open ``(start, end)`` span.
+
+    ``JoinedStr`` is yielded whole AND its parts individually: an f-string's
+    constant segments are what a byte scan sees, and the enclosing node is what
+    covers a 3.11 tokenizer that does not split them. This is why the count here
+    is not the maintainer's floor of 28: it sees f-strings and concatenations,
+    which a search for direct string constants cannot.
+    """
+    for child in ast.walk(node):
+        if isinstance(child, ast.JoinedStr) or (
+            isinstance(child, ast.Constant) and isinstance(child.value, str)
+        ):
+            if child.end_lineno is None or child.end_col_offset is None:
+                continue
+            yield (child.lineno, child.col_offset), (child.end_lineno, child.end_col_offset)
+
+
+def reader_facing_spans(tree: ast.AST) -> tuple[list[_TokenRegion], list[ast.Constant]]:
+    """``(spans, output constants)`` for every literal that reaches a reader.
+
+    Two sinks, and the second is a REFUSAL rather than a list of keyword names:
+
+    * an argument anywhere inside an OUTPUT call (:func:`_is_output_call`);
+    * the value of ANY keyword argument to any call. A string handed to a call
+      under a NAME is a labelled value, and labelled values are what reports
+      carry - ``status=``, ``note=``, ``label=``, ``help=``, ``provenance=``.
+      Enumerating the names would leave whichever one nobody thought of as the
+      next gap, which is how seven allow-lists in this repository failed.
+
+    ``raise`` and ``assert`` messages are collected separately: reader-facing on
+    an error path, declared and counted, not failing. See :data:`REGION_ERROR`.
+    """
+    spans: list[_TokenRegion] = []
+    constants: list[ast.Constant] = []
+
+    def take(node: ast.AST, region: str) -> None:
+        for start, end in _string_spans(node):
+            spans.append(_TokenRegion(start, end, region))
+        if region == REGION_OUTPUT:
+            constants.extend(
+                child
+                for child in ast.walk(node)
+                if isinstance(child, ast.Constant) and isinstance(child.value, str)
+            )
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if _is_output_call(node):
+                for arg in node.args:
+                    take(arg, REGION_OUTPUT)
+            for keyword in node.keywords:
+                if keyword.arg is not None:
+                    take(keyword.value, REGION_OUTPUT)
+        elif isinstance(node, ast.Raise) and node.exc is not None:
+            take(node.exc, REGION_ERROR)
+        elif isinstance(node, ast.Assert) and node.msg is not None:
+            take(node.msg, REGION_ERROR)
+
+    # OUTPUT wins over ERROR where a literal is in both, because the failing
+    # category must not be weakened by an overlap.
+    spans.sort(key=lambda region: region.region != REGION_OUTPUT)
+    return spans, constants
+
+
+def prose_spans(text: str) -> list[_TokenRegion]:
+    """Every COMMENT and DOCSTRING span in a Python source, as regions.
+
+    Public because a second scanner needs the same distinction and C0 says there
+    is one implementation of anything. `tests/test_shared_temp_paths.py` uses it
+    to tell a fixed `/tmp` path that a program WRITES TO from a paragraph
+    explaining why one may not be written. Without it, the documentation of a
+    defect is indistinguishable from the defect.
+    """
+    tree = ast.parse(text)
+    doc_starts = frozenset((n.lineno, n.col_offset) for n in _docstring_targets(tree))
+    return [
+        region
+        for region in _token_regions(text, doc_starts)
+        if region.region in (REGION_COMMENT, REGION_DOCSTRING)
+    ]
+
+
 def scan_python_source(path: str, text: str) -> list[Occurrence]:
     """Every typographic character in ``text``, tagged with its region.
 
@@ -219,6 +396,7 @@ def scan_python_source(path: str, text: str) -> list[Occurrence]:
     doc_nodes = _docstring_targets(tree)
     doc_starts = frozenset((node.lineno, node.col_offset) for node in doc_nodes)
     regions = _token_regions(text, doc_starts)
+    reader_spans, output_constants = reader_facing_spans(tree)
 
     for lineno, line in enumerate(text.splitlines(), start=1):
         for col, char in _offending(line):
@@ -227,18 +405,38 @@ def scan_python_source(path: str, text: str) -> list[Occurrence]:
                 if candidate.contains(lineno, col):
                     region = candidate.region
                     break
+            if region == REGION_LITERAL:
+                for reach in reader_spans:
+                    if reach.contains(lineno, col):
+                        region = reach.region
+                        break
             category, name = _describe(char)
             out.append(Occurrence(path, lineno, region, char, category, name))
 
     for node in doc_nodes:
-        raw = Counter(char for _, char in _offending(ast.get_source_segment(text, node) or ""))
-        decoded = Counter(char for _, char in _offending(str(node.value)))
-        for char, extra in (decoded - raw).items():
-            category, name = _describe(char)
-            out.extend(
-                Occurrence(path, node.lineno, REGION_DOCSTRING, char, category, name)
-                for _ in range(extra)
-            )
+        out.extend(_escaped_excess(path, text, node, REGION_DOCSTRING))
+    for node in output_constants:
+        out.extend(_escaped_excess(path, text, node, REGION_OUTPUT))
+    return out
+
+
+def _escaped_excess(path: str, text: str, node: ast.Constant, region: str) -> list[Occurrence]:
+    """Characters present in a literal's VALUE and absent from its source bytes.
+
+    ``"\\u2014"`` is an em dash to every reader of the string and is invisible to a
+    scan of the file. Applied to docstrings since ADR-080; applied to
+    output-reaching literals here, because a report printing an escaped dash
+    prints a dash.
+    """
+    segment = ast.get_source_segment(text, node) or ""
+    raw = Counter(char for _, char in _offending(segment))
+    decoded = Counter(char for _, char in _offending(str(node.value)))
+    out: list[Occurrence] = []
+    for char, extra in (decoded - raw).items():
+        category, name = _describe(char)
+        out.extend(
+            Occurrence(path, node.lineno, region, char, category, name) for _ in range(extra)
+        )
     return out
 
 
@@ -297,6 +495,95 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
                 continue
             out.extend(scan_prose_file(rel, text))
     return out
+
+
+# --------------------------------------------------------------------------
+# the output-literal debt, and who owns each line of it
+# --------------------------------------------------------------------------
+
+#: Output-reaching typographic characters that belong to another lead, MEASURED
+#: at `738e7b7` over the tracked tree. infra fixed the 38 in `common/`, `tools/`
+#: and `tests/`; these 25 are in `eval/`, `model/`, `sim/` and `runs/`, which
+#: infra may not edit (C-4 ownership).
+#:
+#: A BURN-DOWN, and it fails in three directions:
+#:
+#: * a file NOT listed that carries one is NEW DEBT and fails;
+#: * a listed file whose count RISES fails;
+#: * a listed file that reaches ZERO is STALE and fails, so the entry cannot
+#:   outlive its reason.
+#:
+#: A count that FALLS without reaching zero is fine. That asymmetry is
+#: deliberate: three leads are writing in these files, and a pin that goes red on
+#: their ordinary progress is a pin that gets edited rather than obeyed.
+OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {
+    # @model
+    "runs/_m9_scaling.py": 2,
+    "src/wildfire_nowcast/eval/baseline_run.py": 5,
+    "src/wildfire_nowcast/eval/playthrough_first_moment.py": 2,
+    "src/wildfire_nowcast/eval/reporting.py": 2,
+    "src/wildfire_nowcast/eval/selftest.py": 1,
+    "src/wildfire_nowcast/model/train.py": 3,
+    # @simviz
+    "src/wildfire_nowcast/sim/blockanatomy.py": 1,
+    "src/wildfire_nowcast/sim/coarsen.py": 1,
+    "src/wildfire_nowcast/sim/dashboard.py": 2,
+    "src/wildfire_nowcast/sim/elmfire.py": 1,
+    "src/wildfire_nowcast/sim/elmfire_stage.py": 1,
+    "src/wildfire_nowcast/sim/landfire.py": 1,
+    "src/wildfire_nowcast/sim/replay.py": 1,
+    "src/wildfire_nowcast/sim/rundash.py": 2,
+}
+
+
+@dataclass(frozen=True)
+class OutputAudit:
+    """The verdict on the FAILING category, with every direction it can fail in."""
+
+    undeclared: dict[str, int]
+    risen: dict[str, tuple[int, int]]
+    stale: tuple[str, ...]
+    declared_total: int
+    found_total: int
+
+    @property
+    def ok(self) -> bool:
+        return not self.undeclared and not self.risen and not self.stale
+
+    def lines(self) -> list[str]:
+        out: list[str] = []
+        for path, count in sorted(self.undeclared.items()):
+            out.append(f"NEW output-reaching literal(s): {path} carries {count}, undeclared")
+        for path, (was, now) in sorted(self.risen.items()):
+            out.append(f"RISEN: {path} carried {was}, now carries {now}")
+        for path in self.stale:
+            out.append(f"STALE: {path} is clean; remove it from OUTPUT_LITERAL_DEBT")
+        return out
+
+
+def audit_output_literals(
+    occurrences: Sequence[Occurrence], debt: Mapping[str, int] | None = None
+) -> OutputAudit:
+    """Compare the output-reaching literals found against the declared debt."""
+    declared = dict(OUTPUT_LITERAL_DEBT if debt is None else debt)
+    found: dict[str, int] = {}
+    for occ in occurrences:
+        if occ.region == REGION_OUTPUT:
+            found[occ.path] = found.get(occ.path, 0) + 1
+    undeclared = {path: n for path, n in found.items() if path not in declared}
+    risen = {
+        path: (declared[path], n)
+        for path, n in found.items()
+        if path in declared and n > declared[path]
+    }
+    stale = tuple(sorted(path for path in declared if found.get(path, 0) == 0))
+    return OutputAudit(
+        undeclared=undeclared,
+        risen=risen,
+        stale=stale,
+        declared_total=sum(declared.values()),
+        found_total=sum(found.values()),
+    )
 
 
 # --------------------------------------------------------------------------
@@ -369,13 +656,25 @@ def main(argv: list[str] | None = None) -> int:
     counts: dict[str, int] = {}
     for occ in occurrences:
         counts[occ.region] = counts.get(occ.region, 0) + 1
-    for region in (REGION_DOCSTRING, REGION_COMMENT, REGION_CODE, REGION_LITERAL, REGION_PROSE):
-        print(f"{region:>10}  {counts.get(region, 0)}")
+    for region in ALL_REGIONS:
+        print(f"{region:>10}  {counts.get(region, 0):>4}  {REGION_LEGEND[region]}")
+
+    audit = audit_output_literals(occurrences)
+    print(
+        f"\ndeclared output debt: {audit.declared_total} character(s) across "
+        f"{len(OUTPUT_LITERAL_DEBT)} file(s) owned by other leads (ADR-097)"
+    )
+    print(f"NOT SEEN BY THIS SCANNER: {UNSEEN_BY_CONSTRUCTION}")
+    for line in audit.lines():
+        print(f"  [FAIL] {line}")
+
     if args.region:
         for occ in sorted(occurrences, key=lambda o: (o.path, o.line)):
             if occ.region == args.region:
                 print(occ)
-    return 0
+
+    print(f"verdict: {'PASS' if audit.ok else 'FAIL'}")
+    return 0 if audit.ok else 1
 
 
 if __name__ == "__main__":

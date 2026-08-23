@@ -311,7 +311,7 @@ def _coarsening_report() -> PT.PlaythroughReport:
         clean_passes=bool(report["rule_passes_every_scenario"]),
         notes={
             "nearest": "centroid sampling. Area error is small and UNBIASED on blobs, so an "
-            "area check alone passes it — simviz's own ADR-031 (5) finding, and the reason "
+            "area check alone passes it - simviz's own ADR-031 (5) finding, and the reason "
             "this file exists.",
             "all": "integer-cell erosion; loses the whole boundary band.",
             "any": "any-touch dilation.",
@@ -371,7 +371,7 @@ def _non_degeneracy_report() -> PT.PlaythroughReport:
 _GRANDFATHERED: dict[str, Registered] = {
     "src/wildfire_nowcast/sim/blockanatomy.py": Registered(
         owner="simviz (S5)",
-        note="PLAYTHROUGH 3 — the ANATOMY of G3's dispersion criterion. Splits "
+        note="PLAYTHROUGH 3 - the ANATOMY of G3's dispersion criterion. Splits "
         "`band_area_dispersion_ratio` into a spread term whose denominator the model cannot "
         "move and an error term that is entirely the model's own. Its capability claim is one "
         "exact number: two blocks constructed to SHARE an `adr` whose ensembles differ in "
@@ -381,13 +381,13 @@ _GRANDFATHERED: dict[str, Registered] = {
     ),
     "src/wildfire_nowcast/sim/coarsen.py": Registered(
         owner="simviz",
-        note="PLAYTHROUGH 1 — the 30 m -> 1 km coarsening rule. ADOPTED, not edited: its own "
+        note="PLAYTHROUGH 1 - the 30 m -> 1 km coarsening rule. ADOPTED, not edited: its own "
         "report already carries defects_caught_by, so the requirement reaches it untouched.",
         report=_coarsening_report,
     ),
     "src/wildfire_nowcast/sim/playthrough.py": Registered(
         owner="simviz",
-        note="PLAYTHROUGH 2 — ELMFIRE baseline non-degeneracy. Needs a compiled binary, so it "
+        note="PLAYTHROUGH 2 - ELMFIRE baseline non-degeneracy. Needs a compiled binary, so it "
         "is a DECLARED reporting gap here rather than a silent skip.",
         report=_non_degeneracy_report,
         unavailable=_elmfire_binary_missing,

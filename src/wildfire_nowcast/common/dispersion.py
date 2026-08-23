@@ -280,7 +280,7 @@ def dispersion_condition(adr: Any, *, name: str = "dispersion") -> ConditionResu
             reference=BAR_RATIO,
             detail=(
                 f"{GATE_CRITERION_KEY} is undefined ({adr!r}). Its denominator is the model's "
-                "OWN mean-area error, which is exactly 0 at perfect mean calibration — so this "
+                "OWN mean-area error, which is exactly 0 at perfect mean calibration - so this "
                 "metric goes undefined precisely as a model gets the first moment right. "
                 "UNDEFINED is reported as its own outcome and is NOT a pass."
             ),
@@ -338,7 +338,7 @@ def first_moment_condition(
             detail=(
                 f"{FIRST_MOMENT_KEY} is undefined for the {which} "
                 f"(candidate={candidate!r}, reference={reference!r}). A reference that could not "
-                "be scored is NOT a bar that was cleared — C6.2's rule: a baseline that "
+                "be scored is NOT a bar that was cleared - C6.2's rule: a baseline that "
                 "degenerates VOIDS its gate rather than passing it."
             ),
             extra={"reference_role": reference_name},

@@ -251,7 +251,7 @@ C6_METRICS: dict[str, MetricSpec] = {
         False,
         quarantined_by="ADR-020 (climatology)",
         note="the LINEAR calibration statistic. It beats the silence nulls, and it is "
-        "beaten by climatology, which scores ~0 on it by construction — that is the "
+        "beaten by climatology, which scores ~0 on it by construction - that is the "
         "whole reason the gate criterion needs a second subgroup family.",
     ),
     "ece_2h": MetricSpec(LOWER, False, quarantined_by="ADR-020 (climatology)"),

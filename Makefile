@@ -46,7 +46,7 @@ TENSOR ?= outputs/synthetic_fire/tensor.zarr
 MOVIE  ?= outputs/fire.mp4
 
 .PHONY: help venv install relock hooks test test-all test-isolated purge-bytecode lint typecheck format-check format synth contract contract-reporting \
-        contract-real contract-split contract-all-fires null-check check ci ci-status movie clean-outputs \
+        contract-real contract-split contract-all-fires prose null-check check ci ci-status movie clean-outputs \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
 
@@ -234,11 +234,32 @@ contract-split: | $(PY)
 
 ## contract-all-fires: the C1-C3 CLI over every built fire, then C8/C3.1 once.
 ##         Exits non-zero if ANY fire fails, and names the ones that did.
+##
+##         THE SCRATCH FILE IS PER INVOCATION AND IS NOT NEGOTIABLE (ADR-098).
+##         It was `/tmp/_c.txt`: a fixed, predictable name in a world-writable
+##         directory, rewritten once per fire, inside the reporting path of this
+##         project's flagship check. Four leads share this tree and have run this
+##         target concurrently, and two runs interleave writes to one file - so
+##         the `[FAIL]` lines printed can belong to a DIFFERENT fire than the one
+##         `echo "FAIL $$d"` names beside them. The exit code stays correct,
+##         which is what makes it the worse failure: a wrong exit code gets
+##         investigated, and a plausible failure filed under the wrong fire gets
+##         ACTED ON. `mktemp` per invocation, removed by a trap on every exit
+##         path including the interrupt that a long run over 21 fires invites.
 contract-all-fires: | $(PY)
-	@rc=0; for d in data/fires/*/; do \
-	  $(PY) -m wildfire_nowcast.common.contract $$d/tensor.zarr > /tmp/_c.txt 2>&1 \
-	    || { rc=1; echo "FAIL $$d"; grep -E '^\s+\[FAIL\]' /tmp/_c.txt | cut -c1-140; }; \
+	@rc=0; c=$$(mktemp "$${TMPDIR:-/tmp}/wfnc-contract.XXXXXX"); \
+	trap 'rm -f "$$c"' EXIT INT TERM; \
+	for d in data/fires/*/; do \
+	  $(PY) -m wildfire_nowcast.common.contract $$d/tensor.zarr > "$$c" 2>&1 \
+	    || { rc=1; echo "FAIL $$d"; grep -E '^\s+\[FAIL\]' "$$c" | cut -c1-140; }; \
 	done; $(PY) -m wildfire_nowcast.common.splits || rc=1; exit $$rc
+
+## prose: ADR-097 - classify non-ASCII punctuation in the TRACKED tree by the
+##         region it sits in, and FAIL on the ones a reader sees. Every excluded
+##         category is printed beside the verdict, with what it means and what
+##         the scanner cannot see. Add `--region output` to list them.
+prose: | $(PY)
+	$(PY) tools/prose_scan.py --repo .
 
 ## null-check: C6.0 - score a DO-NOTHING null against every C6 metric.
 ##         Run this before any metric adjudicates any gate. If the null wins, the

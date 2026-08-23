@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"HEAD              {sha}")
     print(f"origin/{args.branch:<10} {remote_sha or '(unknown)'}")
     print(
-        f"working tree      {'DIRTY — uncommitted changes are in no CI run' if dirty else 'clean'}"
+        f"working tree      {'DIRTY - uncommitted changes are in no CI run' if dirty else 'clean'}"
     )
     if ahead:
         print(f"unpushed          {ahead} commit(s) ahead of origin/{args.branch}: never built")
@@ -224,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
         if ahead:
             notes.append("unpushed commits")
         print(
-            "  Note: that is a statement about the COMMIT, not about your working copy — "
+            "  Note: that is a statement about the COMMIT, not about your working copy - "
             "you have " + " and ".join(notes) + "."
         )
     return EXIT_OK

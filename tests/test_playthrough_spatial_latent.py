@@ -344,7 +344,7 @@ PLAYTHROUGH = PT.Playthrough(
             note="THE capability probe. The ODD part of the induced log-field two cells east "
             "is exactly sigma * phi = 0.4 * 1.7320508 = 0.69282. A GLOBAL multiplier has an "
             "odd part of EXACTLY ZERO however large its sigma, so this single number "
-            "separates 'disagrees about WHERE' from 'disagrees about HOW MUCH' — the whole "
+            "separates 'disagrees about WHERE' from 'disagrees about HOW MUCH' - the whole "
             "reason M7 exists.",
         ),
         PT.Probe(
@@ -361,7 +361,7 @@ PLAYTHROUGH = PT.Playthrough(
             lambda o: o["mean_exp_max_error"] <= 0.02,
             note="E_z[exp(effect)] = 1 at EVERY cell, not merely on domain average. A "
             "domain-average correction would pass an aggregate check while moving the mean "
-            "hazard around inside the field — insights item 42's shape.",
+            "hazard around inside the field - insights item 42's shape.",
         ),
         PT.Probe(
             "the_field_space_is_LOW_RANK",

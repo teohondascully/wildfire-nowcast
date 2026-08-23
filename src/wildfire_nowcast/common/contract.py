@@ -327,7 +327,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         CLAUSE_ENFORCED,
         where=("wildfire_nowcast.common.contract.THRESHOLD_PROVENANCE",),
         note="every pass/fail constant states its fitting sample; a test asserts the registry "
-        "covers each one. C-3's judgement half — whether a stated sample is adequate — is a "
+        "covers each one. C-3's judgement half - whether a stated sample is adequate - is a "
         "human call and is deliberately not automated.",
     ),
     "C-4": ClauseImpl(
@@ -337,7 +337,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "the same edit and the same diff are legal or illegal depending on whether some other "
         "session is live, which is a fact about the maintainer's schedule and not about this "
         "repo. What IS mechanical is the DETECTION of a violation after the fact, and that is "
-        "C-4.2 — see also C8.code_agrees_across_run. Classified `process` deliberately rather "
+        "C-4.2 - see also C8.code_agrees_across_run. Classified `process` deliberately rather "
         "than left unclassified: C-2's whole point is that an unenforceable clause must say so "
         "out loud instead of being silently absent.",
     ),
@@ -351,7 +351,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         ),
         note="[v2.12, ADR-024] the INTERPRETER ENVIRONMENT joins C-4's frozen set. Origin is "
         "data's, not the contract's: D5 declined to `pip install scipy` mid-training and "
-        "wrote pure-numpy filters instead, reading C-4's INTENT over its text — C-4 enumerated "
+        "wrote pure-numpy filters instead, reading C-4's INTENT over its text - C-4 enumerated "
         "FILES and named no environment, so a lead could have installed anything mid-run and "
         "violated no clause. Like C-4, WHO may install WHAT WHILE is `process` and cannot be "
         "checked from inside the repo; what IS mechanical is DETECTION AFTER THE FACT, which is "
@@ -387,8 +387,8 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "FAIL; sampling only one end is a REPORTING gap, because every artifact in runs/ "
         "predates this clause and the two that stamp scoring_code stamp it once. NOTE for the "
         "next bump: C-4.2's text says to hard-fail 'as check_common_code_unchanged already does "
-        "for common/', but that function does NOT raise — its own docstring says 'Never raises' "
-        "and its status field says 'PROPOSAL — reported, not enforced'. The hard fail is this "
+        "for common/', but that function does NOT raise - its own docstring says 'Never raises' "
+        "and its status field says 'PROPOSAL - reported, not enforced'. The hard fail is this "
         "clause, here; the premise it cites does not exist yet.",
     ),
     "C0": ClauseImpl(
@@ -500,7 +500,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "manifest) and live in splits.check_split_assignment, because a clause about a "
         "RELATION between artifacts needs a home that sees more than one (C-2's structural "
         "rule). They replaced a `train_heldout_disjoint` that intersected two lists "
-        "split_fingerprint builds as a PARTITION — green by construction, on any input.",
+        "split_fingerprint builds as a PARTITION - green by construction, on any input.",
     ),
     "C3.1": ClauseImpl(
         CLAUSE_ENFORCED,
@@ -520,7 +520,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         CLAUSE_ENFORCED,
         checks=("mean_finite", "std_finite", "mean_within_physical_range"),
         note="the norm-stats file is checked as its own artifact, not as an aggregate of "
-        "per-fire reports — a train mean outside a C1.7 definitional range is the measured "
+        "per-fire reports - a train mean outside a C1.7 definitional range is the measured "
         "CZU case (-492% canopy). The 'necessary but not sufficient' half is a working rule.",
     ),
     # [v2.14] Maintainer edit, declared (ADR-044). SECOND clause-authoring
@@ -536,7 +536,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         ),
         note="the geometric bar plus the reference-defined first-moment condition. Ratified at "
         "v2.14 and NOT at v2.13, because at v2.13 the code existed in `common/dispersion.py` and "
-        "NOTHING CALLED IT — the only importer was `common/pooling.py`. A clause is ratified when "
+        "NOTHING CALLED IT - the only importer was `common/pooling.py`. A clause is ratified when "
         "the GATE PATH runs it. Verified before the bump: `eval/baseline_run.py` imports "
         "`common.dispersion as g3`, calls `g3.first_moment_condition_from_blocks`, and emits "
         "`g3_conditions`. UNDEFINED is a third outcome and is never a pass.",
@@ -550,7 +550,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
     "C3.5": ClauseImpl(
         CLAUSE_ENFORCED,
         checks=("norm_stats_declares_fire_ids", "train_heldout_disjoint"),
-        note="replaces a `train_heldout_disjoint` that COULD NOT FAIL — it intersected two "
+        note="replaces a `train_heldout_disjoint` that COULD NOT FAIL - it intersected two "
         "lists `split_fingerprint` builds as a partition, so it had been green since it was "
         "written and could never be anything else. The leak it existed to catch "
         "(`2020_july_complex`, 9.76% of train mass) was found by a human reading a file. "
@@ -596,7 +596,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
             "wildfire_nowcast.eval.metrics.evaluate",
         ),
         note="[v2.10, A11] the shape/silence split lives in common/ (C0: one implementation of "
-        "anything the contract adjudicates) and eval/metrics.py wires it in additively — the "
+        "anything the contract adjudicates) and eval/metrics.py wires it in additively - the "
         "REPORTED best_member_iou is unchanged. Gate criterion = GATE_CRITERION_KEY. Known-answer "
         "cases in tests/test_iou_terms.py, incl. empty-vs-empty and a model that predicts "
         "nothing; agreement with sim/replay.py's independent split is asserted, not assumed.",
@@ -612,7 +612,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         where=("wildfire_nowcast.eval.validity.baseline_validity",),
         note="the zero-ignition VOID condition is code. The v2.8 per-horizon calibration "
         "amendment is NOT yet the reported form (baseline_run calibrates at one horizon per "
-        "run and records others as `alternative_horizons`) — routed to @model, see A10.",
+        "run and records others as `alternative_horizons`) - routed to @model, see A10.",
     ),
     "C6.3": ClauseImpl(
         CLAUSE_ENFORCED,
@@ -632,7 +632,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "if asked to stamp a true or a missing one, and `c6_3_expected_false_did_not_flip` is a "
         "HARD FAIL on any declaration sitting beside a non-false. The expected-false fold set "
         "is DERIVED from LEAVE_FOLD_OUT_BLOCKS, which is how infra found that ADR-062 (7)'s "
-        "'folds 0 and 1' is THREE folds — fold 2 holds out 3 blocks, also below the minimum "
+        "'folds 0 and 1' is THREE folds - fold 2 holds out 3 blocks, also below the minimum "
         "of 4. Ruling unaffected; raised as a PROPOSAL, not corrected in DECISIONS.md.",
     ),
     # [v2.15] Authored by infra under the explicit I1 directive (the v2.12
@@ -650,7 +650,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         note="Brier / arrival_crps / calibration_error / reliability are NON-ADJUDICATING "
         "(ADR-053 (1)(2)): Spearman -0.45 / -0.34 / -0.14 / -0.80 against |log(area error)| on "
         "M11's 0.053x-8.0x ladder at n=5 blocks, i.e. the WRONG SIGN, and no MDE anywhere. "
-        "ENFORCED rather than external: `gate_eligible` is not documentation — "
+        "ENFORCED rather than external: `gate_eligible` is not documentation - "
         "`MetricVerdict.is_failure` and `is_reporting_gap` both read it, so C6.0's harness "
         "(`make null-check`, inside `make ci`) changes tier for these four at this bump. "
         "`assert_may_adjudicate` RAISES rather than warning, because the failure being "
@@ -700,7 +700,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "construction and C8 hard-fails on more than one per artifact. This is an EXTENSION of "
         "the checker, NOT an exemption from it: an artifact declaring `cv_matrix` buys its "
         "member stamps out of C8.internally_consistent and pays three hard clauses no other "
-        "artifact faces — the declaration must parse, the declared member count must equal the "
+        "artifact faces - the declaration must parse, the declared member count must equal the "
         "member runs PRESENT, and every member run's own stamp must equal the matrix's claim "
         "about it. Today such an artifact cannot be checked at all, so this is strictly harder. "
         "Verified by planting all three defects in tests/test_splits.py.",
@@ -720,7 +720,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         "SplitContext resolves the path ONCE and its three operations take no path argument at "
         "all, so the desynchronised call cannot be written; resolve_split_context additionally "
         "runs assert_fit_and_stamp_agree, so an inconsistent context cannot be constructed. No "
-        "`checks=` because there is no artifact to inspect — the clause is about a call shape, "
+        "`checks=` because there is no artifact to inspect - the clause is about a call shape, "
         "and tests/test_splits.py plants the desynchronised caller and shows it cannot pass.",
     ),
 }

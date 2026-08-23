@@ -714,8 +714,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(payload, indent=2))
     else:
         print(
-            f"controls ok · {payload['n_files_scanned']} files · "
-            f"{payload['n_tainted_sections']} retracted sections · {len(findings)} findings"
+            f"controls ok | {payload['n_files_scanned']} files | "
+            f"{payload['n_tainted_sections']} retracted sections | {len(findings)} findings"
         )
         for finding in findings:
             print(

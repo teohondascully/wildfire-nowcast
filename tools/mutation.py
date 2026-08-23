@@ -968,10 +968,18 @@ def main(argv: list[str] | None = None) -> int:
     # OUTSIDE the repository on purpose: a worktree under `repo/` would be visible
     # to `git ls-files --others`, to ruff and to the hygiene scan, and a sweep that
     # changes what the hygiene suite is looking at is measuring itself.
+    # ADR-098: PER INVOCATION, never a fixed name under a shared temp directory.
+    # The default was `gettempdir()/wildfire-nowcast-mutation`, so two concurrent
+    # sweeps shared `ws0..ws3` - and `build_workspace` removes an existing
+    # workspace with `worktree remove --force` plus `rmtree`. That is not a
+    # cosmetic collision: it DELETES A RUNNING SWEEP'S WORKTREE, which is
+    # precisely what happened twice on 2026-08-22 and was attributed to a manual
+    # cleanup by prefix. `mkdtemp` gives each sweep its own root, and the
+    # `shutil.rmtree(root)` in `sweep`'s finally then removes only its own.
     root = (
         Path(args.workspace_root).resolve()
         if args.workspace_root
-        else Path(tempfile.gettempdir()) / "wildfire-nowcast-mutation"
+        else Path(tempfile.mkdtemp(prefix="wildfire-nowcast-mutation-"))
     )
     root.mkdir(parents=True, exist_ok=True)
     result = sweep(

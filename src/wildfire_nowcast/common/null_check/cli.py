@@ -157,7 +157,7 @@ def _pct(value: float | None) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m wildfire_nowcast.common.null_check",
-        description="C6.0 — score a do-nothing null against every C6 metric.",
+        description="C6.0 - score a do-nothing null against every C6 metric.",
     )
     parser.add_argument(
         "--tensor",
