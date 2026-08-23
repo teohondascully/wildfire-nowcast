@@ -22,9 +22,17 @@ per-pixel noise and no shared per-step latent are known-broken by collapse
 (``README.md``): ten thousand independent Bernoullis average out and total
 burned area concentrates on its mean. A spaghetti plot
 of a collapsed ensemble is a single thick line and looks tidy, which is the
-danger. :func:`ensemble_diagnostics` measures spread directly and the figure
-carries a loud banner when it is degenerate. These are RENDERING diagnostics for
-triage; the headline calibration numbers are C6's and are not recomputed here.
+danger. :func:`ensemble_diagnostics` measures spread directly, for TRIAGE.
+
+**The banner is a VERDICT and therefore does not come from this module
+(ADR-114).** It used to: a single cumulative reading at the last lead step,
+compared to a fixed bar, with no record of the horizon it was taken at. The
+null of that reading is 1.0 only at ONE step and drifts to ~1.5 by three, so
+the bar was partly a bar on horizon. :mod:`wildfire_nowcast.sim.collapse` now
+supplies one verdict per lead hour, each scored on the one-step increment from
+a state every member shares, each carrying its horizon and the instrument's own
+control from the same invocation. The headline calibration numbers are still
+C6's and are not recomputed here.
 """
 
 from __future__ import annotations
@@ -33,7 +41,7 @@ import argparse
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import matplotlib
 
@@ -60,11 +68,20 @@ from wildfire_nowcast.sim.style import (  # noqa: E402
     stamp,
 )
 
+if TYPE_CHECKING:  # pragma: no cover - `sim.collapse` imports this module.
+    from wildfire_nowcast.sim.collapse import PerHorizonCollapse
+
 __all__ = [
     "burn_probability",
     "arrival_quantiles",
     "ensemble_diagnostics",
     "independence_dispersion_index",
+    "ONE_STEP_INCREMENT",
+    "CUMULATIVE_FROM_T0",
+    "COLLAPSED",
+    "NOT_COLLAPSED",
+    "NOT_A_VERDICT",
+    "COLLAPSE_INDEX_THRESHOLD",
     "draw_burn_probability",
     "EnsembleView",
     "render_ensemble",
@@ -120,9 +137,35 @@ def _iou(a: np.ndarray, b: np.ndarray) -> float:
     return float((a & b).sum()) / union if union else 1.0
 
 
+#: The estimand a collapse VERDICT may be taken from: the cells a member adds in
+#: ONE step from a state every member shares. ``1.0`` is exact here by algebra.
+ONE_STEP_INCREMENT = "one_step_increment"
+
+#: The estimand a collapse verdict may NOT be taken from: everything burned
+#: between t0 and the last lead step, over members that have diverged. Kept
+#: because it is what a forecaster holds; demoted to DESCRIPTION because its
+#: null is not 1.0 and moves with horizon (ADR-114 (1)).
+CUMULATIVE_FROM_T0 = "cumulative_from_t0"
+
+#: The three values a collapse statement may take. ``NOT_A_VERDICT`` is a
+#: distinct third value and never ``False``: reading "not collapsed" off an
+#: instrument that was not fit to speak is the same shape as the
+#: ``nan < threshold`` that once read as healthy here.
+COLLAPSED = "collapsed"
+NOT_COLLAPSED = "not_collapsed"
+NOT_A_VERDICT = "not_a_verdict"
+
 #: Below this, the ensemble is no more dispersed than independent pixel noise
-#: would make it - i.e. the shared latent is doing nothing. See
-#: :func:`independence_dispersion_index`.
+#: would make it. See :func:`independence_dispersion_index`.
+#:
+#: CORRECTION, ADR-114 (4). This comment used to continue "i.e. the shared latent
+#: is doing nothing", and that is FALSE at more than one step. With the shared
+#: latent switched off entirely, the cumulative index reads 1.25 at h=2 and
+#: 1.47-1.52 at h=3, so a cumulative reading under 1.5 at h=3 does not mean the
+#: latent is idle - contagion correlates the members on its own. The sentence was
+#: true of the ONE-STEP estimand and did not say so. The threshold is unchanged
+#: at 1.5 and needs no change; what changed is which estimand may be compared to
+#: it, which is :data:`ONE_STEP_INCREMENT` and nothing else.
 COLLAPSE_INDEX_THRESHOLD = 1.5
 
 
@@ -144,9 +187,27 @@ def independence_dispersion_index(samples: np.ndarray, lead: int = -1) -> float:
     Why not a coefficient of variation: CV of an independent ensemble falls like
     ``1/sqrt(N_front)``, so any CV threshold is really a threshold on fire size
     and will quietly change meaning between a 40-cell fire and a 400-cell one.
-    Measured on the viz stub, this index is 1.09-1.31 at ``latent_sigma=0``
-    against 5.1-6.0 at ``0.9``, and is stable across 12-60 members where CV is
-    not.
+
+    **THE SAME OBJECTION LANDS HERE ONE AXIS OVER, AND IT IS WHY ``lead`` MUST
+    NOT BE ``-1`` FOR A VERDICT (ADR-114).** ``sum p_i (1 - p_i)`` is the
+    variance of a sum of indicators only while those indicators are
+    conditionally independent. Over two or more steps the step-2 candidate set
+    is a function of the step-1 draw, so this measures the shared innovation AND
+    the dynamics and attributes all of it to the innovation. A fixed threshold
+    on the CUMULATIVE index is therefore partly a threshold on horizon.
+    :mod:`wildfire_nowcast.sim.collapse` scores the one-step increment, which is
+    the estimand this algebra was derived for, and is the only path that may
+    take a verdict.
+
+    CORRECTION, ADR-114 (4). This docstring used to publish "measured on the viz
+    stub, this index is 1.09-1.31 at ``latent_sigma=0``". **That band is not
+    reproducible and the horizon it was measured at was never recorded**, which
+    is the same defect one level down. Re-measured with this function at 384
+    members, ``latent_sigma=0`` reads **1.0048 at h=1, 1.25 at h=2 and 1.47-1.52
+    at h=3**, so no single horizon yields 1.09-1.31. The rest of the original
+    sentence survives re-measurement and is kept: against ``latent_sigma=0.9``
+    the index is several times larger, and it is stable in member count from 24
+    to 384, where CV is not - members move its noise, not its level.
 
     Refuses an ensemble with no members or no lead steps. Over zero members the
     marginals are NaN, ``expected`` is NaN, ``nan <= 0`` is False, and this
@@ -178,9 +239,20 @@ def ensemble_diagnostics(
 ) -> dict[str, Any]:
     """Spread diagnostics for triage. Model-agnostic: samples + truth only.
 
-    ``collapsed`` is the headline: an ensemble whose members are near-identical
-    produces a tidy-looking spaghetti plot and a near-binary probability map,
-    both of which read as *confidence* rather than as the defect they are.
+    ``collapsed`` is the headline of the FIGURE: an ensemble whose members are
+    near-identical produces a tidy-looking spaghetti plot and a near-binary
+    probability map, both of which read as *confidence* rather than as the defect
+    they are.
+
+    **IT IS NOT A VERDICT, AND THE ARTIFACT NOW SAYS SO (ADR-114 (1)(d)).** Two
+    of the four things a collapse verdict needs are missing here by construction:
+    over more than one lead step the index's null is not 1.0, and nothing in this
+    function runs the instrument's own control. Both are stated in
+    ``collapse_verdict``, and ``collapse_index_lead_h`` publishes the lead the
+    index was scored at, which the record used to drop - the one variable that
+    decides the verdict was the one variable nobody wrote down, which is why the
+    defect survived for weeks. A verdict comes from
+    :func:`wildfire_nowcast.sim.collapse.per_horizon_collapse`.
 
     Refuses an empty ensemble. ``collapsed`` is the verdict whose POSITIVE
     CONTROL is ``StubEnsemble(latent_sigma=0)``, so it is exactly the kind of
@@ -237,6 +309,33 @@ def ensemble_diagnostics(
         index < COLLAPSE_INDEX_THRESHOLD
         or diag["n_distinct_members"] <= max(1, n_members // 10)
         or diag["uncertain_cell_frac"] < 0.02
+    )
+
+    # -- clause (d) of ADR-114: the horizon travels WITH the verdict -------
+    #
+    # `collapsed` above is byte-for-byte the value this function has always
+    # returned, deliberately: the M19 sweep's 1,860 cells were measured with it
+    # and moving it would make those artifacts unreproducible against the
+    # shipped instrument. What changes is that the record now says which lead
+    # step it was scored at and which estimand it is, so it can no longer be
+    # read as a verdict by omission.
+    lead_h = int(s.shape[1])
+    estimand = ONE_STEP_INCREMENT if lead_h == 1 else CUMULATIVE_FROM_T0
+    diag["collapse_index_lead_h"] = lead_h
+    diag["collapse_index_estimand"] = estimand
+    diag["collapsed_is_a_verdict"] = False
+    diag["collapse_verdict"] = (
+        f"{NOT_A_VERDICT}: "
+        + (
+            f"the estimand is {estimand} over {lead_h} lead steps, whose null is not "
+            "1.0 and moves with horizon"
+            if estimand == CUMULATIVE_FROM_T0
+            else "the estimand is one-step, but no instrument control ran in this invocation"
+        )
+        + ". This function is TRIAGE. A verdict comes from "
+        "wildfire_nowcast.sim.collapse.per_horizon_collapse, which re-conditions "
+        "every member on a shared state, calls predict() at horizon_h=1, and "
+        "publishes its own controls beside every reading."
     )
 
     if truth is not None:
@@ -354,8 +453,18 @@ def render_ensemble(
     seed: int = 0,
     model_name: str = "unnamed C5 predict()",
     dpi: int = 140,
+    collapse_verdicts: bool = True,
 ) -> EnsembleView:
-    """Call a C5 ``predict()`` at ``t0`` and render the four ensemble panels."""
+    """Call a C5 ``predict()`` at ``t0`` and render the four ensemble panels.
+
+    ``collapse_verdicts`` runs
+    :func:`wildfire_nowcast.sim.collapse.per_horizon_collapse` in this same
+    invocation, so the banner on the figure is a verdict with its horizon and its
+    controls attached rather than a cumulative reading with neither. It costs
+    ``horizon_h`` extra ``predict()`` calls at one lead step each. Turning it off
+    does not fall back to the old banner; it removes the banner, because a
+    collapse claim without a horizon is what ADR-114 was written about.
+    """
     fire = load_fire(tensor)
     ds = open_tensor(Path(tensor))
     inp: C5Inputs = c5_inputs(ds, t0, horizon_h)
@@ -377,6 +486,14 @@ def render_ensemble(
         )
 
     diag = ensemble_diagnostics(samples, inp.truth)
+
+    collapse: PerHorizonCollapse | None = None
+    if collapse_verdicts:
+        from wildfire_nowcast.sim.collapse import per_horizon_collapse  # noqa: PLC0415
+
+        collapse = per_horizon_collapse(
+            predict, inp, n_members=n_members, seed=seed, cumulative_samples=samples
+        )
     geom = fire.geom
     prob = burn_probability(samples)
     qmaps, arrive_prob = arrival_quantiles(samples)
@@ -443,7 +560,7 @@ def render_ensemble(
     _map_axes(ax_sd, geom, "arrival p90 − p10 (h); NaN where either is censored")
     fig.colorbar(im, ax=ax_sd, fraction=0.046, pad=0.02).ax.tick_params(labelsize=7)
 
-    _headline(fig, fire.fire_id, model_name, inp, diag)
+    _headline(fig, fire.fire_id, model_name, inp, diag, collapse)
     stamp(
         fig,
         f"{fire.source} | C1 v2.3 | C5 provisional split "
@@ -468,10 +585,40 @@ def render_ensemble(
         "seed": seed,
         "c5_convention": C5_CONVENTION,
     }
+    if collapse is not None:
+        meta["collapse"] = collapse.to_dict()
     return EnsembleView(figure_path=str(out_path), diagnostics=diag, meta=meta)
 
 
-def _headline(fig: Any, fire_id: str, model_name: str, inp: C5Inputs, diag: dict[str, Any]) -> None:
+def _collapse_banner(collapse: PerHorizonCollapse) -> str:
+    """The per-horizon verdict line, with the control reading beside it.
+
+    ADR-114 (b)(c)(d) in one string: a verdict per lead hour, each scored on the
+    one-step increment, each carrying the horizon it was taken at, and the
+    instrument's own control from the same invocation. A withheld verdict is
+    drawn as ``no verdict``, never as an absent banner - a reader must be able to
+    tell "the ensemble did not collapse" from "this run could not say".
+    """
+    parts = []
+    for v in collapse.verdicts:
+        if v.is_a_verdict:
+            word = "COLLAPSE" if v.verdict == COLLAPSED else "ok"
+            parts.append(f"{v.lead_h} h {word} {v.index:.2f}x")
+        else:
+            parts.append(f"{v.lead_h} h no verdict")
+    ctl = collapse.verdicts[0].controls if collapse.verdicts else None
+    tail = f"  [indep control {ctl.independent_index:.2f}x]" if ctl is not None else ""
+    return "one-step collapse index vs the 1.5 bar:  " + "   ".join(parts) + tail
+
+
+def _headline(
+    fig: Any,
+    fire_id: str,
+    model_name: str,
+    inp: C5Inputs,
+    diag: dict[str, Any],
+    collapse: PerHorizonCollapse | None = None,
+) -> None:
     t_lbl = str(np.datetime_as_string(inp.times[0], unit="h")).replace("T", " ")
     fig.suptitle(
         f"{fire_id} - ensemble from t0={inp.t0} (+1 h = {t_lbl}Z), horizon {inp.horizon_h} h\n"
@@ -480,7 +627,8 @@ def _headline(fig: Any, fire_id: str, model_name: str, inp: C5Inputs, diag: dict
         y=0.985,
     )
     line = (
-        f"dispersion vs independent-pixel {diag['independence_dispersion_index']:.2f}×   "
+        f"cumulative dispersion at {diag['collapse_index_lead_h']} h "
+        f"{diag['independence_dispersion_index']:.2f}× (description)   "
         f"pairwise IoU {diag['mean_pairwise_iou']:.3f}   "
         f"member-area CV {diag['member_area_cv']:.3f}   "
         f"uncertain cells {diag['uncertain_cell_frac']:.2f}   "
@@ -494,17 +642,30 @@ def _headline(fig: Any, fire_id: str, model_name: str, inp: C5Inputs, diag: dict
     fig.text(0.5, 0.938, line, ha="center", va="top", fontsize=7.6, color=COL_TEXT)
 
     warnings: list[str] = []
-    if diag["collapsed"]:
-        warnings.append(
-            f"ENSEMBLE COLLAPSE: dispersion is only "
-            f"{diag['independence_dispersion_index']:.2f}× the independent-pixel floor"
+    if collapse is not None:
+        fig.text(
+            0.5,
+            0.916,
+            _collapse_banner(collapse),
+            ha="center",
+            va="top",
+            fontsize=7.6,
+            color=COL_TEXT,
         )
+        collapsed_at = [v.lead_h for v in collapse.verdicts if v.verdict == COLLAPSED]
+        withheld = [v.lead_h for v in collapse.verdicts if not v.is_a_verdict]
+        if collapsed_at:
+            hours = ", ".join(f"{h} h" for h in collapsed_at)
+            warnings.append(f"ENSEMBLE COLLAPSE at {hours} on the one-step increment")
+        if withheld:
+            hours = ", ".join(f"{h} h" for h in withheld)
+            warnings.append(f"NO COLLAPSE VERDICT at {hours}: the instrument control failed")
     if diag.get("truth_outside_envelope"):
         warnings.append("UNDER-DISPERSED: truth area lies outside the member range")
     if warnings:
         fig.text(
             0.5,
-            0.918,
+            0.898,
             "  ||  ".join(warnings),
             ha="center",
             va="top",
@@ -529,11 +690,18 @@ def _resolve_predict(name: str) -> tuple[Any, str]:
     gate - and the only trace is a line of scrolled-past stdout. Failing is the
     safe behaviour; the stub is reachable only by asking for it BY NAME.
     """
-    if name == "stub":
+    if name in {"stub", "stub-nolatent"}:
         from wildfire_nowcast.sim.stub_model import StubEnsemble  # noqa: PLC0415
 
-        stub = StubEnsemble()
-        return stub.predict, stub.name
+        # `stub-nolatent` is the documented POSITIVE CONTROL for the collapse
+        # detector: `latent_sigma=0` reduces the fixture to the
+        # independent-per-pixel model this project treats as known-broken. It is
+        # reachable BY NAME for the same reason the fixture is - a control that
+        # can only be built by editing source is a control nobody runs.
+        ablation = name == "stub-nolatent"
+        stub = StubEnsemble(latent_sigma=0.0) if ablation else StubEnsemble()
+        suffix = " [latent_sigma=0, collapse control]" if ablation else ""
+        return stub.predict, stub.name + suffix
 
     from wildfire_nowcast.model import api as model_api  # noqa: PLC0415
 
@@ -549,7 +717,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--tensor", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--model", default="stub", help="'stub', or a name in model/api.py")
+    ap.add_argument(
+        "--model", default="stub", help="'stub', 'stub-nolatent', or a name in model/api.py"
+    )
     ap.add_argument("--t0", type=int, default=None, help="default: the hour before peak growth")
     ap.add_argument("--horizon", type=int, default=3)
     ap.add_argument("--members", type=int, default=24)

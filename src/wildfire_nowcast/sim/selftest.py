@@ -26,6 +26,7 @@ import numpy as np
 from wildfire_nowcast.common.contract import BURNED_OUT, BURNING, UNBURNED
 from wildfire_nowcast.sim.c5 import STATIC_C5, WEATHER_C5, c5_inputs
 from wildfire_nowcast.sim.ensemble import (
+    COLLAPSE_INDEX_THRESHOLD,
     arrival_quantiles,
     burn_probability,
     ensemble_diagnostics,
@@ -45,6 +46,10 @@ __all__ = [
     "test_burn_probability_matches_member_count",
     "test_dispersion_index_is_one_for_independent_pixels",
     "test_collapse_is_detected_and_healthy_is_not",
+    "test_the_one_step_null_is_exact_at_every_lead_and_the_cumulative_one_is_not",
+    "test_every_collapse_statement_carries_the_horizon_it_was_taken_at",
+    "test_a_failed_instrument_control_withholds_the_verdict_rather_than_passing_it",
+    "test_the_analytic_index_is_an_identity_and_agrees_with_sampling",
     "test_frame_order_never_drops_an_hour",
     "test_teleport_threshold_separates_fast_front_from_jump",
     "test_ignition_hour_is_not_reported_as_a_teleport",
@@ -210,8 +215,28 @@ def test_dispersion_index_is_one_for_independent_pixels() -> None:
 
 
 def test_collapse_is_detected_and_healthy_is_not() -> None:
+    """The healthy bar is the ANALYTIC index of the construct, not a round number.
+
+    RE-DERIVED AT ONE STEP (ADR-114 (4)). This asserted
+    ``independence_dispersion_index > 2.0``, a bar carried over from a period when
+    nothing recorded which horizon a reading came from. The construct below has
+    an exact one-step index, computed by
+    :func:`~wildfire_nowcast.sim.collapse.analytic_shared_latent_index` from the
+    marginals and ``latent_sigma`` alone: **13.726**. So the old bar sat **6.9x
+    below** the value it was policing and could not have failed for any defect
+    short of the instrument returning nothing. Asserting a magnitude against an
+    identity can fail in both directions; asserting non-triviality can fail in
+    neither.
+
+    The band is +/-30%, which is 4.4 sampling SD at this member count: over 200
+    seeds the estimator reads 13.66 +/- 0.95 on this construct, range
+    [11.14, 16.09] = [0.81x, 1.17x] of the identity.
+    """
+    from wildfire_nowcast.sim.collapse import analytic_shared_latent_index  # noqa: PLC0415
+
     rng = np.random.default_rng(0)
     n_members, n_cells = 60, 900
+    latent_sigma = 1.2
 
     p = rng.uniform(0.2, 0.8, size=n_cells)
     indep = (rng.random((n_members, n_cells)) < p).astype(np.uint8).reshape(n_members, 1, 30, 30)
@@ -221,12 +246,160 @@ def test_collapse_is_detected_and_healthy_is_not() -> None:
     )
 
     # Shared latent: one draw per member shifts every pixel together.
-    z = rng.normal(0.0, 1.2, size=(n_members, 1))
+    z = rng.normal(0.0, latent_sigma, size=(n_members, 1))
     q = 1.0 / (1.0 + np.exp(-(np.log(p / (1 - p))[None, :] + z)))
     corr = (rng.random((n_members, n_cells)) < q).astype(np.uint8).reshape(n_members, 1, 30, 30)
     diag = ensemble_diagnostics(corr)
     assert not diag["collapsed"], diag
-    assert diag["independence_dispersion_index"] > 2.0, diag
+
+    exact = analytic_shared_latent_index(p, latent_sigma)
+    assert exact > COLLAPSE_INDEX_THRESHOLD, (
+        f"the construct's exact index is {exact:.4f}, under the {COLLAPSE_INDEX_THRESHOLD} bar, "
+        "so it is not a healthy control at all and the test above is vacuous"
+    )
+    measured = diag["independence_dispersion_index"]
+    assert 0.70 * exact < measured < 1.30 * exact, (
+        f"the estimator reads {measured:.4f} where the identity says {exact:.4f}. The old "
+        "assertion here was `> 2.0`, which this construct clears by 6.9x and which therefore "
+        "policed nothing."
+    )
+
+
+def test_the_one_step_null_is_exact_at_every_lead_and_the_cumulative_one_is_not() -> None:
+    """ADR-114 (a)(b): three verdicts, each with an exact null, on ONE scene.
+
+    This is the whole repair in one measurement. The ablation is the fixture at
+    ``latent_sigma=0``, i.e. the independent-per-pixel model this project treats
+    as known-broken, and the estimand is the cells a member ADDS in one step from
+    a state every member shares.
+
+    The falsifier, stated because all three horizons passing is the outcome that
+    deserves the most suspicion: if the one-step index drifted with lead the way
+    the cumulative one does (1.00 -> 1.25 -> 1.50 with no latent anywhere), this
+    assertion would fail at k=2 and k=3 and the honest report would be
+    "demonstrated at 1 h, NOT DEMONSTRATED at 2-3 h". It does not drift, and the
+    same instrument in the same run still separates the latent-on arm.
+    """
+    from wildfire_nowcast.sim.collapse import (  # noqa: PLC0415
+        COLLAPSED,
+        NOT_COLLAPSED,
+        per_horizon_collapse,
+    )
+
+    inp = c5_inputs(_open_synthetic(), 12, 3)
+    ablation = per_horizon_collapse(
+        StubEnsemble(latent_sigma=0.0).predict, inp, n_members=32, seed=0, n_replicates=8
+    )
+    full = per_horizon_collapse(
+        StubEnsemble(latent_sigma=0.9).predict, inp, n_members=32, seed=0, n_replicates=8
+    )
+
+    assert [v.lead_h for v in ablation.verdicts] == [1, 2, 3]
+    for v in ablation.verdicts:
+        assert v.verdict == COLLAPSED, (
+            f"the no-latent ablation must demonstrate collapse at lead {v.lead_h}; it read "
+            f"{v.index:.4f} against the {v.threshold} bar with control "
+            f"{v.controls.independent_index:.4f}"
+        )
+        assert 0.6 < v.index < 1.4, (
+            f"the one-step null is 1.0 EXACTLY at every lead by algebra; lead {v.lead_h} read "
+            f"{v.index:.4f}, which is a drift the cumulative estimand has and this one must not"
+        )
+    for v in full.verdicts:
+        assert v.verdict == NOT_COLLAPSED, (
+            f"the latent-on arm must not be called collapsed at lead {v.lead_h}: a repair that "
+            f"makes every arm pass has broken the instrument, not fixed it ({v.index:.4f})"
+        )
+    assert full.cumulative_index_description > ablation.cumulative_index_description
+
+
+def test_every_collapse_statement_carries_the_horizon_it_was_taken_at() -> None:
+    """ADR-114 (d). The one variable that decides the verdict was the one the record dropped."""
+    from wildfire_nowcast.sim.collapse import (  # noqa: PLC0415
+        CUMULATIVE_FROM_T0,
+        NOT_A_VERDICT,
+        ONE_STEP_INCREMENT,
+        per_horizon_collapse,
+    )
+
+    rng = np.random.default_rng(4)
+    p = rng.uniform(0.2, 0.8, size=900)
+    for lead_steps, expected in ((1, ONE_STEP_INCREMENT), (3, CUMULATIVE_FROM_T0)):
+        draws = (rng.random((40, lead_steps, 900)) < p).astype(np.uint8)
+        cumulative = np.maximum.accumulate(draws, axis=1).reshape(40, lead_steps, 30, 30)
+        diag = ensemble_diagnostics(cumulative)
+        assert diag["collapse_index_lead_h"] == lead_steps, diag
+        assert diag["collapse_index_estimand"] == expected, diag
+        assert diag["collapsed_is_a_verdict"] is False, (
+            "ensemble_diagnostics is TRIAGE: it runs no instrument control, so it may describe "
+            "and may not pronounce"
+        )
+        assert diag["collapse_verdict"].startswith(NOT_A_VERDICT), diag["collapse_verdict"]
+
+    inp = c5_inputs(_open_synthetic(), 12, 3)
+    result = per_horizon_collapse(
+        StubEnsemble(latent_sigma=0.0).predict, inp, n_members=16, seed=1, n_replicates=4
+    )
+    for record in result.to_dict()["per_horizon_verdicts"]:
+        assert "lead_h" in record and "estimand" in record and "conditioning" in record, record
+        assert record["controls"]["independent_index"] > 0.0, record
+    assert result.to_dict()["cumulative_is_a_verdict"] is False
+
+
+def test_a_failed_instrument_control_withholds_the_verdict_rather_than_passing_it() -> None:
+    """ADR-114 (c). No control reading, no verdict - and never a False that reads as healthy.
+
+    The scene is one uncertain cell. No amount of dependence can move the spread
+    of a one-cell sum away from the independent case, so the maximally-dependent
+    control cannot clear the bar and the instrument has no power here at all. The
+    reading that must NOT come back is ``not_collapsed``.
+    """
+    from wildfire_nowcast.sim.collapse import (  # noqa: PLC0415
+        NOT_A_VERDICT,
+        instrument_controls,
+        one_step_collapse_verdict,
+    )
+
+    given = np.zeros((6, 6), dtype=np.uint8)
+    rng = np.random.default_rng(2)
+    samples = np.zeros((24, 1, 6, 6), dtype=np.uint8)
+    samples[:, 0, 0, 0] = 1  # certain in every member: p = 1, contributes nothing
+    samples[:, 0, 1, 1] = (rng.random(24) < 0.5).astype(np.uint8)  # the ONE uncertain cell
+
+    verdict = one_step_collapse_verdict(
+        samples, given, lead_h=1, conditioning="truth", seed=0, n_replicates=8
+    )
+    assert verdict.controls.n_uncertain_cells == 1, verdict.controls.to_dict()
+    assert not verdict.controls.comonotone_ok, verdict.controls.to_dict()
+    assert verdict.verdict.startswith(NOT_A_VERDICT), verdict.verdict
+    assert verdict.is_a_verdict is False
+
+    healthy = instrument_controls(np.full(400, 0.5), 24, seed=0, n_replicates=8)
+    assert healthy.ok and healthy.independent_ok and healthy.comonotone_ok, healthy.to_dict()
+    assert healthy.reason == ""
+
+
+def test_the_analytic_index_is_an_identity_and_agrees_with_sampling() -> None:
+    """The control on the control: at ``latent_sigma=0`` the identity IS the null."""
+    from wildfire_nowcast.sim.collapse import (  # noqa: PLC0415
+        analytic_shared_latent_index,
+        increment_dispersion_index,
+    )
+
+    rng = np.random.default_rng(7)
+    p = rng.uniform(0.15, 0.85, size=600)
+    assert analytic_shared_latent_index(p, 0.0) == 1.0
+
+    sigma = 0.8
+    exact = analytic_shared_latent_index(p, sigma)
+    z = rng.normal(0.0, sigma, size=(600, 1))
+    q = 1.0 / (1.0 + np.exp(-(np.log(p / (1 - p))[None, :] + z)))
+    draws = rng.random((600, 600)) < q
+    sampled = increment_dispersion_index(draws.reshape(600, 20, 30))
+    assert abs(sampled / exact - 1.0) < 0.15, (
+        f"the identity says {exact:.4f} and 600 members sampled {sampled:.4f}; an identity that "
+        "does not reproduce its own sampling distribution is not an identity"
+    )
 
 
 # -- movie -----------------------------------------------------------------

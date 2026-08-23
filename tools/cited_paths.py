@@ -207,6 +207,11 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             # is named at every citation site below, so the reason above is
             # checkable where the path is written and not only in this table.
             ("src/wildfire_nowcast/sim/coarsen.py", "reports/figures/playthrough_coarsening.json"),
+            # S13, same lead and same ROLE test as the S12 block above: both are
+            # in the usage block of the module that writes them, and the command
+            # that produces each is the line they sit on.
+            ("src/wildfire_nowcast/sim/collapse.py", "outputs/synthetic_fire/tensor.zarr"),
+            ("src/wildfire_nowcast/sim/collapse.py", "reports/figures/collapse_per_horizon.json"),
             ("src/wildfire_nowcast/sim/dashboard.py", "reports/figures/dashboard.png"),
             ("src/wildfire_nowcast/sim/e1_report.py", "reports/figures/e1_stage_decay.png"),
             ("src/wildfire_nowcast/sim/elmfire.py", "reports/figures/elmfire_native_smoke.json"),
