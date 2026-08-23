@@ -37,9 +37,30 @@ could not establish and why.
 
 It also reports, rather than hides, the three ways the local tree can fail to be
 the published one: uncommitted changes, unpushed commits, and a remote branch
-that has moved past you. Those are printed for HEAD even when the run for HEAD
-is green, because "the commit I verified is green" and "the branch is green" are
+that has moved past you. Every one of the three is a property of HEAD and of
+nothing else, so when the commit under test is not HEAD each of those lines
+carries HEAD's sha on the line itself. They are printed even when the run is
+green, because "the commit I verified is green" and "the branch is green" are
 different sentences and it is the second one a badge displays.
+
+THE SUBJECT IS LABELLED, NEVER ASSUMED (ADR-125)
+------------------------------------------------
+Under ``--sha`` this tool used to print the queried commit on a line labelled
+``HEAD`` while the drift lines beneath it still described the real HEAD: four
+consecutive lines under one heading, describing two different commits, one of
+them eleven commits behind the other. Two was the count on the day; the header
+can carry THREE subjects, because ``origin/<branch>`` is the remote tip and
+coincides with HEAD only while HEAD is pushed. The exit code was right the whole
+time and the header was not, so a reader doing exactly the right thing --
+invoking the shipped probe and reading its output -- was told they were standing
+on a commit they were not on. A printed caveat is a claim (ADR-116), and this
+was the anti-drift caveat itself drifting.
+
+The rule the code now keeps, and it is the one a test asserts: **the word HEAD
+labels a line only when that line's sha IS HEAD.** A commit named with ``--sha``
+is labelled ``subject``, states its distance from HEAD, and never borrows HEAD's
+label; the HEAD-relative lines under it are tagged with HEAD's own sha so that a
+single line pasted out of this block still names what it describes.
 """
 
 from __future__ import annotations
@@ -101,6 +122,43 @@ def upstream_state(branch: str) -> tuple[str | None, int | None, int | None]:
         return remote, None, None
     behind, ahead = int(parts[0]), int(parts[1])
     return remote, ahead, behind
+
+
+def distance_from_head(sha: str) -> tuple[int | None, int | None]:
+    """``(commits ahead of HEAD, commits behind HEAD)`` for ``sha``, or ``(None, None)``.
+
+    Printed beside the subject because the distance is the whole of ADR-125: the
+    stale row that nearly adjudicated the wrong commit was green, real, and
+    eleven commits behind. "Not HEAD" and "not HEAD, and eleven behind it" are
+    the same fact at two very different volumes.
+    """
+    code, counts = _git("rev-list", "--left-right", "--count", f"HEAD...{sha}")
+    if code != 0 or not counts:
+        return None, None
+    parts = counts.split()
+    if len(parts) != 2:
+        return None, None
+    # left = reachable from HEAD only, i.e. how far `sha` sits BEHIND HEAD.
+    behind, ahead = int(parts[0]), int(parts[1])
+    return ahead, behind
+
+
+def describe_subject(sha: str, head: str | None) -> str:
+    """The parenthetical that follows a ``--sha`` subject on its own line."""
+    if head is None:
+        return "(--sha; HEAD did not resolve, so the two are uncompared)"
+    if sha == head:
+        return "(--sha, and it IS HEAD)"
+    ahead, behind = distance_from_head(sha)
+    if ahead is None or behind is None:
+        return "(--sha; NOT HEAD)"
+    if ahead and behind:
+        return f"(--sha; NOT HEAD: {ahead} ahead, {behind} behind)"
+    if behind:
+        return f"(--sha; NOT HEAD: {behind} commit(s) behind HEAD)"
+    if ahead:
+        return f"(--sha; NOT HEAD: {ahead} commit(s) ahead of HEAD)"
+    return "(--sha; NOT HEAD)"
 
 
 def run_for_sha(sha: str, workflow: str) -> dict[str, str] | None:
@@ -167,18 +225,34 @@ def main(argv: list[str] | None = None) -> int:
         )
         return EXIT_UNKNOWN
 
+    head = resolve_sha("HEAD")
+    subject_is_head = head is not None and sha == head
+
     remote_sha, ahead, behind = upstream_state(args.branch)
     dirty = not working_tree_is_clean()
 
-    print(f"HEAD              {sha}")
+    # `working tree`, `unpushed` and `behind` are computed against HEAD, so HEAD
+    # is named ON EACH OF THEM when the subject is something else. Per line, not
+    # once per block: the way this output travels is a line at a time.
+    drift = "" if subject_is_head else f"   [HEAD {(head or '?')[:7]}, not the subject]"
+
+    if args.sha is None:
+        print(f"HEAD              {sha}")
+    else:
+        print(f"subject           {sha}   {describe_subject(sha, head)}")
+        if not subject_is_head:
+            print(f"HEAD              {head or '(unresolved)'}")
     print(f"origin/{args.branch:<10} {remote_sha or '(unknown)'}")
-    print(
-        f"working tree      {'DIRTY - uncommitted changes are in no CI run' if dirty else 'clean'}"
-    )
+    tree = "DIRTY - uncommitted changes are in no CI run" if dirty else "clean"
+    print(f"working tree      {tree}{drift}")
     if ahead:
-        print(f"unpushed          {ahead} commit(s) ahead of origin/{args.branch}: never built")
+        print(
+            f"unpushed          {ahead} commit(s) ahead of origin/{args.branch}: never built{drift}"
+        )
     if behind:
-        print(f"behind            {behind} commit(s): the badge shows a commit you do not have")
+        print(
+            f"behind            {behind} commit(s): the badge shows a commit you do not have{drift}"
+        )
 
     try:
         run = run_for_sha(sha, args.workflow)
@@ -205,13 +279,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         return EXIT_UNKNOWN
     if conclusion != SUCCESS:
+        # Same reason as the GREEN note below: a verdict line quoted on its own
+        # must carry its own subject. A misread RED is cheaper than a misread
+        # GREEN and it is still a misread.
+        elsewhere = "" if subject_is_head else f" That is the --sha subject, not HEAD ({head})."
         print(
-            f"\nRED: the published commit {sha} concluded {conclusion!r}.",
+            f"\nRED: the published commit {sha} concluded {conclusion!r}.{elsewhere}",
             file=sys.stderr,
         )
         return EXIT_RED
 
     print(f"\nGREEN: {sha} concluded {SUCCESS}.")
+    if not subject_is_head:
+        # The line above is the one that gets quoted. ADR-125's near-miss was a
+        # green line that was TRUE of its own sha and read as a verdict on HEAD.
+        print(
+            "  Note: that is the commit you named with --sha. HEAD is "
+            f"{head or '(unresolved)'} and this says nothing about it."
+        )
     if dirty or ahead:
         # Built as a list of `str` rather than with `x and "text"`, whose type is
         # `Literal[False] | str` - the two strict errors that kept `tools/` out
