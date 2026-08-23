@@ -49,8 +49,11 @@ under ``data/events/``. ``crossings.json``'s 12-event record is not touched.
 
 from __future__ import annotations
 
+import argparse
 import json
+import logging
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -59,6 +62,7 @@ from typing import Any
 import numpy as np
 
 from wildfire_nowcast.common.grid import Grid
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import data_dir, fires_dir
 from wildfire_nowcast.common.states import dilate
 from wildfire_nowcast.common.zarr_io import open_tensor
@@ -85,7 +89,10 @@ __all__ = [
     "negative_controls",
     "positive_control",
     "write_report",
+    "main",
 ]
+
+logger = logging.getLogger(__name__)
 
 #: The sub-threshold pool is defined by the RATIFIED classifier, not by a new
 #: constant: a body is in the pool iff
@@ -269,9 +276,7 @@ def _split_role_map() -> tuple[dict[str, Any], set[str]]:
     return split, set(split.get("train_fire_ids", []))
 
 
-def collect_bodies(
-    *, verbose: bool = False
-) -> tuple[
+def collect_bodies() -> tuple[
     list[BodyRecord],
     list[dict[str, Any]],
     dict[str, Any],
@@ -439,8 +444,7 @@ def collect_bodies(
                 "max_gap_km": round(max((b.gap_km for b in bodies), default=0.0), 3),
             }
         )
-        if verbose:
-            print(f"  {fire_id}: {len(bodies)} bodies, {in_pool} in pool", flush=True)
+        logger.info("%s: %d bodies, %d in pool", fire_id, len(bodies), in_pool)
 
     mism = [
         d
@@ -1013,9 +1017,9 @@ def _contiguous_reference(
     }
 
 
-def build_report(*, verbose: bool = False) -> dict[str, Any]:
+def build_report() -> dict[str, Any]:
     """The whole D10 artifact as a dict. Reads only."""
-    pool, fire_rows, split, diff, contiguous = collect_bodies(verbose=verbose)
+    pool, fire_rows, split, diff, contiguous = collect_bodies()
     if not diff["passed"]:
         raise RuntimeError(
             "differential test against crossings._wind_at FAILED; refusing to "
@@ -1294,7 +1298,7 @@ def write_report(path: Path | None = None) -> Path:
         "crossings.json",
     }:
         raise RuntimeError("D10 is additive: refusing to write into the frozen corpus")
-    rep = build_report(verbose=True)
+    rep = build_report()
     if not rep["controls"]["positive"]["fired"]:
         raise RuntimeError("positive control did NOT fire; refusing to write a null")
     if not rep["controls"]["negative"]["passed"]:
@@ -1304,5 +1308,26 @@ def write_report(path: Path | None = None) -> Path:
     return out
 
 
+def main(argv: Sequence[str] | None = None) -> int:
+    """Write the artifact and print its path. Progress narration is a DIAGNOSTIC.
+
+    This module used to be run as a bare ``print(write_report())`` with
+    ``verbose=True`` wired in below it, so the per-fire progress was inseparable
+    from the path on stdout. ADR-103 splits them: the path is the answer, the
+    per-fire line is a fact about the run, and ``main`` is the one place a level
+    may be set. INFO by default, because the corpus walk takes minutes and a
+    silent one looks identical to a hung one.
+    """
+    parser = argparse.ArgumentParser(
+        prog="python -m wildfire_nowcast.data.isotropy", description=__doc__
+    )
+    parser.add_argument("--out", default=None, help="artifact path (default: the canonical one)")
+    add_logging_arguments(parser)
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    configure_from_args(args, default_verbosity=1)
+    print(write_report(Path(args.out) if args.out else None))
+    return 0
+
+
 if __name__ == "__main__":  # pragma: no cover
-    print(write_report())
+    raise SystemExit(main())

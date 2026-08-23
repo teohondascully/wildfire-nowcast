@@ -25,6 +25,7 @@ scope actually exists.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -51,6 +52,8 @@ __all__ = [
     "fetch_bands_chunked",
     "export_image",
 ]
+
+logger = logging.getLogger(__name__)
 
 ENV_PROJECT = "WILDFIRE_GEE_PROJECT"
 ENV_EXPORT_TARGET = "WILDFIRE_GEE_EXPORT_TARGET"
@@ -123,7 +126,7 @@ class ExportConfig:
         return cls(target=target, folder=folder, bucket=bucket)  # type: ignore[arg-type]
 
 
-def initialize_ee(project: str | None = None, *, quiet: bool = True) -> Any:
+def initialize_ee(project: str | None = None) -> Any:
     """Initialise the ``ee`` module with the env-configured project.
 
     Returns the imported ``ee`` module. Raises :class:`GeeAuthError` with the
@@ -145,8 +148,12 @@ def initialize_ee(project: str | None = None, *, quiet: bool = True) -> Any:
             "See the GEE auth entry in docs/decisions.md for the exact "
             "commands to run. Do not retry in a loop."
         ) from exc
-    if not quiet:
-        print(f"Earth Engine initialised on project {proj}")
+    # Was `if not quiet: print(...)`. ADR-103: which project a fetch went to is
+    # a fact ABOUT the run, not the program's answer, and no caller ever passed
+    # `quiet=False`, so the boolean was a knob nothing could turn. It is a level
+    # now, and it goes to stderr, which matters here because this is called from
+    # inside `data build`, whose stdout is a JSON document.
+    logger.info("Earth Engine initialised on project %s", proj)
     return ee
 
 

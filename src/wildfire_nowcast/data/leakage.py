@@ -76,9 +76,12 @@ split or crossings.json is opened for writing anywhere in this module.
 
 from __future__ import annotations
 
+import argparse
 import json
+import logging
 import math
 from collections import Counter, defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -93,6 +96,7 @@ from wildfire_nowcast.common.contract import (
     FBFM40_NONBURNABLE,
     STATIC_CHANNELS,
 )
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import data_dir, fires_dir
 
 __all__ = [
@@ -110,7 +114,10 @@ __all__ = [
     "build_report",
     "write_report",
     "leakage_path",
+    "main",
 ]
+
+logger = logging.getLogger(__name__)
 
 #: The eight C1 static channels, in C1 channel order. Reading the order from the
 #: contract rather than spelling it keeps this table from drifting (C0).
@@ -766,10 +773,9 @@ def _matched_null_table(
     return out
 
 
-def build_report(*, verbose: bool = False) -> dict[str, Any]:
+def build_report() -> dict[str, Any]:
     fires = load_corpus()
-    if verbose:
-        print(f"[D11] loaded {len(fires)} fires")
+    logger.info("loaded %d fires", len(fires))
     rows = measure_corpus(fires)
 
     # per-channel autocorrelation length, so a reader can pick the comparable
@@ -934,7 +940,7 @@ def write_report(path: Path | None = None) -> Path:
         "crossings.json",
     }:
         raise RuntimeError("D11 is additive: refusing to write into the frozen corpus")
-    rep = build_report(verbose=True)
+    rep = build_report()
     if not rep["controls"]["positive"]["fired"]:
         raise RuntimeError("positive control did NOT fire at its analytic magnitude")
     if not rep["controls"]["negative"]["passed"]:
@@ -944,5 +950,24 @@ def write_report(path: Path | None = None) -> Path:
     return out
 
 
+def main(argv: Sequence[str] | None = None) -> int:
+    """Write the artifact and print its path. Progress narration is a DIAGNOSTIC.
+
+    Was a bare ``print(write_report())`` over a ``verbose=True`` wired in one
+    line above it, which fused the path (this program's answer) to the corpus
+    count (a fact about the run). ADR-103 separates them and puts the level here,
+    in the only place allowed to set one.
+    """
+    parser = argparse.ArgumentParser(
+        prog="python -m wildfire_nowcast.data.leakage", description=__doc__
+    )
+    parser.add_argument("--out", default=None, help="artifact path (default: the canonical one)")
+    add_logging_arguments(parser)
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    configure_from_args(args, default_verbosity=1)
+    print(write_report(Path(args.out) if args.out else None))
+    return 0
+
+
 if __name__ == "__main__":  # pragma: no cover
-    print(write_report())
+    raise SystemExit(main())

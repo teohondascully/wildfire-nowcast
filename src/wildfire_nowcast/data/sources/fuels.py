@@ -28,6 +28,7 @@ feature spec in ``README.md`` makes mandatory rather than optional.
 from __future__ import annotations
 
 import datetime as _dt
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -48,6 +49,8 @@ __all__ = [
     "nodata_report",
     "fuel_provenance",
 ]
+
+logger = logging.getLogger(__name__)
 
 LFPS_BASE = "https://lfps.usgs.gov/arcgis/rest/services"
 
@@ -168,6 +171,21 @@ def verify_fuels_catalog(timeout_s: float = 60.0) -> dict[str, Any]:
             with urlopen(f"{LFPS_BASE}/{folder}?f=json", timeout=timeout_s) as r:  # noqa: S310
                 cat = _json.loads(r.read())
         except Exception as exc:  # pragma: no cover - network
+            # ADR-103 (4). The marker string below is NOT a trace, and that is
+            # the whole problem: a folder whose probe failed has fewer than
+            # `len(FUEL_LAYERS)` codes, so it drops out of `publishing` and
+            # lands in `drift` looking EXACTLY like a folder that was reached
+            # and found not to publish fuels. One of those means the catalog
+            # constant is stale; the other means the network blinked. The
+            # returned dict cannot tell them apart, so the log does.
+            logger.warning(
+                "LFPS catalog probe failed for %s (%s: %s); it will be reported as "
+                "NOT publishing, which is indistinguishable in `drift` from a folder "
+                "that was reached and genuinely publishes nothing",
+                folder,
+                type(exc).__name__,
+                exc,
+            )
             observed[folder] = [f"<probe failed: {exc}>"]
             continue
         names = {s["name"].split("/")[-1] for s in cat.get("services", [])}

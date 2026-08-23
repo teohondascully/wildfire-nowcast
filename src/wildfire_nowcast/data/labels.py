@@ -9,6 +9,7 @@ all 14 channels exist; the guard that enforces that lives in
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +31,8 @@ from wildfire_nowcast.data.rasterize import (
     line_mask,
     polygon_mask,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "DEFAULT_BUFFER_M",
@@ -171,7 +174,24 @@ def build_fire_state(
         try:
             east = GoferArchive(arch.root, "east").perimeters(fire_id)
             west = GoferArchive(arch.root, "west").perimeters(fire_id)
-        except (FileNotFoundError, KeyError):
+        except (FileNotFoundError, KeyError) as exc:
+            # ADR-103 (4). This fallback used to leave no trace, and what it
+            # removes is not cosmetic: without east and west,
+            # `fire_qa_report` simply omits `label_noise_east_west`, so the
+            # per-fire measurement behind R6 (GOFER-East systematically larger
+            # than West, 0.63 km mean centroid offset) VANISHES FROM THE QA
+            # REPORT with no key saying it was ever attempted. An absent key and
+            # a measured zero are not the same fact, and the model's observation
+            # noise is calibrated off exactly this number.
+            logger.warning(
+                "%s: the east/west GOFER variants under %s did not open (%s: %s), so "
+                "label_noise_east_west will be ABSENT from this fire's QA report "
+                "rather than measured",
+                fire_id,
+                arch.root,
+                type(exc).__name__,
+                exc,
+            )
             east = west = None
 
     meta = arch.lookup(fire_id)
