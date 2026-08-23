@@ -2329,6 +2329,255 @@ def _toy_ladder_base() -> tuple[np.ndarray, np.ndarray]:
     return np.maximum(base, x0[None, None]).astype(np.uint8), x0
 
 
+def check_front_distance_edt_matches_brute_force_nearest_cell() -> Check:
+    """[M24] The scipy-free distance transform is CHECKED, not assumed.
+
+    ``eval/metrics._distance_km`` is a separable min-plus transform written out
+    because this environment has no scipy (C-4.3), exactly as
+    ``sim/growth.outward_normals`` is. A silently wrong distance field would not
+    crash and would not look wrong: every rung of the displacement ladder would
+    still order, just at the wrong kilometres. So it is compared against a
+    brute-force nearest-cell reference on random targets, and the CENSORING is
+    part of the comparison rather than an edge of it - a radius smaller than the
+    scene is the case the vectorised form could get wrong without the exactness
+    claim noticing.
+    """
+    from wildfire_nowcast.eval.metrics import _distance_km
+
+    rng = np.random.default_rng(24)
+    worst_exact = 0.0
+    worst_censored = 0.0
+    for _ in range(4):
+        height, width = 17, 19
+        target = np.zeros((height, width), dtype=bool)
+        target[rng.integers(0, height, 5), rng.integers(0, width, 5)] = True
+        ys, xs = np.nonzero(target)
+        brute = np.zeros((height, width), dtype=np.float64)
+        for y in range(height):
+            for x in range(width):
+                brute[y, x] = float(np.sqrt(((ys - y) ** 2 + (xs - x) ** 2).min()))
+        exact = _distance_km(target[None], 64, 1.0, 1e6)[0]
+        worst_exact = max(worst_exact, float(np.abs(exact - brute).max()))
+        # ...and with a cap well inside the scene, where the answer must be
+        # min(true, cap) EXACTLY and not merely close to it.
+        capped = _distance_km(target[None], 4, 1.0, 4.0)[0]
+        worst_censored = max(worst_censored, float(np.abs(capped - np.minimum(brute, 4.0)).max()))
+    ok = worst_exact < 1e-9 and worst_censored < 1e-9
+    return Check(
+        "front_distance_edt_matches_brute_force_nearest_cell",
+        ok,
+        "the separable transform reproduces a brute-force nearest-cell scan exactly, "
+        "uncensored and censored",
+        {"max_abs_error_uncensored": worst_exact, "max_abs_error_censored": worst_censored},
+    )
+
+
+def check_front_distance_pays_silence_the_MAXIMUM_not_the_minimum() -> Check:
+    """[M24] The one property ADR-053 (1) says Brier does not have.
+
+    Brier, arrival CRPS, ``calibration_error`` and reliability are ANTI-MONOTONE
+    because a forecast that claims almost nothing is right almost everywhere:
+    the rare-event class imbalance pays silence. A location score must do the
+    opposite, and "must" is not an argument - it is checked here on the two
+    extreme forecasts.
+
+    An ensemble that predicts NOTHING has no nearest predicted cell, so every
+    observed cell sits at the censoring cap: ``truth_to_pred`` is the MAXIMUM the
+    channel can express, and ``pred_to_truth`` is 0 because it invented no
+    spurious cell. An ensemble that predicts EVERYTHING inverts both. The pair is
+    what makes the combined score non-gameable in either direction, and the two
+    terms are reported apart precisely so the diagnosis is readable off them.
+    """
+    from wildfire_nowcast.eval.metrics import front_distance_crps
+
+    cap = 8.0
+    truth = np.zeros((15, 15), dtype=bool)
+    truth[7, 7] = True
+    silent = np.zeros((6, 15, 15), dtype=bool)
+    everything = np.ones((6, 15, 15), dtype=bool)
+    honest = np.zeros((6, 15, 15), dtype=bool)
+    honest[:, 7, 7] = True
+
+    quiet = front_distance_crps(silent, truth, cap_km=cap)
+    loud = front_distance_crps(everything, truth, cap_km=cap)
+    right = front_distance_crps(honest, truth, cap_km=cap)
+
+    # `value or fallback` is WRONG here and it cost a re-run to notice: 0.0 is
+    # falsy AND is this channel's best possible score, so the idiom substitutes
+    # the fallback exactly on the values the check exists to confirm. Every
+    # optional read below is explicit about None.
+    def _num(value: float | None) -> float:
+        assert value is not None, "a defined measurement must carry a number"
+        return float(value)
+
+    ok = (
+        _close(_num(quiet.truth_to_pred), cap)
+        and _close(_num(quiet.pred_to_truth), 0.0)
+        and _close(_num(loud.truth_to_pred), 0.0)
+        and _num(loud.pred_to_truth) > 3.0
+        and _close(_num(right.combined), 0.0)
+        and _num(quiet.combined) > _num(right.combined)
+        and _num(loud.combined) > _num(right.combined)
+    )
+    return Check(
+        "front_distance_pays_silence_the_MAXIMUM_not_the_minimum",
+        ok,
+        "a predicts-nothing ensemble scores the cap on truth_to_pred and 0 on pred_to_truth; "
+        "a predicts-everything ensemble inverts both; the honest one scores 0 on both",
+        {
+            "silent": [quiet.truth_to_pred, quiet.pred_to_truth, quiet.combined],
+            "everything": [loud.truth_to_pred, loud.pred_to_truth, loud.combined],
+            "honest": [right.truth_to_pred, right.pred_to_truth, right.combined],
+            "cap_km": cap,
+        },
+    )
+
+
+def check_front_distance_cannot_be_bought_by_collapsing_the_ensemble() -> Check:
+    """[M24] A location score for THIS project has to refuse to pay collapse.
+
+    Four G3 attempts failed on under-dispersion while three of four accuracy
+    channels paid for narrowness (ADR-053 (2)). A replacement that could be
+    improved by making every member identical would reproduce the defect it is
+    meant to remove, so the FAIR CRPS estimator is not a detail here.
+
+    The plant: two ensembles with the SAME mean distance from truth. One brackets
+    the observation - half its members land on it, half land 4 cells past it. The
+    other is collapsed with every member 2 cells off. The bracketing ensemble
+    must score STRICTLY better, and it does so only because the pairwise spread
+    term is subtracted; with the biased estimator the gap narrows, which is
+    reported here rather than hidden so the choice is visible.
+    """
+    from wildfire_nowcast.eval.metrics import front_distance_crps
+
+    truth = np.zeros((15, 15), dtype=bool)
+    truth[7, 7] = True
+    bracketing = np.zeros((4, 15, 15), dtype=bool)
+    bracketing[:2, 7, 7] = True
+    bracketing[2:, 7, 11] = True
+    collapsed = np.zeros((4, 15, 15), dtype=bool)
+    collapsed[:, 7, 9] = True
+
+    spread = front_distance_crps(bracketing, truth, cap_km=8.0)
+    narrow = front_distance_crps(collapsed, truth, cap_km=8.0)
+    biased_spread = front_distance_crps(bracketing, truth, cap_km=8.0, fair=False)
+    same_mean = _close(float(spread.mean_truth_to_pred_km), float(narrow.mean_truth_to_pred_km))
+    assert spread.truth_to_pred is not None and narrow.truth_to_pred is not None
+    assert biased_spread.truth_to_pred is not None
+    ok = (
+        same_mean
+        and float(spread.truth_to_pred) < float(narrow.truth_to_pred)
+        and float(biased_spread.truth_to_pred) > float(spread.truth_to_pred)
+    )
+    return Check(
+        "front_distance_cannot_be_bought_by_collapsing_the_ensemble",
+        ok,
+        "at IDENTICAL mean distance the bracketing ensemble beats the collapsed one, and the "
+        "biased estimator pays collapse more than the fair one does",
+        {
+            "mean_distance_km_both": [
+                spread.mean_truth_to_pred_km,
+                narrow.mean_truth_to_pred_km,
+            ],
+            "fair_truth_to_pred": [spread.truth_to_pred, narrow.truth_to_pred],
+            "biased_truth_to_pred_bracketing": biased_spread.truth_to_pred,
+        },
+    )
+
+
+def check_front_distance_refuses_a_window_with_no_observed_front() -> Check:
+    """[M24] UNDEFINED is not 0.0, and 0.0 is the best score this channel has.
+
+    ~4 windows in 5 have bitwise zero growth. Scoring those 0.0 would hand every
+    forecast a perfect score on 80% of the sample for answering a question nobody
+    asked - which is ADR-017's empty-vs-empty pathology, the same one that
+    retired ``best_member_iou``. The channel therefore returns UNDEFINED, the
+    value is ``None``, and ``None`` is not orderable: a caller that tries to rank
+    it gets a TypeError rather than a silent pass. The admissibility rule is the
+    SAME one ``best_member_iou_shape_masked`` uses, which is what lets the two be
+    compared on identical episodes.
+    """
+    from wildfire_nowcast.eval.metrics import FRONT_UNDEFINED, front_distance_crps
+
+    empty_truth = np.zeros((11, 11), dtype=bool)
+    members = np.zeros((3, 11, 11), dtype=bool)
+    members[:, 5, 5] = True
+    terms = front_distance_crps(members, empty_truth, cap_km=6.0)
+    ordering_raises = False
+    try:
+        _ = terms.combined > 0.5  # type: ignore[operator]
+    except TypeError:
+        ordering_raises = True
+    ok = (
+        terms.outcome == FRONT_UNDEFINED
+        and terms.combined is None
+        and terms.truth_to_pred is None
+        and ordering_raises
+    )
+    return Check(
+        "front_distance_refuses_a_window_with_no_observed_front",
+        ok,
+        "no observed new burn means UNDEFINED, never 0.0, and the undefined value cannot be "
+        "ordered against a defined one",
+        {
+            "outcome": terms.outcome,
+            "combined_is_none": terms.combined is None,
+            "ordering_an_undefined_value_raises": ordering_raises,
+        },
+    )
+
+
+def check_displacement_ladder_holds_area_exactly_and_moves_monotonically() -> Check:
+    """[M24] ADR-128 (4) needs a SECOND ladder, and it must vary ONE thing.
+
+    A metric that orders the area ladder has only been shown to see AMOUNT -
+    which is exactly what ADR-053 (3) ruled about G3's two criteria. Separating
+    amount from location needs rungs that move the forecast with the area held
+    to ZERO error, not to a tolerance.
+
+    ``MODE_SHAPE`` cannot serve: its severity unit is an increment IoU that
+    reaches ~0 while the two lobes are still moving apart, so it saturates before
+    a displacement curve would. ``MODE_SHIFT`` translates the base order bodily,
+    so area is integer-exact, ``level = 0`` is the base rank itself (bitwise
+    identity through the full machinery, not an early return), and the realised
+    displacement keeps growing in kilometres.
+    """
+    from wildfire_nowcast.model.degrade import (
+        MODE_SHIFT,
+        degrade_samples,
+        realised_displacement_km,
+    )
+
+    base, x0 = _toy_ladder_base()
+    free = x0 == 0
+    n_ref = int(((base > 0) & free[None, None]).sum())
+    identity = degrade_samples(base, x0, mode=MODE_SHIFT, level=0.0)
+    rows = {}
+    for level in (1.0, 2.0, 3.0, 4.0, 6.0, 8.0):
+        moved = degrade_samples(base, x0, mode=MODE_SHIFT, level=level)
+        rows[level] = (
+            int(((moved > 0) & free[None, None]).sum()),
+            realised_displacement_km(moved, base, x0),
+        )
+    exact_area = all(cells == n_ref for cells, _ in rows.values())
+    realised = [km for _, km in rows.values()]
+    all_defined = all(km is not None for km in realised)
+    monotone = all_defined and all(b > a for a, b in zip(realised[:-1], realised[1:], strict=True))
+    ok = bool(np.array_equal(identity, base)) and exact_area and monotone
+    return Check(
+        "displacement_ladder_holds_area_exactly_and_moves_monotonically",
+        ok,
+        "level=0 reproduces the base bitwise THROUGH the degradation path, every rung has "
+        "integer-identical area, and realised displacement is strictly increasing",
+        {
+            "identity_bitwise": bool(np.array_equal(identity, base)),
+            "reference_increment_cells": n_ref,
+            "cells_by_level": {str(k): v[0] for k, v in rows.items()},
+            "realised_displacement_km_by_level": {str(k): v[1] for k, v in rows.items()},
+        },
+    )
+
+
 def check_degradation_null_rung_is_bitwise_the_undegraded_forecast() -> Check:
     """[M11] The ladder's NEGATIVE CONTROL, and it must not be an ``if``.
 
@@ -3573,6 +3822,15 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     # the units defect simviz raised against C6's own dispersion decomposition
     check_debiased_dispersion_is_in_the_same_units_as_the_criterion,
     check_gate_mean_preserving_is_off_by_default_and_exact_when_on,
+    # M24 - ADR-128 (3)'s front-distance channel and the SECOND ladder its
+    # acceptance test needs. The four properties ADR-053 (1) found missing from
+    # every channel it disqualified: an exact distance field, silence paid the
+    # MAXIMUM, collapse not paid at all, and an empty question refused.
+    check_front_distance_edt_matches_brute_force_nearest_cell,
+    check_front_distance_pays_silence_the_MAXIMUM_not_the_minimum,
+    check_front_distance_cannot_be_bought_by_collapsing_the_ensemble,
+    check_front_distance_refuses_a_window_with_no_observed_front,
+    check_displacement_ladder_holds_area_exactly_and_moves_monotonically,
     # M11 - the degradation ladder and the power read-off that stands on it
     check_degradation_null_rung_is_bitwise_the_undegraded_forecast,
     check_degradation_rungs_hit_their_declared_severity,

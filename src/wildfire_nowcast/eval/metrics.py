@@ -58,6 +58,7 @@ from wildfire_nowcast.common.calibration import (
 from wildfire_nowcast.common.calibration import (
     terms_to_metric_dict as calibration_to_metric_dict,
 )
+from wildfire_nowcast.common.contract import CELL_SIZE_M
 from wildfire_nowcast.common.dispersion import growth_calibration
 from wildfire_nowcast.common.iou_terms import (
     GATE_CRITERION_KEY,
@@ -81,6 +82,12 @@ __all__ = [
     "crps_ensemble",
     "dispersion",
     "fuzzy_iou",
+    "front_distance_crps",
+    "FrontDistanceTerms",
+    "default_front_distance_cap_km",
+    "CELL_SIZE_KM",
+    "FRONT_DEFINED",
+    "FRONT_UNDEFINED",
     "DEFAULT_LEADS",
     "DEFAULT_N_BINS",
 ]
@@ -293,6 +300,492 @@ def fuzzy_iou(a: np.ndarray, b: np.ndarray, tolerance_cells: int = 0) -> float:
 
 
 # --------------------------------------------------------------------------
+# [ADR-128 (3)] FRONT-DISTANCE CRPS - a location score with no classes in it
+#
+# WHY THIS EXISTS. ADR-053 (1) measured Brier -0.45, arrival CRPS -0.34,
+# `calibration_error` -0.14 and reliability -0.80 Spearman against
+# |log(predicted area / truth area)|: a forecast 40x TOO SMALL beats a
+# 3%-correct one by 17% on Brier. The mechanism is rare-event class imbalance
+# and it was measured INSIDE `growth_band`, so masking is not the cure - the
+# imbalance is intrinsic to "did THIS CELL burn" as a binary target.
+#
+# This score has no binary target and no classes. It asks a continuous
+# question in kilometres - "how far is the observed new burn from the nearest
+# thing this member predicted, and how far is what it predicted from the
+# observed new burn" - and scores the over-members distribution of that
+# distance by CRPS against a perfect answer of 0.
+#
+# THE REVERSE TERM IS THE POINT AND IT IS REPORTED SEPARATELY. A one-sided
+# distance (observed -> predicted only) is minimised by predicting EVERYTHING,
+# exactly as Brier is minimised by predicting nothing. Both terms travel
+# together, and they are emitted apart because their difference is the
+# diagnosis: `truth_to_pred` >> `pred_to_truth` is under-prediction,
+# `pred_to_truth` >> `truth_to_pred` is over-prediction, and the two roughly
+# equal is displacement at about the right amount.
+#
+# NOT A GATE CRITERION TODAY. C6.6 [v2.15] rules that an UNREGISTERED channel
+# may not adjudicate, and `common/null_check/registry.py` is infra's file.
+# This block is additive and REPORTED. Making it adjudicate is a contract bump
+# and a maintainer ruling, not an edit here.
+# --------------------------------------------------------------------------
+
+#: Cell pitch in kilometres. IMPORTED, never spelled: `common/contract.py`
+#: carries the one declaration of the grid pitch, and STATE's open instrument
+#: repair 5 records that it is hardcoded to 1 km today. When that repair lands
+#: this metric moves with it instead of carrying a second copy of the number.
+CELL_SIZE_KM = CELL_SIZE_M / 1000.0
+
+#: Outcome labels for a front-distance measurement. THREE-VALUED, following
+#: `model/degrade.IncrementOverlap` and `common/dispersion.ConditionResult`:
+#: a window where the truth did not grow inside the mask has NO front to be
+#: distant from, and scoring it 0.0 would pay a forecast the best possible
+#: score for the windows where it was never asked a question. That is the
+#: ADR-017 empty-vs-empty pathology, and it is refused here by construction.
+FRONT_DEFINED = "DEFINED"
+FRONT_UNDEFINED = "UNDEFINED"
+
+
+def default_front_distance_cap_km(horizon_h: int) -> float:
+    """Censoring distance for a ``horizon_h`` window, in km.
+
+    Derived from :func:`~wildfire_nowcast.eval.masks.default_band_radius`, i.e.
+    from the SAME generous head-rate ceiling that decides which cells are in the
+    growth band, so the cap and the mask cannot drift apart. A cap is needed
+    rather than optional: a member that predicts NOTHING has no nearest cell at
+    all, and the alternatives are an infinity that destroys the mean or a
+    silent skip that pays silence. Censoring says instead that beyond the
+    farthest distance the fire could plausibly have travelled, all wrong answers
+    are equally wrong - the same argument :func:`arrival_times` makes for its own
+    cap, and the same reason that cap is recorded beside the number.
+    """
+    return float(default_band_radius(horizon_h)) * CELL_SIZE_KM
+
+
+def _distance_km(
+    target: np.ndarray, radius_cells: int, cell_size_km: float, cap_km: float
+) -> np.ndarray:
+    """Distance from every cell to the nearest ``True`` of each ``[..., H, W]`` plane.
+
+    EXACT wherever the true distance is at most ``radius_cells``, and censored to
+    ``cap_km`` everywhere else - so with ``radius_cells >= cap_km/cell_size_km``
+    the returned array equals ``min(true distance, cap)`` exactly, not
+    approximately.
+
+    Written out rather than taken from ``scipy.ndimage.distance_transform_edt``:
+    this project's environment has no scipy on purpose (C-4.3, and
+    `requirements.lock` is hash-pinned), and adding a dependency is infra's file,
+    not this one. The construction is the standard separable min-plus transform -
+    a pass along x, then a pass along y, each a windowed minimum of
+    ``offset**2 + carried`` - which is exact because any true distance ``d`` has
+    both of its components bounded by ``d``. It is O(radius * H * W) with a fully
+    vectorised inner loop and no Python loop over cells, and it is checked
+    against a brute-force nearest-cell reference in ``eval/selftest.py`` rather
+    than assumed, exactly as ``sim/growth.outward_normals`` is.
+    """
+    arr = np.asarray(target, dtype=bool)
+    radius = max(1, int(radius_cells))
+    far = 1e12
+    carried = np.where(arr, 0.0, far)
+    for axis in (-1, -2):
+        extent = int(carried.shape[axis])
+        best = carried.copy()
+        # A step at or beyond the extent moves every cell off the grid, so it can
+        # only ever contribute the sentinel. Stopping here is not an optimisation:
+        # a slice built from a negative length wraps and would silently pair each
+        # cell with the WRONG source.
+        for step in range(1, min(radius, extent - 1) + 1):
+            offset = float(step * step)
+            for direction in (step, -step):
+                shifted = np.full_like(carried, far)
+                src = slice(max(-direction, 0), extent - max(direction, 0))
+                dst = slice(max(direction, 0), extent - max(-direction, 0))
+                if axis == -1:
+                    shifted[..., :, dst] = carried[..., :, src]
+                else:
+                    shifted[..., dst, :] = carried[..., src, :]
+                best = np.minimum(best, shifted + offset)
+        carried = np.minimum(best, far)
+    return np.minimum(np.sqrt(carried) * float(cell_size_km), float(cap_km))
+
+
+class FrontDistanceTerms:
+    """One window, one lead: both directions of the front-distance CRPS.
+
+    Every field is in KILOMETRES except the counts. ``combined`` is the MEAN of
+    the two directed terms rather than their sum, so it stays on the kilometre
+    scale and equals either term when the two agree.
+
+    ``outcome`` is three-valued and ``UNDEFINED`` is never 0.0 and never a pass.
+    """
+
+    __slots__ = (
+        "truth_to_pred",
+        "pred_to_truth",
+        "combined",
+        "truth_to_pred_member_form",
+        "mean_truth_to_pred_km",
+        "mean_pred_to_truth_km",
+        "n_truth_cells",
+        "n_pred_cells_mean",
+        "n_empty_members",
+        "censored_fraction",
+        "cap_km",
+        "n_members",
+    )
+
+    def __init__(
+        self,
+        *,
+        truth_to_pred: float | None,
+        pred_to_truth: float | None,
+        truth_to_pred_member_form: float | None,
+        mean_truth_to_pred_km: float | None,
+        mean_pred_to_truth_km: float | None,
+        n_truth_cells: int,
+        n_pred_cells_mean: float,
+        n_empty_members: int,
+        censored_fraction: float | None,
+        cap_km: float,
+        n_members: int,
+    ) -> None:
+        self.truth_to_pred = truth_to_pred
+        self.pred_to_truth = pred_to_truth
+        self.truth_to_pred_member_form = truth_to_pred_member_form
+        self.mean_truth_to_pred_km = mean_truth_to_pred_km
+        self.mean_pred_to_truth_km = mean_pred_to_truth_km
+        self.n_truth_cells = int(n_truth_cells)
+        self.n_pred_cells_mean = float(n_pred_cells_mean)
+        self.n_empty_members = int(n_empty_members)
+        self.censored_fraction = censored_fraction
+        self.cap_km = float(cap_km)
+        self.n_members = int(n_members)
+        self.combined = (
+            None
+            if truth_to_pred is None or pred_to_truth is None
+            else 0.5 * (float(truth_to_pred) + float(pred_to_truth))
+        )
+
+    @property
+    def defined(self) -> bool:
+        return self.truth_to_pred is not None
+
+    @property
+    def outcome(self) -> str:
+        return FRONT_DEFINED if self.defined else FRONT_UNDEFINED
+
+    @property
+    def asymmetry(self) -> float | None:
+        """``log(truth_to_pred / pred_to_truth)`` - the diagnostic, not a score.
+
+        Positive means the observed front is farther from the forecast than the
+        forecast is from the observed front, i.e. UNDER-prediction. Negative
+        means over-prediction. Around zero at comparable magnitude means the
+        forecast has about the right amount of fire in the wrong place.
+        """
+        if self.truth_to_pred is None or self.pred_to_truth is None:
+            return None
+        if self.truth_to_pred <= 0.0 or self.pred_to_truth <= 0.0:
+            return None
+        return float(np.log(self.truth_to_pred / self.pred_to_truth))
+
+    def check(self) -> FrontDistanceTerms:
+        if self.defined != (self.combined is not None):
+            raise AssertionError(
+                f"outcome {self.outcome} disagrees with combined={self.combined}; a defined "
+                "measurement carries a number and an undefined one carries None"
+            )
+        for name in ("truth_to_pred", "pred_to_truth", "combined"):
+            value = getattr(self, name)
+            if value is not None and not (
+                -_FRONT_TOL_KM <= float(value) <= self.cap_km + _FRONT_TOL_KM
+            ):
+                raise AssertionError(
+                    f"{name}={value} is outside [0, cap={self.cap_km}]; the CRPS of a "
+                    "non-negative capped variable against an observation of 0 cannot be"
+                )
+        return self
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "combined": self.combined,
+            "truth_to_pred": self.truth_to_pred,
+            "pred_to_truth": self.pred_to_truth,
+            "truth_to_pred_member_form": self.truth_to_pred_member_form,
+            "asymmetry": self.asymmetry,
+            "mean_truth_to_pred_km": self.mean_truth_to_pred_km,
+            "mean_pred_to_truth_km": self.mean_pred_to_truth_km,
+            "n_truth_cells": self.n_truth_cells,
+            "n_pred_cells_mean": self.n_pred_cells_mean,
+            "n_empty_members": self.n_empty_members,
+            "censored_fraction": self.censored_fraction,
+            "cap_km": self.cap_km,
+            "n_members": self.n_members,
+            "outcome": self.outcome,
+        }
+
+
+#: Absolute slack the front-distance guard allows around its exact bounds.
+#:
+#: NOT a fudge, and it was FOUND rather than anticipated: the guard fired on the
+#: first real fire at ``pred_to_truth = -2.8e-17``. The fair CRPS of a
+#: non-negative variable against an observation of 0 attains EXACTLY 0 whenever
+#: ``M-1`` members sit on the observation - substitute ``k = M-1`` zeros into
+#: ``a (M-k)(M-1-k) / (M (M-1))`` - so the true minimum is ON the bound, not
+#: strictly inside it, and floating-point summation straddles it. The slack is
+#: 1e-9 km, i.e. a micrometre on a 1 km grid, and anything outside it still
+#: RAISES.
+_FRONT_TOL_KM = 1e-9
+
+
+def _snap(value: float) -> float:
+    """Round a CRPS that roundoff pushed a hair below its exact 0 minimum."""
+    return 0.0 if -_FRONT_TOL_KM < value < 0.0 else float(value)
+
+
+def front_distance_crps(
+    member_increment: np.ndarray,
+    truth_increment: np.ndarray,
+    *,
+    cap_km: float,
+    cell_size_km: float = CELL_SIZE_KM,
+    fair: bool = True,
+) -> FrontDistanceTerms:
+    """Symmetric front-distance CRPS for ONE lead. ``[M,H,W]`` against ``[H,W]``.
+
+    Both arguments are INCREMENTS - the cells that newly burned over the lead,
+    i.e. state at ``t0 + h`` minus state at ``t0`` - already restricted to
+    whatever mask the caller is scoring on. Passing the burned FIELD instead of
+    the increment would let the already-burned region, which every model
+    reproduces for free, supply a zero distance for nearly every cell.
+
+    ``truth_to_pred`` (A -> B), per ADR-128 (3), is the mean over observed cells
+    of the CRPS of the over-members distance distribution against 0::
+
+        mean_{c in A} CRPS_m( d(c, B_m), 0 )
+
+    An empty member has no nearest cell, so ``d(c, B_m) = cap`` for every ``c``:
+    silence is scored at the maximum, which is the whole difference from Brier.
+
+    ``pred_to_truth`` (B -> A) cannot take that form and the difference is
+    stated rather than hidden: the cells being scored are the MEMBER'S OWN, so
+    they differ from member to member and there is no fixed cell at which to
+    build an over-members distribution. The available form is one scalar per
+    member - ``b_m = mean_{c in B_m} d(c, A)`` - scored by CRPS against 0 over
+    ``m``. The first CRPS term is identical under both orderings; only the
+    pairwise spread correction differs, and it is smaller here by Jensen. So
+    ``truth_to_pred_member_form`` is emitted beside them, which is the A -> B
+    term computed the SAME way as B -> A, and the two directions can be compared
+    like for like without a reader having to know any of this.
+
+    An empty member contributes ``b_m = 0``: it predicted no spurious cell, and
+    that is correct FOR THIS DIRECTION. It is why the two terms must be read
+    together, and why ``combined`` and not ``pred_to_truth`` is the summary.
+
+    UNDEFINED when the truth increment is empty: no observed front, no distance
+    to it. Those windows are excluded rather than scored 0.0, which is the same
+    admissibility rule the incumbent ``best_member_iou_shape_masked`` uses, so
+    the two are comparable on exactly the same episodes.
+    """
+    pred = np.asarray(member_increment, dtype=bool)
+    obs = np.asarray(truth_increment, dtype=bool)
+    if pred.ndim != 3:
+        raise ValueError(f"member_increment must be [n_members, H, W], got {pred.shape}")
+    if obs.shape != pred.shape[1:]:
+        raise ValueError(f"truth grid {obs.shape} != member grid {pred.shape[1:]}")
+    if not float(cap_km) > 0.0:
+        raise ValueError(f"cap_km must be positive, got {cap_km}")
+    n_members = int(pred.shape[0])
+    radius = int(np.ceil(float(cap_km) / float(cell_size_km)))
+    sizes = pred.reshape(n_members, -1).sum(axis=1)
+    n_empty = int(np.count_nonzero(sizes == 0))
+    n_truth = int(np.count_nonzero(obs))
+    if n_truth == 0:
+        return FrontDistanceTerms(
+            truth_to_pred=None,
+            pred_to_truth=None,
+            truth_to_pred_member_form=None,
+            mean_truth_to_pred_km=None,
+            mean_pred_to_truth_km=None,
+            n_truth_cells=0,
+            n_pred_cells_mean=float(sizes.mean()) if n_members else 0.0,
+            n_empty_members=n_empty,
+            censored_fraction=None,
+            cap_km=float(cap_km),
+            n_members=n_members,
+        ).check()
+
+    to_pred = _distance_km(pred, radius, cell_size_km, cap_km)  # [M, H, W]
+    values = to_pred[:, obs]  # [M, n_truth]
+    zeros = np.zeros(n_truth, dtype=np.float64)
+    total, scored = crps_ensemble(values, zeros, fair=fair)
+    truth_to_pred = _snap(total / scored)
+
+    per_member_a = values.mean(axis=1)
+    total_a, n_a = crps_ensemble(per_member_a[:, None], np.zeros(1), fair=fair)
+
+    to_truth = _distance_km(obs[None], radius, cell_size_km, cap_km)[0]  # [H, W]
+    per_member_b = np.zeros(n_members, dtype=np.float64)
+    for m in range(n_members):
+        if sizes[m]:
+            per_member_b[m] = float(to_truth[pred[m]].mean())
+    total_b, n_b = crps_ensemble(per_member_b[:, None], np.zeros(1), fair=fair)
+
+    return FrontDistanceTerms(
+        truth_to_pred=truth_to_pred,
+        pred_to_truth=_snap(total_b / n_b),
+        truth_to_pred_member_form=_snap(total_a / n_a),
+        mean_truth_to_pred_km=float(values.mean()),
+        mean_pred_to_truth_km=float(per_member_b.mean()),
+        n_truth_cells=n_truth,
+        n_pred_cells_mean=float(sizes.mean()),
+        n_empty_members=n_empty,
+        censored_fraction=float(np.count_nonzero(values >= float(cap_km) - 1e-9) / values.size),
+        cap_km=float(cap_km),
+        n_members=n_members,
+    ).check()
+
+
+def _front_distance_block(
+    member_event: np.ndarray,
+    truth_event: np.ndarray,
+    mask: np.ndarray,
+    x0: np.ndarray | None,
+    leads: Sequence[int],
+    cap_km: float,
+    fair: bool,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``(metrics, pool)`` for the front-distance channel over one mask.
+
+    Emitted as a NESTED block, deliberately. `common/null_check/verdicts._flatten`
+    harvests every bare numeric key in a `by_mask` block and the C6.6 registry
+    raises on an unregistered channel; that registry lives in `common/`, which
+    this lead may not write. A nested block is additive, is visible to any
+    reader, and cannot arrive in a verdict as an unregistered adjudicating
+    number - which is the correct state for a channel whose acceptance test is
+    the thing being reported.
+    """
+    if x0 is None:
+        unavailable = {
+            "available": False,
+            "reason": (
+                "front_distance_crps needs x0 to form the increment (state at t0+h minus "
+                "state at t0); without it the burned field would supply a zero distance "
+                "for the already-burned region every model reproduces for free"
+            ),
+        }
+        return unavailable, {"n_windows": 0}
+
+    burned0 = np.asarray(x0) > 0
+    scored = np.asarray(mask, dtype=bool) & ~burned0
+    by_horizon: dict[str, Any] = {}
+    defined: list[FrontDistanceTerms] = []
+    for lead in leads:
+        terms = front_distance_crps(
+            member_event[:, lead - 1] & scored[None, :, :],
+            truth_event[lead - 1] & scored,
+            cap_km=cap_km,
+            fair=fair,
+        )
+        by_horizon[str(lead)] = terms.as_dict()
+        if terms.defined:
+            defined.append(terms)
+
+    def _mean(name: str) -> float | None:
+        values = [float(getattr(t, name)) for t in defined if getattr(t, name) is not None]
+        return float(np.mean(values)) if values else None
+
+    mean_to_pred = _mean("truth_to_pred")
+    mean_to_truth = _mean("pred_to_truth")
+    asymmetry = (
+        float(np.log(mean_to_pred / mean_to_truth))
+        if mean_to_pred is not None
+        and mean_to_truth is not None
+        and mean_to_pred > 0.0
+        and mean_to_truth > 0.0
+        else None
+    )
+
+    metrics = {
+        "available": True,
+        # The trajectory form, matching `best_member_iou`'s convention: a mean
+        # over the leads at which the channel is DEFINED. C6.7 [v2.18] requires
+        # the per-lead profile beside it, and `by_horizon` is that.
+        "combined": _mean("combined"),
+        "truth_to_pred": mean_to_pred,
+        "pred_to_truth": mean_to_truth,
+        "asymmetry": asymmetry,
+        "cap_km": float(cap_km),
+        "cell_size_km": CELL_SIZE_KM,
+        "estimator": "fair" if fair else "biased",
+        "n_defined_leads": len(defined),
+        "by_horizon": by_horizon,
+        "adjudicates": False,
+        "adjudication_note": (
+            "REPORTED, not adjudicating. C6.6 [v2.15] permits only registered channels to "
+            "decide a gate and this one is not in common/null_check/registry.py."
+        ),
+    }
+    pool = {
+        "n_windows": 1,
+        "leads": [int(k) for k in leads],
+        "sum_by_lead": {
+            str(lead): {
+                "combined": by_horizon[str(lead)]["combined"],
+                "truth_to_pred": by_horizon[str(lead)]["truth_to_pred"],
+                "pred_to_truth": by_horizon[str(lead)]["pred_to_truth"],
+            }
+            for lead in leads
+        },
+        "cap_km": float(cap_km),
+    }
+    return metrics, pool
+
+
+def _pool_front_distance(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Unweighted mean over WINDOWS at each lead, per ADR-128 (3)'s aggregation.
+
+    "Mean over cells, then over episodes" - so a 400-cell episode and a 4-cell
+    episode weigh the same, which is the opposite convention from :func:`brier`
+    and is deliberate: the question is how well an EPISODE was nowcast, and
+    cell-weighting would hand a single large fire the whole number. It also
+    makes the denominator identical to the incumbent
+    ``best_member_iou_shape_masked``, which pools the same way, so the two can be
+    compared on exactly the same episodes.
+    """
+    entries = [b for b in blocks if b.get("sum_by_lead")]
+    if not entries:
+        return {"available": False, "reason": "no window carried a front-distance block"}
+    leads = sorted({int(k) for b in entries for k in b["sum_by_lead"]})
+    by_horizon: dict[str, Any] = {}
+    for lead in leads:
+        row: dict[str, Any] = {}
+        for name in ("combined", "truth_to_pred", "pred_to_truth"):
+            values = [
+                float(b["sum_by_lead"][str(lead)][name])
+                for b in entries
+                if str(lead) in b["sum_by_lead"] and b["sum_by_lead"][str(lead)][name] is not None
+            ]
+            row[name] = float(np.mean(values)) if values else None
+            row[f"n_windows_{name}"] = len(values)
+        by_horizon[str(lead)] = row
+
+    def _over_leads(name: str) -> float | None:
+        values = [by_horizon[str(k)][name] for k in leads if by_horizon[str(k)][name] is not None]
+        return float(np.mean(values)) if values else None
+
+    return {
+        "available": True,
+        "combined": _over_leads("combined"),
+        "truth_to_pred": _over_leads("truth_to_pred"),
+        "pred_to_truth": _over_leads("pred_to_truth"),
+        "by_horizon": by_horizon,
+        "n_windows": int(sum(int(b.get("n_windows", 0)) for b in blocks)),
+        "cap_km": entries[0].get("cap_km"),
+        "adjudicates": False,
+    }
+
+
+# --------------------------------------------------------------------------
 # C6 entry point
 # --------------------------------------------------------------------------
 
@@ -342,6 +835,10 @@ def evaluate(
     ring_radius = (
         int(band_radius_cells) if band_radius_cells is not None else default_band_radius(n_lead)
     )
+    # [ADR-128 (3)] The censoring distance travels with the band radius, so a
+    # caller who tightens the band tightens the cap in the same call rather than
+    # scoring inside a small band against a cap derived from a large one.
+    front_cap_km = float(ring_radius) * CELL_SIZE_KM
 
     by_mask: dict[str, Any] = {}
     pool: dict[str, Any] = {}
@@ -359,6 +856,7 @@ def evaluate(
             tolerance_cells=tolerance_cells,
             crps_fair=crps_fair,
             ring_radius=ring_radius,
+            front_cap_km=front_cap_km,
         )
 
     primary = by_mask["domain"]
@@ -377,6 +875,10 @@ def evaluate(
         GATE_CRITERION_KEY: primary[GATE_CRITERION_KEY],
         "best_member_iou_silent_floor": primary["best_member_iou_silent_floor"],
         "best_member_iou_gate_criterion": GATE_CRITERION_KEY,
+        # --- [ADR-128 (3)] the front-distance channel. ADDITIVE and REPORTED;
+        # the DOMAIN reading, like the six keys above it. The number a location
+        # claim should cite is the `growth_band` one under `by_mask`.
+        "front_distance_crps": primary["front_distance_crps"],
         # --- [ADR-020] G3's calibration criterion. Per lead, inside
         # `by_mask[<mask>]["reliability_summary"][<lead>]`; these two keys name
         # WHICH key and WHICH mask a gate reads, so a table cannot quote the
@@ -425,6 +927,7 @@ def _score_mask(
     tolerance_cells: int,
     crps_fair: bool,
     ring_radius: int,
+    front_cap_km: float,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     cells = int(np.count_nonzero(mask))
     empty = cells == 0
@@ -501,6 +1004,11 @@ def _score_mask(
     # --- mode capture ------------------------------------------------------
     iou = _iou_block(member_event, truth_event, mask, x0, tolerance_cells)
 
+    # --- [ADR-128 (3)] front distance, in km, no classes in it --------------
+    front, front_pool = _front_distance_block(
+        member_event, truth_event, mask, x0, leads, front_cap_km, crps_fair
+    )
+
     factor = (n_members + 1.0) / n_members
     metrics: dict[str, Any] = {
         "n_cells": cells,
@@ -523,6 +1031,8 @@ def _score_mask(
         **_first_moment_block(sum_pred=area_truth + area_signed, sum_truth=area_truth, n=area_n),
         **cal_block,
         **iou,
+        # [ADR-128 (3)] NESTED on purpose - see `_front_distance_block`.
+        "front_distance_crps": front,
     }
     pool = {
         "n_cells": cells,
@@ -587,6 +1097,7 @@ def _score_mask(
                 0 if v is None else 1 for v in iou[f"{GATE_CRITERION_KEY}_by_horizon"]
             ],
         },
+        "front_distance": front_pool,
         "empty": empty,
     }
     return metrics, pool
@@ -1000,6 +1511,8 @@ def aggregate(results: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         GATE_CRITERION_KEY: primary.get(GATE_CRITERION_KEY),
         "best_member_iou_silent_floor": primary.get("best_member_iou_silent_floor"),
         "best_member_iou_gate_criterion": GATE_CRITERION_KEY,
+        # --- [ADR-128 (3)] see evaluate(); the DOMAIN reading. ---------------
+        "front_distance_crps": primary.get("front_distance_crps"),
         # --- [ADR-020] G3's calibration criterion; see evaluate(). -----------
         "calibration_gate_criterion": CALIBRATION_GATE_KEY,
         "calibration_gate_mask": CALIBRATION_GATE_MASK,
@@ -1046,6 +1559,7 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
     def _sum(path: str, key: str) -> float:
         return float(sum(float(b[path][key]) for b in blocks))
 
+    front_pooled = _pool_front_distance([b.get("front_distance") or {} for b in blocks])
     crps_n = _sum("crps", "n")
     crps_active_n = _sum("crps_active", "n")
     iou_n = float(sum(int(b["iou"]["n"]) for b in blocks))
@@ -1053,6 +1567,7 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
     factor = (n_members + 1.0) / n_members
     return {
         "n_cells": int(sum(int(b["n_cells"]) for b in blocks)),
+        "front_distance_crps": front_pooled,
         "brier_by_lead": brier_by_lead,
         "reliability_bins": bins_out,
         "reliability_summary": rel_summary,

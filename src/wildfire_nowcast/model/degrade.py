@@ -75,6 +75,9 @@ from wildfire_nowcast.model.api import validate_predict_inputs, validate_samples
 __all__ = [
     "MODE_AREA",
     "MODE_SHAPE",
+    "MODE_SHIFT",
+    "shift_offset_cells",
+    "realised_displacement_km",
     "DEFINED",
     "UNDEFINED",
     "BasePredictionCache",
@@ -97,6 +100,15 @@ MODE_AREA = "area"
 
 #: Move the predicted increment's SHAPE at EXACTLY the base's area.
 MODE_SHAPE = "shape"
+
+#: TRANSLATE the predicted increment by ``level`` cells at EXACTLY the base's
+#: area. [ADR-128 (4)] A metric may only be adopted if it orders BOTH an area
+#: ladder and a DISPLACEMENT ladder, and the two must be separable; ``MODE_SHAPE``
+#: cannot serve as the displacement family because its severity unit is an
+#: increment IoU that saturates at 0 long before the two lobes stop moving apart.
+#: A translation has a severity in KILOMETRES that keeps increasing, and its
+#: ``level = 0`` rung is the identity by the same construction as the other two.
+MODE_SHIFT = "shift"
 
 #: How strongly the opposing lobe prefers direction over proximity, in cells. At
 #: 3.0 a cell four rings out in the target direction outranks a cell one ring out
@@ -228,11 +240,48 @@ class CellOrder:
         keys = (self.perm[None, :], score[None, :], (~self.free_flat)[None, :])
         return _ranks_from(np.lexsort(keys, axis=-1))[0]
 
+    def shift_offset(self, level: float) -> tuple[int, int]:
+        """Integer ``(dy, dx)`` for a ``level``-cell translation. See :func:`shift_offset_cells`."""
+        return shift_offset_cells(self.phi_base, level)
+
+    def _build_shifted_rank(self, level: float) -> np.ndarray:
+        """``[M, H*W]`` rank of the base order TRANSLATED by ``level`` cells.
+
+        The rank of a cell is the base rank of the cell it was translated FROM,
+        so the first ``n_h`` cells of this order are the base's own first ``n_h``
+        cells moved bodily by the offset. Area is therefore preserved EXACTLY,
+        integer-for-integer, and ``level = 0`` returns the base rank itself -
+        the identity rung, by construction rather than by a branch.
+
+        A translated cell that lands off the grid or on ground already burned at
+        t0 cannot be selected (it would un-burn nothing and would break C1.1), so
+        those cells are ranked LAST and the shortfall is filled by the next cells
+        of the same translated order. That keeps the area exact; it does mean the
+        REALISED displacement is at most the requested one near a boundary, which
+        is why the realised centroid displacement is measured on the samples
+        rather than assumed from the level (:func:`realised_displacement_km`).
+        """
+        dy, dx = self.shift_offset(level)
+        if (dy, dx) == (0, 0):
+            return self._base_rank
+        grid = self._base_rank.reshape(self.n_members, self.height, self.width)
+        far = np.int32(self.n_cells + 1)
+        moved = np.full_like(grid, far)
+        ys_dst = slice(max(dy, 0), self.height + min(dy, 0))
+        ys_src = slice(max(-dy, 0), self.height + min(-dy, 0))
+        xs_dst = slice(max(dx, 0), self.width + min(dx, 0))
+        xs_src = slice(max(-dx, 0), self.width + min(-dx, 0))
+        moved[:, ys_dst, xs_dst] = grid[:, ys_src, xs_src]
+        score = moved.reshape(self.n_members, -1).astype(np.float64)
+        not_free = np.broadcast_to(~self.free_flat, score.shape)
+        perm = np.broadcast_to(self.perm, score.shape)
+        return _ranks_from(np.lexsort((perm, score, not_free), axis=-1))
+
     # -- the rungs ---------------------------------------------------------
 
     def sizes_for(self, mode: str, level: float) -> np.ndarray:
         """Target ``|D_h|`` per member and lead, non-decreasing in lead."""
-        if mode == MODE_SHAPE:
+        if mode in (MODE_SHAPE, MODE_SHIFT):
             return self.base_sizes.copy()
         if mode != MODE_AREA:
             raise ValueError(f"unknown degradation mode {mode!r}")
@@ -245,6 +294,8 @@ class CellOrder:
         """``[M, H*W]`` rank to take the first ``n_h`` of."""
         if mode == MODE_AREA:
             return self._base_rank
+        if mode == MODE_SHIFT:
+            return self._build_shifted_rank(float(level))
         blend = float(level)
         if blend == 0.0:
             return self._base_rank
@@ -262,6 +313,51 @@ def _ranks_from(order: np.ndarray) -> np.ndarray:
     rows = np.arange(order.shape[0])[:, None]
     ranks[rows, order] = np.arange(order.shape[1], dtype=np.int32)[None, :]
     return ranks
+
+
+def shift_offset_cells(bearing_rad: float, level: float) -> tuple[int, int]:
+    """Integer ``(dy, dx)`` displacing by ``level`` cells along ``bearing_rad``.
+
+    ``bearing_rad`` is measured in ARRAY coordinates - ``arctan2(y - cy, x - cx)``
+    with ``y`` the row index - which is the frame ``CellOrder`` already builds its
+    bearings in, so no compass conversion happens here and none is owed.
+
+    OUTWARD, along the base increment's OWN bearing, rather than along a fixed
+    compass direction. A fixed direction would push half the windows' forecasts
+    back INTO ground that is already burned at t0, where the translation cannot
+    be realised, so the ladder's realised severity would depend on the accident of
+    which way each fire happened to be running. Outward is also the operationally
+    interesting error: the right shape of front, arriving too far ahead.
+
+    Rounded to whole cells because the grid is whole cells. The requested and the
+    realised magnitudes therefore differ by up to half a cell, which is why the
+    realised one is measured and reported rather than the requested one.
+    """
+    step = float(level)
+    return (int(round(step * np.sin(bearing_rad))), int(round(step * np.cos(bearing_rad))))
+
+
+def realised_displacement_km(
+    degraded: np.ndarray, base: np.ndarray, x0: np.ndarray, *, cell_size_km: float = 1.0
+) -> float | None:
+    """Centroid displacement of a rung's increment from the base's, in km.
+
+    The ladder's severity unit, MEASURED on the samples the way the area family's
+    ratio is, never read back off the level that produced it. ``None`` when
+    either increment is empty - UNDEFINED, not 0.0, for the reason
+    :class:`IncrementOverlap` gives.
+    """
+    free = np.asarray(x0) == 0
+    inc_a = (np.asarray(degraded) > 0) & free[None, None]
+    inc_b = (np.asarray(base) > 0) & free[None, None]
+    if not inc_a.any() or not inc_b.any():
+        return None
+    ys, xs = np.mgrid[0 : free.shape[0], 0 : free.shape[1]]
+    pooled_a = inc_a.any(axis=(0, 1))
+    pooled_b = inc_b.any(axis=(0, 1))
+    dy = float(ys[pooled_a].mean() - ys[pooled_b].mean())
+    dx = float(xs[pooled_a].mean() - xs[pooled_b].mean())
+    return float(np.hypot(dy, dx) * float(cell_size_km))
 
 
 def degrade_samples(
@@ -445,7 +541,7 @@ class DegradedModel:
         level: float,
         cache: BasePredictionCache | None = None,
     ) -> None:
-        if mode not in (MODE_AREA, MODE_SHAPE):
+        if mode not in (MODE_AREA, MODE_SHAPE, MODE_SHIFT):
             raise ValueError(f"unknown degradation mode {mode!r}")
         self.model = model
         self.name = name
