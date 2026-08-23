@@ -119,11 +119,12 @@ def test_the_rest_is_exactly_the_declared_debt() -> None:
 def test_the_debt_belongs_to_other_leads_and_says_so() -> None:
     """A burn-down that infra could clear itself would be a to-do list, not a fence.
 
-    The live debt is EMPTY, so both rules hold over it vacuously. Each is therefore
-    also put to a mapping that VIOLATES it, on the same two functions, so the test
-    is shown to answer both ways at zero rather than reporting green for want of an
-    entry to judge. That is the same defect as the floor this file lost, one layer
-    down, and it would have arrived with the same burn-down.
+    The live debt was EMPTY when this was written, so both rules held over it
+    vacuously. Each is therefore ALSO put to a mapping that VIOLATES it, on the
+    same two functions, so the test is shown to answer both ways rather than
+    reporting green for want of an entry to judge. That construction is kept now
+    that the debt is 13 files again: a rule that only ever sees conforming input
+    cannot be distinguished from a rule that accepts everything.
     """
     live = prose_scan.OUTPUT_LITERAL_DEBT
     assert _debt_on_infra_surfaces(live) == (), "infra fixes its own the day it finds them"
@@ -167,13 +168,92 @@ def test_the_classifier_answers_both_ways_on_a_planted_literal() -> None:
 
 
 def test_the_internal_literals_are_still_the_large_majority_and_still_excluded() -> None:
-    """The exclusion is the point. It must remain an exclusion, not become a sweep."""
+    """The exclusion is the point. It must remain an exclusion, not become a sweep.
+
+    RE-MEASURED IN THE COMMIT THAT WIDENED THE SINK, which is the condition the
+    widening was adopted under. The count moved 377 -> 252 and NOT ONE CHARACTER
+    WAS REWRITTEN: the same characters were RECLASSIFIED out of `literal` and
+    into `output` by the drawn-text and page-fragment sinks. The total across all
+    regions is 438 on both sides of the change, which is what distinguishes a
+    reclassification from the sweep this assertion exists to catch, and it is why
+    the threshold could be lowered without weakening it.
+
+    The bar is 200 against a measured 252, ~20% of headroom. Left at 250 it would
+    have sat 2 below the live value and fired on the next ordinary edit, which is
+    the failure mode of a threshold that is re-derived from the number it is
+    measuring.
+    """
     scanned = _scan()
     internal = [occ for occ in scanned if occ.region == prose_scan.REGION_LITERAL]
-    assert len(internal) > 250, (
-        f"internal literals are down to {len(internal)} from 367 at 738e7b7. A sweep has "
-        "started rewriting literals, which changes behaviour and artifact bytes."
+    assert len(internal) > 200, (
+        f"internal literals are down to {len(internal)} from 252 at the sink widening "
+        "(377 before it). A sweep has started rewriting literals, which changes "
+        "behaviour and artifact bytes."
     )
+
+
+#: THE SAME ONE-VARIABLE CONSTRUCTION FOR THE TWO SINKS ADOPTED FROM @simviz's
+#: PROPOSAL. Each pair differs in the sink and in nothing else: same character,
+#: same line, same words.
+_PLANTED_DRAWN: str = 'def render(ax):\n    ax.set_title("a planted dash — drawn on a figure")\n'
+_PLANTED_UNDRAWN: str = 'def render(ax):\n    ax.set_zorder("a planted dash — drawn on a figure")\n'
+#: JOINED AT RUNTIME, and the reason is the rule itself: the page-fragment sink
+#: matches on CONTENT, so a complete tag written literally here would make this
+#: file a page fragment and put an em dash on an infra surface in the failing
+#: category. It did, on the first run, and the assertion that infra owns zero
+#: caught it. The classifier still receives a complete tag; this file no longer
+#: contains one.
+_PAGE_FRAGMENT: str = "<" + "p>" + "a planted dash — in the page" + "</" + "p>"
+_PLANTED_PAGE: str = 'def render():\n    frag = "' + _PAGE_FRAGMENT + '"\n'
+_PLANTED_UNMARKED: str = 'def render():\n    frag = "[p]a planted dash — in the page[/p]"\n'
+
+
+def test_the_drawn_text_sink_answers_both_ways() -> None:
+    """A title a reader SEES is output; the same string handed to a non-drawing call is not.
+
+    The negative half is what makes this a control rather than a claim: if the
+    classifier had started answering OUTPUT for every positional argument, the
+    first assertion would still pass and the category would be meaningless.
+    """
+    drawn = prose_scan.scan_python_source("planted.py", _PLANTED_DRAWN)
+    assert [(occ.line, occ.region) for occ in drawn] == [(2, prose_scan.REGION_OUTPUT)], drawn
+    assert drawn[0].name == "EM DASH", drawn
+
+    undrawn = prose_scan.scan_python_source("planted.py", _PLANTED_UNDRAWN)
+    assert [(occ.line, occ.region) for occ in undrawn] == [(2, prose_scan.REGION_LITERAL)], (
+        "every positional argument is being treated as drawn text, which is not the "
+        f"rule and would make the category unbounded: {undrawn}"
+    )
+
+
+def test_the_page_fragment_sink_answers_both_ways() -> None:
+    """A literal carrying HTML markup is a page fragment; a lookalike is not.
+
+    Matched on CONTENT, because `sim/review.py` appends through an ALIAS and no
+    call-name list can reach it. The negative specimen is the same sentence in
+    square brackets, so what separates them is the markup vocabulary and nothing
+    else.
+    """
+    page = prose_scan.scan_python_source("planted.py", _PLANTED_PAGE)
+    assert [(occ.line, occ.region) for occ in page] == [(2, prose_scan.REGION_OUTPUT)], page
+
+    unmarked = prose_scan.scan_python_source("planted.py", _PLANTED_UNMARKED)
+    assert [(occ.line, occ.region) for occ in unmarked] == [(2, prose_scan.REGION_LITERAL)], (
+        f"a literal with no HTML tag was classified as a page fragment: {unmarked}"
+    )
+
+
+def test_the_page_fragment_rule_does_not_fire_on_a_placeholder_in_prose() -> None:
+    """The first draft did, and it is recorded here rather than remembered.
+
+    A general ``<word>`` shape classified ``reliability_summary[<lead>]`` in a
+    diagnostic string as markup. The vocabulary is the standard HTML element set
+    for exactly this reason, so the specimen that broke the general rule is kept
+    as a permanent negative.
+    """
+    placeholder = 'def render():\n    msg = "summary[<lead>] — not markup"\n'
+    scanned = prose_scan.scan_python_source("planted.py", placeholder)
+    assert [(occ.line, occ.region) for occ in scanned] == [(2, prose_scan.REGION_LITERAL)], scanned
 
 
 def test_the_error_path_literals_are_counted_and_declared_and_do_NOT_fail() -> None:

@@ -39,6 +39,7 @@ import argparse
 import ast
 import io
 import logging
+import re
 import subprocess
 import tokenize
 import unicodedata
@@ -105,8 +106,10 @@ REGION_LEGEND: Final[dict[str, str]] = {
 #: to widen, not a silent gap.
 UNSEEN_BY_CONSTRUCTION: Final = (
     "a literal STORED and formatted elsewhere (appended to a failures list, returned "
-    "from a message builder). The sinks here are direct: print/warn/logging arguments "
-    "and any keyword argument."
+    "from a message builder); a text-rendering call whose name is not in the drawn "
+    "allow-list printed below; a page fragment carrying no HTML tag of its own. The "
+    "first is structural. The other two are ALLOW-LISTS and the missing entry nobody "
+    "thought of is their standing failure mode."
 )
 
 PROSE_REGIONS: Final = frozenset({REGION_DOCSTRING, REGION_COMMENT, REGION_CODE})
@@ -274,6 +277,63 @@ _OUTPUT_LOG_METHODS: Final = frozenset(
 #: that happens to be spelled ``.info``.
 _LOG_RECEIVERS: Final = frozenset({"logger", "logging", "LOGGER", "_logger", "log"})
 
+#: TEXT-RENDERING CALLS: their POSITIONAL arguments are drawn on a figure.
+#:
+#: THIS IS AN ALLOW-LIST AND IT IS SAID SO WHERE THE VERDICT IS PRINTED. A call
+#: name nobody thought of is a gap, and the honest mitigation is disclosure, not
+#: a claim of completeness. It is admitted because the alternative measured
+#: worse: the two existing sinks are an output CALL and any KEYWORD argument,
+#: and every one of these is positional, so a title drawn on the reader's screen
+#: was invisible while the same string in a `print` was a gate failure. @simviz
+#: measured 138 characters `sim/` renders and this scanner could not see, against
+#: the 10 the pin held for that package: 7% of what a reader of these figures
+#: actually reads.
+_DRAWN_CALLS: Final = frozenset(
+    {"set_title", "suptitle", "text", "annotate", "stamp", "set_xlabel", "set_ylabel"}
+)
+
+#: HTML element names, used to recognise a literal that is a fragment of a
+#: rendered PAGE rather than an internal string.
+#:
+#: WHY A CONTENT RULE HERE AND A CALL RULE ABOVE, which is the one place this
+#: implementation departs from the proposal it came from. `sim/review.py` builds
+#: its page through ``A = body.append``: the sink is an ALIAS, so the call is
+#: named ``A`` and no list of call names can ever reach it. Measured, not
+#: assumed: a call-name sink alone moves 51 characters and leaves 74 in that one
+#: file. What the fragments have in common is their CONTENT, so that is what is
+#: matched, against the standard element vocabulary rather than a general
+#: ``<word>`` shape. The general shape was tried first and classified
+#: ``reliability_summary[<lead>]`` in `sim/rundash.py` as markup, which is a
+#: placeholder in a diagnostic, not a page.
+_HTML_ELEMENTS: Final[tuple[str, ...]] = tuple(
+    (
+        "html head body meta title style script "
+        "h1 h2 h3 h4 h5 h6 p div span code pre "
+        "b i em strong small sub sup br hr a img "
+        "ul ol li table thead tbody tr td th "
+        "section article header footer figure figcaption "
+        "details summary nav main label canvas"
+    ).split()
+)
+
+_HTML_TAG: Final = re.compile(
+    r"</?(?:" + "|".join(_HTML_ELEMENTS) + r")(?:\s[^>]*)?/?>", re.IGNORECASE
+)
+
+
+def _carries_markup(node: ast.AST) -> bool:
+    """True when a literal contains a tag from the HTML element vocabulary."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return bool(_HTML_TAG.search(node.value))
+    if isinstance(node, ast.JoinedStr):
+        joined = "".join(
+            part.value
+            for part in node.values
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        )
+        return bool(_HTML_TAG.search(joined))
+    return False
+
 
 def _call_name(func: ast.expr) -> str:
     if isinstance(func, ast.Attribute):
@@ -315,14 +375,22 @@ def _string_spans(node: ast.AST) -> Iterator[tuple[tuple[int, int], tuple[int, i
 def reader_facing_spans(tree: ast.AST) -> tuple[list[_TokenRegion], list[ast.Constant]]:
     """``(spans, output constants)`` for every literal that reaches a reader.
 
-    Two sinks, and the second is a REFUSAL rather than a list of keyword names:
+    Four sinks. The second is a REFUSAL rather than a list of keyword names; the
+    last two are ALLOW-LISTS and are printed beside the verdict as such:
 
     * an argument anywhere inside an OUTPUT call (:func:`_is_output_call`);
     * the value of ANY keyword argument to any call. A string handed to a call
       under a NAME is a labelled value, and labelled values are what reports
       carry - ``status=``, ``note=``, ``label=``, ``help=``, ``provenance=``.
       Enumerating the names would leave whichever one nobody thought of as the
-      next gap, which is how seven allow-lists in this repository failed.
+      next gap, which is how seven allow-lists in this repository failed;
+    * a POSITIONAL argument to a text-rendering call (:data:`_DRAWN_CALLS`).
+      A dash in a docstring is invisible to the reader this repository is
+      written for; a dash in a figure title is exactly what they see;
+    * a literal carrying HTML markup (:data:`_HTML_ELEMENTS`), which is a
+      fragment of a rendered page. This one is matched on CONTENT because the
+      page's sink is an alias (``A = body.append``) and no call-name list can
+      reach it.
 
     ``raise`` and ``assert`` messages are collected separately: reader-facing on
     an error path, declared and counted, not failing. See :data:`REGION_ERROR`.
@@ -342,12 +410,14 @@ def reader_facing_spans(tree: ast.AST) -> tuple[list[_TokenRegion], list[ast.Con
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
-            if _is_output_call(node):
+            if _is_output_call(node) or _call_name(node.func) in _DRAWN_CALLS:
                 for arg in node.args:
                     take(arg, REGION_OUTPUT)
             for keyword in node.keywords:
                 if keyword.arg is not None:
                     take(keyword.value, REGION_OUTPUT)
+        elif _carries_markup(node):
+            take(node, REGION_OUTPUT)
         elif isinstance(node, ast.Raise) and node.exc is not None:
             take(node.exc, REGION_ERROR)
         elif isinstance(node, ast.Assert) and node.msg is not None:
@@ -531,15 +601,35 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
 #: inferred classifier health from the SIZE of this dict could not survive the
 #: dict being emptied, and did not: a floor of 20 was left guarding a debt of 14.
 #:
-#: MEASURED BY @simviz WHILE SWEEPING, AND NOT SWEPT: `sim/` holds 138 more
-#: typographic characters that a reader sees and this scanner does not, because
-#: both sinks are POSITIONAL rather than keyword - 40 drawn on a figure by
-#: `set_title`, `suptitle`, `text`, `annotate`, `style.stamp`, and 98 written
-#: into the HTML page `sim/review.py` renders. That is 14x the debt this pin ever
-#: held for `sim/`. Widening REGION_OUTPUT's sinks to drawn text is an OPEN
-#: PROPOSAL from @simviz for @infra to rule on, and it has to move in the same
-#: commit as the internal-literal threshold it would disturb.
-OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {}
+#: RE-POPULATED BY THE SINK WIDENING, AND EVERY ENTRY IS @simviz's.
+#: The drawn-text and page-fragment sinks were adopted from @simviz's own
+#: proposal, which asked for exactly this: the characters become ordinary pinned
+#: debt, swept by their owner, with the pin moving in the same commit as the
+#: sweep. 125 characters across 13 files, none of them in `common/`, `tools/`,
+#: `tests/`, `model/`, `eval/` or `data/`. The count this scanner reads is 125
+#: and the proposal's own measurement was 138; the two are different scanners
+#: over different definitions, and the number pinned here is the one this gate
+#: can reproduce.
+#: THE PIN IS NOT AN ACCEPTANCE. A dash in a figure title is what the reader of
+#: this project's output actually reads, which is the whole argument for the
+#: category; these are declared so the gate is green while their owner sweeps
+#: them, and every one of the four failure directions above applies to them from
+#: this commit on.
+OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {
+    "src/wildfire_nowcast/sim/components.py": 4,
+    "src/wildfire_nowcast/sim/dashboard.py": 2,
+    "src/wildfire_nowcast/sim/drift.py": 2,
+    "src/wildfire_nowcast/sim/e1_report.py": 2,
+    "src/wildfire_nowcast/sim/ensemble.py": 5,
+    "src/wildfire_nowcast/sim/growth.py": 3,
+    "src/wildfire_nowcast/sim/movie.py": 6,
+    "src/wildfire_nowcast/sim/playthrough.py": 3,
+    "src/wildfire_nowcast/sim/replay.py": 2,
+    "src/wildfire_nowcast/sim/review.py": 85,
+    "src/wildfire_nowcast/sim/rundash.py": 8,
+    "src/wildfire_nowcast/sim/s5_report.py": 2,
+    "src/wildfire_nowcast/sim/stencil.py": 1,
+}
 
 
 @dataclass(frozen=True)
@@ -693,6 +783,14 @@ def main(argv: list[str] | None = None) -> int:
             "a literal is proven on a synthetic module, never by this count."
         )
     print(f"NOT SEEN BY THIS SCANNER: {UNSEEN_BY_CONSTRUCTION}")
+    print(
+        "DRAWN-TEXT SINK (an allow-list, positional arguments only): "
+        + ", ".join(sorted(_DRAWN_CALLS))
+    )
+    print(
+        f"PAGE-FRAGMENT SINK: a literal carrying one of {len(_HTML_ELEMENTS)} HTML "
+        "element tags. Matched on CONTENT because the page's own sink is an alias."
+    )
     for line in audit.lines():
         print(f"  [FAIL] {line}")
 
