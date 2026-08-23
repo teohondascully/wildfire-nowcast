@@ -27,9 +27,11 @@ rather than by review.
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -60,6 +62,7 @@ _SPECIMEN_CITER = _invented("tests/nowhere", ".py")
 _SPECIMEN_TARGET = _invented("invented/path", ".json")
 _SPECIMEN_NOT_EXEMPT = _invented("runs/not_exempt/results", ".json")
 _SPECIMEN_NEW_CITER = _invented("src/wildfire_nowcast/sim/brand_new", ".py")
+_SPECIMEN_BARE_IN_A_DIRECTORY = _invented("data/fires/x/manifest", ".json")
 
 
 def _enum() -> C.Enumeration:
@@ -266,6 +269,129 @@ def test_both_declaration_files_are_tracked_so_the_scan_reads_them() -> None:
     files = set(C.tracked_files(repo_root()))
     for rel in C.DECLARATION_FILES:
         assert rel in files, f"{rel} is not tracked, so the scan never reads it"
+
+
+# --------------------------------------------------------------------------
+# the delegations, EXECUTED rather than printed
+# --------------------------------------------------------------------------
+#
+# A delegation is a claim about ANOTHER checker, and it is the one kind of claim
+# a tool makes that its own tests cannot reach by accident. This module printed
+# on every run that the bare-filename tier was "left to tests/test_hygiene.py,
+# whose pattern set covers that class" and that pattern set covered exactly one
+# token of it (ADR-116). Neither module was wrong about itself; nothing owned the
+# hand-off. So each entry in `DELEGATED` names a module, a reader inside it and a
+# PROBE, and the probe is run through the reader here, in both directions.
+
+
+def _load(path: Path) -> ModuleType:
+    """Import a module BY PATH, under a private name and outside ``sys.modules``.
+
+    By path, because that is what the delegation names and it is what a reader
+    following the delegation would open. Under a private name, because pytest has
+    its own entry for the same file and a delegation check must not decide which
+    of the two is authoritative.
+    """
+    spec = importlib.util.spec_from_file_location(f"_delegated_{path.stem}", path)
+    assert spec is not None and spec.loader is not None, path
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _delegation_problems(
+    klass: str, entry: tuple[str, str, str], *, root: Path, tracked: set[str]
+) -> list[str]:
+    """Everything wrong with one delegation, as a list so a plant can be read."""
+    module_rel, reader_name, probe = entry
+    problems: list[str] = []
+    if module_rel not in tracked:
+        return [f"{klass}: {module_rel} is not tracked, so a reader cannot open it"]
+    reader = getattr(_load(root / module_rel), reader_name, None)
+    if not callable(reader):
+        return [f"{klass}: {module_rel} has no callable named {reader_name}"]
+    if not reader(probe):
+        problems.append(
+            f"{klass}: {module_rel}::{reader_name} does not catch its own probe {probe!r}, "
+            "so this module is printing a hand-off the other side does not perform"
+        )
+    if reader("an ordinary sentence that names nothing at all"):
+        problems.append(
+            f"{klass}: {module_rel}::{reader_name} answers YES to ordinary prose, so "
+            "catching the probe demonstrated nothing"
+        )
+    if [token for token, _line in C.bare_tokens_in(probe)] != [probe]:
+        problems.append(
+            f"{klass}: the probe {probe!r} is not in the tier this module excludes, so it "
+            "cannot show that the delegated class is covered"
+        )
+    return problems
+
+
+def test_every_delegation_names_a_reader_that_actually_performs_it() -> None:
+    """The check. Each printed hand-off is executed against the check it names."""
+    assert C.DELEGATED, "an empty delegation table makes the plants below vacuous"
+    tracked = set(C.tracked_files(repo_root()))
+    problems = [
+        problem
+        for klass, entry in C.DELEGATED.items()
+        for problem in _delegation_problems(klass, entry, root=repo_root(), tracked=tracked)
+    ]
+    assert not problems, "\n  ".join(["a printed delegation is not performed:", *problems])
+
+
+def test_the_delegation_check_catches_a_hand_off_nobody_performs(tmp_path: Path) -> None:
+    """C3.5, on a synthetic receiver, so the plants do not depend on the live table.
+
+    Four ways a delegation can be false and one way it can be true, and the true
+    one is asserted first: a checker that reported a problem on every input would
+    satisfy the four plants and mean nothing.
+    """
+    receiver = tmp_path / "receiver.py"
+    receiver.write_text(
+        "def catches(text):\n"
+        "    return [t for t in text.split() if t == 'probe.md']\n"
+        "def catches_nothing(text):\n"
+        "    return []\n"
+        "def catches_everything(text):\n"
+        "    return ['yes']\n"
+    )
+    rel = "receiver.py"
+    tracked = {rel}
+    kwargs = {"root": tmp_path, "tracked": tracked}
+
+    assert _delegation_problems("control", (rel, "catches", "probe.md"), **kwargs) == []
+
+    blind = _delegation_problems("plant", (rel, "catches_nothing", "probe.md"), **kwargs)
+    assert any("does not catch its own probe" in p for p in blind), blind
+
+    loud = _delegation_problems("plant", (rel, "catches_everything", "probe.md"), **kwargs)
+    assert any("answers YES to ordinary prose" in p for p in loud), loud
+
+    missing = _delegation_problems("plant", (rel, "no_such_reader", "probe.md"), **kwargs)
+    assert any("has no callable named" in p for p in missing), missing
+
+    untracked = _delegation_problems("plant", ("gone" + ".py", "catches", "probe.md"), **kwargs)
+    assert any("is not tracked" in p for p in untracked), untracked
+
+    outside = _delegation_problems("plant", (rel, "catches", "not a token"), **kwargs)
+    assert any("is not in the tier" in p for p in outside), outside
+
+
+def test_the_bare_tier_is_counted_and_is_not_silently_empty() -> None:
+    """The excluded tier is a MEASUREMENT on every run, not a sentence about itself.
+
+    A caveat that quantifies itself in prose rots exactly like any other
+    enumeration; this one is computed by the same walk that produces the verdict,
+    so it cannot disagree with the tree it was measured on.
+    """
+    enum = _enum()
+    assert enum.bare_tier > 100, f"the bare-filename tier reads {enum.bare_tier}"
+    assert f"BARE FILENAME TIER: {enum.bare_tier} " in C.report(enum)
+    for klass, (module_rel, reader, _probe) in C.DELEGATED.items():
+        assert f"{module_rel} -> {reader}()" in C.report(enum), klass
+    assert list(C.bare_tokens_in("see manifest.json and np.log here")) == [("manifest.json", 1)]
+    assert list(C.bare_tokens_in(f"see {_SPECIMEN_BARE_IN_A_DIRECTORY}")) == []
 
 
 def test_every_declared_category_states_a_reason() -> None:

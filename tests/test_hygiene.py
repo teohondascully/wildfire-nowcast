@@ -15,6 +15,7 @@ hygiene rule is cheap to keep and expensive to restore.
 from __future__ import annotations
 
 import ast
+import functools
 import inspect
 import os
 import re
@@ -27,7 +28,8 @@ from unittest import mock
 import pytest
 import yaml
 
-import commit_guard  # tools/commit_guard.py, via `pythonpath` in pyproject.toml
+import cited_paths  # tools/cited_paths.py, via `pythonpath` in pyproject.toml
+import commit_guard  # tools/commit_guard.py, same route
 import isolated_suite  # tools/isolated_suite.py, same route
 import mutation  # tools/mutation.py, same route
 import prose_scan  # tools/prose_scan.py, same route
@@ -343,10 +345,30 @@ def test_a_config_declaring_a_DIFFERENT_version_is_an_error(tmp_path: Path) -> N
 # WHAT IS BANNED IS THE UNRESOLVABLE REFERENCE, NOT THE CONTENT. The scientific
 # reasoning in those comments is the best documentation in the repo and deleting
 # it to make a grep clean would be a net loss. What must not survive is a pointer
-# to something outside the repo that a reader is invited to go and read: the
-# private agent-instruction file, and the internal coordination role names. State
-# the constraint inline, or cite ``README.md`` / ``docs/decisions.md``, which carry
-# the same content publicly.
+# to something outside the repo that a reader is invited to go and read.
+#
+# CATEGORIES OF ``_TELL_PATTERNS``, checked against the code in both directions:
+#
+# ``agent-instruction file``  the private file the ground truth is frozen in.
+# ``coordination role``       the role that adjudicates gates.
+# ``agent role name``         an internal role in its hyphenated spelling.
+# ``agent handle``            the same roles in their at-sign spelling.
+#
+# That list was two classes long while the code implemented three, because the
+# comment was written before the third spelling was found and nothing depended on
+# it being complete. Each spelling was invented, used many times across several
+# hands, and only then noticed, so the list is now compared with the dict
+# mechanically (`tests/test_documented_categories.py`) and a fifth will exist.
+#
+# THE REMEDY, AND IT IS NOT "CITE A PUBLIC FILE". State the constraint inline. If
+# a citation is genuinely better, cite a document you have CHECKED contains the
+# claim: reachability is not support (ADR-105 (3)). The message below used to
+# recommend `docs/decisions.md` by name, and that file is 87 lines about splits,
+# pooling and the dispersion bar; four citations in another package took the
+# advice and landed on a file that says nothing about their subjects, one of them
+# inside an error telling a user where to find "the exact commands to run"
+# (ADR-116 (3)). A remedy string is read by someone looking for the shortest way
+# to green, so a file named in it is the file they will cite.
 #
 # ``ADR-NNN`` citations are DELIBERATELY NOT BANNED. 66 tracked files use them,
 # README's last paragraph tells the reader plainly that they will not resolve and
@@ -433,6 +455,18 @@ def _tracked_files() -> list[str]:
 ARTIFACT_PREFIX = "runs/"
 
 
+def tells_in(text: str) -> list[str]:
+    """Every internal-tooling tell in TEXT.
+
+    THE READER BOTH SCANS BELOW USE, exported because `cited_paths.DELEGATED`
+    hands this module a subclass of the bare-filename tier and names this
+    function as what performs it. A delegation that names a callable can be
+    executed by the delegating side's tests; a delegation that names a module can
+    only be believed, and that is how ADR-116's defect survived.
+    """
+    return _TELL_RE.findall(text)
+
+
 def scan_tracked_artifacts() -> dict[str, int]:
     """``{artifact: number of tells}`` for the tracked evidence the scan excludes."""
     counts: dict[str, int] = {}
@@ -443,7 +477,7 @@ def scan_tracked_artifacts() -> dict[str, int]:
         if not path.is_file():
             continue
         text = path.read_bytes().decode("utf-8", errors="replace")
-        n = len(_TELL_RE.findall(text))
+        n = len(tells_in(text))
         if n:
             counts[rel] = n
     return counts
@@ -461,10 +495,34 @@ def scan_tracked_tree() -> dict[str, int]:
         # decode with replacement rather than skipping: a file this scan cannot
         # read is a hole in the scan, and holes are what the four sweeps were.
         text = path.read_bytes().decode("utf-8", errors="replace")
-        n = len(_TELL_RE.findall(text))
+        n = len(tells_in(text))
         if n:
             counts[rel] = n
     return counts
+
+
+def _over_pin(counts: Mapping[str, int], pinned: Mapping[str, int], unit: str) -> list[str]:
+    """Files carrying more than the pin accounts for: an undeclared one, or a RISE.
+
+    Pure, and shared by both pins in this module rather than written twice. Two
+    implementations of "a count went up" is one implementation and one that will
+    disagree with it later, which is the same argument `cited_paths` makes for
+    holding its `evidence` category to another module's list.
+    """
+    return [
+        f"{rel}: {n} {unit}, {pinned.get(rel, 0)} accounted for"
+        for rel, n in sorted(counts.items())
+        if n > pinned.get(rel, 0)
+    ]
+
+
+def _under_pin(counts: Mapping[str, int], pinned: Mapping[str, int], label: str) -> list[str]:
+    """Pin entries whose file no longer carries that many: a FALL, or a STALE entry."""
+    return [
+        f"{rel}: {label} says {expected}, file now has {counts.get(rel, 0)}"
+        for rel, expected in sorted(pinned.items())
+        if counts.get(rel, 0) < expected
+    ]
 
 
 def new_or_grown_tells(counts: Mapping[str, int]) -> list[str]:
@@ -473,22 +531,12 @@ def new_or_grown_tells(counts: Mapping[str, int]) -> list[str]:
     Pure, so the planted-defect tests can feed it a hypothetical tree instead of
     having to dirty the repo to prove the check bites.
     """
-    offenders = []
-    for rel, n in sorted(counts.items()):
-        allowed = FENCED_BURN_DOWN.get(rel, 0)
-        if n > allowed:
-            offenders.append(f"{rel}: {n} tell(s), {allowed} accounted for")
-    return offenders
+    return _over_pin(counts, FENCED_BURN_DOWN, "tell(s)")
 
 
 def stale_burn_down_entries(counts: Mapping[str, int]) -> list[str]:
     """Burn-down entries whose file no longer carries that many tells."""
-    stale = []
-    for rel, expected in sorted(FENCED_BURN_DOWN.items()):
-        actual = counts.get(rel, 0)
-        if actual < expected:
-            stale.append(f"{rel}: burn-down says {expected}, file now has {actual}")
-    return stale
+    return _under_pin(counts, FENCED_BURN_DOWN, "burn-down")
 
 
 def test_the_public_tree_has_files_to_scan() -> None:
@@ -557,10 +605,13 @@ def test_no_unresolvable_internal_tooling_reference_in_the_public_tree() -> None
     offenders = new_or_grown_tells(scan_tracked_tree())
     assert not offenders, (
         "these tracked files cite internal tooling a public reader cannot open. KEEP THE "
-        "CONTENT — the reasoning in those comments is worth more than a clean grep — and "
-        "replace only the REFERENCE: state the constraint inline, or cite README.md / "
-        "docs/decisions.md, which carry it publicly. ADR-NNN citations are fine and are "
-        "deliberately not matched here:\n  " + "\n  ".join(offenders)
+        "CONTENT - the reasoning in those comments is worth more than a clean grep - and "
+        "replace only the REFERENCE. State the constraint INLINE; that is the repair that "
+        "cannot rot. If you cite a document instead, open it first and check that it "
+        "carries the claim: a citation that merely RESOLVES is not a citation that "
+        "SUPPORTS, and this message used to name a public file that supported almost "
+        "nothing it was cited for. ADR-NNN citations are fine and are deliberately not "
+        "matched here:\n  " + "\n  ".join(offenders)
     )
 
 
@@ -673,6 +724,199 @@ def test_the_scan_reads_its_own_source_and_is_not_self_exempt() -> None:
     source = (repo_root() / rel).read_text()
     assert not _TELL_RE.findall(source)
     assert "CLAUD" in source and "orchestr" in source  # ...but the fragments are here
+
+
+# --------------------------------------------------------------------------
+# [I18] The public tree does not name a file this repository DELETED
+# --------------------------------------------------------------------------
+#
+# WHY THIS LIVES HERE. `tools/cited_paths.py` resolves every path-like token that
+# HAS a directory component and excludes the BARE ones, for a measured reason:
+# resolving `np.log` or `a.py` would turn ordinary code into an obligation. Until
+# ADR-116 it printed that the bare tier was "left to tests/test_hygiene.py, whose
+# pattern set covers that class". It was not. The pattern set above covers exactly
+# ONE bare filename - the agent-instruction file - and 93 occurrences in one
+# package alone were checked by nothing. Neither module was wrong about itself;
+# the HAND-OFF between them was the unowned surface, and a delegation nobody
+# executes is a sentence that reads like a control.
+#
+# So this is the receiving end, and it is scoped rather than total. The subclass
+# with teeth is the one ADR-113 was about: a name this repository USED to carry
+# and no longer does. `common/null_check` became a package at `b4cdb33` and the
+# frozen set went on naming the single-file path for months, because a name that
+# has rotted still reads as authoritative and nothing depended on it being right.
+#
+# DERIVED, NOT ENUMERATED, AND THE PRECISION IS MEASURED. History supplies the
+# names; nothing has to be remembered. 170 commits have removed two paths and one
+# of them - `claimaudit.py`, which moved into `tools/` at M13 - still has a
+# tracked file of that basename, so a reader can open it and it is NOT reported.
+# The live population is therefore one name in two files, both declared below.
+# The check exists for the NEXT split, not for that one.
+#
+# TOKEN EQUALITY, NEVER SUBSTRING, and the tokenizer is `cited_paths.bare_tokens_in`
+# rather than a pattern invented here. `tests/test_null_check.py` contains the
+# characters of the dead name and is a tracked file a reader can open; a substring
+# rule reports it, and a second definition of "bare filename" would put a gap
+# between the two checkers exactly where the hand-off already failed once.
+#
+# `runs/` IS NOT EXCLUDED, unlike the tell scan above. The remedy here is a pinned
+# declaration rather than an edit, so tracked evidence is never under pressure to
+# be rewritten to pass, and an exclusion this check does not need is a hole it
+# would have to defend. The population there is zero today and a new one fails.
+
+#: Citations of a DELETED file, per citing file. A PIN, NOT AN EXEMPTION: it
+#: fails when a count rises, when it falls, and when an entry goes stale, which
+#: is the same four directions as the burn-down above and as `cited_paths.DEBT`.
+DELETED_FILE_CITATIONS: dict[str, int] = {
+    # THE CONTRACT'S OWNER SPELLS IT DELIBERATELY AND WROTE DOWN WHY. v2.17
+    # repairs the frozen set, and to explain that a path rotted you have to name
+    # it; the clause says in-line that the bare spelling is intentional so the
+    # next reader does not "fix" it by restoring the directory. Not this lead's
+    # file. The pin is how it stays visible rather than forgotten: if that clause
+    # is ever rewritten, this entry goes stale and fails.
+    "docs/interfaces.md": 3,
+    # The probe in `cited_paths.DELEGATED`, written literally on purpose. A probe
+    # spelled in halves would only prove that this reader can catch a token
+    # nobody writes.
+    "tools/cited_paths.py": 1,
+}
+
+
+@functools.lru_cache(maxsize=1)
+def vanished_basenames() -> frozenset[str]:
+    """Basenames this repository has deleted and does NOT carry anywhere today.
+
+    `--no-renames` is load-bearing in both directions. With rename detection on,
+    a file that moved is reported as R and its old name never appears, which is
+    precisely the case worth catching. With it off every move contributes its old
+    path, and the subtraction below is what lets a genuine move through: a reader
+    who searches for `claimaudit.py` finds `tools/claimaudit.py` and is not lost.
+    """
+    out = subprocess.run(
+        ["git", "log", "--diff-filter=D", "--name-only", "--no-renames", "--pretty=format:"],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    deleted = {line.strip() for line in out.stdout.splitlines() if line.strip()}
+    live = {rel.rsplit("/", 1)[-1] for rel in _tracked_files()}
+    return frozenset({rel.rsplit("/", 1)[-1] for rel in deleted} - live)
+
+
+def deleted_file_names_in(text: str, gone: frozenset[str] | None = None) -> list[str]:
+    """Bare filenames in TEXT that name a file this repository deleted.
+
+    `gone` is injectable so the capability tests do not depend on the tree still
+    having deleted something. A control parameterised off live history loses its
+    power on the day the history changes, which is the one day it has to keep it.
+    """
+    names = vanished_basenames() if gone is None else gone
+    return [token for token, _line in cited_paths.bare_tokens_in(text) if token in names]
+
+
+def scan_tracked_tree_for_deleted_names() -> dict[str, int]:
+    """``{relative path: citations of a deleted file}``, for every tracked file."""
+    counts: dict[str, int] = {}
+    for rel in _tracked_files():
+        path = repo_root() / rel
+        if not path.is_file():
+            continue
+        text = path.read_bytes().decode("utf-8", errors="replace")
+        n = len(deleted_file_names_in(text))
+        if n:
+            counts[rel] = n
+    return counts
+
+
+def test_no_tracked_file_names_a_file_this_repository_DELETED() -> None:
+    """The check. A reader is never sent to a name this repository removed."""
+    counts = scan_tracked_tree_for_deleted_names()
+    offenders = _over_pin(counts, DELETED_FILE_CITATIONS, "citation(s) of a deleted file")
+    assert not offenders, (
+        "these tracked files name a file that is not in the index and has not been "
+        "since it was deleted, so a reader who searches for it finds nothing. Name "
+        "what replaced it, or declare the citation in DELETED_FILE_CITATIONS with the "
+        "reason it names an absence deliberately:\n  " + "\n  ".join(offenders)
+    )
+    stale = _under_pin(counts, DELETED_FILE_CITATIONS, "the deleted-name pin")
+    assert not stale, (
+        "these declarations no longer describe anything. Lower the count, or delete "
+        "the entry: a pin nobody has to touch is how a declaration becomes an "
+        "exemption:\n  " + "\n  ".join(stale)
+    )
+
+
+def test_the_history_this_check_reads_is_actually_present() -> None:
+    """ANTI-VACUITY, and it is about the CLONE, not about the code.
+
+    A shallow checkout has no deletions in it, so this whole check would answer
+    "nothing was ever deleted" and pass. CI uses `fetch-depth: 0` today; this is
+    what notices the day it does not, rather than the check going quiet. The
+    shallowness question is asked with the shipped helper the commit-message scan
+    already uses, not with a second reading of it invented here.
+    """
+    root = repo_root()
+    assert not commit_guard.is_shallow(root), (
+        "this is a SHALLOW clone, so `git log` cannot see the deletions this check is "
+        "derived from and it would pass by knowing nothing. In CI this means "
+        "`actions/checkout` lost its `fetch-depth: 0`."
+    )
+    depth = subprocess.run(
+        ["git", "rev-list", "--count", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert int(depth.stdout.strip()) > 50, (
+        f"only {depth.stdout.strip()} commits reachable: the history this check reads is "
+        "a window, not the repository"
+    )
+    assert vanished_basenames(), (
+        "history reports no deleted basename at all. Either the class has genuinely "
+        "emptied - in which case the DELEGATED probe in tools/cited_paths.py fails "
+        "next and both sentences come down together - or this is not a full clone"
+    )
+
+
+def test_the_deleted_name_reader_answers_both_ways() -> None:
+    """CAPABILITY, on strings small enough to read and on an INJECTED history.
+
+    The substring trap is the one that matters and it is asserted directly: the
+    dead name is a substring of a tracked test module's name, and a reader that
+    matched text rather than tokens would report a file a reader can open.
+    """
+    gone = frozenset({"vanished_thing.py"})
+    assert deleted_file_names_in("see `vanished_thing.py` for the old form", gone)
+    assert deleted_file_names_in("vanished_thing.py", gone)
+    tracked_sibling = "tests/test_vanished_thing" + ".py"  # joined at the EXTENSION
+    for clean in (
+        f"see {tracked_sibling}, which is tracked",
+        "the vanished_thing package replaced it",
+        "helper_vanished_thing.py is a different file",
+        "nothing here at all",
+    ):
+        assert not deleted_file_names_in(clean, gone), f"false positive on: {clean!r}"
+
+
+def test_the_deleted_name_pin_fails_in_both_directions() -> None:
+    """C3.5, on synthetic counts, so it does not depend on the live population."""
+    citer = "src/wildfire_nowcast/sim/" + "invented" + ".py"
+    assert _over_pin({citer: 1}, {}, "citation(s)"), "a new citer is not reported"
+    assert _over_pin({citer: 3}, {citer: 2}, "citation(s)"), "a rise is not reported"
+    assert _under_pin({citer: 1}, {citer: 2}, "pin"), "a fall is not reported"
+    assert _under_pin({}, {citer: 1}, "pin"), "a cleared file is not reported as stale"
+    assert not _over_pin({citer: 2}, {citer: 2}, "citation(s)")
+    assert not _under_pin({citer: 2}, {citer: 2}, "pin")
+
+
+def test_the_deleted_name_declarations_describe_files_that_exist() -> None:
+    """A pin naming a file nobody has is the allow-list failure, one level up."""
+    tracked = set(_tracked_files())
+    for rel, count in DELETED_FILE_CITATIONS.items():
+        assert rel in tracked, f"{rel} is pinned but is not tracked"
+        assert count > 0, f"{rel}: a zero entry is STALE, remove it"
 
 
 # --------------------------------------------------------------------------

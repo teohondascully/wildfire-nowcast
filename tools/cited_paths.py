@@ -35,26 +35,55 @@ WHAT IS AN OBLIGATION AND WHAT IS DECLARED
 An obligation is an unresolved path-like token cited by a tracked file. Two
 escapes exist and both are enumerated rather than inferred:
 
-``DECLARED``   one entry per (citing file, token) pair, grouped under a category
-               that carries the reason. A specimen invented by a test, a
-               destination the program WRITES, the untracked corpus, an
-               artifact declared exempt in ``tools/cited_runs.py``, or a path in
-               another system entirely.
-``DEBT``       one entry per citing file, with a count and an owner. These are
-               real instances of the class, in packages this lead may not edit.
-               A pin, not an acceptance: it fails when it rises, when it falls,
-               and when it goes stale.
+* ``DECLARED`` - one entry per (citing file, token) pair, grouped under a
+  category that carries the reason. The categories are listed below.
+* ``DEBT`` - one entry per citing file, with a count and an owner. These are
+  real instances of the class, in packages this lead may not edit. A pin, not an
+  acceptance: it fails when it rises, when it falls, and when it goes stale.
+
+CATEGORIES OF ``DECLARED``, checked against the code in both directions:
+
+``specimen``   a path INVENTED by a test or a tool to exercise a scanner; it is
+               never opened and it names nothing.
+``output``     a DESTINATION this program writes, named in the module that
+               writes it or in a test of that module.
+``corpus``     the untracked fire corpus and the artifacts derived from it.
+``proposal``   a path named as a DESIGN that does not exist yet, in a passage
+               that says so in the sentence above it.
+``evidence``   a cited run artifact already declared, with its measured reason,
+               in ``tools/cited_runs.py``.
+
+That list was free prose until ADR-116 and it was wrong in BOTH directions: it
+promised a category for "a path in another system entirely" that the code has
+never implemented, and ``proposal`` was implemented and undocumented, so a real
+zip member could not be declared while a phantom category invited a declaration
+that could not be made. ``tests/test_documented_categories.py`` now reads the
+block above by its header and compares it with ``DECLARED`` itself, so a
+category added to one and not the other fails. What that check CANNOT see is a
+category described in English without naming its key, which is the form the
+phantom took, and the convention above - name the key, then describe it - is
+what buys the check.
 
 WHAT THIS SCANNER CANNOT SEE, PRINTED BESIDE ITS VERDICT
 ---------------------------------------------------------
 A path ASSEMBLED at run time is invisible to any token scan.
 ``tools/claimaudit.py`` builds ``root / "coordination" / "DECISIONS.md"`` from
-three fragments and no walk over string literals will ever find it. So is a bare
-filename with no directory in it: ``STATE.md`` and ``DECISIONS.md`` are cited by
-tracked files today, and they are left to ``tests/test_hygiene.py``, whose
-pattern set covers that class, because including bare filenames here measured 188
-unresolved tokens of which the overwhelming majority are ordinary code
-(``np.log``, ``a.py``, ``good.json``). Both limits are printed on every run.
+three fragments and no walk over string literals will ever find it.
+
+So is a BARE filename with no directory component, and that exclusion has a
+measured reason: resolving it would make ordinary code (``np.log``, ``a.py``,
+``good.json``) an obligation, and the tier is dominated by artifact NAMES
+(``tensor.zarr``, ``manifest.json``) that this scan already sees in their
+directory form. The tier is COUNTED on every run rather than described.
+
+Two subclasses of it are checked elsewhere, and the hand-off is written as data
+in ``DELEGATED``: each entry names the module, the reader inside it, and a PROBE
+token that reader must catch. Until ADR-116 this docstring printed instead that
+the whole class was "left to ``tests/test_hygiene.py``, whose pattern set covers
+that class" - and it was not; that pattern set covered exactly one token of it,
+and the rest, 93 occurrences in one package alone, was checked by nothing.
+Neither module was wrong about itself. The HAND-OFF was the unowned surface, so
+it is the thing that now carries a test.
 """
 
 from __future__ import annotations
@@ -363,10 +392,42 @@ DEBT: Final[dict[str, int]] = {
 
 UNSEEN_BY_CONSTRUCTION: Final = (
     "a path ASSEMBLED at run time from fragments (tools/claimaudit.py builds one "
-    "from three), and a BARE filename with no directory component, which is left to "
-    "tests/test_hygiene.py because including it here measured 188 unresolved tokens "
-    "that are overwhelmingly ordinary code."
+    "from three), and a BARE filename with no directory component, which is COUNTED "
+    "below and not resolved: resolving it would make ordinary code an obligation."
 )
+
+#: The bare-filename tier is not resolved here, and these are the subclasses of it
+#: that ARE checked, WHERE, and with WHAT PROBE.
+#:
+#: A DELEGATION IS A CLAIM ABOUT ANOTHER CHECKER, so it is written as data rather
+#: than as a sentence. Each entry is (module, reader, probe): the module a reader
+#: can open, the callable inside it that does the work, and a token that callable
+#: MUST return. ``tests/test_cited_paths.py`` imports the module BY THIS PATH and
+#: runs the probe through the named reader, in both directions - the probe must be
+#: caught and ordinary text must not be. Two things follow, and both are the point.
+#: A delegation to a check that does not perform it fails HERE, which is the defect
+#: ADR-116 found after this module had printed the claim on every run for weeks.
+#: And a delegation whose class has emptied fails too, because the probe stops
+#: being caught, so a caveat cannot outlive the thing it describes.
+DELEGATED: Final[dict[str, tuple[str, str, str]]] = {
+    # The tell scan. This is the ONE bare filename the pattern set covered when the
+    # sentence claimed it covered the class, and it is the probe for that reason.
+    # Spelled in halves because this file is scanned by that same reader.
+    "a bare filename naming PRIVATE TOOLING": (
+        "tests/test_hygiene.py",
+        "tells_in",
+        "CLAUD" + "E" + ".md",
+    ),
+    # I18. Derived from git history, not from a list: a name this repository USED
+    # to carry and no longer does. The probe is written literally, and is pinned in
+    # that module's DELETED_FILE_CITATIONS, because a probe spelled in halves would
+    # only prove that the reader can catch a token nobody writes.
+    "a bare filename this repository DELETED": (
+        "tests/test_hygiene.py",
+        "deleted_file_names_in",
+        "null_check.py",
+    ),
+}
 
 
 def _declared_pairs() -> dict[tuple[str, str], str]:
@@ -422,6 +483,28 @@ def tokens_in(text: str) -> Iterator[tuple[str, int]]:
         yield token, text[:start].count("\n") + 1
 
 
+def bare_tokens_in(text: str) -> Iterator[tuple[str, int]]:
+    """``(token, line)`` for every FILENAME with no directory component.
+
+    THE TIER THIS MODULE DOES NOT RESOLVE, exported so the checks that DO cover
+    parts of it read the same definition of "bare filename" that this scanner
+    excludes. Two definitions of one boundary is how a hand-off acquires a gap
+    neither side can see: `tests/test_hygiene.py` calls this rather than writing
+    a second pattern, and the same structural skips apply on both sides of the
+    boundary because there is only one implementation of them.
+    """
+    for match in PATH_TOKEN.finditer(text):
+        token = match.group(0).rstrip("./-")
+        start = match.start()
+        if start > 0 and text[start - 1] in _NOT_A_START:
+            continue
+        if "/" in token or token.startswith("."):
+            continue
+        if not token.endswith(FILE_SUFFIXES):
+            continue
+        yield token, text[:start].count("\n") + 1
+
+
 def _suffix_index(files: Iterable[str]) -> dict[str, int]:
     """``{trailing path fragment: how many tracked files end with it}``."""
     index: dict[str, int] = {}
@@ -441,6 +524,7 @@ class Enumeration:
     problems: list[str] = field(default_factory=list)
     counts: dict[str, int] = field(default_factory=dict)
     artifact_tier: int = 0
+    bare_tier: int = 0
 
     def of_resolution(self, resolution: str) -> list[Reference]:
         return [r for r in self.references if r.resolution == resolution]
@@ -467,6 +551,7 @@ def enumerate_references(
 
     found: dict[tuple[str, str], list[int]] = {}
     artifact_tier = 0
+    bare_tier = 0
     for rel in files:
         path = root / rel
         if not path.is_file():
@@ -481,6 +566,7 @@ def enumerate_references(
             artifact_tier += sum(1 for _ in tokens_in(path.read_bytes().decode("utf-8", "replace")))
             continue
         text = path.read_bytes().decode("utf-8", errors="replace")
+        bare_tier += sum(1 for _ in bare_tokens_in(text))
         for token, line in tokens_in(text):
             found.setdefault((rel, token), []).append(line)
 
@@ -505,6 +591,7 @@ def enumerate_references(
     for resolution in [r.resolution for r in references]:
         enum.counts[resolution] = enum.counts.get(resolution, 0) + 1
     enum.artifact_tier = artifact_tier
+    enum.bare_tier = bare_tier
 
     enum.problems.extend(_audit_debt(undeclared, pinned))
     enum.problems.extend(_audit_declarations(pairs, set(found)))
@@ -568,6 +655,17 @@ def report(enum: Enumeration) -> str:
         f"EXCLUDED, ARTIFACT TIER: {enum.artifact_tier} path token(s) inside tracked "
         "runs/ records. Machine-written evidence of what a run read and wrote, not a "
         "reading surface, and not editable to look better."
+    )
+    lines.append(
+        f"EXCLUDED, BARE FILENAME TIER: {enum.bare_tier} token(s) with no directory "
+        "component, MEASURED here rather than described. Two subclasses of it are "
+        "delegated, and each delegation carries a probe another test executes:"
+    )
+    for klass, (module, reader, _probe) in sorted(DELEGATED.items()):
+        lines.append(f"  DELEGATED  {klass}: {module} -> {reader}()")
+    lines.append(
+        "  The REST of the tier - artifact names and specimens a test invents - is "
+        "UNCHECKED by anything, and saying so is the whole of what this line claims."
     )
     lines.append(f"NOT SEEN BY THIS SCANNER: {UNSEEN_BY_CONSTRUCTION}")
     lines.append(
