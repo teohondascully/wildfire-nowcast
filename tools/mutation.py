@@ -736,9 +736,44 @@ def sweep(
     out = Sweep()
     started = time.monotonic()
 
+    cleanup_from = _remove_worktrees  # named so the finally below cannot drift from it
+
+    try:
+        for space in spaces:
+            out.carried = build_workspace(repo, space, pristine=pristine)
+            assert_workspace_is_self_contained(space, python)
+        return _sweep_inner(repo, python, spaces, out, jobs, workers, started)
+    finally:
+        out.seconds = time.monotonic() - started
+        cleanup_from(repo, spaces)
+
+
+def _remove_worktrees(repo: Path, spaces: Sequence[Path]) -> None:
+    """Every worktree this sweep made, on every exit path."""
     for space in spaces:
-        out.carried = build_workspace(repo, space, pristine=pristine)
-        assert_workspace_is_self_contained(space, python)
+        subprocess.run(
+            ["git", "-C", str(repo), "worktree", "remove", "--force", str(space)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+
+def _sweep_inner(
+    repo: Path,
+    python: Path,
+    spaces: list[Path],
+    out: Sweep,
+    jobs: list[tuple[str, float]],
+    workers: int,
+    started: float,
+) -> Sweep:
+    """The measurement itself. Split out so the caller's finally covers SETUP too.
+
+    The first version of the cleanup wrapped only this part, and a failure in the
+    build loop above - which is where the self-containment control raises - left a
+    worktree behind anyway. Proved by forcing that exact failure and counting.
+    """
     out.head = subprocess.run(
         ["git", "-C", str(spaces[0]), "rev-parse", "HEAD"],
         capture_output=True,
@@ -766,13 +801,6 @@ def sweep(
             out.results.extend(batch)
     out.results.sort(key=lambda r: (r.module, r.fraction))
     out.seconds = time.monotonic() - started
-    for space in spaces:
-        subprocess.run(
-            ["git", "-C", str(repo), "worktree", "remove", "--force", str(space)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
     return out
 
 

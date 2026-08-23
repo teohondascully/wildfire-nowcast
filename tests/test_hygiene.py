@@ -2232,10 +2232,47 @@ def test_the_sweep_records_the_sha_it_actually_measured() -> None:
     during a 45-minute run and the workspace cannot.
     """
     assert "head" in mutation.Sweep().to_dict()
-    source = inspect.getsource(mutation.sweep)
+    # The module, not one named function: this assertion broke once already when the
+    # code moved between `sweep` and its helper, which is a test tracking a location
+    # rather than a behaviour. What must be true is that the sha comes from a
+    # WORKSPACE path and never from the repo.
+    source = inspect.getsource(mutation)
     assert 'str(spaces[0]), "rev-parse", "HEAD"' in source, (
         "the swept sha is no longer read from the workspace, so a sweep that outlives a "
         "commit would report the wrong one"
     )
+    assert 'str(repo), "rev-parse", "HEAD"' not in source, (
+        "the sha is being read from the repo, which moves during a 45-minute sweep"
+    )
     printer = inspect.getsource(mutation.main)
     assert "result.head" in printer, "the sha is recorded but never shown"
+
+
+def test_the_sweep_removes_its_worktrees_even_when_it_raises() -> None:
+    """Cleanup on the failure path, because that is the path that repeats.
+
+    The removal used to be reachable only on success, so a sweep that raised left
+    three full worktrees behind. This session filled a disk exactly that way: a
+    failure leaks copies, the next sweep fails for want of space and leaks three
+    more. The failure mode compounds, which is why it is the one worth testing.
+
+    THE BOUNDARY IS THE POINT AND THE FIRST FIX GOT IT WRONG. Wrapping only the
+    measurement still leaked, because the workspaces are BUILT before it and the
+    self-containment control raises there. So this asserts that `build_workspace`
+    is inside the guarded region, not merely that a `finally` exists somewhere.
+    """
+    source = inspect.getsource(mutation.sweep)
+    assert "try:" in source and "finally:" in source, "the sweep has no cleanup guard"
+    guarded = source[source.index("try:") : source.index("finally:")]
+    assert "build_workspace" in guarded, (
+        "the workspaces are built OUTSIDE the try, so a failure while building them - "
+        "which is exactly where the self-containment control raises - leaks a worktree"
+    )
+    assert "assert_workspace_is_self_contained" in guarded, (
+        "the self-containment control is outside the guarded region"
+    )
+    remover = inspect.getsource(mutation._remove_worktrees)
+    assert '"worktree", "remove", "--force"' in remover, (
+        "the cleanup helper no longer removes worktrees"
+    )
+    assert "_remove_worktrees" in source, "the finally no longer reaches the cleanup helper"
