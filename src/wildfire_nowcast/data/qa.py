@@ -246,9 +246,27 @@ def fire_qa_report(
     grid: Grid,
     east: gpd.GeoDataFrame | None = None,
     west: gpd.GeoDataFrame | None = None,
+    east_west_status: str | None = None,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble the full per-fire QA block for the manifest."""
+    """Assemble the full per-fire QA block for the manifest.
+
+    ``label_noise_east_west_status`` is ALWAYS present, and that is the point of
+    it. Until now this report carried ``label_noise_east_west`` when the two
+    GOFER variants opened and carried NOTHING when they did not, so a reader of
+    a manifest could not tell "the East/West archives were never asked for" from
+    "they were asked for and would not open" from "they opened and the offset was
+    zero". Those are three different facts and they had one spelling: an absent
+    key. That measurement is the per-fire input to the corpus label-noise floor
+    (1.6394 km mean centroid offset over 28 fires, in
+    ``data/interim/_index/label_noise_east_west.json``), which is the number this
+    project quotes against the ADR-054 resolution hypothesis, so an input to it
+    going quietly missing is the failure worth spending a key on.
+
+    ``east_west_status`` is how a caller reports the third case: pass the reason
+    the archives did not open and it is recorded verbatim. ``labels.build_fire_state``
+    passes the exception it caught.
+    """
     report: dict[str, Any] = {
         "fire_id": fire_id,
         "vector": vector_qa(perims),
@@ -256,6 +274,9 @@ def fire_qa_report(
     }
     if east is not None and west is not None:
         report["label_noise_east_west"] = east_west_noise(east, west, grid)
+        report["label_noise_east_west_status"] = "measured"
+    else:
+        report["label_noise_east_west_status"] = east_west_status or "not_requested"
     if extra:
         report.update(extra)
     report["verdict"] = _verdict(report)
@@ -295,6 +316,13 @@ def _verdict(report: dict[str, Any]) -> dict[str, Any]:
             f"{r['frames_with_no_burning_cell_while_active']} frames have an active fire "
             "but no cell in state 1 — the contagion kernel has no seed in those steps"
         )
+    status = str(report.get("label_noise_east_west_status", "not_requested"))
+    if status.startswith("unavailable"):
+        # An attempted-and-failed measurement is a WARNING and never a failure:
+        # the tensor is fine and the fire is buildable without it. It has to be
+        # visible somewhere a person looks, though, because the alternative that
+        # was in place is a key that is simply absent from the manifest.
+        warns.append(f"label_noise_east_west was attempted and not measured: {status}")
     if v["zero_growth_hour_fraction"] and v["zero_growth_hour_fraction"] > 0.4:
         warns.append(
             f"{100 * v['zero_growth_hour_fraction']:.0f}% of hours have exactly zero "

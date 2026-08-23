@@ -792,6 +792,11 @@ def to_label_build(
         perims=perims,
         state=state,
         grid=grid,
+        # A gofer_ext fire is reconstructed from WFIGS/IRWIN, not from the GOFER
+        # archive, so there is no East/West pair to disagree and R6 is not merely
+        # missing here, it is inapplicable. Saying which of the two it is is the
+        # whole reason this key exists.
+        east_west_status="not_applicable: gofer_ext fires have no GOFER East/West variant",
         extra={"state_rule": rule, "label_source": "gofer_ext"},
     )
     return LabelBuild(

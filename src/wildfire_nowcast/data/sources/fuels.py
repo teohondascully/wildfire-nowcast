@@ -166,18 +166,24 @@ def verify_fuels_catalog(timeout_s: float = 60.0) -> dict[str, Any]:
     from urllib.request import urlopen  # noqa: PLC0415
 
     observed: dict[str, list[str]] = {}
+    #: D15. The RETURNED VALUE has to be able to say what the log says. D14 gave
+    #: this handler a log line and left `drift` still unable to distinguish a
+    #: folder that was reached and publishes nothing from one that was never
+    #: reached; the comment below said so in as many words. A log does not travel
+    #: with the dict, and it is the dict a caller acts on.
+    unreachable: dict[str, str] = {}
     for folder in sorted(LANDFIRE_VINTAGES):
         try:
             with urlopen(f"{LFPS_BASE}/{folder}?f=json", timeout=timeout_s) as r:  # noqa: S310
                 cat = _json.loads(r.read())
         except Exception as exc:  # pragma: no cover - network
-            # ADR-103 (4). The marker string below is NOT a trace, and that is
-            # the whole problem: a folder whose probe failed has fewer than
+            # ADR-103 (4), then D15. A folder whose probe failed has fewer than
             # `len(FUEL_LAYERS)` codes, so it drops out of `publishing` and
-            # lands in `drift` looking EXACTLY like a folder that was reached
-            # and found not to publish fuels. One of those means the catalog
-            # constant is stale; the other means the network blinked. The
-            # returned dict cannot tell them apart, so the log does.
+            # lands in `drift` looking EXACTLY like a folder that was reached and
+            # found not to publish fuels. One of those means the catalog constant
+            # is stale; the other means the network blinked. Both the log AND the
+            # returned dict now separate them: `unreachable_folders` names this
+            # folder and `drift_is_trustworthy` goes False.
             logger.warning(
                 "LFPS catalog probe failed for %s (%s: %s); it will be reported as "
                 "NOT publishing, which is indistinguishable in `drift` from a folder "
@@ -186,6 +192,7 @@ def verify_fuels_catalog(timeout_s: float = 60.0) -> dict[str, Any]:
                 type(exc).__name__,
                 exc,
             )
+            unreachable[folder] = f"{type(exc).__name__}: {exc}"
             observed[folder] = [f"<probe failed: {exc}>"]
             continue
         names = {s["name"].split("/")[-1] for s in cat.get("services", [])}
@@ -201,6 +208,11 @@ def verify_fuels_catalog(timeout_s: float = 60.0) -> dict[str, Any]:
         "publishing_folders_observed": sorted(publishing),
         "publishing_folders_declared": sorted(FUELS_PUBLISHING_FOLDERS),
         "drift": sorted(publishing.symmetric_difference(FUELS_PUBLISHING_FOLDERS)),
+        "unreachable_folders": unreachable,
+        # A drift verdict computed while some folders could not be probed is a
+        # verdict about the network as much as about the catalog. Reading `drift`
+        # without reading this is the mistake this key exists to prevent.
+        "drift_is_trustworthy": not unreachable,
     }
 
 

@@ -22,6 +22,7 @@ cell), the loss is MEASURED and reported, never asserted away.
 from __future__ import annotations
 
 import json
+import logging
 import math
 from typing import Any
 
@@ -53,6 +54,8 @@ from wildfire_nowcast.sim.coarsen import (
     score_coarsening,
     sub_cell_texture,
 )
+
+logger = logging.getLogger(__name__)
 
 _RESULTS: dict[str, Any] = {}
 
@@ -360,7 +363,18 @@ def main() -> int:
         try:
             fn()
         except AssertionError as exc:  # pragma: no cover - reported, not raised
-            failures.append(f"{fn.__name__}: {exc}")
+            # NOT a silent swallow: the evidence leaves through `failures`, which
+            # the caller reads and which sets the exit code. It was still LOSSY,
+            # and measurably so. 12 of this module's 30 assertions carry no
+            # message, and a bare `assert a == b` outside pytest has an EMPTY
+            # str(exc), so those 12 produced the line "test_name: " - which check
+            # failed, and nothing at all about why. Two repairs, both narrow: the
+            # exception TYPE goes into the value the caller sees, so an empty
+            # message is still distinguishable from no exception; and the
+            # traceback goes to the log, because where in the check it broke is a
+            # fact about the run and this function's stdout is a JSON document.
+            logger.warning("%s FAILED", fn.__name__, exc_info=True)
+            failures.append(f"{fn.__name__}: {type(exc).__name__}: {exc}")
     report = {
         "selftest": "coarsen_2km",
         "n_checks": len(tests),

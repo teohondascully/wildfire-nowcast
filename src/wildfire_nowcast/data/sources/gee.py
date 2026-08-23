@@ -145,8 +145,12 @@ def initialize_ee(project: str | None = None) -> Any:
     except Exception as exc:
         raise GeeAuthError(
             f"Earth Engine refused to initialise for project {proj!r}: {exc}. "
-            "See the GEE auth entry in docs/decisions.md for the exact "
-            "commands to run. Do not retry in a loop."
+            f"Two things have to hold and neither is retryable: {ENV_PROJECT} must "
+            "name an Earth-Engine-registered Cloud project, and this machine must "
+            "carry credentials at ~/.config/earthengine/credentials with the "
+            "earthengine and cloud-platform scopes. `probe_auth()` in this module "
+            "reports which of the two is missing without raising. Do not retry in "
+            "a loop."
         ) from exc
     # Was `if not quiet: print(...)`. ADR-103: which project a fetch went to is
     # a fact ABOUT the run, not the program's answer, and no caller ever passed
@@ -177,6 +181,18 @@ def probe_auth() -> dict[str, Any]:
         _ = ee.Number(1).getInfo()
         result["ok"] = True
     except Exception as exc:
+        # NOT a silent swallow: the evidence leaves through `result["error"]`,
+        # which the caller reads, and `ok` stays False. What was missing is the
+        # RUN's copy of it. A probe that fails leaves no line in the log, so a
+        # build that skipped Earth Engine work and a build that never tried are
+        # the same log, and the traceback - the only thing that separates "no
+        # credentials on this machine" from "the API is not enabled on this
+        # project" - was discarded at the boundary and never reconstructible.
+        logger.warning(
+            "Earth Engine readiness probe failed (%s); returning ok=False",
+            type(exc).__name__,
+            exc_info=True,
+        )
         result["error"] = f"{type(exc).__name__}: {exc}"
     return result
 

@@ -84,9 +84,12 @@ class LabelBuild:
 
         Written as a named variable rather than a channel-indexed 4-D array
         because C1's "float32 except fire_state uint8" cannot be expressed in a
-        single zarr array; see the layout PROPOSAL in
-        docs/decisions.md. ``channel_index: 0`` records where this
-        variable belongs once the full tensor is assembled.
+        single zarr array: one zarr array has one dtype. That is the two-variable
+        layout ratified as C1 in ``docs/interfaces.md``, which spells out
+        ``fire_state uint8 (time, y, x)`` beside ``features float32
+        (time, channel, y, x)`` and carries channels 1-13 in the second.
+        ``channel_index: 0`` records where this variable belongs once the full
+        tensor is assembled.
         """
         da = xr.DataArray(
             self.state,
@@ -170,29 +173,39 @@ def build_fire_state(
     state = apply_state_rule(perim_masks, rule=rule, fire_line_masks=line_masks)
 
     east = west = None
+    east_west_status: str | None = None
     if with_east_west_noise:
         try:
             east = GoferArchive(arch.root, "east").perimeters(fire_id)
             west = GoferArchive(arch.root, "west").perimeters(fire_id)
         except (FileNotFoundError, KeyError) as exc:
-            # ADR-103 (4). This fallback used to leave no trace, and what it
-            # removes is not cosmetic: without east and west,
-            # `fire_qa_report` simply omits `label_noise_east_west`, so the
-            # per-fire measurement behind R6 (GOFER-East systematically larger
-            # than West, 0.63 km mean centroid offset) VANISHES FROM THE QA
-            # REPORT with no key saying it was ever attempted. An absent key and
-            # a measured zero are not the same fact, and the model's observation
-            # noise is calibrated off exactly this number.
+            # ADR-103 (4), then D15. What this fallback removes is not cosmetic:
+            # without east and west there is no per-fire R6 measurement, and R6
+            # is GOFER-East being the larger perimeter in 90.1% of timesteps at a
+            # 1.6394 km mean centroid offset over the 28 fires in
+            # data/interim/_index/label_noise_east_west.json. That is the corpus
+            # label-noise floor, on a 1 km grid, and the model's observation
+            # noise is calibrated off exactly it.
+            # TWO copies of the fact are needed and D14 only added the first. The
+            # log line below is the RUN's copy and it does not travel with the
+            # manifest; `east_west_status` below is the ARTIFACT's copy, and it
+            # is what stops an absent key from being the only spelling of three
+            # different facts (never asked, asked and failed, measured as zero).
             logger.warning(
                 "%s: the east/west GOFER variants under %s did not open (%s: %s), so "
-                "label_noise_east_west will be ABSENT from this fire's QA report "
-                "rather than measured",
+                "label_noise_east_west is NOT MEASURED for this fire; the QA report "
+                "records the reason under label_noise_east_west_status",
                 fire_id,
                 arch.root,
                 type(exc).__name__,
                 exc,
             )
             east = west = None
+            # D15. The warning above is the RUN's copy. This is the ARTIFACT's:
+            # the handler routes its exception into `east`/`west`, which the
+            # caller reads, and a log line does not travel with the manifest.
+            # `fire_qa_report` now records the reason instead of omitting a key.
+            east_west_status = f"unavailable: {type(exc).__name__}: {exc}"
 
     meta = arch.lookup(fire_id)
     provenance: dict[str, Any] = {
@@ -223,6 +236,7 @@ def build_fire_state(
         grid=grid,
         east=east,
         west=west,
+        east_west_status=east_west_status,
         extra={"state_rule": rule},
     )
     return LabelBuild(
