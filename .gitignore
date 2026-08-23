@@ -23,6 +23,31 @@ env/
 # excluded, so `/data/` + `!/data/norm_stats.json` would silently not work.
 /data/*
 !/data/norm_stats.json
+
+# `data/interim/_index/label_noise_east_west.json` (17,238 bytes) is the file
+# `model/labelnoise.py` OPENS AT RUN TIME, and the only re-derivable source for
+# the two dataset means it publishes, `DATASET_CENTROID_OFFSET_KM = 1.64` and
+# `DATASET_RADIUS_MISMATCH_KM = 0.91`. Their comment block cited a coordination
+# file, which is excluded from this repository, so the provenance stopped at the
+# repository boundary, which is exactly where a reader stands. Tracked so both
+# constants are checkable by anyone who clones.
+# `tests/test_data_label_noise_index.py` re-derives them NUMERICALLY, never as
+# text. The stored values are 1.6393911... and 0.9126155..., so searching this
+# file for the literal `1.64` does not miss quietly: it matches
+# `"centroid_offset_km_mean": 1.641488`, which is one FIRE's value and not the
+# dataset mean at all. A wrong hit that reads like a right one.
+#
+# Re-including a NESTED file takes one negation per directory: `/data/*` above
+# already excludes `data/interim`, and git does not descend into an excluded
+# directory, so a lone `!/data/interim/_index/label_noise_east_west.json` would
+# match nothing and fail SILENTLY. Each level is opened, then re-closed, then
+# the one file is opened again.
+!/data/interim/
+/data/interim/*
+!/data/interim/_index/
+/data/interim/_index/*
+!/data/interim/_index/label_noise_east_west.json
+
 /outputs/
 *.mp4
 

@@ -37,7 +37,28 @@ from wildfire_nowcast.data.crossings import (
 )
 from wildfire_nowcast.data.ignitions import _min_gap_km
 
-__all__ = ["run_all"]
+__all__ = ["ARTIFACT_DEPENDENT", "artifact_present", "run_all"]
+
+#: The three checks that read ``data/events/crossings.json``. That artifact is
+#: NOT tracked, and each of these returns early when it is absent, so in a fresh
+#: clone all three report green having examined nothing. That is the same family
+#: as ``all([])``: a pass that carries no information, which is worse than a
+#: failure because it is indistinguishable from a real one.
+#:
+#: They are named here so a runner can report them as SKIPPED rather than as
+#: passed. The list is not trusted on its word: it is re-derived from this
+#: module's own source in ``tests/test_adopted_selftests.py``, which fails if a
+#: fourth artifact-reading check appears and is not added.
+ARTIFACT_DEPENDENT: tuple[str, ...] = (
+    "test_every_written_event_carries_a_block_and_a_fold",
+    "test_the_written_artifact_agrees_with_the_split_on_disk",
+    "test_the_written_totals_reconcile_with_the_written_events",
+)
+
+
+def artifact_present() -> bool:
+    """Whether the crossings index this module verifies exists on this disk."""
+    return crossings_path().exists()
 
 
 def _planted(gap_cells: int, n_cells: int, hours: int = 6) -> np.ndarray:

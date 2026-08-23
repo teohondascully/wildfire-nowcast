@@ -68,9 +68,10 @@ SEED_MERGE_KM = 2.25
 #: a spot. Fitted sample: 12 fires / 11 spatial blocks (C-3). The largest
 #: detached birth that DEMONSTRABLY merges with its predecessor is 14.14 km
 #: (CZU, h25) - i.e. we have direct evidence of genealogy out to 14 km and none
-#: beyond it. Rounded up to 15 km, which is also the bound recorded in
-#: insights/data.md item 27 before this rule existed. The corpus's only
-#: never-merging births are at 5.0/6.0 km (SCU, spots) and 46.1 km
+#: beyond it. Rounded up to 15 km, which is the same bound an earlier and
+#: independent read of the same corpus had already settled on, before there was
+#: a rule here to enforce it. The corpus's only never-merging births are at
+#: 5.0/6.0 km (SCU, spots) and 46.1 km
 #: (``2020_july_complex``, an ignition), so no value in [15, 46] changes any
 #: count either.
 SPOT_RANGE_MAX_KM = 15.0

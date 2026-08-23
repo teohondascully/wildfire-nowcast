@@ -188,7 +188,8 @@ def _hourly_confidence_image(side_choice: SatelliteChoice, start: datetime, n_ho
 
     Built with a server-side ``ee.List.sequence().map`` rather than a Python
     loop: a client-side loop over hundreds of bands raises ``RecursionError``
-    inside ``ee.serializer`` before a request is ever sent (insights item 15).
+    inside ``ee.serializer`` before a request is ever sent, so the failure looks
+    like a local bug rather than a quota or an auth problem.
     """
     ee = initialize_ee()
     coll = ee.ImageCollection(side_choice.collection_id).select("Mask")

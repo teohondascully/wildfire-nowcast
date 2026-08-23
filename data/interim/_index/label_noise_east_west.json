@@ -1,0 +1,548 @@
+{
+  "per_fire": {
+    "2021_antelope": {
+      "n_east_timesteps": 937,
+      "n_west_timesteps": 942,
+      "n_common_timesteps": 937,
+      "iou_mean": 0.693821,
+      "iou_p05": 0.45775,
+      "iou_min": 0.239478,
+      "centroid_offset_km_mean": 1.757852,
+      "centroid_offset_km_p90": 2.052874,
+      "centroid_offset_km_max": 2.671023,
+      "centroid_offset_vector_km": [
+        -1.498018,
+        0.898032
+      ],
+      "equiv_radius_mismatch_km_mean": 0.843256,
+      "equiv_radius_mismatch_km_p90": 1.098491,
+      "equiv_radius_mismatch_km_max": 2.127756,
+      "east_larger_fraction": 0.973319
+    },
+    "2020_august_complex": {
+      "n_east_timesteps": 1297,
+      "n_west_timesteps": 1465,
+      "n_common_timesteps": 1297,
+      "iou_mean": 0.786127,
+      "iou_p05": 0.681945,
+      "iou_min": 0.06891,
+      "centroid_offset_km_mean": 1.502864,
+      "centroid_offset_km_p90": 1.790192,
+      "centroid_offset_km_max": 6.93994,
+      "centroid_offset_vector_km": [
+        -0.686725,
+        0.143265
+      ],
+      "equiv_radius_mismatch_km_mean": 1.331659,
+      "equiv_radius_mismatch_km_p90": 1.919934,
+      "equiv_radius_mismatch_km_max": 2.407849,
+      "east_larger_fraction": 1.0
+    },
+    "2021_beckwourth_complex": {
+      "n_east_timesteps": 844,
+      "n_west_timesteps": 616,
+      "n_common_timesteps": 616,
+      "iou_mean": 0.584684,
+      "iou_p05": 0.364634,
+      "iou_min": 0.249223,
+      "centroid_offset_km_mean": 2.265535,
+      "centroid_offset_km_p90": 2.744571,
+      "centroid_offset_km_max": 3.23915,
+      "centroid_offset_vector_km": [
+        -1.746669,
+        0.462982
+      ],
+      "equiv_radius_mismatch_km_mean": 1.691432,
+      "equiv_radius_mismatch_km_p90": 2.363958,
+      "equiv_radius_mismatch_km_max": 2.5869,
+      "east_larger_fraction": 0.840909
+    },
+    "2020_bobcat": {
+      "n_east_timesteps": 433,
+      "n_west_timesteps": 433,
+      "n_common_timesteps": 433,
+      "iou_mean": 0.729963,
+      "iou_p05": 0.5692,
+      "iou_min": 0.426397,
+      "centroid_offset_km_mean": 0.488179,
+      "centroid_offset_km_p90": 0.751312,
+      "centroid_offset_km_max": 1.297094,
+      "centroid_offset_vector_km": [
+        -0.290659,
+        0.171732
+      ],
+      "equiv_radius_mismatch_km_mean": 0.960082,
+      "equiv_radius_mismatch_km_p90": 1.31123,
+      "equiv_radius_mismatch_km_max": 1.567049,
+      "east_larger_fraction": 1.0
+    },
+    "2020_czu_lightning_complex": {
+      "n_east_timesteps": 68,
+      "n_west_timesteps": 174,
+      "n_common_timesteps": 68,
+      "iou_mean": 0.499446,
+      "iou_p05": 0.0,
+      "iou_min": 0.0,
+      "centroid_offset_km_mean": 5.522207,
+      "centroid_offset_km_p90": 16.23579,
+      "centroid_offset_km_max": 16.236599,
+      "centroid_offset_vector_km": [
+        -1.80723,
+        -4.73424
+      ],
+      "equiv_radius_mismatch_km_mean": 0.203754,
+      "equiv_radius_mismatch_km_p90": 0.367161,
+      "equiv_radius_mismatch_km_max": 0.657646,
+      "east_larger_fraction": 0.544118
+    },
+    "2021_caldor": {
+      "n_east_timesteps": 620,
+      "n_west_timesteps": 569,
+      "n_common_timesteps": 569,
+      "iou_mean": 0.773418,
+      "iou_p05": 0.575284,
+      "iou_min": 0.329725,
+      "centroid_offset_km_mean": 0.656985,
+      "centroid_offset_km_p90": 1.290417,
+      "centroid_offset_km_max": 2.086311,
+      "centroid_offset_vector_km": [
+        0.011705,
+        0.012851
+      ],
+      "equiv_radius_mismatch_km_mean": 0.674797,
+      "equiv_radius_mismatch_km_p90": 0.870809,
+      "equiv_radius_mismatch_km_max": 1.583062,
+      "east_larger_fraction": 0.966608
+    },
+    "2020_creek": {
+      "n_east_timesteps": 1454,
+      "n_west_timesteps": 1574,
+      "n_common_timesteps": 1454,
+      "iou_mean": 0.823162,
+      "iou_p05": 0.799858,
+      "iou_min": 0.071465,
+      "centroid_offset_km_mean": 1.764049,
+      "centroid_offset_km_p90": 2.062585,
+      "centroid_offset_km_max": 3.39062,
+      "centroid_offset_vector_km": [
+        -1.062474,
+        1.309198
+      ],
+      "equiv_radius_mismatch_km_mean": 0.564639,
+      "equiv_radius_mismatch_km_p90": 0.76872,
+      "equiv_radius_mismatch_km_max": 1.981012,
+      "east_larger_fraction": 0.997937
+    },
+    "2021_dixie": {
+      "n_east_timesteps": 1388,
+      "n_west_timesteps": 1393,
+      "n_common_timesteps": 1388,
+      "iou_mean": 0.739363,
+      "iou_p05": 0.437691,
+      "iou_min": 0.217319,
+      "centroid_offset_km_mean": 1.366858,
+      "centroid_offset_km_p90": 2.483388,
+      "centroid_offset_km_max": 2.777454,
+      "centroid_offset_vector_km": [
+        -1.138857,
+        -0.164036
+      ],
+      "equiv_radius_mismatch_km_mean": 2.320744,
+      "equiv_radius_mismatch_km_p90": 2.986899,
+      "equiv_radius_mismatch_km_max": 5.330199,
+      "east_larger_fraction": 1.0
+    },
+    "2020_dolan": {
+      "n_east_timesteps": 694,
+      "n_west_timesteps": 696,
+      "n_common_timesteps": 694,
+      "iou_mean": 0.7501,
+      "iou_p05": 0.600646,
+      "iou_min": 0.231867,
+      "centroid_offset_km_mean": 0.745612,
+      "centroid_offset_km_p90": 1.300025,
+      "centroid_offset_km_max": 2.216564,
+      "centroid_offset_vector_km": [
+        -0.252609,
+        -0.516275
+      ],
+      "equiv_radius_mismatch_km_mean": 0.261444,
+      "equiv_radius_mismatch_km_p90": 0.505671,
+      "equiv_radius_mismatch_km_max": 1.025157,
+      "east_larger_fraction": 0.263689
+    },
+    "2020_glass": {
+      "n_east_timesteps": 189,
+      "n_west_timesteps": 152,
+      "n_common_timesteps": 152,
+      "iou_mean": 0.68624,
+      "iou_p05": 0.374427,
+      "iou_min": 0.034574,
+      "centroid_offset_km_mean": 0.538091,
+      "centroid_offset_km_p90": 1.368396,
+      "centroid_offset_km_max": 2.881032,
+      "centroid_offset_vector_km": [
+        0.091181,
+        0.205209
+      ],
+      "equiv_radius_mismatch_km_mean": 0.865529,
+      "equiv_radius_mismatch_km_p90": 1.421385,
+      "equiv_radius_mismatch_km_max": 2.217515,
+      "east_larger_fraction": 1.0
+    },
+    "2020_july_complex": {
+      "n_east_timesteps": 198,
+      "n_west_timesteps": 162,
+      "n_common_timesteps": 162,
+      "iou_mean": 0.564619,
+      "iou_p05": 0.184216,
+      "iou_min": 0.053227,
+      "centroid_offset_km_mean": 3.477975,
+      "centroid_offset_km_p90": 5.28234,
+      "centroid_offset_km_max": 15.963274,
+      "centroid_offset_vector_km": [
+        -1.498584,
+        2.874243
+      ],
+      "equiv_radius_mismatch_km_mean": 0.349173,
+      "equiv_radius_mismatch_km_p90": 0.860631,
+      "equiv_radius_mismatch_km_max": 1.446018,
+      "east_larger_fraction": 0.679012
+    },
+    "2021_knp_complex": {
+      "n_east_timesteps": 599,
+      "n_west_timesteps": 633,
+      "n_common_timesteps": 599,
+      "iou_mean": 0.660057,
+      "iou_p05": 0.317927,
+      "iou_min": 0.107986,
+      "centroid_offset_km_mean": 1.247101,
+      "centroid_offset_km_p90": 1.985258,
+      "centroid_offset_km_max": 2.743576,
+      "centroid_offset_vector_km": [
+        -0.314166,
+        1.015003
+      ],
+      "equiv_radius_mismatch_km_mean": 0.692477,
+      "equiv_radius_mismatch_km_p90": 1.292972,
+      "equiv_radius_mismatch_km_max": 1.547396,
+      "east_larger_fraction": 0.991653
+    },
+    "2019_kincade": {
+      "n_east_timesteps": 120,
+      "n_west_timesteps": 134,
+      "n_common_timesteps": 120,
+      "iou_mean": 0.67778,
+      "iou_p05": 0.483426,
+      "iou_min": 0.386955,
+      "centroid_offset_km_mean": 0.630021,
+      "centroid_offset_km_p90": 0.894089,
+      "centroid_offset_km_max": 1.007323,
+      "centroid_offset_vector_km": [
+        -0.401117,
+        -0.017323
+      ],
+      "equiv_radius_mismatch_km_mean": 1.096903,
+      "equiv_radius_mismatch_km_p90": 1.610938,
+      "equiv_radius_mismatch_km_max": 2.156962,
+      "east_larger_fraction": 1.0
+    },
+    "2020_lnu_lightning_complex": {
+      "n_east_timesteps": 270,
+      "n_west_timesteps": 268,
+      "n_common_timesteps": 268,
+      "iou_mean": 0.739482,
+      "iou_p05": 0.353867,
+      "iou_min": 0.192267,
+      "centroid_offset_km_mean": 3.078382,
+      "centroid_offset_km_p90": 3.633323,
+      "centroid_offset_km_max": 9.772882,
+      "centroid_offset_vector_km": [
+        2.549084,
+        -0.842993
+      ],
+      "equiv_radius_mismatch_km_mean": 0.482139,
+      "equiv_radius_mismatch_km_p90": 0.91551,
+      "equiv_radius_mismatch_km_max": 2.481882,
+      "east_larger_fraction": 0.675373
+    },
+    "2021_mccash": {
+      "n_east_timesteps": 1259,
+      "n_west_timesteps": 1297,
+      "n_common_timesteps": 1259,
+      "iou_mean": 0.607351,
+      "iou_p05": 0.3769,
+      "iou_min": 0.003526,
+      "centroid_offset_km_mean": 1.375618,
+      "centroid_offset_km_p90": 1.812172,
+      "centroid_offset_km_max": 3.66463,
+      "centroid_offset_vector_km": [
+        -0.299369,
+        0.001411
+      ],
+      "equiv_radius_mismatch_km_mean": 0.930271,
+      "equiv_radius_mismatch_km_p90": 1.433346,
+      "equiv_radius_mismatch_km_max": 2.422504,
+      "east_larger_fraction": 1.0
+    },
+    "2021_mcfarland": {
+      "n_east_timesteps": 636,
+      "n_west_timesteps": 637,
+      "n_common_timesteps": 636,
+      "iou_mean": 0.733453,
+      "iou_p05": 0.521451,
+      "iou_min": 0.239159,
+      "centroid_offset_km_mean": 1.051871,
+      "centroid_offset_km_p90": 1.515392,
+      "centroid_offset_km_max": 2.844597,
+      "centroid_offset_vector_km": [
+        -0.607767,
+        0.69865
+      ],
+      "equiv_radius_mismatch_km_mean": 0.418917,
+      "equiv_radius_mismatch_km_p90": 0.816873,
+      "equiv_radius_mismatch_km_max": 1.440877,
+      "east_larger_fraction": 0.570755
+    },
+    "2021_monument": {
+      "n_east_timesteps": 1148,
+      "n_west_timesteps": 1168,
+      "n_common_timesteps": 1148,
+      "iou_mean": 0.79209,
+      "iou_p05": 0.562126,
+      "iou_min": 0.347847,
+      "centroid_offset_km_mean": 0.859078,
+      "centroid_offset_km_p90": 1.297965,
+      "centroid_offset_km_max": 2.018735,
+      "centroid_offset_vector_km": [
+        -0.603493,
+        0.129303
+      ],
+      "equiv_radius_mismatch_km_mean": 0.618469,
+      "equiv_radius_mismatch_km_p90": 1.132219,
+      "equiv_radius_mismatch_km_max": 2.152387,
+      "east_larger_fraction": 0.835366
+    },
+    "2020_north_complex": {
+      "n_east_timesteps": 1076,
+      "n_west_timesteps": 1083,
+      "n_common_timesteps": 1075,
+      "iou_mean": 0.692025,
+      "iou_p05": 0.427383,
+      "iou_min": 0.172958,
+      "centroid_offset_km_mean": 4.016936,
+      "centroid_offset_km_p90": 7.77185,
+      "centroid_offset_km_max": 30.387708,
+      "centroid_offset_vector_km": [
+        -3.822854,
+        -1.04396
+      ],
+      "equiv_radius_mismatch_km_mean": 1.743022,
+      "equiv_radius_mismatch_km_p90": 2.490181,
+      "equiv_radius_mismatch_km_max": 3.30945,
+      "east_larger_fraction": 1.0
+    },
+    "2020_red_salmon_complex": {
+      "n_east_timesteps": 1778,
+      "n_west_timesteps": 1728,
+      "n_common_timesteps": 1728,
+      "iou_mean": 0.614768,
+      "iou_p05": 0.311101,
+      "iou_min": 0.193824,
+      "centroid_offset_km_mean": 1.730681,
+      "centroid_offset_km_p90": 2.483353,
+      "centroid_offset_km_max": 4.141222,
+      "centroid_offset_vector_km": [
+        -1.525436,
+        0.632389
+      ],
+      "equiv_radius_mismatch_km_mean": 0.87348,
+      "equiv_radius_mismatch_km_p90": 1.27176,
+      "equiv_radius_mismatch_km_max": 1.884101,
+      "east_larger_fraction": 1.0
+    },
+    "2021_river_complex": {
+      "n_east_timesteps": 1353,
+      "n_west_timesteps": 1145,
+      "n_common_timesteps": 1145,
+      "iou_mean": 0.682343,
+      "iou_p05": 0.449787,
+      "iou_min": 0.154881,
+      "centroid_offset_km_mean": 1.848679,
+      "centroid_offset_km_p90": 2.727326,
+      "centroid_offset_km_max": 16.714815,
+      "centroid_offset_vector_km": [
+        -1.228815,
+        0.984799
+      ],
+      "equiv_radius_mismatch_km_mean": 0.970263,
+      "equiv_radius_mismatch_km_p90": 1.371546,
+      "equiv_radius_mismatch_km_max": 2.432711,
+      "east_larger_fraction": 0.986026
+    },
+    "2020_scu_lightning_complex": {
+      "n_east_timesteps": 346,
+      "n_west_timesteps": 345,
+      "n_common_timesteps": 344,
+      "iou_mean": 0.774143,
+      "iou_p05": 0.302949,
+      "iou_min": 0.0,
+      "centroid_offset_km_mean": 1.724193,
+      "centroid_offset_km_p90": 3.149213,
+      "centroid_offset_km_max": 30.70325,
+      "centroid_offset_vector_km": [
+        -0.450688,
+        0.807695
+      ],
+      "equiv_radius_mismatch_km_mean": 0.364273,
+      "equiv_radius_mismatch_km_p90": 0.929832,
+      "equiv_radius_mismatch_km_max": 2.887371,
+      "east_larger_fraction": 0.94186
+    },
+    "2020_sqf_complex": {
+      "n_east_timesteps": 1123,
+      "n_west_timesteps": 1152,
+      "n_common_timesteps": 1123,
+      "iou_mean": 0.76135,
+      "iou_p05": 0.582921,
+      "iou_min": 0.307562,
+      "centroid_offset_km_mean": 0.869968,
+      "centroid_offset_km_p90": 1.145901,
+      "centroid_offset_km_max": 1.423512,
+      "centroid_offset_vector_km": [
+        -0.001647,
+        0.674401
+      ],
+      "equiv_radius_mismatch_km_mean": 0.724166,
+      "equiv_radius_mismatch_km_p90": 1.212214,
+      "equiv_radius_mismatch_km_max": 1.865785,
+      "east_larger_fraction": 0.99911
+    },
+    "2020_slater_and_devil": {
+      "n_east_timesteps": 232,
+      "n_west_timesteps": 326,
+      "n_common_timesteps": 232,
+      "iou_mean": 0.693773,
+      "iou_p05": 0.659492,
+      "iou_min": 0.447809,
+      "centroid_offset_km_mean": 1.466088,
+      "centroid_offset_km_p90": 1.68503,
+      "centroid_offset_km_max": 2.408038,
+      "centroid_offset_vector_km": [
+        -0.316952,
+        -1.204724
+      ],
+      "equiv_radius_mismatch_km_mean": 1.744957,
+      "equiv_radius_mismatch_km_p90": 2.129253,
+      "equiv_radius_mismatch_km_max": 2.330648,
+      "east_larger_fraction": 0.99569
+    },
+    "2021_tamarack": {
+      "n_east_timesteps": 504,
+      "n_west_timesteps": 503,
+      "n_common_timesteps": 503,
+      "iou_mean": 0.601128,
+      "iou_p05": 0.54648,
+      "iou_min": 0.27668,
+      "centroid_offset_km_mean": 0.662128,
+      "centroid_offset_km_p90": 0.708026,
+      "centroid_offset_km_max": 8.888912,
+      "centroid_offset_vector_km": [
+        0.355855,
+        0.243032
+      ],
+      "equiv_radius_mismatch_km_mean": 0.859285,
+      "equiv_radius_mismatch_km_p90": 1.496623,
+      "equiv_radius_mismatch_km_max": 2.082389,
+      "east_larger_fraction": 1.0
+    },
+    "2020_w_5_cold_springs": {
+      "n_east_timesteps": 264,
+      "n_west_timesteps": 264,
+      "n_common_timesteps": 264,
+      "iou_mean": 0.645752,
+      "iou_p05": 0.616415,
+      "iou_min": 0.232221,
+      "centroid_offset_km_mean": 1.641488,
+      "centroid_offset_km_p90": 2.331353,
+      "centroid_offset_km_max": 2.422361,
+      "centroid_offset_vector_km": [
+        -1.369543,
+        0.783047
+      ],
+      "equiv_radius_mismatch_km_mean": 0.745912,
+      "equiv_radius_mismatch_km_p90": 1.019543,
+      "equiv_radius_mismatch_km_max": 1.621758,
+      "east_larger_fraction": 1.0
+    },
+    "2019_walker": {
+      "n_east_timesteps": 191,
+      "n_west_timesteps": 193,
+      "n_common_timesteps": 191,
+      "iou_mean": 0.644285,
+      "iou_p05": 0.269545,
+      "iou_min": 0.005663,
+      "centroid_offset_km_mean": 0.961816,
+      "centroid_offset_km_p90": 1.280039,
+      "centroid_offset_km_max": 3.277221,
+      "centroid_offset_vector_km": [
+        -0.8016,
+        0.021964
+      ],
+      "equiv_radius_mismatch_km_mean": 0.892311,
+      "equiv_radius_mismatch_km_p90": 1.920488,
+      "equiv_radius_mismatch_km_max": 1.920488,
+      "east_larger_fraction": 1.0
+    },
+    "2021_windy": {
+      "n_east_timesteps": 577,
+      "n_west_timesteps": 623,
+      "n_common_timesteps": 577,
+      "iou_mean": 0.713414,
+      "iou_p05": 0.577248,
+      "iou_min": 0.505152,
+      "centroid_offset_km_mean": 0.805076,
+      "centroid_offset_km_p90": 1.040554,
+      "centroid_offset_km_max": 1.331188,
+      "centroid_offset_vector_km": [
+        -0.548642,
+        0.237602
+      ],
+      "equiv_radius_mismatch_km_mean": 0.676596,
+      "equiv_radius_mismatch_km_p90": 1.02776,
+      "equiv_radius_mismatch_km_max": 1.592608,
+      "east_larger_fraction": 0.967071
+    },
+    "2020_zogg": {
+      "n_east_timesteps": 46,
+      "n_west_timesteps": 71,
+      "n_common_timesteps": 46,
+      "iou_mean": 0.563649,
+      "iou_p05": 0.413762,
+      "iou_min": 0.175877,
+      "centroid_offset_km_mean": 1.847621,
+      "centroid_offset_km_p90": 2.92166,
+      "centroid_offset_km_max": 3.473218,
+      "centroid_offset_vector_km": [
+        1.013629,
+        1.328463
+      ],
+      "equiv_radius_mismatch_km_mean": 1.653283,
+      "equiv_radius_mismatch_km_p90": 2.365938,
+      "equiv_radius_mismatch_km_max": 2.761103,
+      "east_larger_fraction": 1.0
+    }
+  },
+  "dataset_mean": {
+    "iou_mean": 0.6867066428571429,
+    "centroid_offset_km_mean": 1.6393911428571428,
+    "equiv_radius_mismatch_km_mean": 0.9126154642857143,
+    "equiv_radius_mismatch_km_p90": 1.3897101785714283,
+    "east_larger_fraction": 0.9010177142857144,
+    "centroid_offset_vector_km_mean": [
+      -0.6518735714285714,
+      0.18256142857142857
+    ],
+    "equiv_radius_mismatch_km_max_over_fires": 5.330199
+  }
+}

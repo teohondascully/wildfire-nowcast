@@ -98,8 +98,10 @@ from wildfire_nowcast.common.zarr_io import open_tensor
 from wildfire_nowcast.data.assemble import ChannelBundle, write_fire_tensor
 
 # The adjudicated binary rule and the nesting decomposition it is built on.
-# Imported rather than re-implemented (C0). ``_blocks`` is private and there is
-# no public float block-mean; see the module note in the status entry.
+# Imported rather than re-implemented (C0). ``_blocks`` is private and `sim`
+# exposes no public float block-mean, so this module reaches for the private
+# name deliberately: a second copy of the decomposition is the one thing C0
+# exists to prevent, and importing across the fence is the smaller cost.
 from wildfire_nowcast.sim.coarsen import (
     OCCUPANCY_THRESHOLD,
     _blocks,

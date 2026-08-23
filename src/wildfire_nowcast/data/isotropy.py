@@ -1268,8 +1268,11 @@ def build_report(*, verbose: bool = False) -> dict[str, Any]:
             "RTMA is 10 m MEAN wind at 2.5 km resampled to 1 km, sampled at the "
             "ANCHOR cell. Ember transport is plume- and gust-driven, so the wind "
             "covariate is a weak proxy in both directions.",
-            "GOFER's own East/West label disagreement is a mean 0.63 km centroid "
-            "offset that is SYSTEMATIC, not symmetric (insights item 4 / R6). A "
+            "GOFER's own East/West label disagreement is a centroid offset that is "
+            "SYSTEMATIC, not symmetric. Dataset-wide it is 1.64 km over 28 fires; "
+            "0.63 km is 2019_kincade alone, which is the number this caveat used "
+            "to quote as though it were the dataset, understating the label noise "
+            "2.6x. Per fire in data/interim/_index/label_noise_east_west.json. A "
             "systematic label bias is a directional error source that the "
             "isotropy premise does not cover.",
             "Cosine is scored per BODY, and 1-cell bodies at gap 2.0 km can take "
