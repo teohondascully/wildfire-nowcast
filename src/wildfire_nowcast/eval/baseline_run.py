@@ -1197,11 +1197,16 @@ def g3_summary(
             abl_disp = abl_row.get("band_area_dispersion_ratio")
             # [M9, maintainer directive 2026-08-09] **AN ABLATION CANNOT
             # DEMONSTRATE COLLAPSE IN AN ARM THAT HAD NO DISPERSION TO LOSE.**
-            # Measured across 25 arms: 16 separate at 3.7-7.8x, and the other 9
-            # move 1.1-1.6x and were ALREADY below 0.29 - so their clause (d)
-            # "evidence" is a comparison between two ensembles that both fail the
-            # dispersion bar outright. This flag says so; it does NOT change
-            # clause (d), which is the maintainer's.
+            # Measured across 25 arms, ON `band_area_dispersion_ratio`, WHICH IS
+            # THE 1-3 h BAND POOLED AND NOT A PER-LEAD NUMBER (ADR-114 (d); there
+            # is no `area_dispersion_ratio_by_horizon` in this tree, unlike the
+            # other two G2/G3 criteria, so these magnitudes cannot be split by
+            # lead and the pooled reading is the only one that exists): 16
+            # separate at 3.7-7.8x, and the other 9 move 1.1-1.6x and were
+            # ALREADY below 0.29 - so their clause (d) "evidence" is a comparison
+            # between two ensembles that both fail the dispersion bar outright.
+            # This flag says so; it does NOT change clause (d), which is the
+            # maintainer's.
             # C-3: the threshold is NOT a new fitted constant. It is the gate's
             # own pre-registered bar (`common.dispersion.BAR_INTERVAL[0]`), so
             # nothing here was calibrated on any arm's result.

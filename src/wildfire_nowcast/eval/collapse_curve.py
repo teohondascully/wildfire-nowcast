@@ -13,15 +13,22 @@ by pixel while their total burned areas do not, and the ensemble carries no
 usable spread. It is also measured, on this repository's own arms: removing the
 shared latent narrows the ensemble by 3.7 to 7.8 times on 16 of 25 arms, and by
 1.1 to 1.6 times on the other nine, which had almost no dispersion left to
-lose. README.md states the same commitment publicly and carries those numbers.
+lose. **THOSE TWO RANGES ARE C6 ``band_area_dispersion_ratio``, WHICH IS THE
+1-3 h BAND POOLED**, not the index below and not a per-lead figure; the tree
+holds no per-lead sibling for that criterion, so no narrower reading of them
+exists. README.md states the same commitment publicly and carries those
+numbers.
 
 THIS FILE CARRIES THE DIRECT MEASUREMENT OF IT, SO IT POINTS NOWHERE FOR IT
 ---------------------------------------------------------------------------
 The INSTRUMENT is controlled before it is used as a control. On a field that is
-independent BY CONSTRUCTION the index reads 1.0338, 1.0052, 1.0109, 1.0106,
-0.9936 at 24, 48, 96, 192, 384 members, with the seed spread falling 0.1215 to
-0.0429, and 0.9674 at 24 members over 200 seeds, judged COLLAPSED in 200 of 200
-draws. Without that reading, an index above 1.0 could mean a broken estimator
+independent BY CONSTRUCTION, AT ONE LEAD STEP, the index reads 1.0338, 1.0052,
+1.0109, 1.0106, 0.9936 at 24, 48, 96, 192, 384 members, with the seed spread
+falling 0.1215 to 0.0429, and 0.9674 at 24 members over 200 seeds, judged
+COLLAPSED in 200 of 200 draws. One lead step is the whole of that field's
+history and the only horizon it has, and saying so is not pedantry here: it is
+the one variable that separates these readings from the multi-step ones below.
+Without that reading, an index above 1.0 could mean a broken estimator
 just as easily as a correlated field, and nothing below could tell the two
 apart.
 

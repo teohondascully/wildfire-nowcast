@@ -36,7 +36,7 @@ import sys
 import tempfile as _tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 import numpy as np
 
@@ -272,8 +272,13 @@ def check_collapse_is_invisible_to_dispersion_ratio() -> Check:
        bookkeeping term, NOT a signal. It is asserted to shrink like 1/M rather
        than absorbed into a tolerance, because a tolerance wide enough to hide
        it at M=20 would also hide a real effect.
-    3. ``area_dispersion_ratio`` separates them by ~100x, and is the number the
-       G3 ablation must actually be judged on.
+    3. ``area_dispersion_ratio`` separates them by ~100x AT ONE LEAD STEP
+       (``_collapse_pair`` scores ``leads=(1,)``), and is the number the G3
+       ablation must actually be judged on. Measured: 106.4x at M=20 and 99.1x
+       at M=200, which is where ``docs/interfaces.md`` C6.1's ~106x comes from.
+       The body below asserts the weaker ``> 50x`` on purpose, so the check pins
+       a SEPARATION and does not become a regression test on a two-digit
+       constant; the ~100x is the reading, the 50x is the commitment.
 
     HISTORY - the failure this check survived, kept because the reasoning
     recurs. The first version scored both arms against an iid per-pixel
@@ -577,11 +582,12 @@ def check_kernel_ensemble_collapses_in_area() -> Check:
     """
     from wildfire_nowcast.model.kernel import ContagionKernel
 
+    horizon_h, n_members = 6, 24
     x0, static, weather = _toy_scene(wind_u=14.0)
-    samples = ContagionKernel().predict(x0, static, weather, 24, 6, 0)
+    samples = ContagionKernel().predict(x0, static, weather, n_members, horizon_h, 0)
     areas = (samples[:, -1] > 0).sum(axis=(1, 2)).astype(float)
     cv = float(areas.std(ddof=1) / max(areas.mean(), 1e-9))
-    ellipse = EllipseBaseline().predict(x0, static, weather, 24, 6, 0)
+    ellipse = EllipseBaseline().predict(x0, static, weather, n_members, horizon_h, 0)
     ellipse_areas = (ellipse[:, -1] > 0).sum(axis=(1, 2)).astype(float)
     ellipse_cv = float(ellipse_areas.std(ddof=1) / max(ellipse_areas.mean(), 1e-9))
     ok = cv < ellipse_cv
@@ -589,8 +595,14 @@ def check_kernel_ensemble_collapses_in_area() -> Check:
         "kernel_ensemble_collapses_in_area",
         ok,
         "independent-per-pixel members have LESS area spread than shared-innovation "
-        "members — the collapse G3 must fix with z_t",
-        {"kernel_area_cv": cv, "ellipse_area_cv": ellipse_cv},
+        f"members at lead {horizon_h} h over {n_members} members — the collapse G3 "
+        "must fix with z_t",
+        {
+            "kernel_area_cv": cv,
+            "ellipse_area_cv": ellipse_cv,
+            "horizon_h": horizon_h,
+            "n_members": n_members,
+        },
     )
 
 
@@ -1184,6 +1196,30 @@ def check_shared_latent_is_constant_across_pixels() -> Check:
     )
 
 
+#: [M21] The bar, the horizon, the member count and the seed of the ablation
+#: SD-ratio check below, hoisted out of the call so they can be READ instead of
+#: restated. ADR-114 (d) requires every collapse verdict to publish its horizon,
+#: and this one decided a gate-path check for weeks without recording it: at
+#: this scene and seed the ratio reads 0.922, 1.410, 1.460, 1.488, 2.690, 6.517
+#: at leads 1 to 6, so it clears 1.5 at leads 5 and 6 and NOWHERE ELSE. One
+#: integer in this constant is the difference between green and red.
+#:
+#: **THE BAR IS NOT DERIVED HERE AND NEVER WAS.** The docstring below derives
+#: the DIRECTION (independent noise averages out, so the quotient must exceed 1
+#: and grow with the fire) and no magnitude at all. 1.5 is also the value of
+#: ``sim/ensemble.py``'s ``COLLAPSE_INDEX_THRESHOLD``, which is a bar on a
+#: DIFFERENT quantity - an empirical spread over a THEORETICAL one, whose null
+#: is 1.0 by algebra - and this one is a quotient of two EMPIRICAL spreads.
+#: :mod:`wildfire_nowcast.eval.collapse_bars` measures what 1.5 is worth here:
+#: it is about the 99th percentile of this instrument's own null at leads 1 to
+#: 4 and about the 72nd at lead 6. **The bar is NOT MOVED here**; moving it
+#: changes a gate-path verdict and is the maintainer's call, not this module's.
+ABLATION_SD_RATIO_BAR: Final[float] = 1.5
+ABLATION_SD_RATIO_HORIZON_H: Final[int] = 6
+ABLATION_SD_RATIO_MEMBERS: Final[int] = 32
+ABLATION_SD_RATIO_SEED: Final[int] = 4
+
+
 def check_independent_noise_ablation_collapses_in_area() -> Check:
     """[M5] G3 (d): the independent-per-pixel ablation must DEMONSTRATE collapse.
 
@@ -1196,25 +1232,228 @@ def check_independent_noise_ablation_collapses_in_area() -> Check:
     burned cells: independent Bernoulli noise over ``N`` cells gives area spread
     ``O(sqrt(N))`` against a mean ``O(N)``, so it must shrink relative to a
     shared-innovation ensemble as the fire gets bigger.
+
+    [M21] **THE HORIZON IS PART OF THE VERDICT AND IS NOW IN THE RECORD.** The
+    argument above is about a quotient of two spreads, and unlike
+    ``independence_dispersion_index`` its NULL IS 1.0 AT EVERY LEAD: multi-step
+    contagion inflates both arms and cancels in the quotient, which is measured
+    at medians 1.000, 0.972, 0.991, 0.992, 1.008, 0.998 with the latent off on
+    both arms. What is NOT lead-invariant is the tail, because the ablation
+    arm's area SD is the DENOMINATOR and it falls as the fire decelerates
+    (0.843, 1.254, 1.419, 1.551, 1.139, 0.486 on this scene). Over 400 no-latent
+    replications the fraction clearing 1.5 runs 0.0%, 1.5%, 2.5%, 0.8%, 5.2%,
+    **28.2%** at leads 1 to 6. This check runs at lead 6. Every lead is emitted
+    below so a reader can see which one decided.
+
+    **A ZERO DENOMINATOR IS NO LONGER A PASS.** ``max(sd, 1e-9)`` turned an
+    ablation ensemble with no measurable spread into a ratio of order 1e9, which
+    read as the most emphatic collapse the instrument can report. It fired that
+    way in 5 of those 400 no-latent replications, all at lead 6, and it is not a
+    pass in disguise: **seeds 97, 102, 233, 309 and 358 are degenerate under the
+    TREATMENT and under the NULL alike**, because a zero denominator is a
+    property of 32 members on a fire whose last step adds 0.68 cells, not
+    evidence about ``z_t``. It cannot fire at the shipped seed, where the
+    ablation SD is 0.803, so this is a latent case made loud rather than an
+    observed failure repaired.
     """
     from wildfire_nowcast.model.kernel import ContagionKernel, KernelConfig
     from wildfire_nowcast.model.latent import LatentConfig
 
     x0, static, weather = _toy_scene(wind_u=12.0)
     model = ContagionKernel(KernelConfig(), latent_config=LatentConfig(dim=3))
-    out = {}
-    for mode in ("latent", "independent"):
-        samples = model.with_sampler(mode).predict(x0, static, weather, 32, 6, 4)
-        new = ((samples[:, -1] > 0) & (x0[None] == 0)).sum(axis=(1, 2)).astype(float)
-        out[mode] = {"mean": float(new.mean()), "sd": float(new.std(ddof=1))}
-    ratio = out["latent"]["sd"] / max(out["independent"]["sd"], 1e-9)
-    ok = ratio > 1.5
+    samples = {
+        mode: model.with_sampler(mode).predict(
+            x0,
+            static,
+            weather,
+            ABLATION_SD_RATIO_MEMBERS,
+            ABLATION_SD_RATIO_HORIZON_H,
+            ABLATION_SD_RATIO_SEED,
+        )
+        for mode in ("latent", "independent")
+    }
+
+    def _new_cells(arr: np.ndarray, lead: int) -> np.ndarray:
+        return ((arr[:, lead] > 0) & (x0[None] == 0)).sum(axis=(1, 2)).astype(float)
+
+    by_lead = {}
+    for lead in range(ABLATION_SD_RATIO_HORIZON_H):
+        sd_latent = float(_new_cells(samples["latent"], lead).std(ddof=1))
+        sd_independent = float(_new_cells(samples["independent"], lead).std(ddof=1))
+        by_lead[lead + 1] = {
+            "sd_latent": sd_latent,
+            "sd_independent": sd_independent,
+            "sd_ratio": sd_latent / max(sd_independent, 1e-9),
+            "denominator_measurable": sd_independent > 0.0,
+        }
+
+    out = {
+        mode: {
+            "mean": float(_new_cells(arr, ABLATION_SD_RATIO_HORIZON_H - 1).mean()),
+            "sd": float(_new_cells(arr, ABLATION_SD_RATIO_HORIZON_H - 1).std(ddof=1)),
+        }
+        for mode, arr in samples.items()
+    }
+    verdict = by_lead[ABLATION_SD_RATIO_HORIZON_H]
+    ratio = float(verdict["sd_ratio"])
+    measurable = bool(verdict["denominator_measurable"])
+    ok = measurable and ratio > ABLATION_SD_RATIO_BAR
     return Check(
         "independent_noise_ablation_collapses_in_area",
         ok,
         "holding z_t at the prior mean removes most of the ensemble's AREA spread "
-        f"(SD ratio latent/independent = {ratio:.2f}, must exceed 1.5)",
-        {**out, "sd_ratio": ratio},
+        f"(SD ratio latent/independent = {ratio:.2f}, must exceed "
+        f"{ABLATION_SD_RATIO_BAR:g}, AT LEAD {ABLATION_SD_RATIO_HORIZON_H} h over "
+        f"{ABLATION_SD_RATIO_MEMBERS} members"
+        + (
+            ""
+            if measurable
+            else "; the ablation arm has NO measurable spread, so the "
+            "quotient has no value and this is not a demonstration of anything"
+        )
+        + ")",
+        {
+            **out,
+            "sd_ratio": ratio,
+            "bar": ABLATION_SD_RATIO_BAR,
+            "horizon_h": ABLATION_SD_RATIO_HORIZON_H,
+            "n_members": ABLATION_SD_RATIO_MEMBERS,
+            "seed": ABLATION_SD_RATIO_SEED,
+            "denominator_measurable": measurable,
+            "sd_ratio_by_lead": {k: v["sd_ratio"] for k, v in by_lead.items()},
+            "by_lead": by_lead,
+        },
+    )
+
+
+def check_ablation_sd_ratio_null_is_one_at_every_lead() -> Check:
+    """[M21] The SD ratio's null LEVEL is lead-invariant, and that is its algebra.
+
+    ``independence_dispersion_index`` compares an observed spread against a MODEL
+    of the independent-pixel spread, and that model stops being right after one
+    step, so its null ladders 1.0048 / 1.25 / ~1.50 / ~1.77 / ~2.24 with no
+    latent anywhere. The check above compares an observed spread against ANOTHER
+    OBSERVED SPREAD from the same process with one switch flipped, so multi-step
+    contagion inflates both arms and cancels in the quotient. The null is
+    therefore 1.0 at EVERY lead, which is a real structural advantage and is
+    asserted here rather than assumed.
+
+    Known answer forced by the algebra, not by a previous run: with the latent
+    driven to zero the two arms are draws from the SAME law and differ only in
+    which part of the generator stream they consume.
+    """
+    from wildfire_nowcast.eval.collapse_bars import ratio_sweep, summarise_ratio
+
+    rows = sorted(
+        summarise_ratio(ratio_sweep(families=("null_sigma_zero",), n_seeds=100)),
+        key=lambda r: r.horizon_h,
+    )
+    worst = max(abs(row.ratio_median - 1.0) for row in rows)
+    ok = bool(rows) and worst < 0.15
+    return Check(
+        "ablation_sd_ratio_null_is_one_at_every_lead",
+        ok,
+        "with z_t off on BOTH arms the SD ratio's median sits at 1.0 at every lead, unlike "
+        "the dispersion index, whose null is exact for one step only",
+        {
+            "median_by_lead": {row.horizon_h: row.ratio_median for row in rows},
+            "max_abs_deviation_from_one": worst,
+        },
+    )
+
+
+def check_ablation_sd_ratio_bar_fires_on_its_own_null_at_the_lead_it_runs_at() -> Check:
+    """[M21] THIS CHECK PINS A DEFECT, DELIBERATELY, and the defect is a TAIL.
+
+    The level being lead-invariant does not make the BAR lead-invariant. The
+    quotient's denominator is the ablation arm's area SD, and that falls as the
+    fire decelerates, so the right tail grows with the lead even though the
+    median does not move. At the lead
+    :data:`ABLATION_SD_RATIO_HORIZON_H` the shipped bar is cleared by a large
+    fraction of draws that have NO SHARED LATENT AT ALL, and at lead 1 by
+    essentially none.
+
+    Asserted as a RELATION between the two ends rather than against a pinned
+    rate, so it stays true after any fix and does not have to be re-tuned when
+    the scene changes. If a future change makes the bar's false fire rate at the
+    verdict lead no worse than at lead 1, this check fails and that failure is
+    the news.
+    """
+    from wildfire_nowcast.eval.collapse_bars import ratio_sweep, summarise_ratio
+
+    rows = {
+        row.horizon_h: row
+        for row in summarise_ratio(ratio_sweep(families=("null_sigma_zero",), n_seeds=100))
+    }
+    first, verdict = rows.get(1), rows.get(ABLATION_SD_RATIO_HORIZON_H)
+    ok = (
+        first is not None
+        and verdict is not None
+        and first.fire_rate < verdict.fire_rate
+        and verdict.fire_rate > 0.0
+    )
+    return Check(
+        "ablation_sd_ratio_bar_fires_on_its_own_null_at_the_lead_it_runs_at",
+        ok,
+        f"the bar {ABLATION_SD_RATIO_BAR:g} is cleared by no-latent draws far more often at "
+        f"lead {ABLATION_SD_RATIO_HORIZON_H}, where the verdict is taken, than at lead 1 - so "
+        "the false fire rate is a function of a horizon the record used to omit",
+        {
+            "fire_rate_by_lead": {h: row.fire_rate for h, row in sorted(rows.items())},
+            "verdict_lead": ABLATION_SD_RATIO_HORIZON_H,
+            "bar": ABLATION_SD_RATIO_BAR,
+        },
+    )
+
+
+def check_one_step_index_bar_derivation_matches_the_shipped_index() -> Check:
+    """[M21] The closed form for the one-step index agrees with the function in the tree.
+
+    ``sim/selftest.py`` asserts a bar on ``independence_dispersion_index`` over a
+    correlated ensemble built from one shared logit shift. That construction is
+    already ONE step, so the multi-step defect never touched it and only the
+    MAGNITUDE is at stake. The law of total variance gives the answer in closed
+    form, and this check is what makes the closed form a statement about the
+    SHIPPED estimand rather than about an idealisation of it.
+
+    The two differ by a known factor and it is applied rather than absorbed into
+    a loose tolerance: the shipped numerator is ``areas.std()`` with ``ddof=0``,
+    which is low by ``sqrt((M - 1) / M)``, and the derivation is a many-member
+    limit. With it applied they agree to well under 1%. **The factor is 0.84%
+    and the Monte Carlo standard error at 800 replications is about 0.24%, so
+    this check binds the LEVEL and cannot see the correction itself** - that is
+    stated because a tolerance that swallows a term is not evidence for it.
+    """
+    import numpy as np
+
+    from wildfire_nowcast.eval.collapse_bars import (
+        INDEX_CONSTRUCTION,
+        derived_one_step_index,
+        index_bar_monte_carlo,
+    )
+
+    n_cells = int(INDEX_CONSTRUCTION["n_cells"])
+    n_members = int(INDEX_CONSTRUCTION["n_members"])
+    p = np.random.default_rng(0).uniform(
+        INDEX_CONSTRUCTION["p_low"], INDEX_CONSTRUCTION["p_high"], size=n_cells
+    )
+    derived = derived_one_step_index(p, float(INDEX_CONSTRUCTION["sigma_z"])).index
+    corrected = derived * float(np.sqrt((n_members - 1) / n_members))
+    observed = index_bar_monte_carlo(800)
+    relative = abs(corrected - observed["mean"]) / observed["mean"]
+    ok = relative < 0.02 and observed["min"] > 2.0
+    return Check(
+        "one_step_index_bar_derivation_matches_the_shipped_index",
+        ok,
+        "the closed-form one-step index agrees with the shipped function on its own "
+        "construction, and every replication clears the 2.0 asserted in sim/ by a wide "
+        "margin - the bar is far below the quantity it is a bar on",
+        {
+            "derived_limit": derived,
+            "derived_ddof_corrected": corrected,
+            "shipped_monte_carlo": observed,
+            "relative_difference": relative,
+        },
     )
 
 
@@ -2684,6 +2923,11 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_latent_off_reproduces_the_g2_kernel_bitwise,
     check_shared_latent_is_constant_across_pixels,
     check_independent_noise_ablation_collapses_in_area,
+    # M21 - what that bar is worth. Its null LEVEL is lead-invariant and its
+    # TAIL is not, and the closed form for the sibling one-step bar in sim/.
+    check_ablation_sd_ratio_null_is_one_at_every_lead,
+    check_ablation_sd_ratio_bar_fires_on_its_own_null_at_the_lead_it_runs_at,
+    check_one_step_index_bar_derivation_matches_the_shipped_index,
     check_elbo_kl_is_scaled_like_its_reconstruction_term,
     check_latent_spec_round_trips_and_absence_means_absence,
     # M8 - the MEAN-PRESERVING ACTIVITY GATE (reverses the M6 exemption), and
