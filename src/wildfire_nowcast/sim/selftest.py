@@ -49,6 +49,8 @@ __all__ = [
     "test_the_one_step_null_is_exact_at_every_lead_and_the_cumulative_one_is_not",
     "test_every_collapse_statement_carries_the_horizon_it_was_taken_at",
     "test_a_failed_instrument_control_withholds_the_verdict_rather_than_passing_it",
+    "test_an_arm_that_is_the_model_it_ablates_is_refused_at_the_verdict_not_at_the_load",
+    "test_the_power_profile_reports_at_1_2_3_h_and_keeps_refusals_out_of_its_rates",
     "test_the_analytic_index_is_an_identity_and_agrees_with_sampling",
     "test_frame_order_never_drops_an_hour",
     "test_teleport_threshold_separates_fast_front_from_jump",
@@ -377,6 +379,88 @@ def test_a_failed_instrument_control_withholds_the_verdict_rather_than_passing_i
     healthy = instrument_controls(np.full(400, 0.5), 24, seed=0, n_replicates=8)
     assert healthy.ok and healthy.independent_ok and healthy.comonotone_ok, healthy.to_dict()
     assert healthy.reason == ""
+
+
+def test_an_arm_that_is_the_model_it_ablates_is_refused_at_the_verdict_not_at_the_load() -> None:
+    """C5 [v2.18]: a bit-identical arm may be LOADED and may not be SCORED.
+
+    The hazard is specific and it arrives through the feature built to prevent
+    one. A model configured with no shared latent has an ablation arm that is
+    the same forecast under another name, so the collapse index off that pair is
+    ``1.0`` by construction - a perfect null, three ``collapsed`` verdicts, and
+    nothing whatever about ``z_t``. Loading it is legitimate; taking a verdict
+    from it is not.
+
+    The control is the fixture pair, which DOES differ, so this asserts both
+    directions in one run: a demonstrative pair yields three verdicts and a
+    degenerate one yields none. Both halves are needed - a refusal that also
+    refuses the good pair is a broken instrument, not a strict one.
+    """
+    from wildfire_nowcast.sim.collapse import (  # noqa: PLC0415
+        ArmNotDemonstrativeError,
+        measure_arm_separation,
+        per_horizon_collapse_on_arm,
+        resolve_arm_pair,
+    )
+
+    inp = c5_inputs(_open_synthetic(), 12, 3)
+
+    pair = resolve_arm_pair("stub")
+    assert pair.treatment_address == "stub-nolatent" and pair.null_address == "stub"
+    checked = measure_arm_separation(pair, inp, n_members=8, seed=0)
+    assert checked.measured_identical is False, checked.to_dict()
+    assert checked.demonstrative and checked.refusal == "", checked.to_dict()
+    result = per_horizon_collapse_on_arm(pair, inp, n_members=16, seed=0, n_replicates=4)
+    assert [v.lead_h for v in result.verdicts] == [1, 2, 3]
+
+    degenerate = _replace_pair(pair, treatment=pair.null)
+    twin = measure_arm_separation(degenerate, inp, n_members=8, seed=0)
+    assert twin.measured_identical is True, twin.to_dict()
+    assert twin.n_identical_members == 8, twin.to_dict()
+    assert twin.demonstrative is False and "BIT-IDENTICAL" in twin.refusal, twin.to_dict()
+    try:
+        per_horizon_collapse_on_arm(degenerate, inp, n_members=8, seed=0, n_replicates=4)
+    except ArmNotDemonstrativeError as exc:
+        assert "NO VERDICT" in str(exc), str(exc)
+    else:
+        raise AssertionError(
+            "an arm bit-identical to the model it ablates scored a verdict. That verdict is "
+            "1.0 by construction and would read as the cleanest collapse result in the repo."
+        )
+
+
+def test_the_power_profile_reports_at_1_2_3_h_and_keeps_refusals_out_of_its_rates() -> None:
+    """C6.7 [v2.18]: report AT 1/2/3 h with the power at each lead.
+
+    Two properties, and the second is the one a plausible implementation gets
+    wrong. Every lead in the forecast horizon appears, and a scene the controls
+    REFUSED is in neither rate's denominator: counting a refusal as
+    ``not_collapsed`` would let a scene with no power at all lower the false-fire
+    rate and make the instrument look more discriminating than it is. The
+    denominators are therefore fields, and admissible + refused must equal the
+    draws made.
+    """
+    from wildfire_nowcast.sim.collapse import lead_power_profile, resolve_arm_pair  # noqa: PLC0415
+
+    inp = c5_inputs(_open_synthetic(), 12, 3)
+    profile = lead_power_profile(
+        resolve_arm_pair("stub"), inp, n_members=12, n_seeds=4, n_replicates=4
+    )
+    assert [row["lead_h"] for row in profile["by_lead"]] == [1, 2, 3], profile
+    for row in profile["by_lead"]:
+        for arm in ("treatment", "null"):
+            admissible = row[f"{arm}_collapsed"] + row[f"{arm}_not_collapsed"]
+            assert admissible + row[f"{arm}_refused"] == row["n_seeds"], row
+        assert row["power"] is None or 0.0 <= row["power"] <= 1.0, row
+        assert row["false_fire"] is None or 0.0 <= row["false_fire"] <= 1.0, row
+    assert "separation" in profile["by_lead"][0]
+
+
+def _replace_pair(pair, **changes):  # noqa: ANN001, ANN003, ANN202
+    """``dataclasses.replace`` on an :class:`ArmPair`, spelled once."""
+    import dataclasses  # noqa: PLC0415
+
+    return dataclasses.replace(pair, **changes)
 
 
 def test_the_analytic_index_is_an_identity_and_agrees_with_sampling() -> None:

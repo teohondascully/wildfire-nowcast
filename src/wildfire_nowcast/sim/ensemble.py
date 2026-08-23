@@ -678,8 +678,16 @@ def _headline(
 # -- CLI -------------------------------------------------------------------
 
 
-def _resolve_predict(name: str) -> tuple[Any, str]:
-    """Resolve a C5 predict() by name, through the contract only.
+def _resolve_predictor(name: str) -> tuple[Any, str, Any]:
+    """Resolve a C5 predictor by name, through the contract only.
+
+    Returns ``(predict, label, predictor)``. The third element is the OBJECT the
+    address resolved to, or ``None`` when the address named a bare module-level
+    callable and there is no object to inspect. A caller that has to ask the
+    contract something ABOUT the predictor - notably
+    ``assert_ablation_arm_is_demonstrative``, which is a question about the
+    model and not about its ``predict`` - needs the object, and resolving it a
+    second time would be a second set of choices about what an address means.
 
     NO SILENT FALLBACK. An earlier version of this function fell back to the viz
     stub on any exception and merely printed a message. That was written while
@@ -701,13 +709,20 @@ def _resolve_predict(name: str) -> tuple[Any, str]:
         ablation = name == "stub-nolatent"
         stub = StubEnsemble(latent_sigma=0.0) if ablation else StubEnsemble()
         suffix = " [latent_sigma=0, collapse control]" if ablation else ""
-        return stub.predict, stub.name + suffix
+        return stub.predict, stub.name + suffix, stub
 
     from wildfire_nowcast.model import api as model_api  # noqa: PLC0415
 
     if hasattr(model_api, name):
-        return getattr(model_api, name), f"C5 {name} (model/api.py)"
-    return model_api.load_model(name).predict, f"C5 load_model({name})"
+        return getattr(model_api, name), f"C5 {name} (model/api.py)", None
+    predictor = model_api.load_model(name)
+    return predictor.predict, f"C5 load_model({name})", predictor
+
+
+def _resolve_predict(name: str) -> tuple[Any, str]:
+    """:func:`_resolve_predictor` without the object, for callers that only predict."""
+    predict, label, _ = _resolve_predictor(name)
+    return predict, label
 
 
 def main(argv: list[str] | None = None) -> int:

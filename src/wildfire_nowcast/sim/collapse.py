@@ -64,7 +64,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -90,6 +90,7 @@ from wildfire_nowcast.sim.ensemble import (
 
 __all__ = [
     "ONE_STEP_INCREMENT",
+    "EXIT_ARM_NOT_DEMONSTRATIVE",
     "CUMULATIVE_FROM_T0",
     "COLLAPSED",
     "NOT_COLLAPSED",
@@ -103,6 +104,12 @@ __all__ = [
     "one_step_collapse_verdict",
     "PerHorizonCollapse",
     "per_horizon_collapse",
+    "ArmPair",
+    "ArmNotDemonstrativeError",
+    "resolve_arm_pair",
+    "measure_arm_separation",
+    "per_horizon_collapse_on_arm",
+    "lead_power_profile",
     "analytic_shared_latent_index",
     "main",
 ]
@@ -111,6 +118,15 @@ __all__ = [
 #: control a small standard error so the gate lands on the estimator's BIAS
 #: rather than on one draw's noise. The per-replicate spread is published too.
 CONTROL_REPLICATES = 32
+
+#: Exit code for "the arm loaded, and it cannot carry a verdict".
+#:
+#: Distinct from :data:`~wildfire_nowcast.sim.absent.EXIT_NOTHING_EXAMINED` (3)
+#: and from 1, for the same reason 3 is distinct from 1: a caller reading only
+#: the exit code must be able to tell "the check disagreed" from "there was
+#: nothing to check" from "the SUBJECT was degenerate". The third case is the
+#: one that reads as a perfect result if it is allowed to score.
+EXIT_ARM_NOT_DEMONSTRATIVE = 4
 
 
 # -- the estimand ----------------------------------------------------------
@@ -536,6 +552,322 @@ def per_horizon_collapse(
     )
 
 
+# -- the SUBJECT of the verdict, and whether it can carry one ----------------
+
+
+@dataclass(frozen=True)
+class ArmPair:
+    """The two C5 addresses a collapse verdict is about, and whether they differ.
+
+    G3 (d) asks whether removing the shared latent collapses the ensemble. That
+    is one question about TWO predictors - the latent-off arm the verdict is
+    taken on, and the latent-on model it is an ablation OF - and both are
+    obtained BY NAME through C5, because a consumer that constructs a model in
+    Python is a consumer that can silently be holding a different object from
+    the one the gate names (ADR-118/119).
+
+    ``contract_check`` is the reading of
+    ``model/api.py::assert_ablation_arm_is_demonstrative``, the shipped check,
+    run rather than re-implemented. It is authoritative for a subject obtained
+    through C5 and only RECORDED for one that is not, because it probes
+    ``model.latent`` and so cannot distinguish "this model has no latent" from
+    "this model does not spell its latent that way". ``measured_identical`` is an INDEPENDENT
+    reading of the same property taken on the scene itself: draw both arms at
+    one seed and compare the samples bit for bit. The two answer the same
+    question by different means - one from the model's configuration, one from
+    its output - and both are published, because a disagreement between them is
+    a finding and an agreement is worth what it cost.
+    """
+
+    address: str
+    treatment_address: str
+    null_address: str
+    treatment_label: str
+    null_label: str
+    treatment: Any
+    null: Any
+    contract_check: str
+    measured_identical: bool | None = None
+    n_identical_members: int | None = None
+
+    @property
+    def contract_refused(self) -> bool:
+        return self.contract_check.startswith("refused")
+
+    @property
+    def demonstrative(self) -> bool:
+        """False when the arm cannot discriminate, by EITHER reading."""
+        return not self.contract_refused and self.measured_identical is not True
+
+    @property
+    def refusal(self) -> str:
+        """Why no verdict may be taken about this arm, or the empty string."""
+        parts: list[str] = []
+        if self.contract_refused:
+            parts.append(f"C5 {self.contract_check}")
+        if self.measured_identical is True:
+            parts.append(
+                f"the arm and the model it ablates drew BIT-IDENTICAL samples on this scene "
+                f"({self.n_identical_members} of {self.n_identical_members} members), so the "
+                "pair is one forecast under two names and any collapse reading off it is 1.0 "
+                "by construction"
+            )
+        return "; ".join(parts)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "address": self.address,
+            "treatment_address": self.treatment_address,
+            "null_address": self.null_address,
+            "treatment_label": self.treatment_label,
+            "null_label": self.null_label,
+            "contract_check": self.contract_check,
+            "measured_bit_identical": self.measured_identical,
+            "n_identical_members": self.n_identical_members,
+            "demonstrative": self.demonstrative,
+            "refusal": self.refusal,
+        }
+
+
+def resolve_arm_pair(address: str) -> ArmPair:
+    """Resolve ``address`` to the (latent-off, latent-on) pair, through C5 only.
+
+    An address ending in ``model/api.py``'s ablation suffix names the ARM and
+    the address before it is the model; any other address names the model and
+    its arm is that address plus the suffix. Both are then resolved by the ONE
+    resolver this package has, so the arm a verdict is taken on is the arm a
+    figure would draw.
+
+    The fixture is paired too (``stub`` <-> ``stub-nolatent``). It is not a
+    model and may not appear in a gate, but a fixture that took a different code
+    path from the model would be a fixture that could not rehearse this one.
+    """
+    from wildfire_nowcast.model import api as model_api  # noqa: PLC0415
+    from wildfire_nowcast.sim.ensemble import _resolve_predictor  # noqa: PLC0415
+
+    through_c5 = address not in {"stub", "stub-nolatent"}
+    if not through_c5:
+        treatment_address, null_address = "stub-nolatent", "stub"
+    else:
+        split = model_api.split_arm_name(address)
+        if split is None:
+            treatment_address, null_address = model_api.arm_name(address), address
+        else:
+            treatment_address, null_address = address, split[0]
+
+    treatment, treatment_label, _ = _resolve_predictor(treatment_address)
+    null, null_label, null_obj = _resolve_predictor(null_address)
+
+    contract_check = "unavailable: the address resolved to a bare callable, not a predictor"
+    if null_obj is not None:
+        try:
+            model_api.assert_ablation_arm_is_demonstrative(null_obj)
+        except ValueError as exc:
+            # WHOSE ANSWER THIS IS MATTERS. `assert_ablation_arm_is_demonstrative`
+            # probes `model.latent`, which is the learned kernel's spelling. On a
+            # predictor that is not a C5 model - this package's fixture spells its
+            # latent `latent_sigma` - the probe cannot find a latent that is
+            # demonstrably there, and its message asserts an absence rather than an
+            # inability to see. Refusing on it would refuse the fixture whose two
+            # arms draw different samples, so for a non-C5 subject the reading is
+            # RECORDED and not acted on, and the measured reading decides.
+            verdict = "refused" if through_c5 else "inapplicable"
+            contract_check = f"{verdict}: {exc}"
+        except Exception as exc:  # pragma: no cover - defensive
+            contract_check = f"unavailable: {type(exc).__name__}: {exc}"
+        else:
+            contract_check = "passed: the model has a shared latent, so ablating it removes one"
+
+    return ArmPair(
+        address=address,
+        treatment_address=treatment_address,
+        null_address=null_address,
+        treatment_label=treatment_label,
+        null_label=null_label,
+        treatment=treatment,
+        null=null,
+        contract_check=contract_check,
+    )
+
+
+def measure_arm_separation(pair: ArmPair, inp: C5Inputs, *, n_members: int, seed: int) -> ArmPair:
+    """Draw both arms at one seed and record whether the samples are identical.
+
+    The second reading of ``demonstrative``, taken from behaviour instead of
+    configuration. A bit-identical pair is the control that cannot discriminate:
+    it is legitimate to LOAD (C5 [v2.18]) and it may not be SCORED, and this is
+    the reading that would catch a latent that exists in the config and does
+    nothing in the sampler - which the configuration reading cannot see.
+    """
+    kwargs = {
+        "x0": inp.x0,
+        "static": inp.static,
+        "weather": inp.weather[:1],
+        "n_members": int(n_members),
+        "horizon_h": 1,
+        "seed": int(seed),
+    }
+    a = np.asarray(pair.treatment(**kwargs))
+    b = np.asarray(pair.null(**kwargs))
+    identical = bool(a.shape == b.shape and np.array_equal(a, b))
+    same_members = int(sum(bool(np.array_equal(a[m], b[m])) for m in range(min(len(a), len(b)))))
+    return replace(pair, measured_identical=identical, n_identical_members=same_members)
+
+
+class ArmNotDemonstrativeError(ValueError):
+    """A collapse verdict was about to be taken on an arm that cannot discriminate."""
+
+
+# -- the instrument's power INSIDE the horizon this project forecasts --------
+
+
+def lead_power_profile(
+    pair: ArmPair,
+    inp: C5Inputs,
+    *,
+    n_members: int = 24,
+    n_seeds: int = 32,
+    conditioning: str = "truth",
+    n_replicates: int = CONTROL_REPLICATES,
+) -> dict[str, Any]:
+    """Per-lead power and false-fire rate, measured on THIS scene and pair.
+
+    C6.7 [v2.18]: an instrument may adjudicate where it has power and MUST
+    report at 1/2/3 h with its power at each lead, beside the verdict, in the
+    same invocation. This is that measurement for this instrument.
+
+    ``power`` is the share of admissible verdicts reading ``collapsed`` on the
+    LATENT-OFF arm; ``false_fire`` is the same share on the LATENT-ON model,
+    where the reading is the one the gate does not want. Refusals are in neither
+    denominator and are reported separately, because a scene the controls
+    declined is a scene with no power at all rather than a scene that disagreed.
+
+    **READ ``power`` WITH ITS CEILING IN MIND.** On the one-step increment a
+    sampler whose pixels are conditionally independent given ``x_t`` has an index
+    of ``1.0`` by algebra, and the latent-off arm IS that sampler. So its power
+    is near 1 by construction, and a value near 1 is the estimator behaving,
+    not a discovery. The quantity that carries information is ``separation`` -
+    power minus false fire - which is what the pair can actually distinguish at
+    that lead.
+    """
+    seeds = list(range(int(n_seeds)))
+    refuse_if_empty(
+        "lead_power_profile",
+        {"seeds": len(seeds), "members": int(n_members)},
+        because="a power profile over no draws states nothing about power.",
+    )
+    tallies: dict[str, dict[int, dict[str, Any]]] = {
+        "treatment": {},
+        "null": {},
+    }
+    for role, predict in (("treatment", pair.treatment), ("null", pair.null)):
+        for seed in seeds:
+            result = per_horizon_collapse(
+                predict,
+                inp,
+                n_members=n_members,
+                seed=seed,
+                conditioning=conditioning,
+                n_replicates=n_replicates,
+            )
+            for verdict in result.verdicts:
+                cell = tallies[role].setdefault(
+                    verdict.lead_h,
+                    {"collapsed": 0, "not_collapsed": 0, "refused": 0, "index": []},
+                )
+                cell["index"].append(verdict.index)
+                if not verdict.is_a_verdict:
+                    cell["refused"] += 1
+                elif verdict.verdict == COLLAPSED:
+                    cell["collapsed"] += 1
+                else:
+                    cell["not_collapsed"] += 1
+
+    def rate(cell: dict[str, Any]) -> float | None:
+        admissible = cell["collapsed"] + cell["not_collapsed"]
+        return None if admissible == 0 else cell["collapsed"] / admissible
+
+    leads = sorted(set(tallies["treatment"]) | set(tallies["null"]))
+    by_lead: list[dict[str, Any]] = []
+    for lead in leads:
+        t = tallies["treatment"][lead]
+        n = tallies["null"][lead]
+        power, false_fire = rate(t), rate(n)
+        by_lead.append(
+            {
+                "lead_h": lead,
+                "n_seeds": len(seeds),
+                "treatment_collapsed": t["collapsed"],
+                "treatment_not_collapsed": t["not_collapsed"],
+                "treatment_refused": t["refused"],
+                "null_collapsed": n["collapsed"],
+                "null_not_collapsed": n["not_collapsed"],
+                "null_refused": n["refused"],
+                "power": power,
+                "false_fire": false_fire,
+                "separation": None if power is None or false_fire is None else power - false_fire,
+                "treatment_index_median": float(np.median(t["index"])) if t["index"] else None,
+                "null_index_median": float(np.median(n["index"])) if n["index"] else None,
+            }
+        )
+    return {
+        "clause": "C6.7 [v2.18] (ADR-123)",
+        "treatment_address": pair.treatment_address,
+        "null_address": pair.null_address,
+        "conditioning": conditioning,
+        "n_members": int(n_members),
+        "n_seeds": len(seeds),
+        "threshold": float(COLLAPSE_INDEX_THRESHOLD),
+        "definition": (
+            "power = share of ADMISSIBLE verdicts reading 'collapsed' on the latent-off arm; "
+            "false_fire = the same share on the latent-on model; separation = power - "
+            "false_fire. Refusals are excluded from both denominators and counted separately."
+        ),
+        "ceiling_note": (
+            "On the one-step increment a conditionally-independent sampler scores 1.0 by "
+            "algebra, and the latent-off arm IS that sampler, so its power is near 1 BY "
+            "CONSTRUCTION. Read the separation, not the power."
+        ),
+        "by_lead": by_lead,
+    }
+
+
+def per_horizon_collapse_on_arm(
+    pair: ArmPair,
+    inp: C5Inputs,
+    *,
+    n_members: int = 24,
+    seed: int = 0,
+    conditioning: str = "truth",
+    n_replicates: int = CONTROL_REPLICATES,
+) -> PerHorizonCollapse:
+    """:func:`per_horizon_collapse` on an arm, REFUSING a non-demonstrative one.
+
+    C5 [v2.18]: a bit-identical arm may be loaded and may not be scored, and the
+    refusal belongs at the verdict rather than at the load. This is the verdict,
+    so this is where it belongs. Raising rather than returning a flagged record
+    is deliberate: the record would otherwise carry three verdicts that read
+    ``collapsed`` for a reason that has nothing to do with ``z_t``, and every
+    consumer would have to remember to check a flag.
+    """
+    checked = measure_arm_separation(pair, inp, n_members=n_members, seed=seed)
+    if not checked.demonstrative:
+        raise ArmNotDemonstrativeError(
+            f"NO VERDICT about {checked.treatment_address!r}: {checked.refusal}. G3 (d) asks "
+            "whether removing the shared latent collapses the ensemble; it can only be asked "
+            "of a model that has one. This is the check working, not an obstacle to route "
+            "around."
+        )
+    return per_horizon_collapse(
+        checked.treatment,
+        inp,
+        n_members=n_members,
+        seed=seed,
+        conditioning=conditioning,
+        n_replicates=n_replicates,
+    )
+
+
 # -- the analytic identity the one-step bar is derived from ------------------
 
 
@@ -617,6 +949,37 @@ def _render(result: PerHorizonCollapse) -> str:
     return "\n".join(lines)
 
 
+def _render_power(power: dict[str, Any]) -> str:
+    """The C6.7 profile as the table it has to be read as. ASCII only."""
+    if not power.get("by_lead"):
+        return (
+            "per-lead power profile (C6.7): NOT MEASURED in this invocation - "
+            f"{power.get('reason', 'no leads')}"
+        )
+    lines = [
+        f"per-lead power profile (C6.7 [v2.18], {power['n_seeds']} draws per arm)",
+        f"  treatment={power['treatment_address']}  null={power['null_address']}",
+        f"  {'lead':>5}{'power':>9}{'false fire':>12}{'separation':>12}"
+        f"{'refused T/N':>14}{'median idx T/N':>18}",
+    ]
+
+    def pct(value: float | None) -> str:
+        return "     n/a" if value is None else f"{100.0 * value:7.1f}%"
+
+    def med(value: float | None) -> str:
+        return "n/a" if value is None else f"{value:.3f}"
+
+    for row in power["by_lead"]:
+        lines.append(
+            f"  {row['lead_h']:>5}{pct(row['power'])}{pct(row['false_fire']):>12}"
+            f"{pct(row['separation']):>12}"
+            f"{row['treatment_refused']:>7}/{row['null_refused']:<6}"
+            f"{med(row['treatment_index_median']):>10}/{med(row['null_index_median']):<8}"
+        )
+    lines.append("  power is near 1 BY ALGEBRA on this estimand; read the separation.")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="python -m wildfire_nowcast.sim.collapse",
@@ -636,15 +999,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--conditioning", default="truth", choices=("truth", "rollout"))
     ap.add_argument("--replicates", type=int, default=CONTROL_REPLICATES)
+    ap.add_argument(
+        "--power-seeds",
+        type=int,
+        default=32,
+        help=(
+            "draws per arm for the C6.7 per-lead power profile, emitted beside the verdicts "
+            "in this same invocation. 0 records that it was not measured, which is a "
+            "statement a reader can act on and is not the same as reporting power."
+        ),
+    )
     args = ap.parse_args(argv)
 
-    from wildfire_nowcast.sim.ensemble import _resolve_predict  # noqa: PLC0415
-
-    predict, model_name = _resolve_predict(args.model)
+    pair = resolve_arm_pair(args.model)
     inp = c5_inputs(open_tensor(Path(args.tensor)), args.t0, args.horizon)
     try:
-        result = per_horizon_collapse(
-            predict,
+        result = per_horizon_collapse_on_arm(
+            pair,
             inp,
             n_members=args.members,
             seed=args.seed,
@@ -654,12 +1025,51 @@ def main(argv: list[str] | None = None) -> int:
     except AbsentMeasurementError as exc:
         print(str(exc))
         return EXIT_NOTHING_EXAMINED
+    except ArmNotDemonstrativeError as exc:
+        checked = measure_arm_separation(pair, inp, n_members=args.members, seed=args.seed)
+        payload = {
+            "tensor": str(args.tensor),
+            "model": args.model,
+            "subject": checked.to_dict(),
+            "per_horizon_verdicts": [],
+            "verdict_withheld": str(exc),
+        }
+        if args.out:
+            Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.out).write_text(json.dumps(payload, indent=2, default=str) + "\n")
+        print(str(exc))
+        print(json.dumps(payload, indent=2, default=str))
+        return EXIT_ARM_NOT_DEMONSTRATIVE
 
-    payload = {"tensor": str(args.tensor), "model": model_name, **result.to_dict()}
+    checked = measure_arm_separation(pair, inp, n_members=args.members, seed=args.seed)
+    power = (
+        lead_power_profile(
+            pair,
+            inp,
+            n_members=args.members,
+            n_seeds=args.power_seeds,
+            conditioning=args.conditioning,
+            n_replicates=args.replicates,
+        )
+        if args.power_seeds > 0
+        else {
+            "clause": "C6.7 [v2.18] (ADR-123)",
+            "measured": False,
+            "reason": "--power-seeds 0: the profile was NOT measured in this invocation",
+        }
+    )
+    payload = {
+        "tensor": str(args.tensor),
+        "model": pair.treatment_label,
+        "subject": checked.to_dict(),
+        "lead_power_profile": power,
+        **result.to_dict(),
+    }
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(json.dumps(payload, indent=2, default=str) + "\n")
     print(_render(result))
+    print(_render_power(power))
     print(json.dumps(payload, indent=2, default=str))
     return 0
 

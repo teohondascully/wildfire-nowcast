@@ -240,6 +240,12 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             # that produces each is the line they sit on.
             ("src/wildfire_nowcast/sim/collapse.py", "outputs/synthetic_fire/tensor.zarr"),
             ("src/wildfire_nowcast/sim/collapse.py", "reports/figures/collapse_per_horizon.json"),
+            # S14, same lead and same ROLE test again: the page is written by the
+            # command on the line that names it, in this module's usage block.
+            (
+                "src/wildfire_nowcast/sim/s14_report.py",
+                "reports/figures/s14_collapse_real_model.png",
+            ),
             ("src/wildfire_nowcast/sim/dashboard.py", "reports/figures/dashboard.png"),
             ("src/wildfire_nowcast/sim/e1_report.py", "reports/figures/e1_stage_decay.png"),
             ("src/wildfire_nowcast/sim/elmfire.py", "reports/figures/elmfire_native_smoke.json"),
