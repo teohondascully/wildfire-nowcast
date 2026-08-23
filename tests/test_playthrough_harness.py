@@ -447,9 +447,28 @@ def test_adopting_a_foreign_caught_map_enforces_the_same_requirement() -> None:
     assert not dirty.passed
     assert any("does not pass every scenario" in f for f in dirty.failures)
 
-    none_declared = PT.coverage_from_caught_map("foreign", {}, clean_passes=True)
-    assert not none_declared.passed
-    assert any("NO planted defects at all" in f for f in none_declared.failures)
+    # A ZERO DENOMINATOR IS REFUSED, not reported as a failing report. It used to
+    # come back as `passed=False`, which was red and was still a report: it
+    # carried `mutation_coverage: 0.0` and `passed` beside each other, and
+    # `as_dict()` would serialise them. `sim/blockanatomy.py` set the precedent
+    # by writing NOTHING over zero rows, and the native path here has raised from
+    # `Playthrough.__post_init__` since ADR-030. This is the adopted path being
+    # brought level with both.
+    with pytest.raises(PT.VacuousPlaythroughError) as none_declared:
+        PT.coverage_from_caught_map("foreign", {}, clean_passes=True)
+    assert "NO planted defects at all" in str(none_declared.value)
+
+    # The shape that SURVIVED the first guard: defects declared, every one of
+    # them a blind spot. It printed a row per defect, marked each `[ok]`, and
+    # reported `mutation coverage 0%` four lines above `verdict: PASS`.
+    with pytest.raises(PT.VacuousPlaythroughError) as all_blind:
+        PT.coverage_from_caught_map(
+            "foreign",
+            {"nearest": [], "all": []},
+            clean_passes=True,
+            blind_spots=["nearest", "all"],
+        )
+    assert "BLIND SPOTS" in str(all_blind.value)
 
 
 def test_approximately_refuses_none_and_non_finite() -> None:

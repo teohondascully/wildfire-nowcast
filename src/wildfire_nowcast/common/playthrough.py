@@ -99,12 +99,33 @@ __all__ = [
     "format_report",
     "coverage_from_caught_map",
     "approximately",
+    "VacuousPlaythroughError",
 ]
 
 
 class PlaythroughError(AssertionError):
     """A playthrough failed its own protocol. An ``AssertionError`` on purpose:
     ``pytest`` renders it as a plain test failure, which is where it belongs."""
+
+
+class VacuousPlaythroughError(PlaythroughError):
+    """A coverage verdict was asked for over a ZERO denominator.
+
+    A REFUSAL, not a failing report, and the distinction is the whole point. A
+    report with no defect that is expected to be detected has
+    ``mutation_coverage`` 0.0 and no failure to report, so it serialises as
+    ``{"mutation_coverage": 0.0, "passed": true}`` - a number computed over
+    nothing, published under a name that implies it was measured. Refusing to
+    BUILD it is the precedent `sim/blockanatomy.py` set when it stopped
+    publishing a perfect residual over zero rows: it writes nothing and exits,
+    because a result it did not compute must not reach disk.
+
+    :class:`Playthrough` has refused both shapes at construction since ADR-030
+    (``__post_init__``: no defects, and every defect a blind spot). The ADOPTED
+    path did not, and that asymmetry is invisible from either report - which is
+    the same shape simviz found between ``sim/playthrough.py`` and
+    ``sim/coarsen.py``, one guarded and one not.
+    """
 
 
 # --------------------------------------------------------------------------
@@ -295,10 +316,22 @@ class PlaythroughReport:
 
     @property
     def mutation_coverage(self) -> float:
-        """Detected / expected-to-be-detected. ``1.0`` is the only passing value."""
+        """Detected / expected-to-be-detected. ``1.0`` is the only passing value.
+
+        RAISES over a zero denominator rather than returning 0.0. It returned
+        0.0, which is a number, which `as_dict` then published beside
+        ``passed: true``; `format_report` printed ``mutation coverage 0%`` and
+        ``verdict: PASS`` four lines apart. Both construction paths now refuse
+        that report, so this is unreachable through either of them and exists for
+        the third door: a `PlaythroughReport` built by hand.
+        """
         wanted = [o for o in self.outcomes if o.expected_detected]
         if not wanted:
-            return 0.0
+            raise VacuousPlaythroughError(
+                f"playthrough {self.name!r} declares {len(self.outcomes)} defect(s) and NONE of "
+                "them is expected to be detected, so mutation coverage has a zero denominator. "
+                "There is no coverage number to report and 0.0 is not one."
+            )
         return sum(1 for o in wanted if o.detected) / len(wanted)
 
     def as_dict(self) -> dict[str, Any]:
@@ -368,7 +401,7 @@ def run(playthrough: Playthrough) -> PlaythroughReport:
         why = clean_errors.get(name, "returned False")
         failures.append(
             f"probe {name!r} FAILS on the CLEAN world ({why}). The scenario must pass BEFORE "
-            "any defect is planted — otherwise every catch below is attributable to the "
+            "any defect is planted. Otherwise every catch below is attributable to the "
             "scenario rather than to the defect, and the coverage map is meaningless"
         )
 
@@ -424,7 +457,7 @@ def run(playthrough: Playthrough) -> PlaythroughReport:
         )
     for defect_name, probe_name in sorted(sole_catchers.items()):
         reporting.append(
-            f"probe {probe_name!r} is the SOLE catcher of {defect_name!r} — load-bearing. "
+            f"probe {probe_name!r} is the SOLE catcher of {defect_name!r}, load-bearing. "
             "Removing or weakening it silently removes this defect from coverage"
         )
 
@@ -467,6 +500,31 @@ def format_report(report: PlaythroughReport) -> str:
 # --------------------------------------------------------------------------
 # adopting a playthrough that already exists in another lead's package
 # --------------------------------------------------------------------------
+
+
+def _refuse_a_zero_denominator(name: str, outcomes: Sequence[DefectOutcome]) -> None:
+    """The rule ``Playthrough.__post_init__`` applies, applied to an ADOPTED report.
+
+    Two shapes, one denominator. Zero declared defects is the obvious one and was
+    already caught. The one that survived is a report with defects in it where
+    every one is a declared BLIND SPOT: it prints a row per defect, marks each
+    ``[ok]``, and reports ``mutation coverage 0%`` beside ``verdict: PASS``. It
+    looks substantive, which is why nobody read it as vacuous.
+    """
+    if not outcomes:
+        raise VacuousPlaythroughError(
+            f"{name}: the foreign report declares NO planted defects at all. ADR-030 makes "
+            "`make playthrough` a gate on the grounds that a playthrough that cannot fail "
+            "turns it red; with nothing declared it cannot fail, and it would turn the gate "
+            "GREEN. That is the gate's own premise inverted."
+        )
+    if not any(outcome.expected_detected for outcome in outcomes):
+        raise VacuousPlaythroughError(
+            f"{name}: all {len(outcomes)} declared defect(s) are BLIND SPOTS, so nothing in "
+            "this report can ever go red and its coverage denominator is zero. "
+            "`Playthrough.__post_init__` has refused this shape since ADR-030; the adopted "
+            "path did not, and the asymmetry is invisible from either report."
+        )
 
 
 def coverage_from_caught_map(
@@ -516,11 +574,10 @@ def coverage_from_caught_map(
             )
         if not outcome.expected_detected and outcome.detected:
             failures.append(
-                f"{name}: declared blind spot {outcome.name!r} was caught — update "
+                f"{name}: declared blind spot {outcome.name!r} was caught. Update "
                 "the record, do not delete the test"
             )
-    if not outcomes:
-        failures.append(f"{name}: the foreign report declares NO planted defects at all")
+    _refuse_a_zero_denominator(name, outcomes)
     return PlaythroughReport(
         name=name,
         clean={"foreign_rule_passes_every_scenario": clean_passes},

@@ -661,6 +661,118 @@ def test_MUTATION_COVERAGE_is_total(name: str, playthrough_report) -> None:
     assert report.mutation_coverage == 1.0, report.as_dict()
 
 
+# --------------------------------------------------------------------------
+# THE EMPTY REGISTRY (ADR-030, simviz's S9 report against infra)
+# --------------------------------------------------------------------------
+
+
+def test_an_EMPTIED_defect_registry_turns_this_gate_RED_and_not_GREEN() -> None:
+    """Proved by FORCING the registry empty, not by reading the source.
+
+    ADR-030 makes `make playthrough` a gate on the grounds that a playthrough
+    that cannot fail turns it red. With `DEFECTIVE_COARSENERS` empty, the
+    coarsening playthrough plants nothing, catches all zero of its defects, and
+    the natural reading of `all(v for v in caught.values())` is vacuously True -
+    so the gate's own premise inverts and it turns GREEN.
+
+    Two layers have to hold and this exercises the first: `sim/coarsen.py`
+    refuses to BUILD the report. The second is exercised by the test below, so
+    that the guarantee does not depend on a guard in a package infra does not own.
+    """
+    from wildfire_nowcast.sim import coarsen as CO
+    from wildfire_nowcast.sim.absent import AbsentMeasurementError
+
+    kept = dict(CO.DEFECTIVE_COARSENERS)
+    assert kept, "the registry is ALREADY empty, so emptying it below proves nothing"
+
+    healthy = _coarsening_report()
+    assert healthy.passed and healthy.mutation_coverage == 1.0, healthy.as_dict()
+
+    try:
+        CO.DEFECTIVE_COARSENERS.clear()
+        assert not CO.DEFECTIVE_COARSENERS, "the plant did not take; the observation is void"
+        with pytest.raises((AbsentMeasurementError, PT.VacuousPlaythroughError)) as excinfo:
+            _coarsening_report()
+        message = str(excinfo.value)
+    finally:
+        CO.DEFECTIVE_COARSENERS.clear()
+        CO.DEFECTIVE_COARSENERS.update(kept)
+
+    assert CO.DEFECTIVE_COARSENERS == kept, "the registry was not restored"
+    assert "planted_defects" in message or "NO planted defects" in message, message
+
+    restored = _coarsening_report()
+    assert restored.passed and restored.mutation_coverage == 1.0, restored.as_dict()
+
+
+def test_the_ADAPTER_refuses_a_vacuous_map_even_with_no_guard_upstream() -> None:
+    """The second layer. `common/` may not rely on a guard in `sim/` staying put.
+
+    Both shapes of a zero denominator, refused where the coverage number is
+    COMPUTED rather than where the defects are declared. The second shape is the
+    one that survived until now: a report with defect rows in it, every one a
+    declared blind spot, printing `mutation coverage 0%` beside `verdict: PASS`.
+    """
+    with pytest.raises(PT.VacuousPlaythroughError) as empty:
+        PT.coverage_from_caught_map("coarsening_correctness", {}, clean_passes=True)
+    assert "NO planted defects at all" in str(empty.value)
+
+    with pytest.raises(PT.VacuousPlaythroughError) as blind:
+        PT.coverage_from_caught_map(
+            "coarsening_correctness",
+            {"nearest": [], "all": []},
+            clean_passes=True,
+            blind_spots=["nearest", "all"],
+        )
+    assert "BLIND SPOTS" in str(blind.value)
+
+
+def test_the_NATIVE_path_has_refused_both_shapes_since_ADR_030() -> None:
+    """The asymmetry that let the adopted path drift: stated, and now closed.
+
+    `Playthrough.__post_init__` refuses zero defects AND an all-blind-spot set.
+    `coverage_from_caught_map` refused only the first. That difference is
+    invisible from either report, which is exactly what simviz found between
+    `sim/playthrough.py` and `sim/coarsen.py`.
+    """
+    probe = PT.Probe("always", lambda _: True)
+    blind_only = PT.Defect("noop", PT.no_defect(), detected=False, note="changes nothing")
+
+    with pytest.raises(PT.PlaythroughError) as no_defects:
+        PT.Playthrough(name="x", build=dict, observe=lambda o: o, probes=(probe,), defects=())
+    assert "no defects declared" in str(no_defects.value)
+
+    with pytest.raises(PT.PlaythroughError) as all_blind:
+        PT.Playthrough(
+            name="x", build=dict, observe=lambda o: o, probes=(probe,), defects=(blind_only,)
+        )
+    assert "every declared defect is a blind spot" in str(all_blind.value)
+
+
+def test_every_REGISTERED_playthrough_declares_at_least_one_catchable_defect() -> None:
+    """The minimum simviz asked for, asserted over the live registry.
+
+    Not "at least one outcome": at least one outcome that is EXPECTED TO BE
+    DETECTED. A registry of blind spots has the same zero denominator as an
+    empty one and reads PASS just as convincingly.
+    """
+    checked: list[str] = []
+    for name in sorted(PLAYTHROUGHS):
+        entry = PLAYTHROUGHS[name]
+        if entry.unavailable():
+            continue
+        if entry.obj is None:
+            continue
+        playthrough = entry.obj()
+        defects = getattr(playthrough, "defects", ())
+        assert any(getattr(d, "detected", False) for d in defects), (
+            f"{name} declares {len(defects)} defect(s) and none of them is expected to be "
+            "detected, so its coverage denominator is zero and it cannot go red"
+        )
+        checked.append(name)
+    assert len(checked) >= 3, f"only {checked} were checked; the registry walk is wrong"
+
+
 def test_unavailable_playthroughs_are_declared_not_forgotten() -> None:
     """A skipped playthrough is a REPORTING gap with a named reason (C-1).
 
