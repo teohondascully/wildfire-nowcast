@@ -14,7 +14,24 @@ The maintainer sized the class at 28 with a search for direct string constants
 and said so was a floor. This classifier reads the parse tree, so it sees
 f-strings, concatenations and escaped dashes as well: **63 at `738e7b7`**, of
 which 38 were infra's and are swept here, and 25 belong to `eval/`, `model/`,
-`sim/` and `runs/` and are a burn-down.
+`sim/` and `runs/` and were a burn-down.
+
+**THE BURN-DOWN IS COMPLETE AND THAT IS WHY THIS FILE CHANGED (I16).** @simviz,
+@data and @model swept the last 25 in one burst, the declared debt reached zero,
+and four assertions here broke on the success of the thing they guarded. The
+worst of them asserted `len(found) >= 20` over the live tree and said so in its
+own failure message: *"Either three leads cleared their debt at once, or the sink
+analysis has stopped matching anything."* It named both hypotheses and could not
+separate them, because it tested a POPULATION as a proxy for a CAPABILITY. A
+burn-down whose anti-vacuity control needs the debt never to reach zero is a
+burn-down that cannot be completed.
+
+**EVERY ASSERTION BELOW HOLDS AT ZERO DEBT**, and the capability is asserted
+directly: a synthetic module carrying a known output-reaching literal is handed
+to the classifier and the region that comes back is named. That is independent of
+real debt, works in a clone, and is stronger than a floor on live tree contents,
+because it names the exact input it detects instead of inferring detection from a
+count.
 """
 
 from __future__ import annotations
@@ -23,6 +40,7 @@ import ast
 import functools
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -47,13 +65,40 @@ def _occ(path: str, line: int, region: str) -> prose_scan.Occurrence:
     return prose_scan.Occurrence(path, line, region, "—", "Pd", "EM DASH")
 
 
+#: Two synthetic modules that differ in ONE thing: the sink. Same character, same
+#: line number, same surrounding words, `print(...)` in the first and a plain
+#: assignment in the second. A classifier that answers OUTPUT for one and LITERAL
+#: for the other is discriminating on the sink and on nothing else, which a pair
+#: that also differed in wording or position could not establish.
+_PLANTED_OUTPUT: str = 'def render():\n    print("a planted dash — shown to a reader")\n'
+_PLANTED_INTERNAL: str = 'def render():\n    held = "a planted dash — shown to a reader"\n'
+
+#: The same construction for the error path, which is DECLARED and not failing.
+_PLANTED_ERROR: str = 'def render():\n    raise ValueError("a planted dash — shown to a reader")\n'
+
+
+def _debt_on_infra_surfaces(debt: Mapping[str, int]) -> tuple[str, ...]:
+    """Declared entries on a surface infra owns. There may never be any."""
+    return tuple(sorted(path for path in debt if path.startswith(INFRA_SURFACES)))
+
+
+def _debt_entries_at_zero(debt: Mapping[str, int]) -> tuple[str, ...]:
+    """Declared entries carrying 0. A cleared file is REMOVED, never zeroed."""
+    return tuple(sorted(path for path, count in debt.items() if count <= 0))
+
+
 # --------------------------------------------------------------------------
 # the live tree
 # --------------------------------------------------------------------------
 
 
 def test_infra_owns_zero_output_reaching_literals() -> None:
-    """The 38 that were infra's are gone, and they may not come back."""
+    """The 38 that were infra's are gone, and they may not come back.
+
+    An empty result here is a clean surface only if the scanner still works, and
+    that is not assumed: it is established on a synthetic module by
+    :func:`test_the_classifier_answers_both_ways_on_a_planted_literal`.
+    """
     left = [
         occ
         for occ in _scan()
@@ -72,22 +117,52 @@ def test_the_rest_is_exactly_the_declared_debt() -> None:
 
 
 def test_the_debt_belongs_to_other_leads_and_says_so() -> None:
-    """A burn-down that infra could clear itself would be a to-do list, not a fence."""
-    assert not any(path.startswith(INFRA_SURFACES) for path in prose_scan.OUTPUT_LITERAL_DEBT)
-    assert all(count > 0 for count in prose_scan.OUTPUT_LITERAL_DEBT.values())
+    """A burn-down that infra could clear itself would be a to-do list, not a fence.
 
-
-def test_the_output_category_is_not_passing_by_scoping_to_nothing() -> None:
-    """The anti-vacuity control: the classifier still finds the class it bounds.
-
-    If the sink analysis silently stopped matching, every file would read zero and
-    both tests above would pass while the category measured nothing.
+    The live debt is EMPTY, so both rules hold over it vacuously. Each is therefore
+    also put to a mapping that VIOLATES it, on the same two functions, so the test
+    is shown to answer both ways at zero rather than reporting green for want of an
+    entry to judge. That is the same defect as the floor this file lost, one layer
+    down, and it would have arrived with the same burn-down.
     """
-    found = [occ for occ in _scan() if occ.region == prose_scan.REGION_OUTPUT]
-    assert len(found) >= 20, (
-        f"only {len(found)} output-reaching characters found against a declared debt of "
-        f"{sum(prose_scan.OUTPUT_LITERAL_DEBT.values())}. Either three leads cleared their "
-        "debt at once, or the sink analysis has stopped matching anything."
+    live = prose_scan.OUTPUT_LITERAL_DEBT
+    assert _debt_on_infra_surfaces(live) == (), "infra fixes its own the day it finds them"
+    assert _debt_entries_at_zero(live) == (), "a cleared file is REMOVED, not set to 0"
+
+    assert _debt_on_infra_surfaces({"tools/x.py": 1, "src/wildfire_nowcast/eval/y.py": 1}) == (
+        "tools/x.py",
+    )
+    assert _debt_entries_at_zero({"src/wildfire_nowcast/sim/y.py": 0}) == (
+        "src/wildfire_nowcast/sim/y.py",
+    )
+
+
+def test_the_classifier_answers_both_ways_on_a_planted_literal() -> None:
+    """THE ANTI-VACUITY CONTROL. It asserts the CAPABILITY, not the population.
+
+    The claim wanted here is that the sink analysis can still detect an
+    output-reaching literal. The claim the old control tested is that such
+    literals exist in the tree, which is an incidental property of how much debt
+    happens to be outstanding, and the proxy holds only while the debt is unpaid.
+    The debt is now zero and the proxy is gone, so the capability is asserted on a
+    known input: this module is constructed here, classified here, and the region
+    is named here. No count of anyone else's files takes part.
+
+    Both directions on the SAME rig. A control that only answered OUTPUT could be
+    satisfied by a classifier that answered OUTPUT to everything, which is the
+    mirror of the vacuity it replaces.
+    """
+    output = prose_scan.scan_python_source("planted.py", _PLANTED_OUTPUT)
+    assert [(occ.line, occ.region) for occ in output] == [(2, prose_scan.REGION_OUTPUT)], (
+        "the sink analysis no longer sees a dash inside a print(). This is the failure "
+        f"the live-tree floor was trying and failing to detect: {output}"
+    )
+    assert output[0].char == "—" and output[0].name == "EM DASH", output
+
+    internal = prose_scan.scan_python_source("planted.py", _PLANTED_INTERNAL)
+    assert [(occ.line, occ.region) for occ in internal] == [(2, prose_scan.REGION_LITERAL)], (
+        "an internal literal was classified as reader-facing. A classifier that says "
+        f"OUTPUT to everything passes the assertion above and means nothing: {internal}"
     )
 
 
@@ -107,9 +182,18 @@ def test_the_error_path_literals_are_counted_and_declared_and_do_NOT_fail() -> N
     Widening the gate to `raise` and `assert` messages is a PROPOSAL, not a
     decision infra may take alone: contract violation strings are compared against
     by tests in three other leads' packages.
+
+    This carried `len(errors) >= 30` over the live tree with the message "the
+    raise/assert sink has stopped matching". That is the same population-as-proxy
+    defect the output floor died of, in a region that simply had not been burned
+    down yet, so it is replaced by the same construction rather than left to fail
+    later for the wrong reason.
     """
-    errors = [occ for occ in _scan() if occ.region == prose_scan.REGION_ERROR]
-    assert len(errors) >= 30, f"only {len(errors)}; the raise/assert sink has stopped matching"
+    planted = prose_scan.scan_python_source("planted.py", _PLANTED_ERROR)
+    assert [(occ.line, occ.region) for occ in planted] == [(2, prose_scan.REGION_ERROR)], (
+        "the raise/assert sink has stopped matching, or it has leaked into the "
+        f"failing category: {planted}"
+    )
     audit = prose_scan.audit_output_literals(_scan())
     assert audit.ok, "error-path literals must not enter the failing category by accident"
 

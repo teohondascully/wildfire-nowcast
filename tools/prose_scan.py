@@ -501,43 +501,45 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
 # the output-literal debt, and who owns each line of it
 # --------------------------------------------------------------------------
 
-#: Output-reaching typographic characters that belong to another lead, MEASURED
-#: at `738e7b7` over the tracked tree. infra fixed the 38 in `common/`, `tools/`
-#: and `tests/`; these 25 are in `eval/`, `model/`, `sim/` and `runs/`, which
-#: infra may not edit (C-4 ownership).
+#: Output-reaching typographic characters that belong to another lead, per file.
+#: **EMPTY, AND EMPTY IS THE SUCCESS STATE.** 63 were measured at `738e7b7`;
+#: infra swept its own 38 in `common/`, `tools/` and `tests/` the same day, and
+#: the last 25 in `eval/`, `model/`, `runs/` and `sim/` went in one burst:
+#: @simviz at `8b62729` (S11), @data at `8d3c5c0` (D14), @model at `7c78d32`
+#: (M19). Every one of those files is STILL TRACKED, checked against
+#: `git ls-files` rather than inferred from a count of zero, so this dict reads
+#: "swept" and not "deleted".
 #:
-#: A BURN-DOWN, and it fails in three directions:
+#: A BURN-DOWN, and it fails in FOUR directions:
 #:
 #: * a file NOT listed that carries one is NEW DEBT and fails;
 #: * a listed file whose count RISES fails;
-#: * a listed file that reaches ZERO is STALE and fails, so the entry cannot
-#:   outlive its reason.
+#: * a listed file whose count FALLS fails, so a sweep is RECORDED when it
+#:   happens. A tolerated fall leaves slack that a later commit can refill
+#:   without tripping RISEN, which made this a ceiling wearing the name of a pin
+#:   until ADR-106 (4);
+#: * a listed file that reaches ZERO is STALE and fails, so an entry cannot
+#:   outlive its reason and the list cannot decay into an allow-list.
 #:
-#: A count that FALLS without reaching zero is fine. That asymmetry is
-#: deliberate: three leads are writing in these files, and a pin that goes red on
-#: their ordinary progress is a pin that gets edited rather than obeyed.
-OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {
-    # @model
-    "runs/_m9_scaling.py": 2,
-    "src/wildfire_nowcast/eval/baseline_run.py": 5,
-    "src/wildfire_nowcast/eval/playthrough_first_moment.py": 2,
-    "src/wildfire_nowcast/eval/reporting.py": 1,  # was 2; @model swept one
-    "src/wildfire_nowcast/eval/selftest.py": 1,
-    "src/wildfire_nowcast/model/train.py": 3,
-    # @simviz: swept to 0 at S11. `sim/` carried 10 across 8 files and carries
-    # none. The entries are REMOVED rather than set to 0, because a zero entry is
-    # STALE by this pin's own rule and an entry that outlives its reason is an
-    # allow-list.
-    #
-    # MEASURED WHILE SWEEPING, AND NOT SWEPT: `sim/` holds 138 more typographic
-    # characters that a reader sees and this scanner does not, because both sinks
-    # are POSITIONAL rather than keyword - 40 drawn on a figure by `set_title`,
-    # `suptitle`, `text`, `annotate`, `style.stamp`, and 98 written into the HTML
-    # page `sim/review.py` renders. That is 14x the debt this pin held for `sim/`.
-    # Widening REGION_OUTPUT's sinks to drawn text is a PROPOSAL for @infra rather
-    # than an edit simviz may make in this file, on the same reasoning that keeps
-    # `raise`/`assert` messages out of the failing category.
-}
+#: **AT ZERO THE DICT IS EMPTY AND THE GATE STILL BINDS**, through the first
+#: direction: any output-reaching literal anywhere in the tracked tree is
+#: UNDECLARED and fails. What an empty dict does NOT establish is that the
+#: classifier can still SEE one. That is a property of the classifier and not of
+#: anyone's cleanliness, so it is asserted directly, on a synthetic module, by
+#: `tests/test_prose_output_literals.py::
+#: test_the_classifier_answers_both_ways_on_a_planted_literal`. A control that
+#: inferred classifier health from the SIZE of this dict could not survive the
+#: dict being emptied, and did not: a floor of 20 was left guarding a debt of 14.
+#:
+#: MEASURED BY @simviz WHILE SWEEPING, AND NOT SWEPT: `sim/` holds 138 more
+#: typographic characters that a reader sees and this scanner does not, because
+#: both sinks are POSITIONAL rather than keyword - 40 drawn on a figure by
+#: `set_title`, `suptitle`, `text`, `annotate`, `style.stamp`, and 98 written
+#: into the HTML page `sim/review.py` renders. That is 14x the debt this pin ever
+#: held for `sim/`. Widening REGION_OUTPUT's sinks to drawn text is an OPEN
+#: PROPOSAL from @simviz for @infra to rule on, and it has to move in the same
+#: commit as the internal-literal threshold it would disturb.
+OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {}
 
 
 @dataclass(frozen=True)
@@ -683,6 +685,13 @@ def main(argv: list[str] | None = None) -> int:
         "other leads (ADR-097). The declared number is a PIN, not a ceiling: it fails "
         "when it rises AND when it falls."
     )
+    if not OUTPUT_LITERAL_DEBT:
+        print(
+            "the burn-down is COMPLETE: no file carries declared output-reaching debt. "
+            "ZERO IS THE SUCCESS STATE AND IS A PASSING STATE. The gate still binds "
+            "through the UNDECLARED direction, and that this scanner can still see such "
+            "a literal is proven on a synthetic module, never by this count."
+        )
     print(f"NOT SEEN BY THIS SCANNER: {UNSEEN_BY_CONSTRUCTION}")
     for line in audit.lines():
         print(f"  [FAIL] {line}")
