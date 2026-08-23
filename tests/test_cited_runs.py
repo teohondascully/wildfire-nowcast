@@ -1,11 +1,13 @@
 """The ``runs/`` citation class: enumerated by a walk, not by a typed pattern.
 
 The class was first enumerated with ``runs/[A-Za-z0-9_]*\\.json`` and came back
-as twelve. It was twenty-one then and is twenty-four now, the three additions
-being M19's sweep artifacts. The two misses were STRUCTURAL rather than unlucky:
-the character class excludes ``/`` and ``-``, so no subdirectory can ever match,
-and the literal suffix excludes every extension but one. The five files that
-second miss hid are the analysis scripts that produced published numbers.
+as twelve. It was twenty-one then, twenty-four after M19's three sweep artifacts,
+and is twenty-five now, the last being ``runs/_m24_ladder.py``. The two misses
+were STRUCTURAL rather than unlucky: the character class excludes ``/`` and
+``-``, so no subdirectory can ever match, and the literal suffix excludes every
+extension but one. The six files that second miss hides are the analysis scripts
+that produced published numbers; five were there at the enumeration and the sixth
+arrived when a test began deriving its protocol from one of them.
 
 These tests hold the replacement to a higher bar than "it found more": they
 measure both patterns on the SAME corpus, they demonstrate the superseded
@@ -37,7 +39,28 @@ from wildfire_nowcast.common.paths import repo_root  # noqa: E402
 #: a clone rather than only re-run. Both numbers here were OBSERVED FAILING
 #: FIRST (``assert 20 == 17`` and, below, ``assert 15 == 12``); neither was
 #: derived from the change and then confirmed by the change.
-EXPECTED_TRACKED = 20
+#:
+#: [I24] 20 -> 21: ``runs/_m24_ladder.py``, newly cited by
+#: ``tests/test_degrade_ladder_severity.py``. The citation is LOAD-BEARING and
+#: was not removed to keep the count still: that file re-declares
+#: ``SHAPE_LEVELS`` and ``LADDER_SHIFT_LEVELS`` from the ladder script, which is
+#: their ONLY definition anywhere in the tree, and it names that script as the
+#: entry point whose ``evaluate()`` call it reproduces. Strip the citation and a
+#: copied rung set loses the only link to its source.
+#: HOW IT REACHED ``main`` IS THE FINDING, NOT THE COUNT: ``_source_file_tokens``
+#: iterates ``C.tracked_files(base)``, so THE GIT INDEX IS AN INPUT TO THIS
+#: SUITE. A green run taken before ``git add`` measured a different corpus than
+#: the one that was pushed. Run this file AFTER staging, or it is answering
+#: about a tree nobody has.
+#: Held to this pin's own standard: all three numbers were OBSERVED FAILING
+#: FIRST, one at a time, each after the one above it was bumped
+#: (``assert 21 == 20``, then ``assert 10 == 9``, then ``assert 6 == 5``), and
+#: none was derived from the change and then confirmed by it. ``superseded``
+#: did NOT move and was not touched: it stays at 15 because the new token ends
+#: ``.py``, which is the blind spot this file exists to demonstrate - measured
+#: here, not assumed, since ``assert len(superseded) == 15`` passed unedited
+#: through all three observations.
+EXPECTED_TRACKED = 21
 EXPECTED_EXEMPT = 4
 EXPECTED_CLASS = EXPECTED_TRACKED + EXPECTED_EXEMPT
 
@@ -83,8 +106,15 @@ def test_the_class_is_the_size_it_is_declared_to_be() -> None:
     assert len(tracked) + len(exempt) == EXPECTED_CLASS
 
 
-def test_the_five_analysis_scripts_are_in_the_tree() -> None:
-    """The half the superseded pattern could not see, named individually."""
+def test_the_analysis_scripts_are_in_the_tree() -> None:
+    """The half the superseded pattern could not see, named individually.
+
+    The first five are the enumeration's own discovery set. ``_m24_ladder.py``
+    [I24] is the sixth and is named here for the same reason as the others: a
+    count can be raised, whereas a name that stops resolving says which file
+    left. Naming it is the direction of this check that a bumped pin does not
+    cover.
+    """
     tracked = {c.token for c in _enum().of_kind("tracked")}
     for name in (
         "runs/_m9_response.py",
@@ -92,6 +122,7 @@ def test_the_five_analysis_scripts_are_in_the_tree() -> None:
         "runs/_m10_bitidentity.py",
         "runs/_s1_bitidentity.py",
         "runs/_s1_score.py",
+        "runs/_m24_ladder.py",
     ):
         assert name in tracked, f"{name} is cited by tracked source and is not tracked"
 
@@ -123,14 +154,20 @@ def test_the_replacement_finds_the_whole_class_where_the_superseded_pattern_foun
 
     # 12 -> 15: the three M19 artifacts are ``runs/<word>.json``, which is the one
     # shape the superseded pattern could always see. The number that carries the
-    # finding is ``missed`` below, and it is UNCHANGED at 9.
+    # finding is ``missed`` below; it was UNCHANGED at 9 through that move and
+    # went 9 -> 10 at I24, when a ``.py`` citation - invisible to the superseded
+    # pattern by construction - entered the class. ``superseded`` is unmoved at
+    # 15 for exactly that reason, and this line passed unedited while the two
+    # below were each observed failing.
     assert len(superseded) == 15, sorted(superseded)
     assert len(replacement) == EXPECTED_CLASS, sorted(replacement)
     assert superseded < replacement, "the replacement must be a strict superset"
 
     missed = replacement - superseded
-    assert len(missed) == 9, sorted(missed)
-    assert sum(1 for t in missed if t.endswith(".py")) == 5, sorted(missed)
+    assert len(missed) == 10, sorted(missed)
+    # 5 -> 6 at I24: ``runs/_m24_ladder.py``. The ``/results.json`` half is
+    # untouched at 4, so the two blind spots stay separately countable.
+    assert sum(1 for t in missed if t.endswith(".py")) == 6, sorted(missed)
     assert sum(1 for t in missed if "/results.json" in t) == 4, sorted(missed)
 
 
