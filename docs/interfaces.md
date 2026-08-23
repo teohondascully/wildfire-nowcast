@@ -1,4 +1,19 @@
-# INTERFACES v2.16 (bump version + DECISIONS.md entry to change anything here)
+# INTERFACES v2.17 (bump version + DECISIONS.md entry to change anything here)
+# v2.17 ADR-113: THE FROZEN SET NAMED A FILE THAT HAS NOT EXISTED SINCE
+#       `b4cdb33`. C-4's SCORING CODE parenthetical enumerated
+#       `common/iou_terms.py`, `common/calibration.py` and
+#       `null_check.py` - three files THE SAME SENTENCE had already
+#       frozen by naming `common/` whole. Nothing depended on that list
+#       being right, so nothing noticed when `null_check.py` was split into
+#       a package of seven files; the contract went on citing a path a
+#       cloner cannot open until `tools/cited_paths.py` asked. **A list that
+#       duplicates a broader rule has no reader to keep it honest.** The
+#       enumeration is removed and SCORING CODE is now `eval/` + `model/`,
+#       the subtree pair `scoring_code_fingerprint()` has actually walked
+#       since ADR-057. That is a WIDENING to `model/` and is stated as one.
+#       NO HOLE EVER EXISTED IN THE FREEZE: ADR-057 replaced enumerated
+#       files with whole recursive subtrees in both fingerprints, so
+#       `common/null_check/` was covered throughout. [v2.17]
 # v2.16 ADR-062 (5)(6)(7): MAKE A CROSS-VALIDATION MATRIX CHECKABLE. Three
 #       additions, all of which make the checker stricter and none of which
 #       exempts anything. **C8.1** - a full leave-fold-out matrix has FIVE split
@@ -122,8 +137,30 @@ happened because that rule named the instance instead of the class.
 
 **FROZEN SET - while any lead holds a running experiment, no other lead may
 modify: tensors, manifests, `norm_stats.json`, splits/folds, `common/`,
-contract code, or SCORING CODE (`eval/`, `common/iou_terms.py`,
-`common/calibration.py`, `common/null_check.py`).**
+contract code, or SCORING CODE (`eval/` + `model/`).** [v2.17]
+**[v2.17] (ADR-113) SCORING CODE IS A SUBTREE PAIR, NOT A FILE LIST.** What sat
+here was `eval/` plus three named `common/` files, and `common/` is frozen whole
+by this same sentence - so the enumeration was redundant on the day it was
+written. Redundant is why it rotted: nothing read it, so nothing caught
+the vanished `null_check.py` being split into a package of seven modules at
+`b4cdb33`,
+and the contract kept citing a path no cloner can open. It now names `eval/` +
+`model/`, which is what `scoring_code_fingerprint()` has walked since ADR-057.
+**This WIDENS the freeze to `model/`** - deliberately, because a lead scoring a
+run imports model code and the fingerprint has been reporting `model/` as
+scoring code the whole time, so the text was the half that was out of step.
+**No hole ever existed:** ADR-057 had already replaced enumerated files with
+whole recursive subtrees, so `common/null_check/` stayed covered. The paragraph
+directly above is about ADR-021 naming the instance instead of the class; this
+enumeration did the same thing three lines later.
+**WHY THE DEAD FILE IS SPELLED WITHOUT ITS DIRECTORY HERE.** Writing it in full
+would make `tools/cited_paths.py` count this clause as citing an unopenable
+path, which is true of the token and false of the sentence: nothing here asks a
+reader to open that file, the whole point is that it is gone. Bare filenames are
+outside that scanner by documented design and it prints the limit on every run.
+The checker has no category for a path named BECAUSE IT NO LONGER EXISTS -
+`specimen` is for paths a test invents, `output` for destinations the program
+writes - and adding one is infra's call, not this file's. Proposed, not assumed.
 **C-4.3 THE INTERPRETER ENVIRONMENT IS IN THE FROZEN SET TOO** [v2.12] (ADR-024)
 - site-packages, the lockfile and system deps. `pip install` during another lead's
 run is a shared-state change; the enumerated file list above did not say so.

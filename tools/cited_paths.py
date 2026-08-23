@@ -336,13 +336,12 @@ DECLARATION_FILES: Final[tuple[str, ...]] = (
 #:
 #: OWNERS. Every entry is in a package the author of this module does not write
 #: to, and each was reported to that package's owner WITH the enumeration rather
-#: than swept across the boundary. ``docs/interfaces.md`` is the contract
-#: document and only its owner edits it; its single entry cites the module
-#: ``null_check`` by the single-file path it had before A15, when it became a
-#: package. The two copies of that same dead path under ``common/`` were
-#: repaired in the commit that added this file.
+#: than swept across the boundary. That is why ``docs/interfaces.md`` is no
+#: longer here: this module reported the dead ``null_check`` single-file path to
+#: the contract's owner instead of editing the contract, and the owner
+#: discharged it at v2.17 (ADR-113). The enumeration did the work; crossing the
+#: fence would have produced the same diff with none of the review.
 DEBT: Final[dict[str, int]] = {
-    "docs/interfaces.md": 1,
     "src/wildfire_nowcast/data/gofer.py": 1,
     "src/wildfire_nowcast/eval/regime_calibration.py": 1,
     # S12: 26 of the 27 discharged - 22 declared above by ROLE and 4
