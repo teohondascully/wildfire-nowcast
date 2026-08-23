@@ -79,6 +79,17 @@ __all__ = [
     "test_e1_refuses_to_score_a_fire_that_did_not_finish",
     "test_e1_refuses_a_window_that_may_have_hit_elmfire_s_wall_clock_cap",
     "test_e1_page_renders_a_partial_run_as_partial",
+    "test_a_zero_member_ensemble_is_an_absent_measurement_not_a_degenerate_one",
+    "test_the_non_degeneracy_playthrough_refuses_a_harness_with_no_arms",
+    "test_the_playthrough_cli_writes_no_artifact_when_nothing_was_measured",
+    "test_the_collapse_detector_refuses_an_ensemble_with_no_members",
+    "test_g3_readiness_cannot_pronounce_a_payload_with_no_models_adjudicable",
+    "test_the_coarsening_playthrough_refuses_a_harness_with_no_planted_defects",
+    "test_auditing_zero_plotted_keys_is_not_an_honest_figure",
+    "test_a_fire_with_no_measurable_step_publishes_no_teleport_statistics",
+    "test_the_burn_probability_panel_draws_nothing_where_no_member_burned",
+    "test_replay_draws_the_ensemble_beside_the_best_member",
+    "test_the_s4_one_pager_is_reachable_from_the_command_line",
 ]
 
 
@@ -406,9 +417,9 @@ def test_every_key_the_dashboard_plots_is_classified() -> None:
     # ADR-053 (1)(2)) and may be REPORTED but may not decide a gate. The badge
     # follows `common/null_check.C6_METRICS`, so this line tracks the ruling
     # rather than restating it; asserted in the QUARANTINED direction so a quiet
-    # reversal of the ruling is still caught here. Edited by infra under the I1
-    # contract-bump directive and declared in status/infra.md - one line, no
-    # behaviour, in a package infra does not own.
+    # reversal of the ruling is still caught here. It was edited alongside the
+    # v2.15 contract bump that made the move, and it carries no behaviour of its
+    # own beyond the assertion.
     assert classify("band_calibration_error_by_horizon").state == QUARANTINED
     for key in ("dispersion_ratio", "band_ece_by_horizon", "band_reliability_by_horizon"):
         assert classify(key).state == QUARANTINED, key
@@ -1011,6 +1022,319 @@ def test_e1_page_renders_a_partial_run_as_partial() -> None:
         assert out.exists() and out.stat().st_size > 5_000
     assert payload["n_blocks_scored"] == 2
     assert payload["verdict"] == "not_a_verdict"
+
+
+# -- S10: an empty input is an ABSENT MEASUREMENT, never a verdict ---------
+#
+# Every test below plants the SAME shape in a different instrument: hand it
+# nothing and see whether it answers anyway. The one that matters is the first.
+# `sim/playthrough.py`'s lobotomised arm is a POSITIVE CONTROL - the instrument
+# whose only job is to prove the detector can fire - and over a zero-member
+# ensemble all three degeneracy criteria were satisfied vacuously, so it agreed
+# with its own declared expectation and the playthrough PASSED. An alarm that
+# sounds on nothing cannot attribute anything, and everything downstream of a
+# control inherits whatever the control certified.
+
+
+def test_a_zero_member_ensemble_is_an_absent_measurement_not_a_degenerate_one() -> None:
+    """The lobotomy control must not read as fired when nothing ran.
+
+    Both halves are asserted, because either alone is worthless: the empty
+    ensemble must be REFUSED, and the measured zero-growth ensemble the control
+    actually targets must still come back ``degenerate=True``. A guard that
+    silenced both would look identical on the first assertion.
+    """
+    from wildfire_nowcast.sim.absent import AbsentMeasurementError  # noqa: PLC0415
+    from wildfire_nowcast.sim.playthrough import degeneracy_verdict  # noqa: PLC0415
+
+    x0 = np.zeros((8, 8), dtype=np.uint8)
+    x0[:4] = 1
+
+    for why, empty in (
+        ("no members", np.zeros((0, 3, 8, 8), dtype=np.uint8)),
+        ("no lead steps", np.zeros((6, 0, 8, 8), dtype=np.uint8)),
+    ):
+        try:
+            got = degeneracy_verdict("empty", empty, x0, absolute_floor=10.0)
+        except AbsentMeasurementError as exc:
+            assert "NOTHING EXAMINED" in str(exc), str(exc)
+        else:
+            raise AssertionError(
+                f"an ensemble with {why} returned degenerate={got.degenerate}. The "
+                "lobotomised arm declares expect_degenerate=True, so this value makes "
+                "the positive control agree with its expectation having measured nothing."
+            )
+
+    silent = np.repeat(x0[None, None], 4, axis=0).repeat(3, axis=1).copy()
+    v = degeneracy_verdict("silent", silent, x0, absolute_floor=10.0)
+    assert v.degenerate and v.d1_zero_growth, v.as_dict()
+    assert v.n_members == 4 and v.n_lead_steps == 3, (
+        "the denominator must travel with the verdict into the artifact"
+    )
+    assert v.as_dict()["n_members"] == 4
+
+
+def test_the_non_degeneracy_playthrough_refuses_a_harness_with_no_arms() -> None:
+    """``all([])`` is True, so an emptied ARMS would PASS over zero experiments."""
+    from wildfire_nowcast.sim import playthrough as PT  # noqa: PLC0415
+    from wildfire_nowcast.sim.absent import AbsentMeasurementError  # noqa: PLC0415
+
+    kept = PT.ARMS
+    try:
+        PT.ARMS = ()
+        try:
+            PT.run_playthrough()
+        except AbsentMeasurementError as exc:
+            assert "arms" in str(exc), str(exc)
+        else:
+            raise AssertionError("a playthrough with no arms reported a verdict")
+    finally:
+        PT.ARMS = kept
+    assert PT.ARMS is kept and len(PT.ARMS) >= 2
+
+
+def test_the_playthrough_cli_writes_no_artifact_when_nothing_was_measured() -> None:
+    """Refusal means the file does not appear, not that it appears saying zero.
+
+    ``reports/figures/playthrough_nondegeneracy.json`` asserts by its own name
+    that non-degeneracy was tested. Exit code 3, not 1: a caller reading only the
+    status must be able to tell "no check ran" from "a check disagreed".
+    """
+    from wildfire_nowcast.sim import playthrough as PT  # noqa: PLC0415
+
+    out = Path(_synthetic_tensor_path()).parent / "s10_refused.json"
+    if out.exists():
+        out.unlink()
+    kept = PT.ARMS
+    try:
+        PT.ARMS = ()
+        code = PT.main(["--out", str(out)])
+    finally:
+        PT.ARMS = kept
+    assert code == PT.EXIT_NOTHING_EXAMINED == 3, code
+    assert not out.exists(), f"{out} was written for a run that measured nothing"
+
+
+def test_the_collapse_detector_refuses_an_ensemble_with_no_members() -> None:
+    """``collapsed`` is the verdict whose positive control is latent_sigma=0.
+
+    It was loud on an empty ensemble only by line ORDER: a reshape forty lines
+    below had already been preceded by a vacuous ``mean_pairwise_iou`` of 1.0.
+    The stub at ``latent_sigma=0`` must still be caught, or the guard has simply
+    turned the detector off.
+    """
+    from wildfire_nowcast.sim.absent import AbsentMeasurementError  # noqa: PLC0415
+
+    for fn in (ensemble_diagnostics, independence_dispersion_index):
+        for empty in (
+            np.zeros((0, 3, 6, 6), dtype=np.uint8),
+            np.zeros((5, 0, 6, 6), dtype=np.uint8),
+        ):
+            try:
+                fn(empty)
+            except AbsentMeasurementError:
+                continue
+            raise AssertionError(f"{fn.__name__} answered over an empty ensemble")
+
+    # The same constructed independent-per-pixel ensemble
+    # `test_collapse_is_detected_and_healthy_is_not` uses, re-asserted here so a
+    # guard that silenced the detector instead of guarding it fails in the test
+    # that added the guard, not two tests away.
+    rng = np.random.default_rng(0)
+    n_members, n_cells = 60, 900
+    q = rng.uniform(0.2, 0.8, size=n_cells)
+    indep = (rng.random((n_members, n_cells)) < q).astype(np.uint8).reshape(n_members, 1, 30, 30)
+    diag = ensemble_diagnostics(indep)
+    assert diag["collapsed"], (
+        f"the independent-per-pixel positive control stopped being detected: {diag}"
+    )
+    assert diag["n_pairwise_comparisons"] == 400, (
+        "the pair count is capped at max_pairs and must be published, because "
+        "`ious = [...] or [1.0]` hides a single-member ensemble behind a perfect score"
+    )
+
+
+def test_g3_readiness_cannot_pronounce_a_payload_with_no_models_adjudicable() -> None:
+    """It seeded its key map inside the model loop, so no models meant no gaps."""
+    from wildfire_nowcast.sim.rundash import g3_readiness  # noqa: PLC0415
+
+    for empty in ({}, {"pooled_heldout": {}}, {"pooled_heldout": None}):
+        got = g3_readiness(empty)
+        assert not got["adjudicable"], got
+        assert got["n_models_examined"] == 0, got
+        assert len(got["missing"]) == 2, got
+
+    full = {
+        "pooled_heldout": {
+            "kernel": {
+                "growth_windows": {
+                    "area_dispersion_ratio": 0.58,
+                    "band_calibration_error": {"1": 0.04},
+                }
+            }
+        }
+    }
+    assert g3_readiness(full)["adjudicable"], "a complete artifact must still read adjudicable"
+
+
+def test_the_coarsening_playthrough_refuses_a_harness_with_no_planted_defects() -> None:
+    """A playthrough that planted nothing catches all zero of its defects."""
+    from wildfire_nowcast.sim import coarsen as CO  # noqa: PLC0415
+    from wildfire_nowcast.sim.absent import AbsentMeasurementError  # noqa: PLC0415
+
+    kept = dict(CO.DEFECTIVE_COARSENERS)
+    try:
+        CO.DEFECTIVE_COARSENERS.clear()
+        try:
+            CO.run_playthrough()
+        except AbsentMeasurementError as exc:
+            assert "planted_defects" in str(exc), str(exc)
+        else:
+            raise AssertionError(
+                "a coarsening playthrough with no planted defects reported a verdict; "
+                "every_planted_defect_caught is vacuously true over an empty dict"
+            )
+    finally:
+        CO.DEFECTIVE_COARSENERS.update(kept)
+    assert set(CO.DEFECTIVE_COARSENERS) == set(kept)
+
+
+def test_auditing_zero_plotted_keys_is_not_an_honest_figure() -> None:
+    """An empty violations list meant both "all badged" and "none checked"."""
+    from wildfire_nowcast.sim.absent import AbsentMeasurementError  # noqa: PLC0415
+    from wildfire_nowcast.sim.quarantine import audit_plotted_keys  # noqa: PLC0415
+
+    try:
+        audit_plotted_keys({})
+    except AbsentMeasurementError:
+        pass
+    else:
+        raise AssertionError("an audit of no keys returned the clean verdict")
+    assert audit_plotted_keys({"dispersion_ratio": ""}), "the audit stopped detecting"
+    assert audit_plotted_keys({"area_dispersion_ratio": ""}) == []
+
+
+def test_a_fire_with_no_measurable_step_publishes_no_teleport_statistics() -> None:
+    """Four zeros meant "nothing jumped" AND "no hour was examined"."""
+    from wildfire_nowcast.sim.movie import gap_summary  # noqa: PLC0415
+
+    keys = ("detached_steps", "teleport_steps", "max_front_gap_km", "median_front_advance_cells")
+
+    nothing = gap_summary([], 1.0, 3)
+    assert nothing["n_gap_steps"] == 0
+    for k in keys:
+        assert k not in nothing, f"{k} was published for a fire with no step to measure"
+
+    clean = gap_summary([0, 0, 0, 0], 1.0, 3)
+    assert clean["n_gap_steps"] == 4
+    assert all(clean[k] == 0 for k in keys), clean
+
+    jumped = gap_summary([0, 1, 5], 1.0, 3)
+    assert jumped["teleport_steps"] == 1 and jumped["max_front_gap_km"] == 5.0, jumped
+
+
+# -- S10: the replay tool can show a PROBABILITY, not only one track -------
+
+
+def test_the_burn_probability_panel_draws_nothing_where_no_member_burned() -> None:
+    """``p == 0`` must not render as the bottom of the colour scale.
+
+    "the ensemble put no weight here" and "the ensemble put its lowest non-zero
+    weight here" are different statements, and a dark cell reads as the second.
+    """
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.ensemble import draw_burn_probability  # noqa: PLC0415
+
+    geom = plot_extent(
+        np.array([0.0, 1000.0, 2000.0]),
+        np.array([3000.0, 2000.0, 1000.0]),
+        cell_size_m=1000.0,
+    )
+    prob = np.array([[0.0, 0.25, 0.5], [0.0, 0.0, 1.0], [0.75, 0.0, 0.0]])
+    fig, ax = plt.subplots()
+    try:
+        im = draw_burn_probability(ax, geom, prob)
+        drawn = np.asarray(im.get_array())
+        assert np.isnan(drawn[prob == 0]).all(), "a zero-probability cell was given a colour"
+        assert np.allclose(drawn[prob > 0], prob[prob > 0])
+        assert im.get_clim() == (0.0, 1.0), im.get_clim()
+    finally:
+        plt.close(fig)
+
+
+def test_replay_draws_the_ensemble_beside_the_best_member() -> None:
+    """C6's band IoU is a BEST-MEMBER statistic, so every map has one track in it.
+
+    An IoU of 0.4 from a member the rest agreed with and an IoU of 0.4 from the
+    one member that guessed right are opposite findings about a probabilistic
+    forecast and the same picture. The layout is asserted rather than the pixels:
+    two columns per model plus truth, and one column per model when the panel is
+    turned off.
+    """
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+
+    from wildfire_nowcast.sim import replay as RP  # noqa: PLC0415
+
+    ds = _open_synthetic()
+    picks = [t for t, _ in [(w.t0, i) for i, w in RP.iter_eval_windows(ds, 3)][:2]]
+    gate = RP.GateModels(
+        models={"stub": StubEnsemble(latent_sigma=0.6)},
+        provenance={"source": "sim.stub_model, a visualisation fixture"},
+    )
+    out_dir = Path(_synthetic_tensor_path()).parent
+    seen: list[int] = []
+    real_subplots = plt.subplots
+
+    def _spy(*args: object, **kw: object):  # noqa: ANN202
+        if len(args) >= 2:
+            seen.append(int(args[1]))  # type: ignore[arg-type]
+        return real_subplots(*args, **kw)
+
+    for flag, want_cols in ((True, 3), (False, 2)):
+        seen.clear()
+        plt.subplots = _spy  # type: ignore[assignment]
+        try:
+            png = RP.render_small_multiples(
+                "synthetic",
+                ds,
+                gate,
+                picks,
+                models=["stub"],
+                horizon_h=3,
+                stride=1,
+                n_members=6,
+                seed=5,
+                band_radius_cells=6,
+                out=out_dir / f"s10_replay_{flag}.png",
+                show_burn_probability=flag,
+            )
+        finally:
+            plt.subplots = real_subplots  # type: ignore[assignment]
+        assert seen and seen[0] == want_cols, (
+            f"show_burn_probability={flag} laid out {seen} columns, expected {want_cols}"
+        )
+        assert png.exists() and png.stat().st_size > 5_000
+        png.unlink()
+
+
+def test_the_s4_one_pager_is_reachable_from_the_command_line() -> None:
+    """``render_verdict`` drew the S4 page and nothing invoked it.
+
+    A renderer no entry point can reach is a renderer nobody will run.
+
+    The first version of this test searched ``--help`` output for the string
+    ``--render``, and a plant that renamed the flag to ``--render-DISABLED``
+    left it PASSING, because the old name is a substring of the new one. It now
+    parses an argument list, which a rename breaks.
+    """
+    from wildfire_nowcast.sim import playthrough as PT  # noqa: PLC0415
+
+    args = PT.build_parser().parse_args(["--render", "one_pager.png"])
+    assert args.render == "one_pager.png", args
+    assert args.render_playthrough1.endswith("playthrough_coarsening.json"), args
+    assert PT.build_parser().parse_args([]).render is None, "rendering must stay opt-in"
+    assert callable(PT.render_verdict)
 
 
 # -- runner ----------------------------------------------------------------

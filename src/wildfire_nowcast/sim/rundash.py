@@ -115,14 +115,29 @@ def g3_readiness(payload: dict[str, Any]) -> dict[str, Any]:
     ``calibration_*`` key, so this check is not hypothetical - it is that defect,
     one gate later, and a dashboard that silently drew an empty panel would hide
     it exactly as the last one did.
+
+    **An empty payload reads NOT adjudicable, and it used to read adjudicable.**
+    ``present`` was seeded with ``setdefault`` INSIDE the model loop, so a
+    payload carrying no models left it ``{}``, ``missing`` was ``[]`` and
+    ``adjudicable`` came back True: the readiness check pronounced a run ready
+    to decide G3 without having found a single number in it. The keys are now
+    seeded before the loop, so absence of evidence is reported as both criteria
+    missing, and ``n_models_examined`` publishes the denominator beside the
+    verdict.
+
+    This one returns a verdict rather than raising, unlike
+    :func:`wildfire_nowcast.sim.playthrough.degeneracy_verdict`. The difference
+    is what the function claims: "this artifact cannot adjudicate G3" is the
+    TRUE and useful answer for an empty payload, and it is the answer this
+    function exists to give, so the dashboard can draw its NOT-ADJUDICABLE
+    banner instead of crashing. A degeneracy verdict over zero members has no
+    true answer at all, which is why that one refuses.
     """
     pooled = payload.get("pooled_heldout") or {}
-    present: dict[str, bool] = {}
+    present: dict[str, bool] = {"area_dispersion_ratio": False, CALIBRATION_HEADLINE_KEY: False}
     for stratum in ("growth_windows", "all_windows"):
         for m, node in pooled.items():
             block = (node or {}).get(stratum) or {}
-            present.setdefault("area_dispersion_ratio", False)
-            present.setdefault(CALIBRATION_HEADLINE_KEY, False)
             if block.get("area_dispersion_ratio") is not None:
                 present["area_dispersion_ratio"] = True
             if block.get(CALIBRATION_HEADLINE_KEY) or block.get("band_calibration_error"):
@@ -133,6 +148,7 @@ def g3_readiness(payload: dict[str, Any]) -> dict[str, Any]:
         "dispersion_criterion": G3_KEYS["dispersion"],
         "calibration_criterion": G3_KEYS["calibration"],
         "calibration_mask": G3_KEYS["calibration_mask"],
+        "n_models_examined": len(pooled),
         "present": present,
         "missing": missing,
         "adjudicable": not missing,
@@ -429,7 +445,7 @@ def render_run_dashboard(
             "WITHOUT its own gate criterion — the exact defect infra\n"
             "caught for C6.4 one gate ago (ADR-020 (6)).\n\n"
             "Verified by CALLING _headline, not by reading it.\n"
-            "BLOCKER filed modelling. Nothing here is a G3 verdict.",
+            "Raised against eval/baseline_run. Nothing here is a G3 verdict.",
             ha="center",
             va="center",
             fontsize=8.0,

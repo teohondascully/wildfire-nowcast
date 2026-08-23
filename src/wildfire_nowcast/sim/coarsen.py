@@ -62,6 +62,7 @@ from typing import Any
 import numpy as np
 
 from wildfire_nowcast.common.grid import Grid
+from wildfire_nowcast.sim.absent import refuse_if_empty
 
 __all__ = [
     "DEFAULT_REFINE",
@@ -510,7 +511,33 @@ def run_playthrough(refine: int = DEFAULT_REFINE) -> dict[str, Any]:
     must pass all of them; each planted defect must be CAUGHT by at least one
     criterion on at least one scenario, and the report says which criterion caught
     which defect, so "the harness detected it" is checkable rather than asserted.
+
+    Both denominators are refused when empty, and the second is the one that
+    matters. ``all_defects_caught = all(v for v in caught.values())`` is
+    vacuously True over an emptied :data:`DEFECTIVE_COARSENERS`, so a
+    playthrough that planted NO defects would report ``every_planted_defect_
+    caught: true`` and PASS. ADR-030 makes this target a gate on the grounds
+    that a playthrough that cannot fail turns the suite red; with no defects
+    declared it cannot fail, and it would turn the suite GREEN. That is the
+    gate's own premise inverted, and nothing in ``src/``, ``tests/`` or
+    ``tools/`` pinned the dict's non-emptiness. The sibling playthrough in
+    ``sim/playthrough.py`` had the equivalent guard and this one did not, which
+    is invisible from either report.
+
+    Refusal is local and deliberate: the shared helper that turns a
+    ``defects_caught_by`` map into a coverage verdict lives in ``common/``,
+    which this package does not own and does not import. Guarding here means
+    the report cannot be BUILT over zero defects, independently of what any
+    downstream consumer decides to do with it.
     """
+    refuse_if_empty(
+        "coarsening playthrough",
+        {"scenarios": len(SCENARIOS), "planted_defects": len(DEFECTIVE_COARSENERS)},
+        because=(
+            "a rule that passed no scenarios and a harness that caught all zero of its "
+            "planted defects both read PASS."
+        ),
+    )
     rule_rows: list[dict[str, Any]] = []
     defect_rows: list[dict[str, Any]] = []
     for sc in SCENARIOS:
@@ -562,6 +589,8 @@ def run_playthrough(refine: int = DEFAULT_REFINE) -> dict[str, Any]:
         "refine": int(refine),
         "fine_cell_m": round(1000.0 / refine, 4),
         "threshold": OCCUPANCY_THRESHOLD,
+        "n_scenarios": len(SCENARIOS),
+        "n_planted_defects": len(DEFECTIVE_COARSENERS),
         "rule_rows": rule_rows,
         "defect_rows": defect_rows,
         "defects_caught_by": caught,

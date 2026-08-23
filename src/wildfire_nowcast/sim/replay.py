@@ -32,6 +32,18 @@ splits exactly into
 Both are reported, always together. The split is arithmetic, not a re-definition
 of the metric: ``silence_term + shape_term == band_best_member_iou`` to floating
 point, and the module asserts it.
+
+**The maps show the ENSEMBLE, not only the scored member.** C6's band IoU is a
+best-member statistic, so every map here has a deterministic single track at its
+centre, and for a while that was the only thing this module drew. It is not
+enough: an IoU of 0.4 from a member the other twenty-three agreed with and an
+IoU of 0.4 from the one member that happened to guess right are opposite
+findings about a probabilistic forecast, and they are the same picture.
+:func:`render_small_multiples` therefore draws the best member and the burn
+probability of the ensemble it came from, side by side, through
+:func:`wildfire_nowcast.sim.ensemble.draw_burn_probability` so both figures in
+this package use one colour map and one convention. Pass
+``--no-burn-probability`` for the narrower best-member-only layout.
 """
 
 from __future__ import annotations
@@ -54,6 +66,10 @@ import xarray as xr  # noqa: E402
 from wildfire_nowcast.common.iou_terms import silent_floor as _canonical_silent_floor  # noqa: E402
 from wildfire_nowcast.common.zarr_io import channel_values, open_tensor  # noqa: E402
 from wildfire_nowcast.sim.c5 import C5Inputs, c5_inputs  # noqa: E402
+from wildfire_nowcast.sim.ensemble import (  # noqa: E402
+    burn_probability,
+    draw_burn_probability,
+)
 from wildfire_nowcast.sim.style import (  # noqa: E402
     COL_BARRIER,
     COL_TEXT,
@@ -452,8 +468,24 @@ def render_small_multiples(
     band_radius_cells: int,
     out: str | Path,
     subtitle: str = "",
+    show_burn_probability: bool = True,
 ) -> Path:
-    """Member-vs-truth small multiples: rows are windows, columns are models."""
+    """Member-vs-truth small multiples: rows are windows, columns are models.
+
+    Each model gets TWO panels: C6's own best member, and the burn probability
+    of the whole ensemble that member was drawn from. The pair is the point.
+    The best-member panel is what the score is computed from and is a single
+    deterministic track; on its own it cannot show whether the member was one of
+    twenty that agreed or the lucky one of twenty that did not, and those are
+    opposite readings of the same IoU. This project's deliverable is a
+    PROBABILISTIC forecast, so a replay tool that could only draw one track was
+    unable to display the thing being forecast.
+
+    The panel is drawn by
+    :func:`wildfire_nowcast.sim.ensemble.draw_burn_probability`, the same
+    function the ensemble viewer uses, so the two figures share one colour map
+    and one convention for ``p == 0``.
+    """
     geom = plot_extent(
         ds["x"].values, ds["y"].values, cell_size_m=float(ds.attrs.get("cell_size_m", 1000.0))
     )
@@ -466,10 +498,12 @@ def render_small_multiples(
     if not chosen:
         raise ValueError(f"none of {list(picks)} are evaluable windows of {fire_id}")
 
-    n_col = len(models) + 1
+    per_model = 2 if show_burn_probability else 1
+    n_col = len(models) * per_model + 1
     fig, axes = plt.subplots(
         len(chosen), n_col, figsize=(2.55 * n_col + 1.4, 2.95 * len(chosen)), squeeze=False
     )
+    prob_im: Any = None
     for r, (i, w) in enumerate(chosen):
         band = band_of(w.x0, band_radius_cells)
         burned0 = w.x0 > 0
@@ -519,13 +553,13 @@ def render_small_multiples(
         if r == 0:
             ax.set_title("TRUTH (new cells, +3 h)", fontsize=8.5)
 
-        for c, name in enumerate(models, start=1):
+        for c, name in enumerate(models):
             samples = gate.models[name].predict(
                 w.x0, w.static, w.weather, n_members, horizon_h, seed + i
             )
             sc = score_window(samples, w, fire_id=fire_id, model=name, band=band)
             pred_new = (samples[sc.best_member, -1] > 0) & ~burned0
-            ax = axes[r][c]
+            ax = axes[r][c * per_model + 1]
             _draw_confusion(
                 ax,
                 geom,
@@ -545,7 +579,29 @@ def render_small_multiples(
                 color=COL_WARN if sc.best_member_is_silent else COL_TEXT,
             )
             if r == 0:
-                ax.set_title(f"{name} — best member", fontsize=8.5)
+                ax.set_title(f"{name}: best member", fontsize=8.5)
+
+            if not show_burn_probability:
+                continue
+            # The ENSEMBLE the best member came from. Same predict() call, no
+            # second sample and no model internal: the probability is the mean
+            # over the members already in hand.
+            ax = axes[r][c * per_model + 2]
+            prob_new = np.where(burned0, np.nan, burn_probability(samples))
+            prob_im = draw_burn_probability(
+                ax, geom, prob_new, truth_front=truth_new, barrier=barrier
+            )
+            _map_axes(ax, geom)
+            covered = float(prob_new[truth_new].mean()) if truth_new.any() else float("nan")
+            ax.set_xlabel(
+                f"mean p(burn) on truth's new cells {covered:.2f}\n"
+                f"p>0 on {int(np.count_nonzero(prob_new > 0))} cells, "
+                f"p>=0.5 on {int(np.count_nonzero(prob_new >= 0.5))}",
+                fontsize=6.4,
+                color=COL_TEXT,
+            )
+            if r == 0:
+                ax.set_title(f"{name}: P(burn), all {n_members}", fontsize=8.5)
 
     handles = [
         plt.Line2D([], [], marker="s", ls="", ms=7, color="#166534", label="hit"),
@@ -555,8 +611,18 @@ def render_small_multiples(
         plt.Line2D([], [], marker="s", ls="", ms=7, color=COL_BARRIER, alpha=0.4, label="barrier"),
     ]
     fig.legend(handles=handles, loc="lower center", ncol=5, fontsize=8, frameon=False)
+
     fig.suptitle(f"{fire_id} — member vs truth, growth band only\n{subtitle}", fontsize=11, y=0.995)
-    fig.tight_layout(rect=(0.0, 0.045, 1.0, 0.965))
+    fig.tight_layout(rect=(0.0, 0.045, 0.975, 0.965))
+    if prob_im is not None:
+        # Placed after tight_layout, in its own axes: a colourbar attached to the
+        # whole grid makes the grid tight_layout-incompatible and matplotlib then
+        # warns that the panel positions may be wrong, which on a figure about
+        # geography is not a warning to live with.
+        cax = fig.add_axes((0.982, 0.12, 0.007, 0.68))
+        cb = fig.colorbar(prob_im, cax=cax)
+        cb.set_label("P(burn) over the ensemble", fontsize=7)
+        cb.ax.tick_params(labelsize=6)
     stamp(
         fig,
         "C1 tensor + C5 predict() + C6 growth_band mask. Best member is C6's own choice "
@@ -734,6 +800,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--horizon", type=int, default=None)
     ap.add_argument("--picks", type=int, default=4, help="windows per small-multiple figure")
+    ap.add_argument(
+        "--no-burn-probability",
+        action="store_true",
+        help="draw only the best-member panel per model, omitting the ensemble P(burn) panel",
+    )
     args = ap.parse_args(argv)
 
     run = Path(args.run)
@@ -823,6 +894,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=seed,
             band_radius_cells=radius,
             out=outdir / f"iou_smallmultiples_{fire}.png",
+            show_burn_probability=not args.no_burn_probability,
             subtitle=(
                 f"rows: the {n} windows where {km} loses most to {opp} (top) and wins most "
                 f"(bottom) on C6 band IoU  |  null floor for this fire = {floors[fire]:.3f}"

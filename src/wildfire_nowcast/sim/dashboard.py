@@ -427,8 +427,9 @@ def render_dashboard(runs: list[C6Run], out: str | Path, *, dpi: int = 130) -> P
     for r in runs:
         if r.missing:
             notes.append(
-                f"CONTRACT: {r.label} is missing required C6 keys {list(r.missing)} "
-                "— report to @model, do not interpret the panels above."
+                f"CONTRACT: {r.label} is missing required C6 keys {list(r.missing)}. "
+                "The panels above must not be interpreted; the artifact does not carry "
+                "what C6 is contracted to emit."
             )
     if notes:
         wrapped: list[str] = []

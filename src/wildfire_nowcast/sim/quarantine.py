@@ -50,6 +50,7 @@ from wildfire_nowcast.common.calibration import GATE_CRITERION_KEY as CALIBRATIO
 from wildfire_nowcast.common.calibration import GATE_MASK as CALIBRATION_GATE_MASK
 from wildfire_nowcast.common.iou_terms import GATE_CRITERION_KEY as IOU_GATE_KEY
 from wildfire_nowcast.common.null_check import C6_METRICS
+from wildfire_nowcast.sim.absent import refuse_if_empty
 
 __all__ = [
     "GATE",
@@ -284,7 +285,21 @@ def audit_plotted_keys(
     Used by the self-tests. The rule it enforces is the one that survives a
     screenshot: **every quarantined key that appears on a figure carries its
     clause on the same figure.** Empty list means the figure is honest.
+
+    It means that only if something was audited. An empty ``keys`` produced an
+    empty list too, so "no key was checked" and "every key checked is badged"
+    were the same return value, and this is an all-clear scan: the standing rule
+    here is that one carries a positive control returning non-zero. A caller
+    whose key collection silently came back empty would read the strongest
+    possible clean result. Refused, rather than returned as a fourth state,
+    because the return type is a list of violations and there is no room in it
+    to say "I looked at nothing".
     """
+    refuse_if_empty(
+        "audit_plotted_keys",
+        {"plotted_keys": len(keys)},
+        because="an audit of no keys is an unexamined figure, not an honest one.",
+    )
     problems: list[str] = []
     for key, drawn in keys.items():
         status = classify(key, evidence=evidence)

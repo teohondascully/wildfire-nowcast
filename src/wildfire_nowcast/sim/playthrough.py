@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,6 +53,11 @@ from typing import Any
 import numpy as np
 
 from wildfire_nowcast.common.grid import Grid
+from wildfire_nowcast.sim.absent import (
+    EXIT_NOTHING_EXAMINED,
+    AbsentMeasurementError,
+    refuse_if_empty,
+)
 from wildfire_nowcast.sim.c5 import WEATHER_C5
 from wildfire_nowcast.sim.coarsen import DEFAULT_REFINE, fine_grid
 from wildfire_nowcast.sim.elmfire import (
@@ -62,6 +68,8 @@ from wildfire_nowcast.sim.elmfire import (
 from wildfire_nowcast.sim.landfire import synthetic_stack
 
 __all__ = [
+    "EXIT_NOTHING_EXAMINED",
+    "AbsentMeasurementError",
     "DEGENERACY_CRITERIA",
     "DegeneracyVerdict",
     "degeneracy_verdict",
@@ -70,6 +78,9 @@ __all__ = [
     "uniform_weather",
     "run_arm",
     "run_playthrough",
+    "render_verdict",
+    "build_parser",
+    "main",
 ]
 
 DEGENERACY_CRITERIA = {
@@ -87,6 +98,12 @@ TRUTH_FLOOR_FRACTION = 0.2
 @dataclass(frozen=True)
 class DegeneracyVerdict:
     arm: str
+    #: The denominators, carried BESIDE the verdict rather than left to be
+    #: inferred from ``len(new_cells_per_member)``. A verdict whose denominator
+    #: is not on the page cannot be told apart from one taken over nothing, and
+    #: this dataclass is what reaches ``reports/figures/*.json``.
+    n_members: int
+    n_lead_steps: int
     new_cells_per_member: list[int]
     median_new_cells: float
     distinct_members: int
@@ -100,6 +117,8 @@ class DegeneracyVerdict:
     def as_dict(self) -> dict[str, Any]:
         return {
             "arm": self.arm,
+            "n_members": self.n_members,
+            "n_lead_steps": self.n_lead_steps,
             "new_cells_per_member": self.new_cells_per_member,
             "median_new_cells": self.median_new_cells,
             "distinct_members": self.distinct_members,
@@ -120,12 +139,44 @@ def degeneracy_verdict(
     truth_new: int | None = None,
     absolute_floor: float | None = None,
 ) -> DegeneracyVerdict:
-    """Score one ensemble against the three pre-registered criteria."""
+    """Score one ensemble against the three pre-registered criteria.
+
+    Raises :class:`~wildfire_nowcast.sim.absent.AbsentMeasurementError` on an
+    ensemble with no members or no lead steps. **An empty ensemble is not a
+    degenerate ensemble; it is an absent measurement**, and the distinction is
+    load-bearing here rather than pedantic: all three criteria are satisfied
+    VACUOUSLY over zero members (``max([], default=0) <= 0``, ``0.0 < floor``,
+    ``0 <= 1``), so this function used to return ``degenerate=True``, which is
+    exactly what the lobotomised arm declares it expects. The positive control
+    read as fired when nothing had run.
+
+    Refusing rather than returning a fourth state is deliberate. A
+    ``DegeneracyVerdict`` is written to ``reports/figures/*.json`` and read back
+    by ``sim/review.py``; if one can exist that was never measured, every
+    consumer has to remember to check, and consumers do not remember. The
+    object cannot be constructed, so there is nothing to forget.
+    """
+    arr = np.asarray(samples)
+    refuse_if_empty(
+        f"degeneracy_verdict({arm!r})",
+        {
+            "members": int(arr.shape[0]) if arr.ndim >= 1 else 0,
+            "lead_steps": int(arr.shape[1]) if arr.ndim >= 2 else 0,
+        },
+        because=(
+            "D1/D2/D3 are all satisfied vacuously by an ensemble that does not exist, so "
+            "`degenerate=True` here would be indistinguishable from the measured "
+            "degeneracy the lobotomised control declares."
+        ),
+    )
     burned0 = int(np.count_nonzero(np.asarray(x0) > 0))
     per_member = [
         int(np.count_nonzero(samples[m, -1] > 0)) - burned0 for m in range(samples.shape[0])
     ]
-    median = float(np.median(per_member)) if per_member else 0.0
+    # No `default=`/`if per_member else` fallbacks below: the refusal above makes
+    # `per_member` non-empty, and leaving a benign default in place would keep a
+    # second, silent route to the behaviour this function was just repaired for.
+    median = float(np.median(per_member))
     distinct = len({s.tobytes() for s in samples})
     if truth_new is not None:
         floor = TRUTH_FLOOR_FRACTION * float(truth_new)
@@ -135,11 +186,13 @@ def degeneracy_verdict(
         basis = "absolute floor from the scenario's own physics"
     else:
         raise ValueError("a degeneracy verdict needs either truth_new or absolute_floor")
-    d1 = max(per_member, default=0) <= 0
+    d1 = max(per_member) <= 0
     d2 = median < floor
     d3 = distinct <= 1
     return DegeneracyVerdict(
         arm=arm,
+        n_members=int(arr.shape[0]),
+        n_lead_steps=int(arr.shape[1]),
         new_cells_per_member=per_member,
         median_new_cells=median,
         distinct_members=distinct,
@@ -315,7 +368,19 @@ def run_arm(arm: Arm, *, n_members: int, seed: int, refine: int = DEFAULT_REFINE
 def run_playthrough(
     *, n_members: int = 6, seed: int = 20260808, refine: int = DEFAULT_REFINE
 ) -> dict[str, Any]:
-    """PLAYTHROUGH 2 - pass iff every arm lands where it was declared to land."""
+    """PLAYTHROUGH 2 - pass iff every arm lands where it was declared to land.
+
+    ``all([])`` is True, so an emptied :data:`ARMS` would produce a PASS over
+    zero experiments. ``sim/selftest.py`` pins ``ARMS`` to contain both
+    polarities, which is the right guard and is a different file; this refusal
+    is here so the report cannot be produced at all, rather than only being
+    contradicted by a test somebody might deselect.
+    """
+    refuse_if_empty(
+        "run_playthrough",
+        {"arms": len(ARMS)},
+        because="a playthrough with no arms has nothing to agree or disagree with.",
+    )
     rows = [run_arm(a, n_members=n_members, seed=seed, refine=refine) for a in ARMS]
     determinism = _determinism_check(n_members=2, seed=seed, refine=refine)
     ok = all(r["agrees_with_expectation"] for r in rows) and determinism["bitwise_identical"]
@@ -456,7 +521,15 @@ def real_fire_ab(
     }
 
 
-def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
+def build_parser() -> argparse.ArgumentParser:
+    """The CLI, as a value.
+
+    Separate from :func:`main` so a test can assert what the command line
+    ACCEPTS without running a playthrough. Grepping ``--help`` output is not the
+    same assertion: ``--render`` is a substring of ``--render-DISABLED``, so a
+    text search passes over a flag that has been renamed away, which a plant
+    demonstrated on the first version of this check.
+    """
     ap = argparse.ArgumentParser(
         prog="python -m wildfire_nowcast.sim.playthrough", allow_abbrev=False
     )
@@ -467,7 +540,25 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     ap.add_argument("--real-tensor", default=None, help="also run the real-fire A/B")
     ap.add_argument("--real-windows", type=int, default=3)
     ap.add_argument("--real-out", default="reports/figures/elmfire_degeneracy_verdict.json")
-    args = ap.parse_args(argv)
+    ap.add_argument(
+        "--render",
+        default=None,
+        metavar="PNG",
+        help=(
+            "also draw the S4 one-pager to PNG from the three artifacts on disk "
+            "(playthrough 1, playthrough 2, real-fire A/B). Reads files, never memory."
+        ),
+    )
+    ap.add_argument(
+        "--render-playthrough1",
+        default="reports/figures/playthrough_coarsening.json",
+        help="coarsening playthrough artifact consumed by --render",
+    )
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
+    args = build_parser().parse_args(argv)
     if args.real_tensor:
         ab = real_fire_ab(
             args.real_tensor,
@@ -488,7 +579,14 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
                 )
         print(f"[ab] {ab['verdict']}  -> {out}")
         return 0
-    report = run_playthrough(n_members=args.members, seed=args.seed, refine=args.refine)
+    try:
+        report = run_playthrough(n_members=args.members, seed=args.seed, refine=args.refine)
+    except AbsentMeasurementError as exc:
+        # No artifact. A file named `playthrough_nondegeneracy.json` asserts that
+        # non-degeneracy was tested; writing one that records nothing is the
+        # defect, not the report of it.
+        print(str(exc), file=sys.stderr)
+        return EXIT_NOTHING_EXAMINED
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=1))
@@ -502,11 +600,10 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
         )
     print(f"[playthrough2] determinism bitwise: {report['determinism']['bitwise_identical']}")
     print(f"[playthrough2] {report['verdict']}  -> {out}")
+    if args.render:
+        png = render_verdict(args.render_playthrough1, out, args.real_out, args.render)
+        print(f"[playthrough2] one-pager -> {png}")
     return 0 if report["verdict"] == "PASS" else 1
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
 
 
 def render_verdict(
@@ -645,3 +742,7 @@ def render_verdict(
     fig.savefig(out_path, dpi=130, bbox_inches="tight")
     plt.close(fig)
     return out_path
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

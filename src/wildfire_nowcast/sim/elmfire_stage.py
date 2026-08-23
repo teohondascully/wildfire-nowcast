@@ -225,7 +225,7 @@ DECLARED_DEVIATIONS_FROM_ELMFIRE_DEFAULTS: Final = [
 ]
 
 #: The published reference rows, same estimator, same held-out blocks
-#: (STATE.md / ``runs/s1.json``). Carried so a reader never has to fetch them.
+#: (``runs/s1.json``, tracked). Carried so a reader never has to fetch them.
 REFERENCE_STAGE_DECAY: Final[dict[str, dict[int, float]]] = {
     "truth": {4: -2.1751, 5: -1.1836, 6: 1.4560, 7: -0.0398, 12: -1.8179},
     "arm_a": {4: 0.5771, 5: 0.4637, 6: 1.1453, 7: 1.0891, 12: 0.1568},

@@ -69,9 +69,10 @@ C5_CONVENTION: dict[str, Any] = {
     "weather_time_origin": "t0+1",
     "weather_time_len": "horizon_h",
     "note": (
-        "PROVISIONAL — C5 does not specify channel membership, order, or the weather time "
-        "origin. Derived here from common.contract STATIC_CHANNELS so it is reproducible, not "
-        "invented. See BLOCKERS.md '@model C5 does not specify static/weather membership'."
+        "PROVISIONAL. The C5 clause in docs/interfaces.md fixes the predict() signature "
+        "but not channel membership, order, or the weather time origin. Derived here from "
+        "common.contract STATIC_CHANNELS so it is reproducible, not invented, and published "
+        "as this dict so a consumer can compare it against its own assumption."
     ),
 }
 

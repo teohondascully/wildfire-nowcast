@@ -36,6 +36,7 @@ import json
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -67,7 +68,16 @@ from wildfire_nowcast.sim.style import (  # noqa: E402
     state_cmap,
 )
 
-__all__ = ["MovieSpec", "render_movie", "render_frame", "frame_order", "teleport_cells", "main"]
+__all__ = [
+    "MovieSpec",
+    "render_movie",
+    "render_frame",
+    "frame_order",
+    "teleport_cells",
+    "max_front_gap_cells",
+    "gap_summary",
+    "main",
+]
 
 COL_NEW = "#ffffff"
 COL_TELEPORT = "#e0218a"
@@ -515,6 +525,34 @@ def _writer(out: Path, fps: int) -> tuple[Any, Path]:
     return PillowWriter(fps=fps), out
 
 
+def gap_summary(gaps: Sequence[int], cell_km: float, min_gap_cells: int) -> dict[str, Any]:
+    """The front-gap statistics for a movie summary, and their DENOMINATOR.
+
+    ``n_gap_steps`` is always present; the four statistics are present only when
+    there was a step to measure. A fire with ``n_hours <= 1`` has no step, and
+    the four used to read ``0``, ``0``, ``0.0`` and ``0.0`` - exactly what a fire
+    with no teleports reads. "Nothing jumped" and "no hour was examined" were the
+    same four numbers in the summary a reader scans to decide whether a store
+    needs a human look, and neither the summary nor its consumer could tell them
+    apart. Omitted rather than set to ``None`` so a consumer indexing the key
+    gets a ``KeyError`` at the point of use.
+
+    Split out of :func:`render_movie` so the empty case is reachable without
+    encoding a video.
+    """
+    out: dict[str, Any] = {"min_gap_cells": int(min_gap_cells), "n_gap_steps": len(gaps)}
+    if not gaps:
+        return out
+    # Both definitions are reported. `detached_steps` reproduces data QA's
+    # "no burned 8-neighbour" count so the two are comparable; the render
+    # threshold is stricter (see teleport_cells).
+    out["detached_steps"] = int(sum(1 for g in gaps if g >= 1))
+    out["teleport_steps"] = int(sum(1 for g in gaps if g >= min_gap_cells))
+    out["max_front_gap_km"] = float(max(gaps) * cell_km)
+    out["median_front_advance_cells"] = float(np.median([g for g in gaps if g >= 1] or [0]))
+    return out
+
+
 def render_movie(
     tensor: str | Path,
     out: str | Path,
@@ -558,7 +596,6 @@ def render_movie(
     plt.close(fig)
 
     gaps = [max_front_gap_cells(fire.ever, t) for t in range(1, fire.n_hours)]
-    km = fire.geom.cell_size_m / 1000.0
     summary = fire.summary()
     summary.update(
         {
@@ -567,16 +604,9 @@ def render_movie(
             "n_frames": len(order),
             "fps": spec.fps,
             "stills": still_paths,
-            # Both definitions are reported. `detached_steps` reproduces data QA's
-            # "no burned 8-neighbour" count so the two are comparable; the render
-            # threshold is stricter (see teleport_cells).
-            "detached_steps": int(sum(1 for g in gaps if g >= 1)),
-            "teleport_steps": int(sum(1 for g in gaps if g >= spec.min_gap_cells)),
-            "min_gap_cells": spec.min_gap_cells,
-            "max_front_gap_km": float(max(gaps, default=0) * km),
-            "median_front_advance_cells": float(np.median([g for g in gaps if g >= 1] or [0])),
         }
     )
+    summary.update(gap_summary(gaps, fire.geom.cell_size_m / 1000.0, spec.min_gap_cells))
     return summary
 
 

@@ -4,9 +4,10 @@
         --kernel kernel=runs/kernel-nll_only-20260808-044220 --outdir reports/figures
 
 modelling reported two defects it found by inspecting its own gradients
-(ADR-015 §6). Neither claim is checkable from a coordination file, and both are
-claims about *behaviour*, so both are visible from outside if they are real.
-This module tries to see them without reading a single model internal.
+(ADR-015 §6). A claim about a gradient cannot be checked by anyone who does not
+have the gradient, and both of these are claims about *behaviour*, so both are
+visible from outside if they are real. This module tries to see them without
+reading a single model internal.
 
 **(a) Barrier / non-burnable response.** Claim: ``barrier_log_multiplier`` and
 non-burnable fuel have exactly zero gradient, so barrier crossing is unlearnable.
@@ -22,7 +23,7 @@ geometry. Rates are therefore computed inside each Chebyshev distance ring
 around the ``t0`` burned region and pooled ring by ring.
 
 **(b) Wind-independent drift.** Claim: the free offset weights grew a S/SW
-preference matching GOFER's centroid bias (STATE R6), i.e. the model is fitting a
+preference matching a reported GOFER centroid bias, i.e. the model is fitting a
 measurement artifact as physics. The discriminator is not "does the fire go
 SW" - in California it often does, and the wind often blows that way. It is
 whether the bias is fixed in the EARTH frame or in the WIND frame:

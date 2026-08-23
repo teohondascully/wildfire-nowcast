@@ -73,8 +73,9 @@ FRAGMENT_KM: float = 2.0
 #: magnitude above the label noise scale. Observed on 4 fires the gaps are
 #: strongly bimodal - 4.0/4.1/5.0/6.0 km versus 14.1/46.1 km - with nothing in
 #: between, so any cut in (6, 14) gives the same answer. C-3 applies: this is NOT
-#: a pass/fail threshold and MUST NOT be pasted into a C2 manifest. @data owns
-#: that number; this module reports the evidence for it.
+#: a pass/fail threshold and MUST NOT be pasted into a C2 manifest. The
+#: `wildfire_nowcast.data` package owns that number; this module reports the
+#: evidence for it and nothing more.
 SEPARATE_IGNITION_KM: float = 10.0
 
 #: Distinct, print-safe colours for up to six components. Deliberately NOT the

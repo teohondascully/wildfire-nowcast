@@ -44,6 +44,7 @@ import numpy as np  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
 from wildfire_nowcast.common.zarr_io import open_tensor  # noqa: E402
+from wildfire_nowcast.sim.absent import refuse_if_empty  # noqa: E402
 from wildfire_nowcast.sim.c5 import C5_CONVENTION, C5Inputs, c5_inputs  # noqa: E402
 from wildfire_nowcast.sim.reader import load_fire  # noqa: E402
 from wildfire_nowcast.sim.style import (  # noqa: E402
@@ -63,6 +64,8 @@ __all__ = [
     "burn_probability",
     "arrival_quantiles",
     "ensemble_diagnostics",
+    "independence_dispersion_index",
+    "draw_burn_probability",
     "EnsembleView",
     "render_ensemble",
     "main",
@@ -144,7 +147,22 @@ def independence_dispersion_index(samples: np.ndarray, lead: int = -1) -> float:
     Measured on the viz stub, this index is 1.09-1.31 at ``latent_sigma=0``
     against 5.1-6.0 at ``0.9``, and is stable across 12-60 members where CV is
     not.
+
+    Refuses an ensemble with no members or no lead steps. Over zero members the
+    marginals are NaN, ``expected`` is NaN, ``nan <= 0`` is False, and this
+    returned ``nan / nan`` - which then reads as NOT collapsed, because
+    ``nan < COLLAPSE_INDEX_THRESHOLD`` is also False. An index nothing was
+    measured for must not be comparable to a threshold at all.
     """
+    arr = np.asarray(samples)
+    refuse_if_empty(
+        "independence_dispersion_index",
+        {
+            "members": int(arr.shape[0]) if arr.ndim >= 1 else 0,
+            "lead_steps": int(arr.shape[1]) if arr.ndim >= 2 else 0,
+        },
+        because="the index is a ratio of two spreads, and neither exists here.",
+    )
     final = np.asarray(samples)[:, lead] > 0
     areas = final.sum(axis=(1, 2)).astype(np.float64)
     p = final.mean(axis=0)
@@ -163,7 +181,26 @@ def ensemble_diagnostics(
     ``collapsed`` is the headline: an ensemble whose members are near-identical
     produces a tidy-looking spaghetti plot and a near-binary probability map,
     both of which read as *confidence* rather than as the defect they are.
+
+    Refuses an empty ensemble. ``collapsed`` is the verdict whose POSITIVE
+    CONTROL is ``StubEnsemble(latent_sigma=0)``, so it is exactly the kind of
+    flag that must not be able to read True over nothing. It could not, before
+    this guard, only by accident: ``np.unique(final.reshape(0, -1))`` raises
+    "cannot reshape array of size 0", forty lines after ``ious = [...] or
+    [1.0]`` had already produced a vacuous ``mean_pairwise_iou`` of 1.0. Being
+    loud by line order is not being loud, because line order is not a
+    commitment; the refusal is one. ``n_pairwise_comparisons`` publishes the
+    denominator that ``or [1.0]`` hides for a single-member ensemble.
     """
+    arr0 = np.asarray(samples)
+    refuse_if_empty(
+        "ensemble_diagnostics",
+        {
+            "members": int(arr0.shape[0]) if arr0.ndim >= 1 else 0,
+            "lead_steps": int(arr0.shape[1]) if arr0.ndim >= 2 else 0,
+        },
+        because="`collapsed` is the ensemble-collapse detector's own verdict.",
+    )
     s = np.asarray(samples) > 0
     n_members = s.shape[0]
     final = s[:, -1]
@@ -184,6 +221,7 @@ def ensemble_diagnostics(
     diag: dict[str, Any] = {
         "n_members": int(n_members),
         "horizon_h": int(s.shape[1]),
+        "n_pairwise_comparisons": len(pairs),
         "independence_dispersion_index": index,
         "mean_pairwise_iou": float(np.mean(ious)),
         "min_pairwise_iou": float(np.min(ious)),
@@ -268,6 +306,43 @@ def _truth_front(ax: Any, geom: PlotGeometry, mask: np.ndarray, **kw: Any) -> No
         )
 
 
+def draw_burn_probability(
+    ax: Any,
+    geom: PlotGeometry,
+    prob: np.ndarray,
+    *,
+    truth_front: np.ndarray | None = None,
+    barrier: np.ndarray | None = None,
+    truth_lw: float = 1.6,
+) -> Any:
+    """Draw P(burn) on ``ax`` and return the image, for a colourbar.
+
+    THE one place this package renders a burn-probability field. It is a
+    function rather than four lines inlined in
+    :func:`render_ensemble` because ``sim/replay.py`` needs the same panel, and
+    a second copy of it would be a second set of choices about the colour map,
+    the zero mask and the vmin/vmax: three ways for two figures of the same
+    quantity to stop being comparable by eye without either one being wrong.
+
+    ``prob == 0`` is drawn as nothing rather than as the bottom of the scale.
+    "the ensemble put no weight here" and "the ensemble put its lowest non-zero
+    weight here" are different statements, and the colour map's dark end reads
+    as the second.
+    """
+    im = ax.imshow(
+        np.where(prob > 0, prob, np.nan),
+        cmap=BURN_PROB_CMAP,
+        vmin=0,
+        vmax=1,
+        **geom.imshow_kwargs,
+    )
+    if barrier is not None:
+        _draw_barrier(ax, geom, np.asarray(barrier))
+    if truth_front is not None:
+        _truth_front(ax, geom, np.asarray(truth_front), lw=truth_lw)
+    return im
+
+
 def render_ensemble(
     tensor: str | Path,
     predict: Any,
@@ -343,11 +418,9 @@ def render_ensemble(
     )
 
     # -- 2. burn probability ----------------------------------------------
-    im = ax_pb.imshow(
-        np.where(prob > 0, prob, np.nan), cmap=BURN_PROB_CMAP, vmin=0, vmax=1, **geom.imshow_kwargs
+    im = draw_burn_probability(
+        ax_pb, geom, prob, truth_front=inp.truth[-1] > 0, barrier=fire.barrier
     )
-    _draw_barrier(ax_pb, geom, fire.barrier)
-    _truth_front(ax_pb, geom, inp.truth[-1] > 0, lw=1.6)
     _map_axes(ax_pb, geom, f"burn probability at +{horizon_h} h")
     fig.colorbar(im, ax=ax_pb, fraction=0.046, pad=0.02).ax.tick_params(labelsize=7)
 
@@ -375,7 +448,7 @@ def render_ensemble(
         fig,
         f"{fire.source} · C1 v2.3 · C5 provisional split "
         f"C_s={C5_CONVENTION['c_s']} C_w={C5_CONVENTION['c_w']}, weather origin "
-        f"{C5_CONVENTION['weather_time_origin']} (see BLOCKERS @model) · seed={seed}",
+        f"{C5_CONVENTION['weather_time_origin']} (sim/c5.py:C5_CONVENTION) · seed={seed}",
     )
     fig.tight_layout(rect=(0, 0.012, 1, 0.925))
 
