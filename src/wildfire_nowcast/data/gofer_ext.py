@@ -48,6 +48,7 @@ implementation against the *published* perimeters on fires GOFER did publish.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -87,6 +88,12 @@ __all__ = [
     "to_label_build",
     "validate_against_published",
 ]
+
+#: ADR-103/106. Module scope, `__name__`, nothing else. The 2022-2025 extension
+#: is the slowest thing this package runs, so it is also the one that most needed
+#: a per-subsystem level: `--log-levels wildfire_nowcast.data.gofer_ext=DEBUG`
+#: raises this alone, which the `_log(msg)` shim below it could not do.
+logger = logging.getLogger(__name__)
 
 #: Bump when any numeric step below changes. It lands in every manifest.
 ALGO_VERSION = "gofer-ext-1.0"
@@ -386,7 +393,23 @@ def next_overlapping_fire_hours(
             continue
         try:
             other_geom = final_perimeter(other.irwin_id)
-        except (KeyError, RuntimeError):
+        except (KeyError, RuntimeError) as exc:
+            # ADR-103 (4). This `continue` used to leave NO trace anywhere, and it
+            # is the one place in this module where silence is expensive: every
+            # neighbour skipped here is a neighbour that cannot shorten the scan
+            # window, and an over-long window is exactly how `2025_madre` swallowed
+            # `2025_gifford` and came out at 726.5 km2 against a mapped 326.9. A
+            # cap that quietly declines to look is indistinguishable from a cap
+            # that looked and found nothing.
+            logger.warning(
+                "neighbour cap: no final perimeter for WFIGS incident %r (%s), so it "
+                "cannot bound %s's scan window: %s: %s",
+                other.name,
+                other.irwin_id,
+                fire.name,
+                type(exc).__name__,
+                exc,
+            )
             continue
         if zone.intersects(other_geom) and (soonest is None or other.discovery_utc < soonest):
             soonest = other.discovery_utc
@@ -439,20 +462,19 @@ def run_gofer_ext(
     cfire_conf: float = DEFAULT_CFIRE_CONF,
     reference_geom: Any | None = None,
     wfigs_fire: WfigsFire | None = None,
-    verbose: bool = True,
 ) -> GoferRun:
     """Run GOFER-Combined for one fire and return fine-lattice masks."""
     coarse, fine = _compute_grids(spec.aoi_bounds_5070)
     if abs(fine.cell_size_m - fine_res_m) > 1e-9:
         raise ValueError(f"fine_res_m={fine_res_m} is not an exact refinement of {CELL_SIZE_M} m")
 
-    def _log(msg: str) -> None:
-        if verbose:
-            print(msg, flush=True)
-
-    _log(
-        f"[{spec.fire_id}] compute grid {fine.shape} @ {fine.cell_size_m:.0f} m, "
-        f"{spec.n_hours} h, kernel {spec.kernel_m} m"
+    logger.info(
+        "[%s] compute grid %s @ %.0f m, %d h, kernel %s m",
+        spec.fire_id,
+        fine.shape,
+        fine.cell_size_m,
+        spec.n_hours,
+        spec.kernel_m,
     )
 
     elevation_coarse = fetch_terrain(coarse)["elevation"]
@@ -465,7 +487,7 @@ def run_gofer_ext(
         dx = _boxcar(dx, spec.kernel_m, fine.cell_size_m) * PARALLAX_ADJ
         dy = _boxcar(dy, spec.kernel_m, fine.cell_size_m) * PARALLAX_ADJ
         conf[side] = _pull_warp(raw, dx, dy, fine)
-        _log(f"[{spec.fire_id}] {side}: confidence fetched + parallax-corrected")
+        logger.info("[%s] %s: confidence fetched + parallax-corrected", spec.fire_id, side)
 
     # -- scale factors (Export_ScaleVal.js): max over AOIbuf of the smoothed,
     #    UNSCALED cumulative confidence. Early hours have low absolute
@@ -510,9 +532,11 @@ def run_gofer_ext(
     foreign = _neighbour_exclusion(fine, reference, wfigs_fire)
     if foreign.any():
         perim &= ~foreign[None, :, :]
-        _log(
-            f"[{spec.fire_id}] neighbour exclusion removed {int(foreign.sum())} fine cells "
-            "mapped to another incident and outside our own footprint"
+        logger.info(
+            "[%s] neighbour exclusion removed %d fine cells mapped to another incident "
+            "and outside our own footprint",
+            spec.fire_id,
+            int(foreign.sum()),
         )
     perim = _remove_stray(perim, fine, reference)
     fline &= perim
@@ -523,9 +547,13 @@ def run_gofer_ext(
         [spec.start_utc.replace(tzinfo=None) + timedelta(hours=int(i + 1)) for i in keep]
     )
     final_km2 = float(perim[-1].sum()) * (fine.cell_size_m**2) / 1e6
-    _log(
-        f"[{spec.fire_id}] {len(times)} h kept of {spec.n_hours}; final area "
-        f"{final_km2:.1f} km2 (WFIGS {spec.official_acres * _ACRE_KM2:.1f} km2)"
+    logger.info(
+        "[%s] %d h kept of %d; final area %.1f km2 (WFIGS %.1f km2)",
+        spec.fire_id,
+        len(times),
+        spec.n_hours,
+        final_km2,
+        spec.official_acres * _ACRE_KM2,
     )
 
     provenance = {
@@ -606,7 +634,20 @@ def _neighbour_exclusion(grid: Grid, reference: Any, fire: WfigsFire | None) -> 
             continue
         try:
             geom = final_perimeter(other.irwin_id)
-        except (KeyError, RuntimeError):
+        except (KeyError, RuntimeError) as exc:
+            # ADR-103 (4), the companion silence to the one in the temporal cap.
+            # A neighbour skipped here keeps its ground inside OUR perimeter, so
+            # the failure shows up as a fire that is too big rather than as an
+            # error, which is the shape of defect this project keeps paying for.
+            logger.warning(
+                "neighbour exclusion: no final perimeter for WFIGS incident %r (%s), so "
+                "its ground cannot be removed from %s: %s: %s",
+                other.name,
+                other.irwin_id,
+                fire.name,
+                type(exc).__name__,
+                exc,
+            )
             continue
         if geom.intersects(reference.buffer(_COMPUTE_MARGIN_M)):
             others.append(geom)
@@ -851,7 +892,11 @@ def validate_against_published(
         official_acres=float(meta.acres_official),
     )
     reference = perims.geometry.iloc[-1]
-    run = run_gofer_ext(spec, fine_res_m=fine_res_m, reference_geom=reference, verbose=False)
+    # No `verbose=False` any more: ADR-103 made the boolean a LEVEL. A caller that
+    # wants the fidelity run silent sets `--log-levels wildfire_nowcast.data.
+    # gofer_ext=WARNING`, which is a decision the program makes once rather than a
+    # decision this call site makes for every program that ever runs it.
+    run = run_gofer_ext(spec, fine_res_m=fine_res_m, reference_geom=reference)
     ours = to_label_build(run)
 
     return _score_against(published, ours, spec)

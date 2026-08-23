@@ -17,6 +17,7 @@ The two conventions that are easy to violate and expensive to debug:
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -54,6 +55,12 @@ from wildfire_nowcast.data.sources.rtma import (
 from wildfire_nowcast.data.sources.terrain import fetch_terrain, terrain_provenance
 
 __all__ = ["weather_hours", "BuildTimings", "build_fire_tensor"]
+
+#: ADR-103/106. Module scope, `__name__`, and nothing else: no handler, no level,
+#: no format. A build that is slow in the label stage is now made chatty in the
+#: label stage alone (`--log-levels wildfire_nowcast.data.pipeline=DEBUG`), which
+#: is the capability the `_log(msg)` shim this replaced could not express.
+logger = logging.getLogger(__name__)
 
 #: C1.3 - GOFER tUTC is end-of-hour, so weather is lagged by exactly this much.
 WEATHER_LAG = timedelta(hours=1)
@@ -99,7 +106,6 @@ def build_fire_tensor(
     cv_fold: int | None = None,
     spatial_block_id: int | None = None,
     label_build: LabelBuild | None = None,
-    verbose: bool = True,
 ) -> tuple[ChannelBundle, BuildTimings]:
     """Assemble all 14 C1 channels for one fire. Does not write anything.
 
@@ -114,10 +120,6 @@ def build_fire_tensor(
     """
     timings = BuildTimings()
 
-    def _log(msg: str) -> None:
-        if verbose:
-            print(msg, flush=True)
-
     # -- channel 0: labels (GOFER, no auth) -----------------------------------
     t0 = time.time()
     if label_build is None:
@@ -126,7 +128,13 @@ def build_fire_tensor(
     labels = label_build
     timings.record("labels", time.time() - t0)
     grid, times = labels.grid, labels.times
-    _log(f"[{fire_id}] labels {labels.state.shape} grid {grid.shape} ({timings.stages['labels']}s)")
+    logger.info(
+        "[%s] labels %s grid %s (%ss)",
+        fire_id,
+        labels.state.shape,
+        grid.shape,
+        timings.stages["labels"],
+    )
 
     # The label build already recorded these when it rasterised the perimeters,
     # with byte-identical values to the archive lookup this replaced. Reading
@@ -167,7 +175,7 @@ def build_fire_tensor(
             raise RuntimeError(f"{ch}: got {arr.shape[0]} hours, expected {len(times)}")
         bundle.add(ch, arr)
     weather_qa = {ch: missing_hours(weather[ch], w_hours) for ch in C1_WEATHER_CHANNELS}
-    _log(f"[{fire_id}] rtma {weather['temp_2m'].shape} ({timings.stages['rtma']}s)")
+    logger.info("[%s] rtma %s (%ss)", fire_id, weather["temp_2m"].shape, timings.stages["rtma"])
 
     # -- channels 5-8: 3DEP terrain -------------------------------------------
     t0 = time.time()
@@ -175,7 +183,7 @@ def build_fire_tensor(
     timings.record("terrain", time.time() - t0)
     for ch in ("elevation", "slope", "aspect_sin", "aspect_cos"):
         bundle.add(ch, terrain[ch])
-    _log(f"[{fire_id}] terrain ({timings.stages['terrain']}s)")
+    logger.info("[%s] terrain (%ss)", fire_id, timings.stages["terrain"])
 
     # -- channels 9-10: LANDFIRE fuels via LFPS, no auth (ADR-005) ------------
     t0 = time.time()
@@ -187,7 +195,7 @@ def build_fire_tensor(
     timings.record("fuels", time.time() - t0)
     bundle.add("fuel_model_id", fbfm)
     bundle.add("canopy_cover", canopy)
-    _log(f"[{fire_id}] fuels {folder} ({timings.stages['fuels']}s)")
+    logger.info("[%s] fuels %s (%ss)", fire_id, folder, timings.stages["fuels"])
 
     # -- channel 11: derived dead fuel moisture -------------------------------
     t0 = time.time()
@@ -200,7 +208,7 @@ def build_fire_tensor(
     barriers = fetch_barriers(grid)
     timings.record("barriers", time.time() - t0)
     bundle.add("water_barrier_mask", barriers)
-    _log(f"[{fire_id}] barriers ({timings.stages['barriers']}s)")
+    logger.info("[%s] barriers (%ss)", fire_id, timings.stages["barriers"])
 
     # -- channel 13: recent burn scar -----------------------------------------
     t0 = time.time()
@@ -215,7 +223,7 @@ def build_fire_tensor(
     )
     timings.record("burn_scar", time.time() - t0)
     bundle.add("recent_burn_scar", scar)
-    _log(f"[{fire_id}] burn_scar ({timings.stages['burn_scar']}s)")
+    logger.info("[%s] burn_scar (%ss)", fire_id, timings.stages["burn_scar"])
 
     # -- provenance + QA ------------------------------------------------------
     bundle.provenance = {
@@ -243,10 +251,17 @@ def build_fire_tensor(
     bundle.n_ignition_components = ignition_report.n_ignition_components
     bundle.provenance["ignition_components"] = ignition_report.to_provenance()
     if ignition_report.n_ignition_components > 1:
-        _log(
-            f"[{fire_id}] MULTI-IGNITION: {ignition_report.n_ignition_components} "
-            "components filed under one GOFER id — see manifest "
-            "provenance.ignition_components"
+        # WARNING, not INFO, and the change is deliberate. R16: `2020_july_complex`
+        # and SCU are several fires filed under one GOFER id, and the 47 km apparent
+        # teleport that follows is a filing artefact. Under the `_log` shim this
+        # line was suppressed by `--quiet` along with the routine stage timings;
+        # at WARNING it reaches stderr even in a program that configured nothing,
+        # via `logging.lastResort`.
+        logger.warning(
+            "[%s] MULTI-IGNITION: %d components filed under one GOFER id; see manifest "
+            "provenance.ignition_components",
+            fire_id,
+            ignition_report.n_ignition_components,
         )
 
     bundle.provenance["fuels_nodata_policy"] = (
@@ -273,10 +288,12 @@ def build_fire_tensor(
         "burn_scar_detail": scar_report,
     }
     if bundle.qa["physical_audit"]["verdict"] != "ok":
-        _log(
-            f"[{fire_id}] PHYSICAL AUDIT: suspect channels "
-            f"{bundle.qa['physical_audit']['suspect_channels']} — see manifest "
-            "provenance.qa.physical_audit"
+        # WARNING for the same reason: R11's class. CZU shipped a `-9999` LFPS
+        # sentinel past 42 structural checks, and this is the line that says so.
+        logger.warning(
+            "[%s] PHYSICAL AUDIT: suspect channels %s; see manifest provenance.qa.physical_audit",
+            fire_id,
+            bundle.qa["physical_audit"]["suspect_channels"],
         )
     return bundle, timings
 

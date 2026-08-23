@@ -20,6 +20,15 @@ Offline again, but needs built tensors:
     audit                     physical-plausibility scan of every built fire +
                               the shared norm stats -> data/qa_audit.json, and
                               patched into each manifest's provenance.qa
+
+Everything each command prints on stdout is its ANSWER: a path, a table, a JSON
+document something downstream parses. Progress narration (which stage of a build
+is running, a neighbour perimeter that could not be fetched, a multi-ignition
+fire) is a DIAGNOSTIC, goes to stderr through `logging`, and is controlled by
+`--log-level` / `--log-levels` (ADR-103/106). `build` narrates at INFO by
+default because a 20 minute fetch that says nothing looks identical to a hung
+one; `--log-level WARNING` is what `--quiet` used to be, and unlike `--quiet` it
+no longer suppresses the MULTI-IGNITION and PHYSICAL AUDIT warnings with it.
 """
 
 from __future__ import annotations
@@ -30,6 +39,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.data.folds import (
     assign_folds,
     fire_assignments,
@@ -72,7 +82,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
     bp = sub.add_parser("build", help="build the full C1 tensor for one or more fires")
     bp.add_argument("fire_id", nargs="+")
-    bp.add_argument("--quiet", action="store_true")
 
     np_ = sub.add_parser("norm-stats", help="recompute the C3 file over the train folds")
     np_.add_argument(
@@ -104,10 +113,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="do not write the audit into each manifest's provenance.qa",
     )
     au.add_argument("--full", action="store_true", help="print every channel, not just findings")
+    add_logging_arguments(p)
     return p
 
 
-def _cmd_build(fire_ids: Sequence[str], *, verbose: bool) -> int:
+def _cmd_build(fire_ids: Sequence[str]) -> int:
     from wildfire_nowcast.data.assemble import write_fire_tensor  # noqa: PLC0415
     from wildfire_nowcast.data.pipeline import build_fire_tensor  # noqa: PLC0415
 
@@ -125,7 +135,6 @@ def _cmd_build(fire_ids: Sequence[str], *, verbose: bool) -> int:
             archive=arch,
             cv_fold=a["cv_fold"],
             spatial_block_id=a["spatial_block_id"],
-            verbose=verbose,
         )
         tensor_path, manifest_path = write_fire_tensor(bundle)
         verdict = bundle.qa.get("verdict", {})
@@ -347,6 +356,12 @@ def _cmd_audit(fire_ids: Sequence[str] | None, *, patch: bool, full: bool) -> in
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    # ADR-103: the ONE place this program configures logging, and the only place
+    # in `data/` where a level is set at all. INFO by default rather than
+    # WARNING, because `build` is a multi-minute GEE fetch whose progress
+    # narration is the reason the `_log` shim existed; stdout still carries only
+    # the answer, so `wildfire-data qa FIRE | jq` is unaffected either way.
+    configure_from_args(args, default_verbosity=1)
 
     if args.cmd == "fetch":
         print(download_gofer())
@@ -392,7 +407,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.cmd == "build":
-        return _cmd_build(args.fire_id, verbose=not args.quiet)
+        return _cmd_build(args.fire_id)
 
     if args.cmd == "norm-stats":
         return _cmd_norm_stats(args.train_folds, args.out, args.fires_root)

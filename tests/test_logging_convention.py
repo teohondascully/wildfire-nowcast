@@ -11,10 +11,13 @@ Four rules, four scans, each with the defect it must catch planted in a specimen
 2. nothing configures logging at import - the library discipline;
 3. configuration goes through ``common/logs.configure_logging`` and nowhere else,
    so ``basicConfig`` appearing anywhere is a second convention starting;
-4. the hand-rolled ``def _log(msg): if verbose: print(msg)`` shim is a BURN-DOWN
-   of exactly the two instances ADR-103 (2) names, both in ``data/``. A third one
-   fails this file; deleting one of the two also fails it, because an entry that
-   outlives its reason is an allow-list.
+4. the hand-rolled ``def _log(msg): if verbose: print(msg)`` shim is a BURN-DOWN.
+   It held exactly the two instances ADR-103 (2) named, both in ``data/``. **Both
+   were converted at D14 and the list is now EMPTY**, having first been observed
+   failing in the retirement direction. A third instance appearing anywhere still
+   fails this file; what an empty list can no longer do is notice a REVERT, so
+   :func:`test_the_two_retired_shims_stayed_retired` asserts the positive fact
+   instead - the two modules carry a module logger and use it.
 
 The shim scan is STRUCTURAL - a nested function whose whole body is
 ``if <flag>: print(...)`` - not a search for the name ``_log``. Renaming it to
@@ -51,10 +54,21 @@ _LEVEL_METHODS = frozenset(
 _CONFIGURATION_CALLS = frozenset({"configure_logging", "configure_from_args"})
 _FORBIDDEN_CONFIGURATION_CALLS = frozenset({"basicConfig", "dictConfig", "fileConfig"})
 
-#: The two shims ADR-103 (2) names, with their owner. They are @data's to delete;
-#: infra may not edit `data/`. Pinned as a SET rather than a count so that a third
-#: instance names itself and a deletion is visible as a stale entry.
-PRINT_LOGGER_SHIMS: frozenset[str] = frozenset(
+#: The shims ADR-103 (2) names. **RETIRED AT D14 and now EMPTY**: @data converted
+#: both, and the list is emptied in the same commit because a burn-down entry that
+#: outlives its reason is an allow-list. It fired in the retirement direction
+#: before it was emptied, which is the observation infra could not make itself.
+#: Empty is the correct end state and NOT a weaker check: `new` still names a
+#: third instance the moment one appears anywhere in the tree, and
+#: :func:`test_the_two_retired_shims_stayed_retired` supplies the positive half
+#: that an empty set cannot.
+PRINT_LOGGER_SHIMS: frozenset[str] = frozenset()
+
+#: The two modules the retired entries named. Kept as data rather than deleted so
+#: the retirement is PINNED rather than merely absent: reverting either module to
+#: a `_log` shim has to go red somewhere, and with the burn-down empty this is the
+#: only place left that can do it.
+RETIRED_PRINT_LOGGER_SHIMS: frozenset[str] = frozenset(
     {
         "src/wildfire_nowcast/data/gofer_ext.py",
         "src/wildfire_nowcast/data/pipeline.py",
@@ -336,9 +350,47 @@ def test_the_burn_down_fires_in_BOTH_directions_on_a_synthetic_pair() -> None:
     assert burn_down_drift(set(), declared) == ([], ["a.py", "b.py"])
 
 
-def test_the_shims_that_remain_are_owned_by_data_and_not_by_infra() -> None:
-    """Infra landed the convention and may not edit `data/`. This records why they remain."""
-    assert all(path.startswith("src/wildfire_nowcast/data/") for path in PRINT_LOGGER_SHIMS)
+def test_the_two_retired_shims_stayed_retired() -> None:
+    """The positive half of an EMPTY burn-down, which `all(...)` over `frozenset()` is not.
+
+    When @data emptied ``PRINT_LOGGER_SHIMS`` at D14, the ownership assertion that
+    used to live here became ``all(... for path in frozenset())``, i.e. ``True``
+    unconditionally: a check that cannot fail, which is the class this repository
+    has now found four times. What replaces it is a statement that can:
+    both named modules ask for a logger at MODULE scope with ``__name__``, and
+    both actually emit. Reverting either to ``def _log(msg): if verbose: print``
+    removes the emission and turns this red, so the retirement is pinned rather
+    than merely unrecorded.
+    """
+    for rel in sorted(RETIRED_PRINT_LOGGER_SHIMS):
+        tree = _parse(rel)
+        module_scope_loggers = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and _call_attr(node.value) == "getLogger"
+            and [a for a in node.value.args if isinstance(a, ast.Name) and a.id == "__name__"]
+        ]
+        assert module_scope_loggers, (
+            f"{rel} carries no module-scope logging.getLogger(__name__). It was one of the "
+            "two ADR-103 (2) `_log` shims; retiring the burn-down entry without the logger "
+            "would leave the conversion unpinned in both directions at once."
+        )
+        emissions = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _LEVEL_METHODS
+            and getattr(node.func.value, "id", "") == "logger"
+        ]
+        assert emissions, f"{rel} has a logger and never uses it"
+
+
+def _call_attr(call: ast.Call) -> str:
+    func = call.func
+    return func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
 
 
 # --------------------------------------------------------------------------

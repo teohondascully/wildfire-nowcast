@@ -219,7 +219,6 @@ def build_extension_fire(
     cv_fold: int | None = None,
     spatial_block_id: int | None = None,
     wfigs_fire: WfigsFire | None = None,
-    verbose: bool = True,
 ) -> dict[str, Any]:
     """Labels -> 14 channels -> ``data/interim/{fire_id}/``. Two-pass by design.
 
@@ -235,7 +234,7 @@ def build_extension_fire(
         wfigs_fire if wfigs_fire is not None else (fire if isinstance(fire, WfigsFire) else None)
     )
     spec = fire if isinstance(fire, FireSpec) else spec_from_wfigs(fire)
-    run = run_gofer_ext(spec, wfigs_fire=wfigs, verbose=verbose)
+    run = run_gofer_ext(spec, wfigs_fire=wfigs)
     labels = to_label_build(run)
 
     if cv_fold is None or spatial_block_id is None:
@@ -252,7 +251,6 @@ def build_extension_fire(
         cv_fold=cv_fold,
         spatial_block_id=spatial_block_id,
         label_build=labels,
-        verbose=verbose,
     )
     bundle.provenance["fold_assignment_provisional"] = True
     bundle.provenance["fold_assignment_note"] = (
