@@ -40,7 +40,7 @@ Two independent mechanisms, and BOTH have to be closed:
    beats genuine skill on ECE, and by 512 it is indistinguishable from the
    ORACLE. So: no statistic that partitions only by the forecast's own
    probability can survive a null check containing climatology, and
-   ``common/null_check.py`` now contains one.
+   ``common/null_check/`` now contains one.
 
 THE ESTIMAND, AND WHAT IT FORCES
 --------------------------------

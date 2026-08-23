@@ -178,7 +178,7 @@ ignore_missing_imports = true
 # requires each entry to still fail, which is what actually cannot rot.
 #
 # THREE ENTRIES HERE LOOK LIKE LIVE DEFECTS RATHER THAN MISSING ANNOTATIONS and
-# are escalated in coordination/status/infra.md rather than fixed here:
+# are escalated to the leads who own those modules rather than fixed here:
 # `model/train.py` 810 and 1397, and `eval/selftest.py` 1211/1226.
 [[tool.mypy.overrides]]
 module = [

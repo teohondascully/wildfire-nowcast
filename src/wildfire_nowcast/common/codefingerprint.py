@@ -19,7 +19,8 @@ Three properties follow, and each one is a bug that is now unreachable:
 
 1. **A NEW MODULE IS COVERED WITHOUT A LIST EDIT.** Nobody has to remember.
 2. **A MODULE THAT BECOMES A PACKAGE STAYS COVERED**, because the walk is
-   recursive. ``common/null_check.py`` became ``common/null_check/`` at A15 and
+   recursive. The module ``null_check`` became the package ``common/null_check/``
+   at A15 and
    silently left the old list; that same hazard is what stopped ``contract.py``
    from being split (ADR-047 (6)(7)).
 3. **A SCAN THAT MATCHES NOTHING IS A FAILURE, NOT A CLEAN TREE.** Four of this

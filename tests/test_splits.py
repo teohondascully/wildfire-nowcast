@@ -131,7 +131,7 @@ def test_the_fingerprint_of_record_is_reproduced() -> None:
     """The split on disk must reproduce :data:`FINGERPRINT_OF_RECORD`.
 
     Pinned deliberately. If the split legitimately moves this test fails and the
-    number in ADR-015/STATE.md must be updated in the same commit - a fingerprint
+    number recorded in ADR-015 must be updated in the same commit - a fingerprint
     nobody notices changing is not a fingerprint.
 
     **This test has now fired once in the correct direction and been updated
@@ -145,7 +145,8 @@ def test_the_fingerprint_of_record_is_reproduced() -> None:
     assert fp["fingerprint"] == FINGERPRINT_OF_RECORD, (
         f"the CV split has moved: now {fp['fingerprint']} with train folds {fp['train_folds']} "
         f"and {fp['n_fires']} fires, against the pinned {FINGERPRINT_OF_RECORD} (21 fires, "
-        "ADR-038). Update ADR-015/STATE.md in the same change, re-run anything being quoted, "
+        "ADR-038). Update the number recorded in ADR-015 in the same change, re-run "
+        "anything being quoted, "
         "and KEEP the superseded value as a named constant here — do not overwrite it."
     )
 

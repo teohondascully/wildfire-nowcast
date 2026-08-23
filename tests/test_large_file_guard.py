@@ -47,7 +47,7 @@ EXPECTED_MAXKB = 500
 #: in the first draft and the scan caught it in a fresh clone, on the control
 #: run, before any plant. Exempting this path would have made the file that
 #: fabricates paths the one file that can never report one.
-_SPECIMEN_UNTRACKED = "ru" + "ns/some_new_sweep.json"
+_SPECIMEN_UNTRACKED = "ru" + "ns/some_new_sweep" + ".json"
 
 #: The one path named out of the bar, and why the number matters: 820,811 bytes.
 EXEMPT_PATH = "runs/m19_collapse_curve.json"
