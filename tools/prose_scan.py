@@ -521,7 +521,7 @@ OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {
     "runs/_m9_scaling.py": 2,
     "src/wildfire_nowcast/eval/baseline_run.py": 5,
     "src/wildfire_nowcast/eval/playthrough_first_moment.py": 2,
-    "src/wildfire_nowcast/eval/reporting.py": 2,
+    "src/wildfire_nowcast/eval/reporting.py": 1,  # was 2; @model swept one
     "src/wildfire_nowcast/eval/selftest.py": 1,
     "src/wildfire_nowcast/model/train.py": 3,
     # @simviz
@@ -542,13 +542,14 @@ class OutputAudit:
 
     undeclared: dict[str, int]
     risen: dict[str, tuple[int, int]]
+    fallen: dict[str, tuple[int, int]]
     stale: tuple[str, ...]
     declared_total: int
     found_total: int
 
     @property
     def ok(self) -> bool:
-        return not self.undeclared and not self.risen and not self.stale
+        return not self.undeclared and not self.risen and not self.fallen and not self.stale
 
     def lines(self) -> list[str]:
         out: list[str] = []
@@ -556,6 +557,12 @@ class OutputAudit:
             out.append(f"NEW output-reaching literal(s): {path} carries {count}, undeclared")
         for path, (was, now) in sorted(self.risen.items()):
             out.append(f"RISEN: {path} carried {was}, now carries {now}")
+        for path, (was, now) in sorted(self.fallen.items()):
+            out.append(
+                f"FALLEN: {path} carried {was}, now carries {now}; set it to {now} in "
+                "OUTPUT_LITERAL_DEBT. A pin that tolerates a fall leaves slack a later "
+                "commit can refill without tripping RISEN."
+            )
         for path in self.stale:
             out.append(f"STALE: {path} is clean; remove it from OUTPUT_LITERAL_DEBT")
         return out
@@ -576,10 +583,16 @@ def audit_output_literals(
         for path, n in found.items()
         if path in declared and n > declared[path]
     }
+    fallen = {
+        path: (declared[path], n)
+        for path, n in found.items()
+        if path in declared and 0 < n < declared[path]
+    }
     stale = tuple(sorted(path for path in declared if found.get(path, 0) == 0))
     return OutputAudit(
         undeclared=undeclared,
         risen=risen,
+        fallen=fallen,
         stale=stale,
         declared_total=sum(declared.values()),
         found_total=sum(found.values()),
@@ -661,8 +674,10 @@ def main(argv: list[str] | None = None) -> int:
 
     audit = audit_output_literals(occurrences)
     print(
-        f"\ndeclared output debt: {audit.declared_total} character(s) across "
-        f"{len(OUTPUT_LITERAL_DEBT)} file(s) owned by other leads (ADR-097)"
+        f"\noutput-reaching literals: found {audit.found_total}, declared "
+        f"{audit.declared_total} across {len(OUTPUT_LITERAL_DEBT)} file(s) owned by "
+        "other leads (ADR-097). The declared number is a PIN, not a ceiling: it fails "
+        "when it rises AND when it falls."
     )
     print(f"NOT SEEN BY THIS SCANNER: {UNSEEN_BY_CONSTRUCTION}")
     for line in audit.lines():

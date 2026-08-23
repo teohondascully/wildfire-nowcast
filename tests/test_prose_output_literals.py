@@ -66,7 +66,7 @@ def test_infra_owns_zero_output_reaching_literals() -> None:
 
 
 def test_the_rest_is_exactly_the_declared_debt() -> None:
-    """Three directions, all of them failures: undeclared, risen, stale."""
+    """Four directions, all of them failures: undeclared, risen, fallen, stale."""
     audit = prose_scan.audit_output_literals(_scan())
     assert audit.ok, "\n".join(audit.lines())
 
@@ -145,12 +145,51 @@ def test_a_cleared_file_fails_as_STALE_so_the_entry_cannot_outlive_its_reason() 
     assert any("STALE" in line for line in audit.lines())
 
 
-def test_a_count_that_merely_FALLS_is_fine() -> None:
-    """Three leads write in these files. A pin red on their progress gets edited."""
+def test_a_count_that_FALLS_fails_too_because_a_tolerated_fall_leaves_slack() -> None:
+    """The fourth direction, and the one this pin shipped without.
+
+    A fall was tolerated on the reasoning that three leads write in these files and
+    a pin that goes red on their progress gets deleted. Planting in a fresh clone
+    showed what that costs: at 2102917 the declared debt read 25 while the tree
+    held 24, because @model had swept one in eval/reporting.py. The scanner printed
+    the declared 25 and PASSed, so the slack was invisible AND refillable: a later
+    commit could put a new literal back into that file and RISEN would not fire,
+    because 2 is not greater than 2. A pin is a pin in both directions.
+    """
     audit = prose_scan.audit_output_literals(
         [_occ("sim/old.py", 3, prose_scan.REGION_OUTPUT)], debt={"sim/old.py": 4}
     )
-    assert audit.ok, audit.lines()
+    assert not audit.ok
+    assert audit.fallen == {"sim/old.py": (4, 1)}
+    assert any("FALLEN" in line and "set it to 1" in line for line in audit.lines())
+
+
+def test_the_refill_the_tolerated_fall_allowed_is_now_caught() -> None:
+    """The hazard itself, not just the direction: sweep one, add one, unnoticed."""
+    swept = prose_scan.audit_output_literals(
+        [_occ("eval/r.py", 3, prose_scan.REGION_OUTPUT)], debt={"eval/r.py": 2}
+    )
+    refilled = prose_scan.audit_output_literals(
+        [
+            _occ("eval/r.py", 3, prose_scan.REGION_OUTPUT),
+            _occ("eval/r.py", 9, prose_scan.REGION_OUTPUT),
+        ],
+        debt={"eval/r.py": 2},
+    )
+    assert not swept.ok, "the sweep must be recorded when it happens"
+    assert refilled.ok, "once recorded at 2 the refill reads as no change; hence the above"
+
+
+def test_the_declared_number_is_never_printed_without_the_found_number() -> None:
+    """A tool that prints one of two numbers has chosen which one you compare against."""
+    out = subprocess.run(
+        [sys.executable, str(repo_root() / "tools" / "prose_scan.py"), "--repo", str(repo_root())],
+        capture_output=True,
+        text=True,
+    ).stdout
+    line = next(ln for ln in out.splitlines() if "declared" in ln)
+    assert "found" in line, line
+    assert "PIN, not a ceiling" in line, line
 
 
 # --------------------------------------------------------------------------
