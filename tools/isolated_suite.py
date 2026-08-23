@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -119,6 +120,12 @@ def main(argv: list[str] | None = None) -> int:
                 text=True,
                 check=False,
             )
+            # The mkdtemp ROOT as well, not only the worktree inside it. Removing
+            # the worktree left an empty directory per invocation - individually
+            # trivial, which is exactly how 15,462 of them accumulated elsewhere in
+            # this repository in a single day. What a tool leaves behind is part of
+            # its cost, and it is multiplied by how often the tool is meant to run.
+            shutil.rmtree(root, ignore_errors=True)
 
 
 if __name__ == "__main__":

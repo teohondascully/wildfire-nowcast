@@ -2276,3 +2276,64 @@ def test_the_sweep_removes_its_worktrees_even_when_it_raises() -> None:
         "the cleanup helper no longer removes worktrees"
     )
     assert "_remove_worktrees" in source, "the finally no longer reaches the cleanup helper"
+
+
+# --------------------------------------------------------------------------
+# what a gate LEAVES BEHIND, multiplied by how often it runs
+# --------------------------------------------------------------------------
+
+
+def test_temp_entries_actually_notices_a_new_entry(tmp_path: Path) -> None:
+    """The leak detector, exercised rather than asserted about.
+
+    A before/after set difference that never sees anything is indistinguishable
+    from a tool that does not leak, which is the whole failure mode here.
+    """
+    with mock.patch.object(mutation.tempfile, "gettempdir", return_value=str(tmp_path)):
+        before = mutation.temp_entries()
+        assert before == set()
+        (tmp_path / "wnc-selftest-abc").mkdir()
+        after = mutation.temp_entries()
+    assert after - before == {"wnc-selftest-abc"}
+
+
+def test_a_sweep_that_leaks_cannot_report_success() -> None:
+    """A leak is a failure of the run, not a footnote under it.
+
+    One 4.7 MB temp directory per suite run is nothing. This gate runs the suite
+    once per mutant, so the same directory became 70 GB and 15,462 entries in a
+    day. Cost per invocation is not the number that matters; cost times
+    invocations is - so the sweep measures its own residue and exits non-zero.
+    """
+    assert mutation.Sweep(leaked=["x"]).to_dict()["leaked_temp_entries"] == ["x"]
+    source = inspect.getsource(mutation.main)
+    assert "if result.leaked:\n        return 3" in source, (
+        "a leaking sweep can exit 0 again, so the residue is advisory rather than a gate"
+    )
+    body = inspect.getsource(mutation.sweep)
+    guarded = body[body.index("finally:") :]
+    assert "temp_entries() - before" in guarded, (
+        "the residue is not measured on the failure path, which is the path that repeats"
+    )
+    assert "shutil.rmtree(root" in guarded, "the sweep no longer removes its own workspace root"
+
+
+def test_the_sweep_can_be_measured_before_it_is_run_in_full() -> None:
+    """`--max-mutants` exists so the gate's cost is knowable in minutes, not hours."""
+    source = inspect.getsource(mutation.sweep)
+    assert "jobs = jobs[:max_mutants]" in source, "the cap no longer truncates the job list"
+    parser_source = inspect.getsource(mutation.main)
+    assert '"--max-mutants"' in parser_source
+
+
+def test_the_isolated_runner_removes_its_own_temp_root() -> None:
+    """It used to leave one empty directory per invocation.
+
+    Individually trivial, which is exactly how the large leak accumulated: nobody
+    refuses a cost of one directory, and nobody multiplies it by the run count.
+    """
+    source = inspect.getsource(isolated_suite.main)
+    guarded = source[source.index("finally:") :]
+    assert "shutil.rmtree(root" in guarded, (
+        "the isolated runner leaves its mkdtemp root behind on every run"
+    )

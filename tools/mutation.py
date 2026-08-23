@@ -255,6 +255,12 @@ class Sweep:
 
     results: list[Result] = field(default_factory=list)
     deselected: list[str] = field(default_factory=list)
+    #: Temp entries present after the sweep that were not there before it. A gate
+    #: that re-runs the whole suite once per mutant multiplies any per-run leak by
+    #: the mutant count: a 4.7 MB temp dir left by one suite run became 70 GB and
+    #: 15,462 directories across one day. Cost per invocation is not the number
+    #: that matters; cost times invocations is.
+    leaked: list[str] = field(default_factory=list)
     #: The sha actually swept, read out of the WORKSPACE rather than the repo.
     #: Without it a pinned number is attributable only by comparing the process
     #: start time against commit timestamps - which this session had to do, with a
@@ -289,6 +295,7 @@ class Sweep:
             "budget": SURVIVOR_BUDGET,
             "measured_at": MEASURED_AT,
             "head": self.head,
+            "leaked_temp_entries": self.leaked,
             "n_mutants": len(self.results),
             "n_killed": len(self.killed),
             "n_survived": len(self.survivors),
@@ -727,16 +734,32 @@ def run_one(
 
 
 def sweep(
-    repo: Path, python: Path, root: Path, *, workers: int, only: str = "", pristine: bool = False
+    repo: Path,
+    python: Path,
+    root: Path,
+    *,
+    workers: int,
+    only: str = "",
+    pristine: bool = False,
+    max_mutants: int = 0,
 ) -> Sweep:
-    """Build ``workers`` workspaces and run every mutant exactly once."""
+    """Build ``workers`` workspaces and run every mutant exactly once.
+
+    ``max_mutants`` truncates the job list, deterministically and from the front.
+    It exists so the gate can be MEASURED cheaply before it is run in full: three
+    mutants take minutes and reveal a per-run temp leak just as well as 117 do,
+    and the leak is what multiplies.
+    """
     modules = [m for m in target_modules(repo) if only in m]
     jobs = [(m, f) for m in modules for f in SAMPLE_FRACTIONS]
+    if max_mutants > 0:
+        jobs = jobs[:max_mutants]
     spaces = [root / f"ws{i}" for i in range(workers)]
     out = Sweep()
     started = time.monotonic()
 
     cleanup_from = _remove_worktrees  # named so the finally below cannot drift from it
+    before = temp_entries()
 
     try:
         for space in spaces:
@@ -746,6 +769,19 @@ def sweep(
     finally:
         out.seconds = time.monotonic() - started
         cleanup_from(repo, spaces)
+        shutil.rmtree(root, ignore_errors=True)
+        # Measured AFTER the cleanup, so what is listed is what genuinely survived
+        # this sweep rather than what it was still using.
+        out.leaked = sorted(temp_entries() - before)
+
+
+def temp_entries() -> set[str]:
+    """Every name directly under the temp directory, for before/after comparison."""
+    root = Path(tempfile.gettempdir())
+    try:
+        return {entry.name for entry in root.iterdir()}
+    except OSError:  # pragma: no cover - unreadable temp dir
+        return set()
 
 
 def _remove_worktrees(repo: Path, spaces: Sequence[Path]) -> None:
@@ -847,6 +883,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json", default="", help="write the full result set here")
     parser.add_argument(
+        "--max-mutants",
+        type=int,
+        default=0,
+        help=(
+            "run only the first N mutants. For MEASURING the gate cheaply - a per-run "
+            "temp leak shows up in three mutants and is then multiplied by all of them."
+        ),
+    )
+    parser.add_argument(
         "--no-budget",
         action="store_true",
         help="measure and report without enforcing the budget (how a new pin is taken)",
@@ -870,6 +915,7 @@ def main(argv: list[str] | None = None) -> int:
         workers=args.workers,
         only=args.only,
         pristine=args.pristine,
+        max_mutants=args.max_mutants,
     )
 
     n_survived = len(result.survivors)
@@ -887,9 +933,17 @@ def main(argv: list[str] | None = None) -> int:
     for row in result.unmeasured:
         print(f"  {row.verdict}  {row.descriptor}  {row.detail}")
     print(f"{result.seconds / 60:.1f} min")
+    if result.leaked:
+        print(
+            f"LEAKED {len(result.leaked)} temp entr(y/ies), first few: {result.leaked[:5]}. "
+            "A gate that runs the suite once per mutant multiplies this by the mutant "
+            "count, so it is reported as a failure and not as a footnote."
+        )
     if args.json:
         Path(args.json).write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
 
+    if result.leaked:
+        return 3
     if args.only or args.no_budget:
         return 0
     code, message = budget_verdict(n_survived, len(result.unmeasured), len(result.equivalent))
