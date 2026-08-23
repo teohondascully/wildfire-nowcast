@@ -80,10 +80,9 @@ Two subclasses of it are checked elsewhere, and the hand-off is written as data
 in ``DELEGATED``: each entry names the module, the reader inside it, and a PROBE
 token that reader must catch. Until ADR-116 this docstring printed instead that
 the whole class was "left to ``tests/test_hygiene.py``, whose pattern set covers
-that class" - and it was not; that pattern set covered exactly one token of it,
-and the rest, 93 occurrences in one package alone, was checked by nothing.
-Neither module was wrong about itself. The HAND-OFF was the unowned surface, so
-it is the thing that now carries a test.
+that class" - and it was not; that pattern set covered exactly one token of it
+and the rest was checked by nothing. Neither module was wrong about itself. The
+HAND-OFF was the unowned surface, so it is the thing that now carries a test.
 """
 
 from __future__ import annotations

@@ -734,11 +734,22 @@ def test_the_scan_reads_its_own_source_and_is_not_self_exempt() -> None:
 # HAS a directory component and excludes the BARE ones, for a measured reason:
 # resolving `np.log` or `a.py` would turn ordinary code into an obligation. Until
 # ADR-116 it printed that the bare tier was "left to tests/test_hygiene.py, whose
-# pattern set covers that class". It was not. The pattern set above covers exactly
-# ONE bare filename - the agent-instruction file - and 93 occurrences in one
-# package alone were checked by nothing. Neither module was wrong about itself;
-# the HAND-OFF between them was the unowned surface, and a delegation nobody
-# executes is a sentence that reads like a control.
+# pattern set covers that class". It was not: the pattern set above covers exactly
+# ONE bare filename, the agent-instruction file, and the rest was checked by
+# nothing. Neither module was wrong about itself; the HAND-OFF between them was
+# the unowned surface, and a delegation nobody executes is a sentence that reads
+# like a control.
+#
+# THE SIZE OF THAT REST DEPENDED ON WHO MEASURED IT, which is the second reason
+# `cited_paths.bare_tokens_in` is exported and called here instead of copied. The
+# report that opened ADR-116 measured 93 occurrences of 19 names in one package;
+# the tokenizer that ships measures 56 of 12 in the same package at the same
+# commit. Both are honest and the gap is a DEFINITION, not a discrepancy: the
+# wider rule counts the tail of an f-string path (`{root}/tensor.zarr`) as a bare
+# filename, and the shipped one sees a path expression with a directory in it and
+# leaves it to the half of the scan that resolves those. A class whose size moves
+# 1.7x with the reader is a class with no owner, and a hand-off between two
+# readers of it cannot be checked at all.
 #
 # So this is the receiving end, and it is scoped rather than total. The subclass
 # with teeth is the one ADR-113 was about: a name this repository USED to carry
