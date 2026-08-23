@@ -55,10 +55,8 @@ from wildfire_nowcast.common.iou_terms import silent_floor as _canonical_silent_
 from wildfire_nowcast.common.zarr_io import channel_values, open_tensor  # noqa: E402
 from wildfire_nowcast.sim.c5 import C5Inputs, c5_inputs  # noqa: E402
 from wildfire_nowcast.sim.style import (  # noqa: E402
-    BURN_PROB_CMAP,
     COL_BARRIER,
     COL_TEXT,
-    COL_TRUTH,
     COL_WARN,
     PlotGeometry,
     add_north_arrow,
@@ -437,25 +435,6 @@ def _draw_confusion(
         edge = np.zeros((*barrier.shape, 4), dtype=float)
         edge[barrier] = (0.17, 0.42, 0.69, 0.35)
         ax.imshow(edge, **geom.imshow_kwargs)
-    _map_axes(ax, geom)
-
-
-def _draw_prob(
-    ax: Any, geom: PlotGeometry, prob: np.ndarray, truth_new: np.ndarray, band: np.ndarray
-) -> None:
-    shown = np.where(band, prob, np.nan)
-    ax.imshow(shown, vmin=0.0, vmax=1.0, cmap=BURN_PROB_CMAP, **geom.imshow_kwargs)
-    ys, xs = np.nonzero(truth_new)
-    if ys.size:
-        ax.scatter(
-            geom.x_centres[xs],
-            geom.y_centres[ys],
-            s=6,
-            facecolors="none",
-            edgecolors=COL_TRUTH,
-            linewidths=0.6,
-            zorder=4,
-        )
     _map_axes(ax, geom)
 
 

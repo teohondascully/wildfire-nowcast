@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -472,6 +473,19 @@ def main(argv: list[str] | None = None) -> int:
     runs: list[C6Run] = []
     for path, label in zip(args.metrics, labels, strict=True):
         runs.extend(load_c6(path, label=label))
+
+    if not runs:
+        # `any(r.missing for r in runs)` is False over an empty list, so this
+        # used to render nothing, print a path, and exit 0 - a contract check
+        # over zero runs reading as a clean bill of health. `[]` and
+        # `{"results": []}` both reach here from a real file. Exit 3 is this
+        # package's "nothing was examined", as in `sim/blockanatomy.py`.
+        print(
+            f"[dashboard] NOTHING TO RENDER: {list(args.metrics)} contained no C6 runs, "
+            "so no contract check was performed. This is NOT a pass.",
+            file=sys.stderr,
+        )
+        return 3
 
     out = render_dashboard(runs, args.out, dpi=args.dpi)
     print(f"[dashboard] {out}")

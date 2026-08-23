@@ -81,8 +81,6 @@ __all__ = [
 #: is contradicting its own fuel channel, not merely mis-calibrating a rate.
 NB_FUEL_CODES: tuple[int, ...] = (91, 92, 93, 98, 99)
 
-_OCTANTS = ("E", "NE", "N", "NW", "W", "SW", "S", "SE")
-
 
 def ring_index(burned0: np.ndarray, max_ring: int) -> np.ndarray:
     """Chebyshev distance in cells from the burned region; 0 inside it.
@@ -278,11 +276,6 @@ class DriftAccumulator:
                 float(np.mean(self.magnitude_m)) if self.magnitude_m else float("nan")
             ),
         }
-
-
-def _octant(bearing_deg: float) -> str:
-    deg = np.degrees(bearing_deg) if bearing_deg <= 2 * np.pi else bearing_deg
-    return _OCTANTS[int(deg // 45) % 8]
 
 
 # --------------------------------------------------------------------------

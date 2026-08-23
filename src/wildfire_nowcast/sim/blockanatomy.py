@@ -80,7 +80,13 @@ __all__ = [
     "adr_parts",
     "decompose_record",
     "participation_ratio",
+    "annotate_for_publication",
+    "publication_verdict",
     "main",
+    "EXIT_OK",
+    "EXIT_DISAGREED",
+    "EXIT_NOTHING_EXAMINED",
+    "IDENTITY_TOL",
 ]
 
 
@@ -114,10 +120,6 @@ class TruthWindow:
     @property
     def total_band_growth(self) -> int:
         return int(self.band_growth[-1]) if self.band_growth else 0
-
-
-def _component_of(labels: np.ndarray, n_labels: int) -> list[np.ndarray]:
-    return [labels == k for k in range(1, n_labels + 1)]
 
 
 def truth_windows(
@@ -374,6 +376,12 @@ def participation_ratio(weights: Iterable[float]) -> float:
 # --------------------------------------------------------------------------
 
 
+#: The identity is exact in real arithmetic, so this is a float-noise budget.
+#: Shared by :attr:`AdrParts.ok` and by :func:`publication_verdict` so the two
+#: cannot drift apart and disagree about the same row.
+IDENTITY_TOL = 1e-9
+
+
 @dataclass(frozen=True)
 class AdrParts:
     """``band_area_dispersion_ratio`` split into a spread term and an error term."""
@@ -394,7 +402,7 @@ class AdrParts:
 
     @property
     def ok(self) -> bool:
-        return self.identity_residual < 1e-9
+        return self.identity_residual < IDENTITY_TOL
 
 
 def adr_parts(
@@ -680,9 +688,6 @@ def _pt(obs: Mapping[str, Any], block: str, key: str) -> float:
     return float(obs["blocks"][block]["parts"][key])
 
 
-_PT_PROBES: tuple[Any, ...] = ()
-
-
 def _probe_identity(obs: Mapping[str, Any]) -> bool:
     return all(float(b["parts"]["identity_residual"]) < 1e-12 for b in obs["blocks"].values())
 
@@ -729,10 +734,6 @@ def _guard_scenario_really_mis_predicts(obs: Mapping[str, Any]) -> bool:
         and abs(obs["blocks"]["OVER"]["pred_over_truth"] - 3.0) < 1e-9
         and abs(obs["blocks"]["MILD"]["pred_over_truth"] - 0.75) < 1e-9
     )
-
-
-def _defect_no_factor(world: Any) -> Any:
-    return world
 
 
 def build_playthrough() -> Any:
@@ -1019,6 +1020,90 @@ def support_distance(
 
 
 # --------------------------------------------------------------------------
+# publication - what this module is ALLOWED to say, and with what exit code
+# --------------------------------------------------------------------------
+#
+# ``max(..., default=0.0)`` over an empty ``parts`` published
+# ``max_identity_residual: 0.0`` and exited 0, so "every block agrees to
+# machine precision" and "no block was examined" were the SAME artifact and the
+# same exit code.  ``all([])`` did it a second time for the known-answer check.
+# A reader of the artifact cannot tell those apart, and the artifact is what a
+# reader trusts when they will not read the code.  So there are THREE outcomes
+# here, never two, and the empty one publishes nothing at all: a residual this
+# module did not compute does not go on disk under a name that implies it did.
+
+
+#: Every row agreed, and there was at least one row.
+EXIT_OK = 0
+#: Rows were examined and something disagreed.  A real, computed failure.
+EXIT_DISAGREED = 1
+#: Nothing was examined.  NOT a pass.  ``3`` rather than ``2`` because
+#: ``tools/ci_status.py`` already spends ``3`` on "there is no run to report
+#: on", which is the same statement about a different subject.
+EXIT_NOTHING_EXAMINED = 3
+
+
+def annotate_for_publication(out: dict[str, Any]) -> dict[str, Any]:
+    """Add the row counts, and the summary verdicts THAT WERE COMPUTABLE.
+
+    ``max_identity_residual`` and ``known_answer_check_passed`` are written only
+    when there was something to compute them over.  Their ABSENCE is the signal;
+    a consumer that reaches for a missing key gets a ``KeyError`` rather than a
+    flattering default.  Mutates and returns ``out``.
+    """
+    rows = out["parts"]
+    checks = out["known_answer_check"]
+    out["n_rows"] = len(rows)
+    out["n_known_answer_checks"] = len(checks)
+    if rows:
+        resids = [float(r["identity_residual"]) for r in rows]
+        # `rms_err == 0` makes `relief` infinite and `rebuilt` NaN, and
+        # `nan > tol` is False - a residual that could not be computed would
+        # read as agreement. Counted, not maxed over.
+        out["n_non_finite_residuals"] = sum(1 for v in resids if not math.isfinite(v))
+        out["max_identity_residual"] = max(resids)
+    if checks:
+        out["known_answer_check_passed"] = all(bool(c["agrees"]) for c in checks)
+    return out
+
+
+def publication_verdict(out: Mapping[str, Any]) -> tuple[int, str]:
+    """``(exit code, one-line reason)`` for an annotated decomposition.
+
+    Pure, so the three-way distinction can be tested without argv, a C6 record
+    or a filesystem.  Call :func:`annotate_for_publication` first.
+    """
+    empty = [
+        name
+        for name, count in (
+            ("parts", int(out["n_rows"])),
+            ("known_answer_check", int(out["n_known_answer_checks"])),
+        )
+        if count == 0
+    ]
+    if empty:
+        return EXIT_NOTHING_EXAMINED, (
+            f"NOTHING EXAMINED: {' and '.join(empty)} came back empty for "
+            f"{out['results_path']}, so there is no identity residual and no "
+            "known-answer verdict to publish. This is NOT a pass. No artifact "
+            "written."
+        )
+    bad = [c["fire_id"] for c in out["known_answer_check"] if not c["agrees"]]
+    if bad:
+        return EXIT_DISAGREED, f"KNOWN-ANSWER CHECK FAILED on {bad}"
+    n_nf = int(out["n_non_finite_residuals"])
+    if n_nf:
+        return EXIT_DISAGREED, (
+            f"{n_nf} of {out['n_rows']} identity residuals are not finite, so the "
+            "identity was not checked on those rows"
+        )
+    resid = float(out["max_identity_residual"])
+    if resid > IDENTITY_TOL:
+        return EXIT_DISAGREED, f"IDENTITY RESIDUAL {resid:.3g} exceeds {IDENTITY_TOL:g}"
+    return EXIT_OK, (
+        f"{out['n_rows']} rows examined, max identity residual {resid:.3g}; "
+        f"{out['n_known_answer_checks']} known-answer checks agree"
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1040,23 +1125,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.results:
         ap.error("--results is required unless --playthrough is given")
     out = decompose_record(args.results, stride=args.stride)
-    bad = [c for c in out["known_answer_check"] if not c["agrees"]]
-    resid = max((float(r["identity_residual"]) for r in out["parts"]), default=0.0)
-    out["max_identity_residual"] = resid
-    out["known_answer_check_passed"] = not bad
+    annotate_for_publication(out)
+    code, message = publication_verdict(out)
+    if code == EXIT_NOTHING_EXAMINED:
+        print(message, file=sys.stderr)
+        return code
     text = json.dumps(out, indent=2)
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(text + "\n")
     else:
         print(text)
-    if bad:
-        print(f"KNOWN-ANSWER CHECK FAILED on {[c['fire_id'] for c in bad]}")
-        return 1
-    if resid > 1e-9:
-        print(f"IDENTITY RESIDUAL {resid:.3g} exceeds 1e-9")
-        return 1
-    return 0
+    if code != EXIT_OK:
+        print(message, file=sys.stderr)
+    return code
 
 
 if __name__ == "__main__":  # pragma: no cover

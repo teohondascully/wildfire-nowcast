@@ -289,6 +289,36 @@ def test_render_dashboard_REFUSES_an_empty_run_list(tmp_path: Path) -> None:
         render_dashboard([], tmp_path / "empty.png")
 
 
+def test_the_CLI_reports_a_file_with_ZERO_runs_rather_than_exiting_clean(
+    tmp_path: Path,
+) -> None:
+    """``any(r.missing for r in runs)`` is False over an empty list.
+
+    ``render_dashboard`` already refused, so the CLI raised rather than lying -
+    but it raised a traceback, which is a worse answer than a named exit code
+    for something a CI job reads. Pinned as a PAIR against a real one-run file
+    so a module that refused everything would fail this too.
+
+    WHAT WOULD MAKE THIS FAIL: dropping the ``if not runs`` guard, which leaves
+    a traceback; and dropping it TOGETHER WITH ``render_dashboard``'s own
+    refusal, which leaves ``return 1 if any(...) else 0`` to decide - and over
+    an empty list that is ``0``. Both were planted and both went red.
+    """
+    empty = tmp_path / "empty.json"
+    empty.write_text(json.dumps({"results": []}))
+    out = tmp_path / "nothing.png"
+    code = main([str(empty), "--out", str(out)])
+    assert code != 0, "a dashboard over zero C6 runs exited clean"
+    assert code == 3, code
+    assert not out.exists(), "a PNG was published for a file with no runs in it"
+
+    good = tmp_path / "good.json"
+    good.write_text(json.dumps(_payload()))
+    ok_out = tmp_path / "good.png"
+    assert main([str(good), "--out", str(ok_out)]) == 0
+    assert ok_out.exists()
+
+
 # --------------------------------------------------------------------------
 # The C3.3 reportability banner
 # --------------------------------------------------------------------------

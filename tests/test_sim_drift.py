@@ -35,15 +35,18 @@ stubbing the predictor down to nothing would leave an assertion about a mock.
 The window loop's own contract -- that it hands ``displacement`` NORTHINGS and
 not row indices -- is checked here at the function that consumes them.
 
-A DEFECT FOUND WHILE WRITING THIS FILE, DELIBERATELY NOT PINNED
----------------------------------------------------------------
-``drift._octant`` and ``drift._OCTANTS`` are DEAD: nothing in ``src/``,
-``tests/``, ``tools/`` or ``runs/`` references either. The function also carries
-a units sniffer, ``np.degrees(x) if x <= 2 * np.pi else x``, which silently
-treats any bearing below 6.28 DEGREES as radians -- i.e. exactly the bearings
-closest to due north on the compass convention this package uses everywhere
-else. No test is written for it, because a test would pin the behaviour of code
-that stands behind no number. It is reported instead.
+A DEFECT FOUND WHILE WRITING THIS FILE, AND HOW IT WAS CLOSED
+-------------------------------------------------------------
+An earlier ``drift`` carried a dead bearing-to-octant helper and its lookup
+table: nothing in ``src/``, ``tests/``, ``tools/`` or ``runs/`` referenced
+either. It also carried a units sniffer, ``np.degrees(x) if x <= 2 * np.pi
+else x``, which silently treats any bearing below 6.28 DEGREES as radians --
+i.e. exactly the bearings closest to due north on the compass convention this
+package uses everywhere else. No test was written for it, because a test would
+have pinned the behaviour of code that stood behind no number. It was DELETED
+instead, after the zero-reference claim was re-checked three ways (AST loads
+over every tracked file, raw text over every tracked file of any type, and
+every dynamic ``getattr`` in the tree).
 """
 
 from __future__ import annotations
