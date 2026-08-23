@@ -69,6 +69,7 @@ priori and every reported training diagnostic is a TRAIN diagnostic.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import time
 from collections.abc import Sequence
@@ -81,6 +82,7 @@ import torch
 from torch import Tensor
 
 from wildfire_nowcast.common.contract import UNBURNED
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import fire_tensor_path
 from wildfire_nowcast.common.runs import create_run_dir
 from wildfire_nowcast.common.splits import (
@@ -133,6 +135,8 @@ from wildfire_nowcast.model.latent import (
     spatial_basis,
 )
 from wildfire_nowcast.model.spread import EllipseParams
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "TrainConfig",
@@ -1539,11 +1543,25 @@ def train_kernel(
             row["kl_per_dim"] = [float(v) for v in terms["kl_per_dim"]]
             row["sigma"] = [float(v) for v in model.latent.sigma().detach()]
         history.append(row)
-        if verbose and (step % log_every == 0 or step == cfg.steps - 1):
-            print(
-                f"  step {step:>4}  {row['fire']:<28} loss {row['loss']:.5f}  "
-                f"nll {row['nll']:.5f}  brier {row['brier']:.6f}  "
-                f"growth {row['growth']:.4f}  kl {row['kl']:.4f}  |g| {grad_norm:.3g}"
+        if step % log_every == 0 or step == cfg.steps - 1:
+            # ADR-103: progress narration is a DIAGNOSTIC, and `verbose` is a
+            # LEVEL rather than a gate. `verbose=False` demotes this to DEBUG
+            # instead of deleting it, so a caller that silenced training can
+            # still recover the trace with `--log-levels
+            # wildfire_nowcast.model.train=DEBUG`. `log_every` stays a hard
+            # condition: it is a sampling rule about which steps are
+            # interesting, not a statement about how loud the caller wants to be.
+            logger.log(
+                logging.INFO if verbose else logging.DEBUG,
+                "  step %4d  %-28s loss %.5f  nll %.5f  brier %.6f  growth %.4f  kl %.4f  |g| %.3g",
+                step,
+                row["fire"],
+                row["loss"],
+                row["nll"],
+                row["brier"],
+                row["growth"],
+                row["kl"],
+                grad_norm,
             )
     if polyak_count > 1:
         with torch.no_grad():
@@ -2529,8 +2547,9 @@ def run_matrix(
     results: dict[str, Any] = {}
     for name, overrides, purpose in entries:
         cfg = TrainConfig(**{**cfg0.to_dict(), **overrides})
-        if verbose:
-            print(f"\n--- {name}: {purpose}")
+        # ADR-103: which arm is running is narration ABOUT the run, not the
+        # matrix's output. The matrix's output is `_print_summary`'s table.
+        logger.log(logging.INFO if verbose else logging.DEBUG, "--- %s: %s", name, purpose)
         payload = train_kernel(
             cfg,
             train_fire_ids=frozen["train_fire_ids"],
@@ -2613,7 +2632,7 @@ def _print_summary(payload: dict[str, Any]) -> None:
     d = payload["train_diagnostics"]
     print()
     print("=" * 96)
-    print("CONTAGION KERNEL — TRAIN DIAGNOSTICS (no held-out fire was read)")
+    print("CONTAGION KERNEL: TRAIN DIAGNOSTICS (no held-out fire was read)")
     print("=" * 96)
     for phase in ("init", "final"):
         g = d[phase]["growth"]
@@ -2699,10 +2718,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--mirror-ns",
         action="store_true",
         help="ABLATION: reflect every train fire north-south in memory (no tensor "
-        "is modified). Diagnostic for the learned S/SW anisotropy ONLY — the "
+        "is modified). Diagnostic for the learned S/SW anisotropy ONLY; the "
         "resulting model must not be scored on real held-out fires.",
     )
+    add_logging_arguments(parser)
     args = parser.parse_args(list(argv) if argv is not None else None)
+    # default_verbosity=1: this is the long-running wrapper whose progress
+    # narration is the point, so INFO is what it does when asked for nothing.
+    # The report on stdout is unaffected either way.
+    configure_from_args(args, default_verbosity=1)
 
     cfg = TrainConfig(
         horizon_h=args.horizon,
@@ -2733,7 +2757,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print()
         print("=" * 118)
-        print(f"{args.matrix.upper()} PRE-REGISTERED MATRIX — TRAIN diagnostics only")
+        print(f"{args.matrix.upper()} PRE-REGISTERED MATRIX: TRAIN diagnostics only")
         print("=" * 118)
         print(
             f"{'config':<24}{'band_nll':>10}{'band_brier':>12}{'ratio_1h':>10}"

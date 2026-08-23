@@ -370,7 +370,7 @@ def main() -> int:
             f"{flip:>11}{(m.get('z_paired_block_sd') or 0):>11.2f}"
         )
     print()
-    print("WITHIN-BLOCK elasticities — separates a between-fire scaling law from fire STAGE")
+    print("WITHIN-BLOCK elasticities: separates a between-fire scaling law from fire STAGE")
     print(f"{'block':>6}{'fire':<30}{'n':>6}{'truth':>18}{'model':>18}{'ellipse':>18}")
     for block, e in within.items():
         if e.get("skipped"):
@@ -387,7 +387,7 @@ def main() -> int:
             f"{_c(e, 'ellipse_growth'):>18}"
         )
     print()
-    print("FIRE STAGE — the same fire, binned by t0. Frontier grows monotonically; does truth?")
+    print("FIRE STAGE: the same fire, binned by t0. Frontier grows monotonically; does truth?")
     for block, e in stage.items():
         print(f"  block {block} {e['fire_id']}")
         print(f"    {'t0':>7}{'n':>5}{'frontier':>10}{'truth g':>10}{'model g':>10}")

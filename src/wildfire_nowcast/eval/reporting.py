@@ -236,7 +236,7 @@ def scoring_code_fingerprint() -> dict[str, Any]:
     return code_fingerprint(
         SCORING_SUBTREES,
         status=(
-            "PROPOSAL — reported, not enforced. `git_sha` is real but NOT identifying "
+            "PROPOSAL, reported and not enforced. `git_sha` is real but NOT identifying "
             "while `git_dirty` is true for every run; this is."
         ),
     )

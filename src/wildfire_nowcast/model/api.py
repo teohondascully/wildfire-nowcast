@@ -30,6 +30,7 @@ than assumed: this is the one place the C5 text is ambiguous.)
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -43,6 +44,8 @@ from wildfire_nowcast.model.inputs import (
 from wildfire_nowcast.model.inputs import (
     WEATHER_INPUT_CHANNELS as _WEATHER,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "Predictor",
@@ -217,7 +220,19 @@ def _registry() -> dict[str, Any]:
 
         registry[ContagionKernel.kind] = ContagionKernel
     except ImportError:  # pragma: no cover - torch missing
-        pass
+        # ADR-103 (4). This swallow has a real and silent consequence: the
+        # learned kernel simply vanishes from `available_models()`, so
+        # `load_model("contagion")` then fails with "unknown model" rather than
+        # with "torch is not installed", which sends the reader to the wrong
+        # place. WARNING rather than DEBUG for exactly that reason - the cost is
+        # one stderr line to a caller who deliberately has no torch, and the
+        # benefit is that a missing optional dependency stops impersonating a
+        # typo in a model name.
+        logger.warning(
+            "torch is unavailable, so the learned kernel is absent from available_models(); "
+            "load_model('%s') will report an unknown model rather than a missing dependency",
+            "contagion",
+        )
     return registry
 
 

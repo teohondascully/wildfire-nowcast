@@ -52,6 +52,7 @@ is off by one cell fails it. "Non-zero" would not.
 from __future__ import annotations
 
 import json
+import logging
 import time
 import urllib.parse
 import urllib.request
@@ -65,6 +66,8 @@ import numpy as np
 from wildfire_nowcast.common.grid import Grid
 from wildfire_nowcast.common.paths import fire_tensor_path, fires_dir
 from wildfire_nowcast.common.zarr_io import open_tensor
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "WFIGS_PERIMETERS_URL",
@@ -127,6 +130,10 @@ def _query(params: dict[str, str]) -> dict[str, Any]:
             last = payload["error"]
         except Exception as exc:  # noqa: BLE001 - transport faults are retried too
             last = repr(exc)
+        # ADR-103: a retry is narration ABOUT the run. Until now a WFIGS query
+        # that failed twice and succeeded on the third attempt left no trace at
+        # all, so a flaky endpoint and a healthy one produced identical output.
+        logger.warning("WFIGS query attempt %d/%d failed: %s", attempt + 1, _ATTEMPTS, last)
         if attempt < _ATTEMPTS - 1:
             time.sleep(_BACKOFF_S)
     raise RuntimeError(f"WFIGS query failed after {_ATTEMPTS} attempts: {last}")

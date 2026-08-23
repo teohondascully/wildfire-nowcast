@@ -47,6 +47,7 @@ carries a SHAPE family at exactly fixed area.
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -65,6 +66,8 @@ from wildfire_nowcast.common.separation import (
     Separation,
     separation,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "Channel",
@@ -191,11 +194,20 @@ def block_values(per_fire: Mapping[str, Any], model: str, key: str, stratum: str
         try:
             return {**equal_block_mean_of(values, what=what), "strict_coverage_error": None}
         except IncompleteBlockCoverageError as exc:
+            # ADR-103: this is a FALLBACK, and it is the one whose silence costs
+            # most here. `strict_coverage_error` does reach the artifact, so
+            # nothing is lost to a reader of the JSON; a reader of the run is
+            # told nothing at all, and a pooled mean taken over an incomplete
+            # set of blocks is precisely the number that should announce itself.
+            logger.warning("%s: falling back to incomplete block coverage: %s", what, exc)
             out = equal_block_mean_of(values, allow_missing_blocks=True, what=what)
             return {**out, "strict_coverage_error": str(exc)}
     try:
         return {**equal_block_mean(per_fire, model, key, stratum), "strict_coverage_error": None}
     except IncompleteBlockCoverageError as exc:
+        logger.warning(
+            "%s.%s.%s: falling back to incomplete block coverage: %s", model, stratum, key, exc
+        )
         out = equal_block_mean(per_fire, model, key, stratum, allow_missing_blocks=True)
         return {**out, "strict_coverage_error": str(exc)}
 

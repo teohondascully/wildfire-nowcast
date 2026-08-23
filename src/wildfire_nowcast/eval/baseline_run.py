@@ -48,6 +48,7 @@ from wildfire_nowcast.common.calibration import GATE_CRITERION_KEY as CALIBRATIO
 from wildfire_nowcast.common.calibration import GATE_MASK as CALIBRATION_GATE_MASK
 from wildfire_nowcast.common.dispersion import FIRST_MOMENT_KEY
 from wildfire_nowcast.common.iou_terms import GATE_CRITERION_KEY, REPORTED_ONLY_KEY
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import fire_tensor_path, fires_dir, norm_stats_path
 from wildfire_nowcast.common.pooling import equal_block_mean
 from wildfire_nowcast.common.runs import create_run_dir
@@ -1370,7 +1371,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--skip-barred-controls", action="store_true")
     parser.add_argument("--calibration-horizon", action="append", type=int, default=[])
+    add_logging_arguments(parser)
     args = parser.parse_args(list(argv) if argv is not None else None)
+    # ADR-103: the ONLY configuration site in this program. The report body on
+    # stdout is the deliverable and is untouched by this; what it buys is that
+    # `eval/power.py`'s incomplete-block-coverage fallback, which this run can
+    # trigger, now has somewhere to say so.
+    configure_from_args(args, default_verbosity=1)
 
     extra: dict[str, Any] = {}
     for item in args.kernel:
@@ -1397,7 +1404,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     scope = payload["scope"]
     print("=" * 96)
-    print("C5 BASELINES — LEAVE-FIRE-OUT, scored through C6")
+    print("C5 BASELINES: LEAVE-FIRE-OUT, scored through C6")
     print("=" * 96)
     print(
         f"train fires   : {', '.join(scope['train_fire_ids'])}  ({scope['n_train_blocks']} blocks)"
@@ -1419,7 +1426,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print()
     print("-" * 96)
-    print("C6.2 BASELINE VALIDITY — a baseline that ignites nothing VOIDS its gate")
+    print("C6.2 BASELINE VALIDITY: a baseline that ignites nothing VOIDS its gate")
     print("-" * 96)
     for name, v in payload["c6_2_validity"].items():
         ratio = v["growth_ratio"]
@@ -1465,7 +1472,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print()
 
     print("-" * 96)
-    print("PER HELD-OUT FIRE (same spatial block — NOT independent replicates)")
+    print("PER HELD-OUT FIRE (same spatial block, NOT independent replicates)")
     print("-" * 96)
     for fid, v in payload["per_fire"].items():
         print(
@@ -1487,7 +1494,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     g2 = payload.get("g2_per_horizon")
     if g2:
         print("=" * 118)
-        print("G2 UNDER ADR-015 (3) — ELLIPSE CALIBRATED SEPARATELY AT EACH EVALUATION HORIZON")
+        print("G2 UNDER ADR-015 (3): ELLIPSE CALIBRATED SEPARATELY AT EACH EVALUATION HORIZON")
         print("=" * 118)
         print(f"stratum: {g2['stratum']}   |   {g2['rule']}")
         print()
@@ -1538,7 +1545,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"{v['evaluation_split_fingerprint']}  (source: {v['source']})"
             )
         print()
-    print("INTERPRETATION — these travel with the numbers:")
+    print("INTERPRETATION, and these travel with the numbers:")
     for line in payload["interpretation"]:
         print(f"  * {line}")
     if "run_dir" in payload:

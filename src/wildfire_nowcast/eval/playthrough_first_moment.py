@@ -400,7 +400,7 @@ PLAYTHROUGH = PT.Playthrough(
             note=(
                 "C6.0 for this metric, MEASURED not argued. persistence ignites zero cells, so "
                 "its growth_calibration is exactly 0, `log_distance(0)` is None, and the "
-                "condition is UNDEFINED — which `ConditionResult.passed` reports as False and "
+                "condition is UNDEFINED, which `ConditionResult.passed` reports as False and "
                 "`bool()` REFUSES to answer. Five of this project's metrics were found paying "
                 "a positive score to saying nothing; this one structurally cannot."
             ),
@@ -425,7 +425,7 @@ PLAYTHROUGH = PT.Playthrough(
             name="smoothed_denominator",
             plant=PT.attribute_defect((metrics, "growth_calibration", _smoothed)),
             note="`(pred+1)/(truth+1)`, the 'just avoid dividing by zero' fix. It silently "
-            "moves EVERY calibration toward 1 and is worst on the smallest, fastest blocks — "
+            "moves EVERY calibration toward 1 and is worst on the smallest, fastest blocks, "
             "which is where this project's block spread lives.",
         ),
         PT.Defect(
