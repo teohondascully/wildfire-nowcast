@@ -12,7 +12,11 @@ as a crash - the class this package exists to prevent.
 
 from __future__ import annotations
 
+import atexit as _atexit
+import functools as _functools
+import shutil as _shutil
 import sys
+import tempfile as _tempfile
 from pathlib import Path
 
 import numpy as np
@@ -297,15 +301,28 @@ class _FakeFire:
 # -- C5 adapter ------------------------------------------------------------
 
 
-def _open_synthetic():  # noqa: ANN202
-    import tempfile  # noqa: PLC0415
+@_functools.lru_cache(maxsize=1)
+def _synthetic_tensor_path() -> str:  # noqa: ANN202
+    """Build the synthetic tensor ONCE per process and delete it on exit.
 
+    NOT ``mkdtemp`` per call. ``mkdtemp`` never cleans up, this writes a ~4.7 MB
+    tensor, four tests call it, and the mutation gate runs the whole suite once
+    per mutant. That reached 6,605 directories and 30 GB under this prefix alone
+    before anyone looked at a disk. The path is cached; each caller still gets a
+    freshly opened dataset, so no test can observe another test's mutations.
+    """
     from wildfire_nowcast.common.synthetic import make_synthetic_fire  # noqa: PLC0415
+
+    tmp = _tempfile.mkdtemp(prefix="simviz-selftest-")
+    _atexit.register(_shutil.rmtree, tmp, ignore_errors=True)
+    res = make_synthetic_fire(seed=0, n_hours=24, out=f"{tmp}/tensor.zarr")
+    return str(res[0])
+
+
+def _open_synthetic():  # noqa: ANN202
     from wildfire_nowcast.common.zarr_io import open_tensor  # noqa: PLC0415
 
-    tmp = tempfile.mkdtemp(prefix="simviz-selftest-")
-    res = make_synthetic_fire(seed=0, n_hours=24, out=f"{tmp}/tensor.zarr")
-    return open_tensor(res[0])
+    return open_tensor(_synthetic_tensor_path())
 
 
 def test_c5_weather_starts_at_t0_plus_one() -> None:

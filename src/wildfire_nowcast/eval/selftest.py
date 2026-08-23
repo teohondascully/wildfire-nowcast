@@ -28,8 +28,12 @@ This module is a proposed pytest target for infra (see status/model.md);
 from __future__ import annotations
 
 import argparse
+import atexit as _atexit
+import functools as _functools
 import json
+import shutil as _shutil
 import sys
+import tempfile as _tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -76,6 +80,22 @@ def _close(a: float, b: float, tol: float = 1e-6) -> bool:
 # --------------------------------------------------------------------------
 
 
+@_functools.cache
+def _process_scratch(prefix: str) -> str:
+    """One scratch directory per process, removed when the process exits.
+
+    NOT ``tempfile.mkdtemp`` per call. ``mkdtemp`` never cleans up, this fixture
+    writes a ~4.7 MB synthetic tensor, and the mutation gate runs the whole
+    suite once per mutant. At 117 mutants a sweep that is half a gigabyte per
+    sweep, and it reached 70 GB across two prefixes before anyone looked at a
+    disk. Caching by prefix makes the cost per PROCESS rather than per CALL, and
+    ``atexit`` makes it zero once the process ends.
+    """
+    tmp = _tempfile.mkdtemp(prefix=prefix)
+    _atexit.register(_shutil.rmtree, tmp, ignore_errors=True)
+    return tmp
+
+
 def _synthetic_dataset(tmp: str | None = None):
     """The C4 fixture, imported LAZILY on purpose.
 
@@ -86,12 +106,11 @@ def _synthetic_dataset(tmp: str | None = None):
     goes dark for an unrelated reason. Lazily, a broken fixture fails the two
     checks that use it and leaves the other twenty-five reporting.
     """
-    import tempfile
     from pathlib import Path
 
     from wildfire_nowcast.common.synthetic import make_synthetic_fire
 
-    out = Path(tmp or tempfile.mkdtemp(prefix="wnc-selftest-")) / "synthetic" / "tensor.zarr"
+    out = Path(tmp or _process_scratch("wnc-selftest-")) / "synthetic" / "tensor.zarr"
     result = make_synthetic_fire(0, 24, out=out)
     return zio.open_tensor(result.tensor_path), result
 
