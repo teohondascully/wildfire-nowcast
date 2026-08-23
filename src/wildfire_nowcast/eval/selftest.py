@@ -1623,6 +1623,225 @@ def check_a_look_alike_ablation_is_refused_and_a_vacuous_one_cannot_be_scored() 
     )
 
 
+#: The behavioural half of the reference-fit check is taken at ONE scene and ONE
+#: seed, and they are named here so that the reading is reproducible rather than
+#: incidental. The member count, horizon and seed are S14's (ADR-124), so a
+#: reader comparing this synthetic reading with that held-out one is comparing
+#: the same draw shape. ``wind_u`` is 12 m/s because the fit grows more there
+#: than at 20 (measured: 83.9 new cells against 36.0), which is the deceleration
+#: defect ADR-043 named and is not what this check is about.
+REFERENCE_FIT_SCENE_WIND_U: Final[float] = 12.0
+REFERENCE_FIT_MEMBERS: Final[int] = 24
+REFERENCE_FIT_HORIZON_H: Final[int] = 3
+REFERENCE_FIT_SEED: Final[int] = 0
+
+
+def check_the_tracked_reference_fit_is_a_latent_bearing_c5_address() -> Check:
+    """[M23] A CLONE CAN NOW REACH A SUBJECT G3 (d) MAY BE ASKED OF.
+
+    ADR-124 stated G3 (d) about this project's model for the first time and
+    carried two caveats. The second one is this: the verdict rested on
+    ``runs/s1_arma_s1_f3-20260821-180258__independent``, ``runs/`` is untracked,
+    and the registry model has no latent at all, so **the set of C5 addresses a
+    cloner could name and take a collapse verdict on was empty.** A tracked copy
+    of that fit's ``model.json`` closes it, and nothing in C5 changed to allow
+    that: ``load_model`` already accepted a directory holding a spec, and the
+    ``__independent`` suffix already derived the arm from whatever it resolved.
+
+    THE POSITIVE AND THE NEGATIVE READING ARE TAKEN IN THE SAME INVOCATION, and
+    that is what makes this check unable to pass vacuously. The tracked fit must
+    be ACCEPTED by ``assert_ablation_arm_is_demonstrative`` and the registry
+    model must be REFUSED by it. If that predicate were ever weakened to always
+    accept, the control below fails; if it were weakened to always refuse, the
+    subject fails. One reading alone would be satisfied by a broken predicate.
+
+    THE ARMS ARE ALSO SEPARATED BEHAVIOURALLY, because a rule and a fact are two
+    detections rather than one (ADR-124 (4)): the two arms are drawn at one seed
+    on a synthetic scene and no member matches. That reading would catch a
+    latent that exists in the configuration and does nothing in the sampler,
+    which the configuration reading cannot see.
+
+    WHAT THIS DOES NOT ESTABLISH. Nothing here is a held-out number. The scene
+    is synthetic, and ADR-124's verdict is scored on five held-out fires whose
+    tensors are untracked, so a clone reaches the ADDRESS and not the VERDICT.
+    The interpreter's own tree is emitted beside the readings (ADR-122): an
+    editable install can point a clone's interpreter at the shared tree, and
+    then this check would be about a file the clone does not contain.
+    """
+    import hashlib
+    from pathlib import Path
+
+    import wildfire_nowcast
+    from wildfire_nowcast.model.api import (
+        ABLATION_ARM_SUFFIX,
+        ablation_arm_is_demonstrative,
+        assert_ablation_arm_is_demonstrative,
+        available_models,
+        load_model,
+    )
+    from wildfire_nowcast.model.reference import (
+        REFERENCE_FIT_ADDRESS,
+        REFERENCE_FIT_ARM_ADDRESS,
+        REFERENCE_FIT_BYTES,
+        REFERENCE_FIT_DIR,
+        REFERENCE_FIT_N_PARAMETERS,
+        REFERENCE_FIT_PROVENANCE,
+        REFERENCE_FIT_SHA256,
+        REFERENCE_FIT_SPEC,
+        load_reference_fit,
+        reference_fit_pair,
+        reference_fit_sha256,
+    )
+
+    present = REFERENCE_FIT_SPEC.is_file()
+    digest = reference_fit_sha256() if present else ""
+    n_bytes = REFERENCE_FIT_SPEC.stat().st_size if present else -1
+    spec = json.loads(REFERENCE_FIT_SPEC.read_text()) if present else {}
+    n_parameters = sum(int(np.asarray(v).size) for v in dict(spec.get("parameters", {})).values())
+    provenance = dict(spec.get("provenance", {}))
+    stated = {
+        "split_fingerprint": provenance.get("split_fingerprint"),
+        "train_folds": tuple(provenance.get("train_folds") or ()),
+        "n_train_fires": len(provenance.get("train_fire_ids") or ()),
+        "n_heldout_blocks": provenance.get("n_heldout_blocks"),
+        "trained_utc": provenance.get("trained_utc"),
+        "archived_run_directory": REFERENCE_FIT_PROVENANCE["archived_run_directory"],
+    }
+    provenance_matches = stated == dict(REFERENCE_FIT_PROVENANCE)
+
+    model, arm = reference_fit_pair()
+    by_address = load_model(str(REFERENCE_FIT_DIR) + ABLATION_ARM_SUFFIX)
+    shares_objects = all(
+        p is q
+        for (_, p), (_, q) in zip(
+            sorted(model.named_parameters()), sorted(arm.named_parameters()), strict=True
+        )
+    )
+    # THE TRAP, MEASURED RATHER THAN DESCRIBED, because the first draft of this
+    # check fell into it. A SECOND load of the same address restores the same
+    # values into NEW objects, so a sharing test spanning two loads answers
+    # False by construction and says nothing about the arm. Both readings are
+    # asserted: equal across loads, and not shared across loads.
+    second_load = load_reference_fit()
+    across_loads_shared = any(
+        p is q
+        for (_, p), (_, q) in zip(
+            sorted(model.named_parameters()),
+            sorted(second_load.named_parameters()),
+            strict=True,
+        )
+    )
+    across_loads_equal = all(
+        float(np.max(np.abs(p.detach().numpy() - q.detach().numpy()))) == 0.0
+        for (_, p), (_, q) in zip(
+            sorted(model.named_parameters()),
+            sorted(second_load.named_parameters()),
+            strict=True,
+        )
+    )
+
+    # THE SUBJECT is accepted and THE REGISTRY MODEL is refused, both here.
+    try:
+        assert_ablation_arm_is_demonstrative(model)
+        subject_reading = "accepted"
+    except ValueError:
+        subject_reading = "REFUSED (wrong)"
+    registry_model = load_model("contagion_kernel")
+    try:
+        assert_ablation_arm_is_demonstrative(registry_model)
+        control_reading = "ACCEPTED (wrong)"
+    except ValueError:
+        control_reading = "refused"
+
+    # The behavioural reading, on the same fixed scene the ablation check uses.
+    x0, static, weather = _toy_scene(wind_u=REFERENCE_FIT_SCENE_WIND_U)
+    draw = (
+        x0,
+        static,
+        weather,
+        REFERENCE_FIT_MEMBERS,
+        REFERENCE_FIT_HORIZON_H,
+        REFERENCE_FIT_SEED,
+    )
+    latent_samples = model.predict(*draw)
+    ablated_samples = arm.predict(*draw)
+    identical_members = int(
+        sum(
+            bool(np.array_equal(latent_samples[m], ablated_samples[m]))
+            for m in range(REFERENCE_FIT_MEMBERS)
+        )
+    )
+
+    def _new_cells(arr: np.ndarray) -> np.ndarray:
+        return ((arr[:, -1] > 0) & (x0[None] == 0)).sum(axis=(1, 2)).astype(float)
+
+    sd_latent = float(_new_cells(latent_samples).std(ddof=1))
+    sd_ablated = float(_new_cells(ablated_samples).std(ddof=1))
+
+    listed = available_models()
+    added_no_registry_entry = not any("reference" in name for name in listed)
+    relative_resolves = (
+        Path(REFERENCE_FIT_ADDRESS, "model.json").is_file()
+        and hashlib.sha256(Path(REFERENCE_FIT_ADDRESS, "model.json").read_bytes()).hexdigest()
+        == digest
+    )
+
+    ok = (
+        present
+        and digest == REFERENCE_FIT_SHA256
+        and n_bytes == REFERENCE_FIT_BYTES
+        and n_parameters == REFERENCE_FIT_N_PARAMETERS
+        and provenance_matches
+        and ablation_arm_is_demonstrative(model)
+        and subject_reading == "accepted"
+        and control_reading == "refused"
+        and arm.sampler.is_ablation
+        and not model.sampler.is_ablation
+        and by_address.sampler.is_ablation
+        and shares_objects
+        and across_loads_equal
+        and not across_loads_shared
+        and identical_members == 0
+        and sd_latent > sd_ablated
+        and added_no_registry_entry
+    )
+    return Check(
+        "the_tracked_reference_fit_is_a_latent_bearing_c5_address",
+        ok,
+        f"{REFERENCE_FIT_ADDRESS} is a tracked, latent-bearing C5 address: the shipped "
+        "demonstrative check ACCEPTS it and REFUSES the registry model in this same "
+        "invocation, its arm shares the fit's own parameter objects, and the two arms draw "
+        f"{REFERENCE_FIT_MEMBERS - identical_members} of {REFERENCE_FIT_MEMBERS} differing "
+        "members on a synthetic scene. It is one archived fit, not the model, and no "
+        "held-out number is measured here",
+        {
+            "address": REFERENCE_FIT_ADDRESS,
+            "arm_address": REFERENCE_FIT_ARM_ADDRESS,
+            "resolved_dir": str(REFERENCE_FIT_DIR),
+            "interpreter_package": wildfire_nowcast.__file__,
+            "present": present,
+            "sha256": digest,
+            "sha256_pin": REFERENCE_FIT_SHA256,
+            "bytes": n_bytes,
+            "n_parameters": n_parameters,
+            "provenance": stated,
+            "provenance_matches_pin": provenance_matches,
+            "subject_demonstrative_reading": subject_reading,
+            "control_registry_model_reading": control_reading,
+            "arm_shares_parameter_objects": shares_objects,
+            "two_loads_share_parameter_objects": across_loads_shared,
+            "two_loads_are_bitwise_equal": across_loads_equal,
+            "identical_members": identical_members,
+            "n_members": REFERENCE_FIT_MEMBERS,
+            "sd_new_cells_latent": sd_latent,
+            "sd_new_cells_ablated": sd_ablated,
+            "available_models": listed,
+            "repo_relative_address_resolves": relative_resolves,
+            "scored_on_held_out_data": False,
+        },
+    )
+
+
 def check_area_dispersion_by_horizon_recombines_to_the_pooled_criterion() -> Check:
     """[M22] G3's dispersion half now HAS a per-lead form, and it is exact.
 
@@ -3346,6 +3565,7 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     # any model, and the per-lead form of G3's OTHER half
     check_the_ablation_arm_is_loadable_by_name,
     check_a_look_alike_ablation_is_refused_and_a_vacuous_one_cannot_be_scored,
+    check_the_tracked_reference_fit_is_a_latent_bearing_c5_address,
     check_area_dispersion_by_horizon_recombines_to_the_pooled_criterion,
     check_elbo_kl_is_scaled_like_its_reconstruction_term,
     check_latent_spec_round_trips_and_absence_means_absence,
