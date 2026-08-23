@@ -73,6 +73,7 @@ from typing import Any, cast
 import numpy as np
 import xarray as xr
 
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import repo_root
 
 __all__ = [
@@ -2676,11 +2677,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("-v", "--verbose", action="store_true", help="print passing checks too")
     p.add_argument("--json", action="store_true", help="emit a JSON report on stdout")
+    add_logging_arguments(p)
     return p
 
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = _build_parser().parse_args(list(argv) if argv is not None else None)
+    # ADR-103: the ONE place this program is allowed to configure logging. It is
+    # also why the handler is pinned to stderr - `make contract-all-fires` greps
+    # the table this main prints to stdout.
+    configure_from_args(args)
     if args.labels_only:
         rep = check_tensor(args.tensor, required_channels=[FIRE_STATE], require_channel_coord=False)
         rep.target = str(args.tensor)

@@ -55,6 +55,7 @@ from wildfire_nowcast.common.derive import (
     slope_aspect_from_elevation,
 )
 from wildfire_nowcast.common.grid import Grid
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import outputs_dir
 from wildfire_nowcast.common.states import apply_state_rule, dilate
 
@@ -706,11 +707,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--hours", type=int, default=24, help="number of hourly steps (default: 24)")
     p.add_argument("--fire-id", type=str, default=None, help="fire id (default: synthetic_SEED)")
     p.add_argument("--quiet", action="store_true", help="print nothing on success")
+    add_logging_arguments(p)
     return p
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(list(argv) if argv is not None else None)
+    # ADR-103: the ONE place this program is allowed to configure logging.
+    configure_from_args(args)
     result = make_synthetic_fire(
         seed=args.seed, n_hours=args.hours, out=args.out, fire_id=args.fire_id
     )

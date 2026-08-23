@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import platform
 import shutil
@@ -64,6 +65,9 @@ from pathlib import Path
 from typing import Any
 
 from wildfire_nowcast.common.paths import repo_root
+
+# ADR-103: a logger, and NO handler configured here.
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ENVIRONMENT_COVERS",
@@ -131,6 +135,11 @@ def lockfile_digest(root: Path | None = None) -> dict[str, str]:
         try:
             out[name] = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
         except OSError:
+            # ADR-103: an unreadable lockfile silently DROPS A KEY from the
+            # environment fingerprint, and a key that vanishes from a dict moves
+            # the hash in a way nobody can read afterwards - the exact failure
+            # `system_tools` records `absent` to avoid.
+            logger.warning("lockfile %s exists but could not be hashed", path, exc_info=True)
             continue
     return out
 

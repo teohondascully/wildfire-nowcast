@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import ast
 import io
+import logging
 import subprocess
 import tokenize
 import unicodedata
@@ -48,6 +49,9 @@ from pathlib import Path
 from typing import Final
 
 from commit_guard import _PUNCTUATION_CATEGORY_PREFIX
+
+# ADR-103: a logger, and NO handler configured at import. `main` configures.
+logger = logging.getLogger(__name__)
 
 #: Regions a character can occupy. The first two are PROSE and are what the pin
 #: bounds; the third is a live literal and is deliberately unbounded; the fourth
@@ -286,6 +290,10 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
             try:
                 text = path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
+                # ADR-103: a scan that NARROWS ITS OWN CORPUS in silence is this
+                # session's recurring defect. Skipping is still right - the file
+                # is binary - but the reader has to be told the census shrank.
+                logger.warning("skipping %s: it is tracked text that is not UTF-8", rel)
                 continue
             out.extend(scan_prose_file(rel, text))
     return out
@@ -342,13 +350,19 @@ def partition_exempt(
 
 
 def main(argv: list[str] | None = None) -> int:
+    from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=".", help="repository root (default: cwd)")
     parser.add_argument("--region", default="", help="only report this region")
     parser.add_argument(
         "--no-prose", action="store_true", help="Python modules only, no .md/.rst/.txt"
     )
+    add_logging_arguments(parser)
     args = parser.parse_args(argv)
+    # ADR-103: the ONE place this program configures logging. Imported here, not
+    # at module scope, so the scanner stays importable without the package.
+    configure_from_args(args)
 
     repo_root = Path(args.repo).resolve()
     occurrences = scan_repository(repo_root, include_prose=not args.no_prose)

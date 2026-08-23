@@ -15,6 +15,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.null_check.forecasters import DEGENERATE, ZERO_CLAIM
 from wildfire_nowcast.common.null_check.registry import (
     CAPTURE_NOT_APPLICABLE,
@@ -189,7 +190,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="C-1: promote SILENCE_FAVOURING reporting gaps on gate-eligible metrics to "
         "hard failures. Run this before any number from these metrics enters a gate.",
     )
+    add_logging_arguments(parser)
     args = parser.parse_args(argv)
+    # ADR-103: the ONE place this program is allowed to configure logging.
+    configure_from_args(args)
 
     if args.tensor:
         windows, scenario = windows_from_tensor(

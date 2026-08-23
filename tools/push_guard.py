@@ -73,6 +73,7 @@ the failure mode the commit-message guard was built to close.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import subprocess
 import sys
@@ -80,6 +81,11 @@ import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+# ADR-103: a logger, and NO handler configured at import. This runs as a git
+# hook, so it never gets a `main`-side configuration of its own; `logging`'s
+# lastResort handler puts WARNING and above on stderr, where a hook's reader is.
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "BREADCRUMB_MAX_AGE_S",
@@ -310,7 +316,9 @@ def _write_breadcrumb(repo: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"{time.time():.3f} {os.getppid()}\n", encoding="utf-8")
     except (OSError, subprocess.CalledProcessError):  # pragma: no cover - unwritable git dir
-        pass
+        # Without the breadcrumb the authoritative layer cannot prove it ran, so
+        # this failure weakens the guard. Silently was the wrong way to do it.
+        logger.warning("could not write the push-guard breadcrumb under %s", repo, exc_info=True)
 
 
 def read_breadcrumb(repo: Path) -> tuple[float, int] | None:

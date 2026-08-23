@@ -29,6 +29,7 @@ Exit code is pytest's own, passed through unchanged.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import shutil
 import subprocess
@@ -39,6 +40,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from mutation import build_workspace, purge_bytecode  # noqa: E402
+
+# ADR-103: a logger, and NO handler configured at import. `main` configures.
+logger = logging.getLogger(__name__)
 
 CONTROL = (
     "import pathlib, sys, wildfire_nowcast\n"
@@ -81,13 +85,23 @@ def assert_self_contained(workspace: Path, python: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # ADR-103: imported HERE rather than at module scope so this stays runnable
+    # against a tree where the package is not installed - it builds the workspace
+    # the package is then installed into.
+    from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
+
     parser = argparse.ArgumentParser(description=__doc__)
+    add_logging_arguments(parser)
     parser.add_argument("--repo", default=".")
     parser.add_argument("--keep", action="store_true", help="do not remove the worktree")
     parser.add_argument("pytest_args", nargs="*")
     # parse_known_args, so `-q` and `-k foo` reach pytest instead of being
     # rejected here. This wrapper has opinions about the TREE, none about pytest.
     args, passthrough = parser.parse_known_args(argv)
+    # ADR-103: the ONE place this program configures logging. INFO by default
+    # rather than WARNING, because progress narration IS what this wrapper is
+    # for: a 40 minute run that says nothing looks identical to a hung one.
+    configure_from_args(args, default_verbosity=1)
 
     repo = Path(args.repo).resolve()
     python = repo / ".venv" / "bin" / "python"
@@ -102,7 +116,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         isolate(repo, workspace)
         assert_self_contained(workspace, python)
-        print(f"isolated at {head} in {workspace}", flush=True)
+        # PROGRESS, not output: it says what the tool is doing, and the only
+        # line this program produces that a caller reads is pytest's own.
+        logger.info("isolated at %s in %s", head, workspace)
         rest = [a for a in [*passthrough, *args.pytest_args] if a != "--"]
         proc = subprocess.run(
             [str(python), "-m", "pytest", *rest],

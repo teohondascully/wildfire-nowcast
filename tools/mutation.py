@@ -61,6 +61,7 @@ import ast
 import concurrent.futures
 import io
 import json
+import logging
 import shutil
 import subprocess
 import sys
@@ -71,6 +72,14 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Final
+
+# ADR-103: a logger, and NO handler configured at import. This module
+# deliberately imports NOTHING from `wildfire_nowcast`, because `common/` is one
+# of the packages it mutates and a sweeper must not run through code it is
+# breaking. It therefore does not call `common/logs.configure_logging` either:
+# unconfigured, `logging`'s lastResort handler still puts WARNING and above on
+# stderr, which is all this module emits.
+logger = logging.getLogger(__name__)
 
 #: The packages under sweep. ``common/`` is infra's and ``eval/`` is the scoring
 #: code every published number came out of; the plan names exactly these two.
@@ -834,6 +843,10 @@ def temp_entries() -> set[str]:
             if not entry.name.startswith(IGNORED_TEMP_PREFIXES)
         }
     except OSError:  # pragma: no cover - unreadable temp dir
+        # An unreadable temp directory makes the leak detector return the SAME
+        # answer as a clean one. ADR-092 is the instance where a leak detector
+        # was proven blind and green twice; it may not go blind silently again.
+        logger.warning("temp directory %s could not be listed; leak detection is BLIND", root)
         return set()
 
 

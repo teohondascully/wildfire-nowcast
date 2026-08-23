@@ -51,6 +51,7 @@ from wildfire_nowcast.common.contract import (
     SEVERITY_REPORTING,
     ContractReport,
 )
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import fires_dir, norm_stats_path, repo_relative, runs_dir
 
 __all__ = [
@@ -1746,11 +1747,14 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="promote reporting-gate clauses (e.g. C8.matches_current) to hard failures",
     )
+    add_logging_arguments(p)
     return p
 
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = _build_parser().parse_args(list(argv) if argv is not None else None)
+    # ADR-103: the ONE place this program is allowed to configure logging.
+    configure_from_args(args)
     current = split_fingerprint()
 
     rep = check_split_assignment()

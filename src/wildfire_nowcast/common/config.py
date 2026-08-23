@@ -15,6 +15,7 @@ impossible to reason about).
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
@@ -23,6 +24,10 @@ from typing import Any
 import yaml
 
 from wildfire_nowcast.common.paths import configs_dir
+
+# ADR-103: a logger, and NO handler configured here. Configuration happens in
+# `main`, through `common/logs.configure_logging`.
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "load_yaml",
@@ -79,7 +84,15 @@ def to_plain(obj: Any) -> Any:
         try:
             return to_plain(obj.item())
         except Exception:  # pragma: no cover - defensive
-            pass
+            # ADR-103: this used to leave no trace anywhere. The value still
+            # falls through to `str(obj)` below, which is the right behaviour
+            # and the wrong thing to do SILENTLY: it is how a provenance record
+            # ends up holding a repr instead of a number.
+            logger.warning(
+                "to_plain: %s.item() raised, falling back to str()",
+                type(obj).__name__,
+                exc_info=True,
+            )
     if obj is None:
         return None
     return str(obj)
