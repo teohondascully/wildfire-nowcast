@@ -40,6 +40,15 @@ from wildfire_nowcast.common.paths import repo_root
 #: than trusted from here; this is the value the assertion compares against.
 EXPECTED_MAXKB = 500
 
+#: A specimen path that does not exist, JOINED AT RUNTIME for the reason
+#: ``tests/test_cited_runs.py`` gives for its own: this file is read by that
+#: scan, and written literally the string below would BE a citation of a
+#: ``runs/`` artifact the repository does not contain. It was written literally
+#: in the first draft and the scan caught it in a fresh clone, on the control
+#: run, before any plant. Exempting this path would have made the file that
+#: fabricates paths the one file that can never report one.
+_SPECIMEN_UNTRACKED = "ru" + "ns/some_new_sweep.json"
+
 #: The one path named out of the bar, and why the number matters: 820,811 bytes.
 EXEMPT_PATH = "runs/m19_collapse_curve.json"
 
@@ -160,8 +169,8 @@ def test_the_rule_answers_both_ways_on_a_size_it_is_given() -> None:
     assert isinstance(exclude, str)
     six_hundred_kb = 600 * 1024
 
-    assert hook_would_refuse("runs/some_new_sweep.json", six_hundred_kb, maxkb=500, exclude=exclude)
-    assert not hook_would_refuse("runs/some_new_sweep.json", 400 * 1024, maxkb=500, exclude=exclude)
+    assert hook_would_refuse(_SPECIMEN_UNTRACKED, six_hundred_kb, maxkb=500, exclude=exclude)
+    assert not hook_would_refuse(_SPECIMEN_UNTRACKED, 400 * 1024, maxkb=500, exclude=exclude)
     assert not hook_would_refuse(EXEMPT_PATH, six_hundred_kb, maxkb=500, exclude=exclude)
     # ...and with no exclusion configured at all, the named path is refused too,
     # so the acceptance above is attributable to the exclusion and to nothing else.
