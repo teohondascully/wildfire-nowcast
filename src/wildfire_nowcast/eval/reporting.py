@@ -14,13 +14,13 @@ this project emits goes through one of two functions:
 * :func:`assert_reportable` - raises unless the norm stats span >= 2 blocks.
 
 There is no third option and no ``force=True``. The trap this guards against is
-R10 in STATE.md, described there as "the highest-consequence trap for the first
-model numbers": ``data/norm_stats.json`` is currently a BOOTSTRAP with
+the highest-consequence trap for the first model numbers:
+``data/norm_stats.json`` is currently a BOOTSTRAP with
 ``n_train_blocks = 1`` and ``train_folds = [4]``, and Kincade's own ``cv_fold``
 is 4 - so the only fire is simultaneously the only train fire and the only
 possible test fire. Any number produced against it is a smoke test, and every
 artifact this package writes says so in its own payload rather than only in a
-status entry that a reader may not have.
+document that a reader may not have.
 """
 
 from __future__ import annotations
@@ -210,7 +210,7 @@ def common_code_fingerprint() -> dict[str, Any]:
     """
     return code_fingerprint(
         COMMON_SUBTREES,
-        status="PROPOSAL — reported, not enforced. See status/model.md (M3).",
+        status="PROPOSAL: reported, not enforced.",
     )
 
 
@@ -337,7 +337,7 @@ def stamp_smoke_test(payload: Mapping[str, Any], path: str | Path | None = None)
     """Return ``payload`` marked as a smoke test, with the C3.3 status embedded.
 
     Idempotent and total: a smoke-test artifact carries its own disclaimer, so a
-    JSON file that outlives this session's status entry cannot be mistaken for a
+    JSON file that outlives the notes written beside it cannot be mistaken for a
     result by whoever finds it next.
     """
     out = dict(payload)

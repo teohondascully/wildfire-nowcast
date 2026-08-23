@@ -2,7 +2,7 @@
 
 Persistence predicts that nothing changes: every member, at every lead, is
 ``x0``. It is trivial and it is the most important number in the project,
-because of insights/data item 1:
+because of the label cadence:
 
     51-91% of GOFER hours have BITWISE ZERO growth (median ~0.79; Kincade has a
     32-hour run). This is an observation artefact -- GOES cannot see new front

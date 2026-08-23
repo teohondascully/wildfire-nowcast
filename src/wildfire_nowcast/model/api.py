@@ -23,7 +23,7 @@ six positional arguments above, and separately says ``load_model`` returns an
 object exposing ``predict``. A free function cannot predict without something to
 predict *with*, so :func:`predict` takes the six C5 arguments positionally, in
 order, plus a keyword-only ``model``. A predictor's bound method has exactly the
-C5 signature and nothing else. (Flagged as a PROPOSAL in status/model.md rather
+C5 signature and nothing else. (Flagged and escalated as a PROPOSAL rather
 than assumed: this is the one place the C5 text is ambiguous.)
 """
 

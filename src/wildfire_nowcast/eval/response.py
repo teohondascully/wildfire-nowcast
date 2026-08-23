@@ -22,12 +22,13 @@ compression ratio ``beta_model / beta_truth`` is the number that says so.
 
 WHY GROWTH WINDOWS ONLY, AND WHY THAT IS NOT A CHOICE
 ------------------------------------------------------
-``log(0)`` is undefined and truth is exactly 0 on ~2/3 of windows (insights/data
-item 1: 51-91% dataset-wide). Adding an epsilon would make every slope a function
-of the epsilon. So the regression is fitted on the GROWTH stratum, which ADR-026
-already makes the reporting standard, and the dormant stratum is reported
-separately in absolute cells because a rate is not defined there. **This means
-the slope comparison CANNOT speak to the missing OFF state** - that is a
+``log(0)`` is undefined and truth is exactly 0 on ~2/3 of windows (51-91%
+dataset-wide; see :mod:`wildfire_nowcast.eval.masks`). Adding an epsilon would
+make every slope a function of the epsilon. So the regression is fitted on the
+GROWTH stratum, which ADR-026 already makes the reporting standard, and the
+dormant stratum is reported separately in absolute cells because a rate is not
+defined there. **This means the slope comparison CANNOT speak to the missing OFF
+state** - that is a
 different measurement on a different stratum, and conflating them is what made
 "we over-predict 2.66-3.06x" survive for weeks as a statement about spread rate.
 

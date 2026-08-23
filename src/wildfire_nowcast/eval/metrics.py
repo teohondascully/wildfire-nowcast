@@ -180,7 +180,7 @@ def arrival_times(event: np.ndarray, cap: int | None = None) -> np.ndarray:
     """First lead (1-based) at which ``event`` is true; ``cap`` if never.
 
     ``event`` is ``[..., L, H, W]``. Censoring at ``L + 1`` is not a convenience
-    - insights/data item 3 (addendum) measures that GOFER's East and West
+    - the East/West label comparison measures that GOFER's two rendering
     variants disagree about when a fire ENDS by tens of hours (CZU: 68 steps vs
     174). An uncapped arrival-time target inherits that, and the tail would
     dominate CRPS at a magnitude far larger than the 1-3 h nowcast horizon this
@@ -270,7 +270,8 @@ def fuzzy_iou(a: np.ndarray, b: np.ndarray, tolerance_cells: int = 0) -> float:
     which is bounded by 1 and reduces exactly to Jaccard at 0.
 
     A tolerance of 1 cell is the honest scale for these labels, not leniency:
-    insights/data item 4 measures GOFER-East vs GOFER-West on the same fire at a
+    ``data/interim/_index/label_noise_east_west.json`` measures GOFER-East against
+    GOFER-West on the same fire at a
     mean symmetric difference of 78 cells on the 1 km grid and a mean centroid
     offset of 0.63 km. A metric that resolves single cells is measuring GOES
     viewing geometry. Both tolerances are reported so the gap between them is
@@ -1123,7 +1124,7 @@ def _pool_diagnostics(items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Pooled context - above all, how much of the sample was zero-growth.
 
     This is the first thing to read on any pooled result. If 79% of windows had
-    no growth (insights/data item 1), a headline score is mostly a report on how
+    no growth, a headline score is mostly a report on how
     well the model predicted that nothing happened, and persistence is the thing
     to compare it against.
     """

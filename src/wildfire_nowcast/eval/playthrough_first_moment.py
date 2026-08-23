@@ -514,7 +514,7 @@ def run_playthrough() -> dict[str, Any]:
     same way (it defines both ``run_playthrough`` and ``build_playthrough``), so
     the convention exists - it is just not stated anywhere, and a lead who
     follows the documented declaration protocol and stops there gets silence.
-    Raised for @infra in my status entry; worked WITH here, not around.
+    Escalated rather than worked around; this function works WITH the registry.
     """
     return PT.run(PLAYTHROUGH).as_dict()
 

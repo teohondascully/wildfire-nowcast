@@ -12,7 +12,7 @@ per step that every pixel in that step sees.
 
 WHY A LOW-DIMENSIONAL GLOBAL LATENT AND NOT A NOISE FIELD
 ---------------------------------------------------------
-data measured the phenomenon this exists for (insights/data.md item 1):
+The phenomenon this exists for is MEASURED in the labels, not assumed:
 *"Growth is bursty and hour-locked: Kincade's whole run is 12 hours doing ~250
 of 347 km². Per-step Bernoulli rates are strongly non-stationary - this is
 precisely the case the shared per-step latent z_t exists for."* The innovation
@@ -133,6 +133,18 @@ LATENT_COMPONENTS: tuple[str, ...] = (
 #: that a cold, humid, still hour is a dormant hour, so the model has no route to
 #: an OFF state even in principle. RH and temperature are C1 channels 3-4 and
 #: carry the diurnal cycle, so the signal is already in the tensor.
+#:
+#: **PROVENANCE, LOOKED FOR AND FOUND, AND OUTSIDE THE TREE.** 953 and 1,399 are
+#: ``c6_2_validity.<model>.off_state.n_dormant_windows`` and ``.n_windows`` in the
+#: M5 scoring run ``runs/baselines-20260808-193208``, and "ignites in 953 of 953"
+#: is ``n_dormant_windows_where_no_member_ignited == 0`` (equivalently
+#: ``dormant_off_rate == 0.0``) on every trained arm in it, against 953 for
+#: persistence, which cannot ignite by construction. That record is not tracked,
+#: and tracking it would publish 19 occurrences of an internal coordination role
+#: frozen inside run-time ``note`` strings that are evidence and may not be
+#: edited, which is the exemption ``tools/cited_runs.py`` already records for its
+#: four siblings. So this pair is checkable where the run lives.
+#: **A CLONE CANNOT CHECK THIS NUMBER.**
 ACTIVITY_GATE = "activity_gate"
 
 #: ``"latent"`` - draw ``z_t ~ p(z)`` once per member per step, then draw pixels
@@ -199,6 +211,30 @@ N_PRIOR_COVARIATES = len(PRIOR_COVARIATES)
 #: and I am naming that as this parameterisation's declared cost rather than
 #: discovering it later: if the real innovation is that one flank turns while the
 #: other keeps its bearing, THIS latent cannot represent it either.
+#:
+#: **WHERE THESE NUMBERS COME FROM, LOOKED FOR RATHER THAN ASSUMED.** The M7
+#: table of record is the scoring run ``runs/baselines-20260809-073414``. Its
+#: ``results.json`` is cited elsewhere in this repository and is deliberately NOT
+#: tracked; the exemption and its reason are in ``tools/cited_runs.py``. Four of
+#: the numbers above are exact in it: the blind negative control's **0.2347** and
+#: the ``w_brier = 0`` arm's **0.5799** are both
+#: ``g3.models.<arm>.criteria["ensemble dispersion (area spread-skill)"].equal_block``;
+#: **6.01x** is
+#: ``c6_2_validity.m6_fair_brier0_s1.off_state.growth_stratum_ratio``; **2.6x** is
+#: that arm's band Brier over the four-seed ``m6_fair`` mean (2.585).
+#:
+#: **THE PAIR 0.2468 +/- 0.0260 AGAINST 0.2331 +/- 0.0115 IS NOT RE-DERIVABLE
+#: FROM ANY ARTIFACT ON DISK, TRACKED OR NOT, AND THIS SENTENCE IS HERE SO THAT A
+#: READER IS TOLD RATHER THAN LEFT TO ASSUME IT WAS CHECKED.** That record's own
+#: four-seed equal-block means are 0.2475 and 0.2337. The failure is confined and
+#: measured: the gate-IoU and band-Brier columns of the SAME table reproduce to
+#: the last published digit, while the dispersion column alone is uniformly
+#: **0.9974x** across all six arms (spread 3.3e-4), and the value is identical
+#: across three different scoring fingerprints. So a metric moved after the table
+#: was written; it was not a different run, a different seed set or a different
+#: block set, each of which would have moved the other columns too. The **+5.9%**
+#: ratio is the one quantity unaffected, because it re-derives from either pair.
+#: **A CLONE CANNOT CHECK THIS NUMBER.**
 SPATIAL_COMPONENTS: tuple[str, ...] = (
     "intensity_grad_east",
     "intensity_grad_north",
@@ -531,8 +567,8 @@ class _Encoder(nn.Module):
     ``p(z_t|weather)``" bottoms out one level further down than it looks.
     ``innovation_channels`` therefore hands the encoder the DECOMPOSITION
     explicitly - realised new burn, expected new burn, and their difference -
-    instead of asking it to subtract two large fields. Same family as insights
-    item 42 (a normalisation applied to one term of a comparison) and the M2
+    instead of asking it to subtract two large fields. Same family as a
+    normalisation applied to one term of a comparison, and as the M2
     zero-gradient defect: a quantity structurally unable to move, presenting as a
     quantity that had no reason to.
 

@@ -30,7 +30,7 @@ Two properties of that scheme matter and are not accidental:
   the accumulator sits below 1 and nothing ignites. A dilation-based baseline
   cannot do this - it advances at least one cell per hour, roughly 1 km/h, and
   would over-predict growth in the ~79% of hours where GOFER records bitwise
-  zero (insights/data item 1). Getting the zero-growth majority right is most of
+  zero. Getting the zero-growth majority right is most of
   what a baseline has to do here.
 * **It seeds from the FRONTIER OF THE BURNED REGION, not from state 1.** C1.1 is
   explicit that state 1 is legitimately empty in 6-37% of frames after a long
@@ -472,7 +472,7 @@ class EllipseBaseline:
         windows. With one-hour windows that is exactly "reproduce the observed
         mean hourly growth on train fires".
 
-        **Why not a pixelwise score.** Measured (insights item 3): the ellipse's
+        **Why not a pixelwise score.** Measured: the ellipse's
         precision on newly-ignited cells is 0.09-0.43, always below 0.5, so
         under a hard 0/1 Brier a predictor worse than a coin flip about *where*
         is optimally SILENT. The Brier fit picked 0.501 - one grid point off a

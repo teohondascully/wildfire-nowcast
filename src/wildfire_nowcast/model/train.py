@@ -335,7 +335,7 @@ def mirror_north_south(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Reflect one fire about an east-west axis, IN MEMORY ONLY. No tensor is touched.
 
-    This is the decisive discriminator for insights item 25's remaining rival B:
+    This is the decisive discriminator for the remaining rival explanation B:
     the learned offset weights grow a wind-INDEPENDENT preference at bearing
     ~201 deg (S/SSW) in 8 of 8 fits, and the label-perturbation ensemble did not
     remove it. Two explanations survive - a real property of the landscape/weather,
@@ -1628,7 +1628,8 @@ def train_kernel(
         # available before any held-out fire is read. Same fit, same windows,
         # same seed; the ONLY difference is whether z_t is drawn.
         "train_ensemble_collapse_check": collapse,
-        # [M6] The pre-registered anisotropy test (see insights item 49). The
+        # [M6] The pre-registered anisotropy test, whose text is
+        # :data:`M6_ACTIVITY_PREREGISTRATION` below. The
         # UNTRAINED control is measured in the SAME call on the SAME windows, so
         # "training inverts the anisotropy" is a within-run comparison rather
         # than a comparison against a number from another session.
@@ -1636,7 +1637,7 @@ def train_kernel(
         "latent_bit_identity": check_latent_off_is_bit_identical(),
         # [M10 / ADR-045 (3)] "B is not allowed to win on capacity." Every run
         # carries its own parameter census so the comparison is a number in the
-        # artifact rather than an argument in a status entry.
+        # artifact rather than an argument in a document.
         "parameter_counts": parameter_counts(model),
         "parameters": parameter_report(model),
         "offset_kernel": offset_kernel_table(model),
@@ -1702,10 +1703,12 @@ def train_kernel(
     return payload
 
 
-#: The M3 matrix, pre-registered in docs/decisions.md BEFORE it was
-#: run. It is a 2x2 over ADR-015's two interventions plus two controls, because
-#: (6a) and (6b) are different claims and a single "fixed" run could not say
-#: which one moved anything.
+#: The M3 matrix, pre-registered BEFORE it was run. **This tuple IS the
+#: pre-registration**: the narrative log it was also written into is not part
+#: of the published tree, so the record a reader can check is this one. It is a
+#: 2x2 over ADR-015's two interventions plus two controls, because (6a) and (6b)
+#: are different claims and a single "fixed" run could not say which one moved
+#: anything.
 M3_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     (
         "m2_reach",
@@ -1771,7 +1774,8 @@ M3_SELECTION_RULE = (
 M3_DECLARED_ENTRIES: tuple[str, ...] = ("amplitude_perturbed", "amplitude")
 
 #: The M5 matrix (P2: z_t, ensembles, the independent-noise ablation),
-#: pre-registered in docs/decisions.md BEFORE it was run.
+#: pre-registered BEFORE it was run. **This tuple IS the pre-registration**;
+#: the narrative log is not part of the published tree.
 #:
 #: **ONE intervention separates the candidate from the G2 kernel: the latent.**
 #: `zt` and `nozt` differ ONLY in `latent_dim`, so "the ensemble got wider" cannot
@@ -1794,6 +1798,19 @@ M3_DECLARED_ENTRIES: tuple[str, ...] = ("amplitude_perturbed", "amplitude")
 #: adjudicated on dispersion. Reporting how sigma responds to the KL weight is
 #: characterisation; promoting the arm that widened the ensemble would be tuning
 #: on the gate, and the matrix says so in its own entries.
+#:
+#: **PROVENANCE OF BOTH RANGES, LOOKED FOR AND FOUND, BOTH OUTSIDE THE TREE.**
+#: **2.66-3.06x** is the four no-latent seeds'
+#: ``c6_2_validity.nozt_s*.off_state.all_window_ratio`` in
+#: ``runs/baselines-20260808-193208``, which spans [2.6561, 3.0639]; that record
+#: is untracked for the reason ``tools/cited_runs.py`` gives for its siblings.
+#: **1.00-1.23** is the same four checkpoints'
+#: ``train_diagnostics.final.{1h,3h}.growth_ratio`` in
+#: ``runs/m5_nozt_s1-20260808-185236`` and its three sibling seed directories,
+#: which spans [1.0021, 1.2267]. **Those four training records are 108 KB each and
+#: carry ZERO occurrences of the internal role that keeps the baselines records
+#: out**, so nothing but a tracking decision stands between them and a reader.
+#: **A CLONE CANNOT CHECK THIS NUMBER.**
 M5_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     (
         "zt",
@@ -1861,9 +1878,10 @@ M5_SELECTION_RULE = (
 M5_DECLARED_ENTRIES: tuple[str, ...] = ("zt", "nozt")
 
 #: [M6] PRE-REGISTERED BEFORE THE ACTIVITY GATE WAS TRAINED EVEN ONCE.
-#: Full text and rationale: docs/decisions.md items 49-50. Kept in
-#: source as well as in insights because a pre-registration that lives only in a
-#: prose file is a recollection.
+#: **The full hypothesis and its two predictions are the string below, which is
+#: why the string is here and not in a document.** The narrative that framed it
+#: is not part of the published tree; a pre-registration that lives only in a
+#: prose file is a recollection, and this one does not.
 M6_ACTIVITY_PREREGISTRATION = (
     "ONE-DEFECT HYPOTHESIS (maintainer): the missing OFF state and the inverted wind "
     "anisotropy are ONE defect — a model with no zero mass must place probability somewhere "
@@ -1921,7 +1939,9 @@ M6_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     ),
 )
 
-#: [M6B] PRE-REGISTERED BEFORE THE FIRST LOSS-FIX RUN. Full text: insights 52-54.
+#: [M6B] PRE-REGISTERED BEFORE THE FIRST LOSS-FIX RUN. The surrounding
+#: narrative is not part of the published tree; the entries below are the
+#: part of it that is, and they are the part that binds.
 #:
 #: **THE FIX IS DERIVED, NOT SEARCHED, AND THE MECHANISM IS ARITHMETIC.** ADR-027
 #: (3) measured that the multi-step pushforward Brier - not the ELBO - sets the
@@ -2060,7 +2080,9 @@ M6B_DECLARED_ENTRIES: tuple[str, ...] = ("m6_fair", "m5_zt_repro")
 #: radial mode's mean-1 lever.
 M7_SPATIAL_LEVER_RMS: tuple[float, float, float] = (0.3013, 0.2953, 1.1451)
 
-#: [M7] PRE-REGISTERED BEFORE THE FIRST M7 TRAINING RUN. Full text: insights 59-63.
+#: [M7] PRE-REGISTERED BEFORE THE FIRST M7 TRAINING RUN. The surrounding
+#: narrative is not part of the published tree; the entries below are the
+#: part of it that is, and they are the part that binds.
 #:
 #: TWO INDEPENDENT PROBLEMS, TWO CANDIDATES, NEITHER COMPOSED WITH THE OTHER -
 #: ADR-029 (7)'s one-variable-at-a-time rule applies inside a milestone too.
@@ -2083,6 +2105,13 @@ M7_SPATIAL_LEVER_RMS: tuple[float, float, float] = (0.3013, 0.2953, 1.1451)
 #:
 #: `m6_fair` is the CONTROL and is NOT retrained: its four recorded seeds enter
 #: the scoring run unchanged, so the control cannot drift under the candidate.
+#:
+#: **PROVENANCE.** The dispersion pair quoted above, 0.2468 +/- 0.0260 against
+#: 0.2331 +/- 0.0115, is the one claim in this milestone that NO artifact on disk
+#: reproduces. The search, and the uniform 0.9974x discrepancy against the M7
+#: table of record that it turned up, are written out beside
+#: :data:`wildfire_nowcast.model.latent.SPATIAL_COMPONENTS`. The **+5.9%** ratio
+#: re-derives from either pair and is unaffected.
 M7_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     (
         "m7_spatial",
@@ -2216,7 +2245,9 @@ M8_GATE_EXTRA_TRANSFER_LOSS = 0.719 / 0.838
 #: implied (centre the conditional term) was never built.
 M8_CONDITIONAL_PRIOR_TRANSFER = 1.0575
 
-#: [M8] PRE-REGISTERED BEFORE THE FIRST M8 TRAINING RUN. Full text: insights 69-75.
+#: [M8] PRE-REGISTERED BEFORE THE FIRST M8 TRAINING RUN. The surrounding
+#: narrative is not part of the published tree; the entries below are the
+#: part of it that is, and they are the part that binds.
 #:
 #: **THE ASYMMETRIC PRIOR IS DECLARED HERE AS A REAL G3 CANDIDATE, NOT A CONTROL
 #: AND NOT A BY-PRODUCT.** ADR-034 (2) corrected my own axis for me: the working
@@ -2247,6 +2278,26 @@ M8_CONDITIONAL_PRIOR_TRANSFER = 1.0575
 #:
 #: `m7_offstate`'s four recorded seeds are the (no-correction, no-spatial) CELL of
 #: the 2x2 and are NOT retrained - the control cannot drift under the candidate.
+#:
+#: **PROVENANCE OF THE MAGNITUDES ABOVE, EACH LOOKED FOR IN THE ARTIFACTS.** From
+#: the M7 table of record ``runs/baselines-20260809-073414`` (untracked; see
+#: ``tools/cited_runs.py``): the G2 criterion trio **0.1555 -> 0.1461** and
+#: **0.1555 -> 0.1614** re-derives exactly as the four-seed mean of
+#: ``g2_per_horizon.by_horizon.3.metrics["band best-member IoU (SHAPE, masked)"]``,
+#: and ``dormant_off_rate`` is **0.0000** on all eight gate arms in
+#: ``c6_2_validity``. The 0.143 ceiling is pinned to
+#: ``runs/m7_offstate_optimum.json``, which IS tracked.
+#: **0.2331 -> 0.7552, and the 0.75-0.80 band, come from the DISPERSION column,
+#: which is the one column of that table nothing on disk reproduces**: it reads
+#: 0.2337 -> 0.7573 and 0.76-0.80 there. The discrepancy is characterised beside
+#: :data:`wildfire_nowcast.model.latent.SPATIAL_COMPONENTS`.
+#: **`sigma ~1.3, median 0.43` is one statement and not two.** The gate multiplier
+#: is a mean-preserving log-normal, so its median is ``exp(-sigma^2 / 2)`` in
+#: closed form and ``exp(-1.3^2 / 2) = 0.4296``; the median needs no artifact. The
+#: fitted per-seed gate sigmas are ``history[-1].sigma[3]`` in the untracked
+#: ``m8_asym_*`` training records and span 0.45 to 1.39 over the four seeds.
+#: **A CLONE CANNOT CHECK THIS NUMBER** (the dispersion pair and the sigma; the
+#: IoU trio and the 0.143 ceiling above it are a different matter, and said so).
 M8_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     (
         "m8_asym",
@@ -2424,10 +2475,9 @@ M8_PREDICTIONS: tuple[tuple[str, str], ...] = (
 #: not an unfitted model, and M8 deliberately does not spend a run on it.
 M8_OFF_STATE_IS_NOT_A_TARGET = True
 
-#: The M2 experiment matrix, pre-registered in docs/decisions.md
-#: BEFORE it was run. Each entry names the prediction it tests. Keeping it in
-#: source rather than in a shell history is the difference between a
-#: pre-registration and a recollection.
+#: The M2 experiment matrix, pre-registered BEFORE it was run. Each entry names
+#: the prediction it tests. Keeping it in source rather than in a shell history is
+#: the difference between a pre-registration and a recollection.
 M2_MATRIX: tuple[tuple[str, dict[str, Any], str], ...] = (
     ("init_only", {"steps": 0}, "CONTROL: the growth-calibrated elliptical-Gaussian, untrained"),
     (

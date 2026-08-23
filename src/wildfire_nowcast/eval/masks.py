@@ -13,9 +13,17 @@ cells. A Brier score averaged over the domain is therefore ~99% agreement on
 cells nobody was ever uncertain about, and it compresses the difference between
 a good model and a useless one into the third decimal place.
 
-Combine that with insights/data item 1 - 51-91% of hours have BITWISE zero
-growth, median ~0.79 - and a domain-wide, all-hours score is a measurement of
-how often nothing happened. Persistence maximises it.
+Combine that with the label cadence - 51-91% of hours have BITWISE zero growth,
+median ~0.79 - and a domain-wide, all-hours score is a measurement of how often
+nothing happened. Persistence maximises it.
+
+**PROVENANCE OF 51-91%, AND WHAT IS AND IS NOT CHECKABLE HERE.** That range is a
+12-fire-era measurement whose own record is not part of the published tree. The
+nearest thing that IS tracked is ``runs/u0b.json``, whose per-fire
+``qa.<fire>.zero_growth_hour_fraction`` gives **49-98%, median 0.78** over the
+current 21-fire corpus. The two are close and they are NOT the same measurement,
+so the tracked one is offered as the reader's check on the CLAIM and never as the
+source of the numbers above.
 
 So C6 computes every metric under at least two masks:
 

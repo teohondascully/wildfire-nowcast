@@ -36,13 +36,14 @@ lives in the PERIMETER, so the perturbation must act on the perimeter.
 
 The perimeter noise model, sized from measurement
 -------------------------------------------------
-insights/data item 4 + its addendum measure GOFER-East against GOFER-West on the
-same fire - two independent renderings of one perimeter, i.e. a direct read of
-the observation noise. Dataset-wide: IoU 0.687, centroid offset magnitude
-1.64 km, equivalent-radius mismatch 0.91 km, East larger in 90% of all timesteps.
+The tracked index ``data/interim/_index/label_noise_east_west.json`` measures
+GOFER-East against GOFER-West on the same fire - two independent renderings of
+one perimeter, i.e. a direct read of the observation noise. Dataset-wide: IoU
+0.687, centroid offset magnitude 1.64 km, equivalent-radius mismatch 0.91 km,
+East larger in 90% of all timesteps.
 Per-fire values (0.49 km Bobcat to 5.52 km CZU) are in
 ``data/interim/_index/label_noise_east_west.json`` and are used per fire, because
-data item 4 says explicitly that the offset is "a per-fire latent nuisance
+the measurement describes the offset as "a per-fire latent nuisance
 parameter, resampled per fire, not per pixel and not per step".
 
 Two draws per fire per gradient step, both **shared by every cell and every hour
@@ -61,7 +62,7 @@ Why the sign of ``morph`` is symmetric even though the measured bias is not
 --------------------------------------------------------------------------
 East > West in 90% of timesteps identifies the sign of ``E - W``. It does **not**
 identify the sign of ``Combined - truth``, which is the quantity a training
-augmentation has to marginalise. insights/data item 4's own prescription is a
+augmentation has to marginalise. The measurement's own prescription is a
 per-fire scalar area bias "drawn from something like N(0, 15-25%)" - zero mean.
 The thing that makes this a BIAS model rather than the mis-specified symmetric
 jitter data warns against is not an asymmetric sign, it is that **one draw
@@ -114,8 +115,11 @@ __all__ = [
 FCONF_LEVELS: tuple[float, ...] = (0.05, 0.10, 0.25, 0.50, 0.75, 0.90)
 DEFAULT_FCONF = 0.50
 
-#: Dataset means from insights/data item 4 addendum, used when a fire has no row
-#: in the per-fire index. Declared rather than silently defaulting to zero: a
+#: Dataset means from the tracked index
+#: ``data/interim/_index/label_noise_east_west.json``:
+#: ``dataset_mean.centroid_offset_km_mean`` and
+#: ``dataset_mean.equiv_radius_mismatch_km_mean``, each rounded to 2 dp. Used
+#: when a fire has no row in the per-fire index. Declared rather than silently defaulting to zero: a
 #: missing calibration must degrade to "the dataset's noise", never to "no noise".
 DATASET_CENTROID_OFFSET_KM = 1.64
 DATASET_RADIUS_MISMATCH_KM = 0.91

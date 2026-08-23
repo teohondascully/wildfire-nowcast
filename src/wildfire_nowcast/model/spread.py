@@ -296,8 +296,8 @@ class EllipseParams:
     ===================  ====================  ==========================
     0 m/s (calm)         ~0.06 m/s = 215 m/h   no-wind shrub ~5-6 m/min
     4.5 m/s (10 mi/h)    ~1.0 m/s = 3.6 km/h   ~60-100 m/min
-    6 m/s (Diablo)       ~1.6 m/s = 5.6 km/h   consistent with insights/data
-                                               item 7: Kincade +31.9 km^2 in
+    6 m/s (Diablo)       ~1.6 m/s = 5.6 km/h   consistent with the observed
+                                               Kincade +31.9 km^2 in
                                                the single hour ending
                                                2019-10-27T13:00Z
     ===================  ====================  ==========================

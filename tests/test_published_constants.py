@@ -51,7 +51,10 @@ import ast
 import json
 import math
 import re
+import statistics
+import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -81,18 +84,40 @@ from wildfire_nowcast.model.train import (  # noqa: E402
 #: ``test_the_pinned_set_is_the_whole_cited_class`` red instead of joining the
 #: class silently. Class members are pinned one test each below.
 PINNED_CONSTANTS: tuple[tuple[str, str], ...] = (
+    ("model/latent.py", "ACTIVITY_GATE"),
+    ("model/latent.py", "SPATIAL_COMPONENTS"),
+    ("model/train.py", "M5_MATRIX"),
     ("model/train.py", "M6B_RHO"),
     ("model/train.py", "M7_SPATIAL_LEVER_RMS"),
     ("model/train.py", "M8_ELLIPSE_TRANSFER"),
+    ("model/train.py", "M8_MATRIX"),
     ("eval/stage.py", "RATE_MINUS_GROWTH_ELASTICITY"),
+    ("eval/validity.py", "NULL_MODEL"),
+)
+
+#: The five members of that class whose numbers a CLONE cannot re-derive, because
+#: the record carrying them is not in the tree. Each one is required below to say
+#: so in its own comment, in public source. This tuple is the difference between
+#: "we checked it" and "we told the reader we could not".
+NOT_REDERIVABLE_IN_A_CLONE: tuple[tuple[str, str], ...] = (
+    ("model/latent.py", "ACTIVITY_GATE"),
+    ("model/latent.py", "SPATIAL_COMPONENTS"),
+    ("model/train.py", "M5_MATRIX"),
+    ("model/train.py", "M8_MATRIX"),
+    ("eval/validity.py", "NULL_MODEL"),
 )
 
 #: Module DOCSTRINGS in the same two packages that cite a ``runs/`` path.
-#: ``eval/stage.py`` quotes fifteen measured numbers and is pinned below.
-#: ``eval/labelfloor.py`` cites the ``runs/`` DIRECTORY as a cache location and
-#: quotes no number, so there is nothing to re-derive; it is in the tuple so that
-#: the walk's answer stays complete rather than filtered.
-PINNED_MODULE_DOCSTRINGS: tuple[str, ...] = ("eval/labelfloor.py", "eval/stage.py")
+#: ``eval/stage.py`` quotes fifteen measured numbers and is pinned below, and so
+#: does ``eval/masks.py``, which cites the tracked ``runs/u0b.json`` for the
+#: zero-growth range. ``eval/labelfloor.py`` cites the ``runs/`` DIRECTORY as a
+#: cache location and quotes no number, so there is nothing to re-derive; it is in
+#: the tuple so that the walk's answer stays complete rather than filtered.
+PINNED_MODULE_DOCSTRINGS: tuple[str, ...] = (
+    "eval/labelfloor.py",
+    "eval/masks.py",
+    "eval/stage.py",
+)
 
 _SRC = Path(__file__).resolve().parents[1] / "src" / "wildfire_nowcast"
 
@@ -162,10 +187,39 @@ def _cited_class() -> tuple[list[tuple[str, str]], list[str]]:
     return constants, modules
 
 
+def _tracked(rel: str) -> bool:
+    """Is ``rel`` in the git INDEX. Not ``Path.exists``, which answers about a disk.
+
+    ADR-102: ``.is_file()``, ``.exists()`` and an empty glob are not evidence
+    either way in a control, because they read a property of this checkout rather
+    than of the repository. A clone has every tracked file and none of the rest,
+    so the index is the only answer that is the same in both places.
+    """
+    out = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", rel],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return out.returncode == 0
+
+
 def _artifact(rel: str) -> dict[str, Any]:
-    """Load a TRACKED ``runs/`` artifact. Every one read here is in ``git ls-files``."""
+    """Load a TRACKED ``runs/`` artifact, having ASKED whether it is tracked.
+
+    The previous version of this function asserted ``path.is_file()`` under a
+    docstring claiming every artifact it reads is in ``git ls-files``. Nothing
+    checked that claim. The two agree here today and they would stop agreeing the
+    moment an artifact were untracked while still present on this disk, which is
+    exactly the state every other ``runs/`` record is in.
+    """
+    assert _tracked(rel), (
+        f"{rel} is cited by published source and is NOT in the git index. A reader "
+        "who clones cannot open it, so nothing derived from it may gate."
+    )
     path = repo_root() / rel
-    assert path.is_file(), f"{rel} is cited by published source and is not on disk"
+    assert path.is_file(), f"{rel} is tracked and missing from the working tree"
     loaded: dict[str, Any] = json.loads(path.read_text())
     return loaded
 
@@ -807,18 +861,295 @@ _LABEL_NOISE_INDEX = Path("data") / "interim" / "_index" / "label_noise_east_wes
 
 
 def test_the_labelnoise_dataset_means_are_the_index_they_fall_back_to() -> None:
-    """Both constants are dataset means and the block cites a file no reader can open.
+    """Both constants are dataset means, and the index they come from is now TRACKED.
 
-    ``insights/data item 4 addendum`` is a coordination file and is not in the
-    repository. The numbers ARE re-derivable, from the per-fire index the same
-    function reads at run time, so they are checked against that here. The index
-    is untracked, which is why this skips in a clone and is stated rather than
-    hidden: the citation gap is reported to the maintainer, not repaired by me.
+    This test used to skip when the index was absent, and its docstring said the
+    index was untracked. Both are now stale: the file is in the git index, so the
+    skip could never fire again and would have hidden a real deletion if it had.
+    The precondition therefore asserts TRACKED rather than present, and there is
+    no skip left: in a clone this runs, which is the only place it matters.
+
+    The comment block is checked too, because the citation moved with the file. It
+    named a coordination path no reader could open; it now names the tracked index
+    and the two keys inside it, so the constant and its provenance fail together.
     """
-    path = repo_root() / _LABEL_NOISE_INDEX
-    if not path.is_file():
-        pytest.skip("the per-fire label-noise index is untracked and absent")
-    means = json.loads(path.read_text())["dataset_mean"]
+    assert _tracked(str(_LABEL_NOISE_INDEX.as_posix())), (
+        "the label-noise index is no longer tracked. Two published constants cite it; "
+        "untracking it makes them uncheckable in a clone again."
+    )
+    means = json.loads((repo_root() / _LABEL_NOISE_INDEX).read_text())["dataset_mean"]
 
     assert LN.DATASET_CENTROID_OFFSET_KM == round(means["centroid_offset_km_mean"], 2)
     assert LN.DATASET_RADIUS_MISMATCH_KM == round(means["equiv_radius_mismatch_km_mean"], 2)
+
+    doc = _const_doc("model/labelnoise.py", "DATASET_CENTROID_OFFSET_KM")
+    _quotes(doc, _LABEL_NOISE_INDEX.as_posix(), "the tracked index, not a coordination path")
+    _quotes(doc, "dataset_mean.centroid_offset_km_mean", "the key the constant rounds")
+    _quotes(doc, "dataset_mean.equiv_radius_mismatch_km_mean", "the key beside it")
+
+
+# --------------------------------------------------------------------------
+# M18: the six constants no TRACKED artifact re-derives.
+#
+# Five of the six have a source and it is a run record that is not in the tree.
+# One of them, ``eval/masks.py``'s zero-growth range, acquired a tracked artifact
+# that carries the same statistic on the current corpus and NOT the published
+# numbers, so it is pinned to what that artifact actually says and never to what
+# would have been convenient.
+#
+# The tests below split cleanly in two, and the split is the point:
+#   * the ones that run ANYWHERE assert that public source TELLS the reader the
+#     number is not re-derivable. That claim is the deliverable, and it is
+#     checkable in a clone precisely because it is a claim about the source.
+#   * the ones that need an untracked record SKIP in a clone, with a reason that
+#     names the record. They are corroboration, and they gate nothing.
+# --------------------------------------------------------------------------
+
+#: One phrase, spelled identically in all five blocks, so that a reader who wants
+#: the list of numbers this repository cannot check for them can find it with a
+#: single search instead of reading five paragraphs and trusting their own reading.
+UNPUBLISHED_SENTINEL = "**A CLONE CANNOT CHECK THIS NUMBER"
+
+
+def test_every_constant_a_clone_cannot_check_SAYS_SO_in_public_source() -> None:
+    """The Item 1 deliverable, asserted rather than trusted.
+
+    A reader who clones this repository can open ``runs/`` artifacts that are
+    tracked and none of the rest. Five published constants quote numbers whose
+    only record is untracked. The remedy adopted was not to delete them and not to
+    weaken them: it was to say so in the constant's own comment. This test is what
+    makes that a property of the source rather than an intention.
+
+    It also requires each block to name WHERE the number lives, because "we could
+    not check this" and "we did not look" are different statements and only the
+    first one is worth writing down.
+    """
+    for rel, name in NOT_REDERIVABLE_IN_A_CLONE:
+        doc = _const_doc(rel, name)
+        assert doc, f"{rel}:{name} has no comment block at all"
+        assert UNPUBLISHED_SENTINEL in doc, (
+            f"{rel}:{name} quotes a number no tracked artifact re-derives and does not "
+            f"carry {UNPUBLISHED_SENTINEL!r}. Add the statement back rather than deleting "
+            "the number, and do not reword it: one spelling is what makes the class "
+            "findable by anybody who is not this test."
+        )
+        assert "runs/" in doc, (
+            f"{rel}:{name} says the number is unavailable without saying where it is. "
+            "Name the run, so the statement is 'we looked' and not 'we did not'."
+        )
+
+
+def test_the_M8_gate_median_is_the_CLOSED_FORM_of_its_sigma_and_needs_no_artifact() -> None:
+    """``sigma ~1.3, median 0.43`` is one measurement and one identity, not two.
+
+    The gate multiplier is a mean-preserving log-normal: ``mean = 1`` forces
+    ``mu = -sigma^2 / 2``, so ``median = exp(mu) = exp(-sigma^2 / 2)``. That half
+    of the claim is arithmetic and is checkable by anybody, anywhere, with no
+    corpus and no run record. Pinning it separates the part that needed a
+    measurement from the part that never did.
+    """
+    median = math.exp(-(1.3**2) / 2)
+    assert round(median, 2) == 0.43, median
+
+    doc = _const_doc("model/train.py", "M8_MATRIX")
+    _quotes(doc, "sigma ~1.3, median 0.43", "the pair as published")
+    _quotes(doc, f"exp(-1.3^2 / 2) = {median:.4f}", "the identity, formatted from math")
+
+
+_U0B = "runs/u0b.json"
+
+
+def test_the_masks_docstring_quotes_u0b_and_NOT_the_number_it_would_rather_have() -> None:
+    """The one Item 1 number that gained a TRACKED artifact, pinned to what it says.
+
+    ``eval/masks.py`` quotes 51-91% with median ~0.79 for the zero-growth share.
+    That is a 12-fire-era measurement and its record is not in the tree. The
+    tracked ``runs/u0b.json`` carries the same statistic per fire on the current
+    21-fire corpus and it does NOT reproduce those numbers: it gives 49-98% with
+    median 0.78. Repointing the citation at it would have been an invented
+    provenance, so the docstring names it as the reader's check on the CLAIM and
+    states that it is a different measurement. This test pins both halves, and it
+    fails if anybody ever quietly makes the tracked artifact the source.
+    """
+    payload = _artifact(_U0B)
+    fractions: dict[str, float] = {}
+
+    def walk(node: Any, path: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                walk(value, f"{path}[{i}]")
+        elif path.endswith("zero_growth_hour_fraction"):
+            fractions[path.split(".")[-2]] = float(node)
+
+    walk(payload, "")
+    assert len(fractions) == 21, sorted(fractions)
+
+    values = sorted(fractions.values())
+    low, high = values[0], values[-1]
+    median = float(np.median(values))
+
+    doc = _module_doc("eval/masks.py")
+    _quotes(doc, f"**{low * 100:.0f}-{high * 100:.0f}%, median {median:.2f}**", "u0b's own range")
+    _quotes(doc, _U0B, "the tracked artifact, named")
+    _quotes(doc, "51-91%", "the published claim, which is a DIFFERENT measurement")
+    assert f"{low * 100:.0f}-{high * 100:.0f}%" != "51-91%", (
+        "the tracked artifact now agrees with the published range. If that is real, this "
+        "test has become the wrong shape: make the artifact the source and say so."
+    )
+
+
+# --------------------------------------------------------------------------
+# corroboration: needs a record a clone does not have, and skips saying which
+# --------------------------------------------------------------------------
+
+_M7_TABLE = "baselines-20260809-073414"
+_M5_TABLE = "baselines-20260808-193208"
+_ADR011_TABLE = "baselines-20260808-041405"
+
+
+def _run_payload(directory: str, name: str = "results.json") -> dict[str, Any]:
+    path = repo_root() / "runs" / directory / name
+    if not path.is_file():
+        pytest.skip(f"runs/{directory} is not in the tree: this is a clone")
+    loaded: dict[str, Any] = json.loads(path.read_text())
+    return loaded
+
+
+def _dispersion(arm: Mapping[str, Any]) -> float:
+    for key, value in arm["criteria"].items():
+        if "dispersion" in key:
+            return float(value["equal_block"])
+    raise AssertionError("no dispersion criterion in this arm")
+
+
+def _seed_arms(models: Mapping[str, Any], family: str) -> list[str]:
+    names = [n for n in sorted(models) if n.startswith(f"{family}_s") and not n.endswith("__ABL")]
+    if family == "m6_fair":
+        names = [n for n in names if "brier0" not in n]
+    if family == "m7_spatial":
+        names = [n for n in names if "blind" not in n and "r3" not in n]
+    assert names, family
+    return names
+
+
+def test_the_M7_dispersion_pair_is_NOT_in_its_own_table_of_record() -> None:
+    """The negative, measured, and narrowed to the column it is confined to.
+
+    ``0.2468 +/- 0.0260`` against ``0.2331 +/- 0.0115`` is quoted by two published
+    constants. The record the lab notebook names as the table of record gives
+    0.2475 and 0.2337 for the same four seeds. This test proves that the
+    disagreement is a DISPERSION disagreement and nothing else: the gate-IoU and
+    band-Brier columns of the same table reproduce their published values to the
+    last digit, so a different run, a different seed set or a different block set
+    are all ruled out, because every one of those would have moved them too.
+    """
+    payload = _run_payload(_M7_TABLE)
+    models = payload["g3"]["models"]
+
+    spatial = [_dispersion(models[n]) for n in _seed_arms(models, "m7_spatial")]
+    control = [_dispersion(models[n]) for n in _seed_arms(models, "m6_fair")]
+    assert len(spatial) == len(control) == 4
+
+    assert round(statistics.mean(spatial), 4) == 0.2475
+    assert round(statistics.mean(control), 4) == 0.2337
+    assert round(statistics.mean(spatial), 4) != 0.2468, "the record now agrees; re-read the note"
+
+    ratio = statistics.mean(spatial) / statistics.mean(control)
+    assert round((ratio - 1) * 100, 1) == 5.9, "the +5.9% survives either pair"
+
+    # ALL SIX arms of the published table, because "0.9974x across all six arms" is
+    # what the comment claims. The four multi-seed families alone give 0.9973, and
+    # quoting that here would have been a test agreeing with a number the source
+    # does not carry.
+    published = {
+        "m6_fair": 0.2331,
+        "m7_spatial": 0.2468,
+        "m7_spatial_blind": 0.2341,
+        "m7_spatial_r3": 0.2503,
+        "m7_offstate": 0.7552,
+        "m7_gate_nofix": 0.8019,
+    }
+    factors = [
+        published[fam] / statistics.mean([_dispersion(models[n]) for n in _seed_arms(models, fam)])
+        for fam in published
+    ]
+    assert len(factors) == 6, factors
+    assert max(factors) - min(factors) < 1e-3, f"not a uniform shift after all: {factors}"
+    assert round(statistics.mean(factors), 4) == 0.9974, statistics.mean(factors)
+
+    doc = _const_doc("model/latent.py", "SPATIAL_COMPONENTS")
+    _quotes(doc, f"**{statistics.mean(factors):.4f}x**", "the factor, formatted from the record")
+    spread = max(factors) - min(factors)
+    _quotes(doc, f"spread {spread * 1e4:.1f}e-4", "and its spread")
+
+    iou = payload["g2_per_horizon"]["by_horizon"]["3"]["metrics"][
+        "band best-member IoU (SHAPE, masked)"
+    ]["candidates"]
+    for family, want in (("m6_fair", 0.1555), ("m7_spatial", 0.1614), ("m7_offstate", 0.1461)):
+        got = statistics.mean([iou[n]["value"] for n in _seed_arms(iou, family)])
+        assert round(got, 4) == want, f"{family}: the IoU column moved too, so this is a re-run"
+
+
+def test_the_activity_gate_window_counts_are_the_M5_records_own() -> None:
+    """953 of 1,399, and 953 of 953, read out of the record rather than retyped."""
+    validity = _run_payload(_M5_TABLE)["c6_2_validity"]
+
+    off = validity["persistence"]["off_state"]
+    assert off["n_windows"] == 1399
+    assert off["n_dormant_windows"] == 953
+    assert off["n_dormant_windows_where_no_member_ignited"] == 953
+
+    trained = [n for n in sorted(validity) if n.startswith(("zt_s", "nozt_s"))]
+    assert trained, "no trained arm in this record"
+    for name in trained:
+        arm = validity[name]["off_state"]
+        assert arm["n_dormant_windows"] == 953
+        assert arm["n_dormant_windows_where_no_member_ignited"] == 0, name
+        assert arm["dormant_off_rate"] == 0.0, name
+
+    doc = _const_doc("model/latent.py", "ACTIVITY_GATE")
+    _quotes(doc, f"{off['n_dormant_windows']} of {off['n_windows']:,}", "counts from the record")
+
+
+def test_the_M5_growth_ranges_are_the_records_own_on_both_sides() -> None:
+    """2.66-3.06x held out, 1.00-1.23 on train, each formatted out of its record."""
+    validity = _run_payload(_M5_TABLE)["c6_2_validity"]
+    heldout = [
+        validity[n]["off_state"]["all_window_ratio"]
+        for n in sorted(validity)
+        if n.startswith("nozt_s") and not n.endswith("__ABL")
+    ]
+    assert len(heldout) == 4, sorted(validity)
+
+    train: list[float] = []
+    for directory in sorted((repo_root() / "runs").glob("m5_nozt_s*")):
+        path = directory / "training.json"
+        if not path.is_file():
+            continue
+        final = json.loads(path.read_text())["train_diagnostics"]["final"]["growth"]
+        train.extend(float(final[h]["growth_ratio"]) for h in ("1h", "3h"))
+    if len(train) != 8:
+        pytest.skip("the four M5 no-latent training records are not in the tree: this is a clone")
+
+    doc = _const_doc("model/train.py", "M5_MATRIX")
+    _quotes(doc, f"{min(heldout):.2f}-{max(heldout):.2f}x", "the held-out range, from the record")
+    _quotes(doc, f"{min(train):.2f}-{max(train):.2f}", "the train range, from the records")
+
+
+def test_the_null_models_0_005_is_the_ADR011_era_record_and_not_a_later_one() -> None:
+    """The barred control's growth ratio, and the fact that it moved afterwards.
+
+    Reading a later record gives 0.0018, which is a different window count and a
+    different number. Pinning the era as well as the value is what stops somebody
+    "correcting" the comment against whichever record they happened to open.
+    """
+    payload = _run_payload(_ADR011_TABLE)
+    ratio = payload["c6_2_validity"]["ellipse_brier_fit_all"]["growth_ratio"]
+    assert round(ratio, 3) == 0.005, ratio
+
+    doc = _const_doc("eval/validity.py", "NULL_MODEL")
+    _quotes(doc, repr(ratio), "the stored float, formatted out of the artifact")
+    _quotes(doc, _ADR011_TABLE, "the run it is bound to")

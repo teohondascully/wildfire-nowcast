@@ -156,8 +156,8 @@ class ForecastWindow:
     def truth_growth_cells(self) -> int:
         """Cells that newly burn across the whole window.
 
-        Zero for ~4 windows in 5 (insights/data item 1: 51-91% of GOFER hours
-        have BITWISE zero growth, median ~0.79). That is an observation
+        Zero for ~4 windows in 5: 51-91% of GOFER hours have BITWISE zero
+        growth, median ~0.79 (see :mod:`wildfire_nowcast.eval.masks`). That is an observation
         artefact -- GOES cannot see new front at night or under cloud -- not the
         fire stopping, so a zero here is not evidence of a barrier and must not
         be scored as if the model were asked an interesting question.
@@ -250,7 +250,7 @@ def iter_windows(
         Keep only windows where the truth actually grows. **Never use this to
         produce a headline number** -- it conditions the evaluation set on the
         outcome. It exists so the growth-conditioned stratum can be reported
-        ALONGSIDE the all-windows number (insights/data item 1), because a
+        ALONGSIDE the all-windows number, because a
         pooled score over raw hourly steps is ~79% "nothing happened" and
         persistence wins it.
     """
@@ -268,7 +268,7 @@ def growth_cells_per_step(state: np.ndarray) -> np.ndarray:
     """Newly-burned cell count for each hourly step of a ``(T,H,W)`` state field.
 
     Length ``T-1``. The fraction of zeros here is the single most important
-    property of the labels (insights/data item 1) and every evaluation should
+    property of the labels and every evaluation should
     report it next to its scores.
     """
     arr = np.asarray(state)

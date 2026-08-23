@@ -12,12 +12,13 @@ that must not be skippable:
   recorded with the fire ids it saw, so a violation is auditable after the fact.
 * **Held-out SPATIAL BLOCKS are counted, not fires** (C3.1). With the five P0
   fires the held-out fold contains Kincade and Glass, which are the SAME block
-  (Sonoma/Napa, insights/data item 10). Two fires, one landscape, n = 1. Every
+  (Sonoma/Napa). Two fires, one landscape, n = 1. Every
   emitted artifact carries ``n_heldout_blocks`` next to every score, because
   "evaluated on 2 held-out fires" reads like n = 2 and it is not.
 * **Every score is emitted twice**: over all windows, and over the
-  growth-conditioned stratum. insights/data item 1 measures 51-91% of GOFER
-  hours at BITWISE zero growth (median ~0.79). On the pooled all-windows score
+  growth-conditioned stratum. 51-91% of GOFER hours are at BITWISE zero growth,
+  median ~0.79; :mod:`wildfire_nowcast.eval.masks` carries the provenance. On the
+  pooled all-windows score
   persistence is exactly right ~4 times in 5, so a pooled Brier is mostly a
   measure of how often nothing happened. Reporting the pooled number alone
   would make the floor look like a ceiling. The growth stratum is not a
@@ -1319,7 +1320,7 @@ def _num(value: Any, nd: int = 5) -> str:
 
 
 def _interpretation(per_fire: dict[str, Any], validity: dict[str, Any] | None = None) -> list[str]:
-    """Caveats that must travel WITH the numbers, not in a status file."""
+    """Caveats that must travel WITH the numbers, not in a separate document."""
     fracs = [
         v["zero_growth_fraction"]
         for v in per_fire.values()
@@ -1329,7 +1330,7 @@ def _interpretation(per_fire: dict[str, Any], validity: dict[str, Any] | None = 
     lines = [v["statement"] for v in (validity or {}).values()]
     return lines + [
         f"{mean_zero:.0%} of held-out windows have BITWISE ZERO growth over the whole "
-        "horizon (insights/data item 1: 51-91% dataset-wide, median ~0.79). Persistence "
+        "horizon (51-91% dataset-wide, median ~0.79). Persistence "
         "is EXACTLY correct on every one of them, so its all-windows score is mostly a "
         "measure of how often GOES saw no new front -- an observation artefact, not skill. "
         "Read the growth_windows stratum next to it or the floor looks like a ceiling.",

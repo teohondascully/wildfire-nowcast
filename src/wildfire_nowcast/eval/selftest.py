@@ -21,7 +21,7 @@ own output is verified against nothing. The two that matter most:
   the G3 ablation in miniature, and it is asserted here so that the metric
   cannot silently stop being able to see it.
 
-This module is a proposed pytest target for infra (see status/model.md);
+This module is a proposed pytest target, escalated rather than assumed;
 :func:`run_all` returns structured results so a test can be three lines.
 """
 
@@ -406,7 +406,7 @@ def check_aggregate_pools_sufficient_statistics() -> Check:
 def check_zero_growth_window_is_free_for_persistence() -> Check:
     """On a window where truth does not grow, persistence scores a perfect 0.
 
-    This is the whole reason insights/data item 1 is a design constraint and not
+    This is the whole reason the label cadence is a design constraint and not
     trivia: ~79% of hourly windows look like this one, and on every one of them
     the floor is unbeatable. A pooled all-hours score is mostly a report on how
     often nothing happened.

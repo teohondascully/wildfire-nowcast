@@ -71,6 +71,17 @@ UNDEFINED = "UNDEFINED"
 #: baseline it was written for. Measured and worth keeping: the Brier-fitted
 #: ellipse landed 0.005x of truth's growth - i.e. it had converged to within a
 #: rounding error of the null model, which is the finding behind ADR-011.
+#:
+#: **PROVENANCE OF THE 0.005, LOOKED FOR AND FOUND.** It is
+#: ``c6_2_validity.ellipse_brier_fit_all.growth_ratio``, stored as
+#: 0.0048695799457994585, in the run ``runs/baselines-20260808-041405``. **That
+#: record is 37 KB and carries ZERO occurrences of the internal coordination role
+#: that keeps its four larger siblings out of the tree**, so the exemption in
+#: ``tools/cited_runs.py`` does not reach it and tracking it would hand this
+#: number to the reader. Until that is decided the 0.005 is NOT re-derivable from
+#: a clone. It is also bound to this run and not to the class: later records score
+#: the same barred control at 0.0018 on a different window count.
+#: **A CLONE CANNOT CHECK THIS NUMBER.**
 NULL_MODEL = "NULL_MODEL"
 
 #: Predicted/observed growth outside this band is reported as DEGENERATE: not a
