@@ -174,19 +174,24 @@ def test_the_internal_literals_are_still_the_large_majority_and_still_excluded()
     widening was adopted under. The count moved 377 -> 252 and NOT ONE CHARACTER
     WAS REWRITTEN: the same characters were RECLASSIFIED out of `literal` and
     into `output` by the drawn-text and page-fragment sinks. The total across all
-    regions is 438 on both sides of the change, which is what distinguishes a
-    reclassification from the sweep this assertion exists to catch, and it is why
+    regions was 438 on both sides of that reclassification, which is what
+    distinguishes it from the sweep this assertion exists to catch, and it is why
     the threshold could be lowered without weakening it.
 
-    The bar is 200 against a measured 252, ~20% of headroom. Left at 250 it would
-    have sat 2 below the live value and fired on the next ordinary edit, which is
-    the failure mode of a threshold that is re-derived from the number it is
-    measuring.
+    THE COMMITTED TREE READS 257, NOT 252, and the difference is this file: the
+    two new capability controls carry five internal literals of their own. The
+    252 was measured before they existed. Both numbers are recorded because a
+    single one would be wrong for whichever tree the next reader is holding.
+
+    The bar is 200 against a measured 257, ~22% of headroom. Left at 250 it would
+    have sat 2 below the value measured mid-change and fired on the next ordinary
+    edit, which is the failure mode of a threshold re-derived from the number it
+    is measuring.
     """
     scanned = _scan()
     internal = [occ for occ in scanned if occ.region == prose_scan.REGION_LITERAL]
     assert len(internal) > 200, (
-        f"internal literals are down to {len(internal)} from 252 at the sink widening "
+        f"internal literals are down to {len(internal)} from 257 at the sink widening "
         "(377 before it). A sweep has started rewriting literals, which changes "
         "behaviour and artifact bytes."
     )
