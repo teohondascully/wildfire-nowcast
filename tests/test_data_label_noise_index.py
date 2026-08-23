@@ -67,6 +67,22 @@ def _tracked(relpath: Path) -> bool:
     )
 
 
+def _tracked_under(relative_dir: Path) -> list[str]:
+    """Every path git tracks under ``relative_dir``, as git spells them.
+
+    Answers from the INDEX, so it is the same answer in a clone, where none of
+    the untracked evidence beside it exists.
+    """
+    done = subprocess.run(
+        ["git", "ls-files", "--", str(relative_dir)],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return sorted(done.stdout.splitlines())
+
+
 def _payload() -> dict[str, Any]:
     return dict(json.loads((repo_root() / INDEX_RELPATH).read_text()))
 
@@ -79,16 +95,42 @@ def _payload() -> dict[str, Any]:
 def test_the_index_is_tracked_so_the_citation_survives_a_clone() -> None:
     """The whole point: a reader with a clone can open the cited file.
 
-    Controlled. ``assignments.json`` sits in the same directory, is deliberately
-    NOT tracked, and must come back False - otherwise this check is a query that
-    says yes to everything and proves nothing about the file it names.
+    EVERY FACT HERE COMES FROM THE GIT INDEX, NEVER FROM THE FILESYSTEM. The
+    first version of this control asserted that the untracked sibling EXISTED ON
+    DISK before checking that git did not have it. Untracked files do not exist
+    in a clone by definition, so the control's precondition could not hold in the
+    one environment the test is named for: green here, red in CI, and the machine
+    was what lied. A three-observation proof cannot catch that, because all three
+    observations run on the same disk.
+
+    The replacement is stronger as well as portable. ``git ls-files`` over
+    ``data/interim`` must return EXACTLY the one file, which is the direct
+    statement of what the nested ``.gitignore`` negation had to achieve: re-open
+    one file, not the directory around it. That is the actual risk, since
+    ``data/`` holds the ~700 MB corpus and a negation one level too high would
+    quietly stage all of it.
+
+    ``_tracked`` is then shown to answer BOTH ways on this same rig, so its True
+    on the index is not a query that says yes to everything. The False case is
+    justified by the listing above rather than by anything on disk.
     """
     assert _tracked(INDEX_RELPATH), (
         f"{INDEX_RELPATH} is not tracked, so the two published dataset means "
         "cite a file nobody outside this machine can open"
     )
+
+    under_interim = _tracked_under(INDEX_RELPATH.parent.parent)
+    assert under_interim == [INDEX_RELPATH.as_posix()], (
+        "the nested .gitignore negation re-included the wrong thing. git tracks "
+        f"{under_interim} under {INDEX_RELPATH.parent.parent.as_posix()}; it must "
+        f"track exactly [{INDEX_RELPATH.as_posix()!r}]"
+    )
+
+    assert _tracked(Path("pyproject.toml")), (
+        "_tracked says False about a file that is certainly tracked, so it is "
+        "broken and its answers above mean nothing"
+    )
     sibling = INDEX_RELPATH.with_name("assignments.json")
-    assert (repo_root() / sibling).is_file(), "the control file is missing; rewrite the control"
     assert not _tracked(sibling), (
         f"{sibling} reads as tracked, so this query cannot distinguish tracked "
         "from untracked and its positive answer above means nothing"
