@@ -274,6 +274,11 @@ def _headline(result: dict[str, Any], horizon_h: int) -> dict[str, Any]:
         "band_brier": band_brier.get(horizon_h),
         "band_best_member_iou": band.get("best_member_iou"),
         "band_area_dispersion_ratio": band.get("area_dispersion_ratio"),
+        # [M22 / ADR-120 (1)] G3's dispersion half, per lead, so ADR-114 (b)'s
+        # three verdict-bearing calls are executable against it. REPORTED: the
+        # criterion this gate turns on is still the pooled value on the line
+        # above (C6.1), and which value adjudicates is a maintainer ruling.
+        "band_area_dispersion_ratio_by_horizon": _by_h("area_dispersion_ratio_by_horizon"),
         # reliability_summary is keyed BY LEAD ("1","2","3"); reading it as a flat
         # dict returned None for every run and printed as "--". Found by asking
         # why a headline field was empty rather than accepting the dash.
@@ -1198,10 +1203,11 @@ def g3_summary(
             # [M9, maintainer directive 2026-08-09] **AN ABLATION CANNOT
             # DEMONSTRATE COLLAPSE IN AN ARM THAT HAD NO DISPERSION TO LOSE.**
             # Measured across 25 arms, ON `band_area_dispersion_ratio`, WHICH IS
-            # THE 1-3 h BAND POOLED AND NOT A PER-LEAD NUMBER (ADR-114 (d); there
-            # is no `area_dispersion_ratio_by_horizon` in this tree, unlike the
-            # other two G2/G3 criteria, so these magnitudes cannot be split by
-            # lead and the pooled reading is the only one that exists): 16
+            # THE 1-3 h BAND POOLED AND NOT A PER-LEAD NUMBER (ADR-114 (d)). The
+            # sibling `band_area_dispersion_ratio_by_horizon` exists as of M22
+            # and is emitted beside it, but THESE magnitudes were measured on the
+            # pooled quantity and stay pooled: re-labelling an old number with a
+            # new decomposition would be the reverse of the repair: 16
             # separate at 3.7-7.8x, and the other 9 move 1.1-1.6x and were
             # ALREADY below 0.29 - so their clause (d) "evidence" is a comparison
             # between two ensembles that both fail the dispersion bar outright.

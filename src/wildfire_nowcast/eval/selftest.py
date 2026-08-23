@@ -34,7 +34,7 @@ import json
 import shutil as _shutil
 import sys
 import tempfile as _tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -1201,23 +1201,68 @@ def check_shared_latent_is_constant_across_pixels() -> Check:
 #: restated. ADR-114 (d) requires every collapse verdict to publish its horizon,
 #: and this one decided a gate-path check for weeks without recording it: at
 #: this scene and seed the ratio reads 0.922, 1.410, 1.460, 1.488, 2.690, 6.517
-#: at leads 1 to 6, so it clears 1.5 at leads 5 and 6 and NOWHERE ELSE. One
-#: integer in this constant is the difference between green and red.
+#: at leads 1 to 6, so it clears the shipped bar at lead 6 ALONE, and cleared
+#: the retired one at leads 5 and 6. One integer in this constant is the
+#: difference between green and red.
 #:
-#: **THE BAR IS NOT DERIVED HERE AND NEVER WAS.** The docstring below derives
-#: the DIRECTION (independent noise averages out, so the quotient must exceed 1
-#: and grow with the fire) and no magnitude at all. 1.5 is also the value of
+#: **THE BAR WAS NOT DERIVED HERE UNTIL M22.** The docstring below derives the
+#: DIRECTION (independent noise averages out, so the quotient must exceed 1 and
+#: grow with the fire) and no magnitude at all. 1.5 was ALSO the value of
 #: ``sim/ensemble.py``'s ``COLLAPSE_INDEX_THRESHOLD``, which is a bar on a
 #: DIFFERENT quantity - an empirical spread over a THEORETICAL one, whose null
-#: is 1.0 by algebra - and this one is a quotient of two EMPIRICAL spreads.
-#: :mod:`wildfire_nowcast.eval.collapse_bars` measures what 1.5 is worth here:
-#: it is about the 99th percentile of this instrument's own null at leads 1 to
-#: 4 and about the 72nd at lead 6. **The bar is NOT MOVED here**; moving it
-#: changes a gate-path verdict and is the maintainer's call, not this module's.
-ABLATION_SD_RATIO_BAR: Final[float] = 1.5
+#: is 1.0 by algebra - and this one is a quotient of two EMPIRICAL spreads. The
+#: two literals were adopted independently for different estimands (ADR-119 (4));
+#: only this one has moved, and nothing about the other follows from that.
+#: :mod:`wildfire_nowcast.eval.collapse_bars` measured what 1.5 was worth here:
+#: about the 99th percentile of this instrument's own null at leads 1 to 4 and
+#: about the 72nd at lead 6, which is the lead the verdict is taken at.
+#:
+#: **[M22] THE BAR MOVED, 1.5 -> 5.0, AND THE HORIZON DID NOT. Both halves are
+#: arguments and both are measured.** The bar was derived from this
+#: instrument's own null at the lead it runs at, under the rule the check
+#: actually applies (a zero denominator is not a pass), over four independent
+#: 200-seed blocks of the more adversarial ``null_no_latent`` family: the null's
+#: 99th percentile among measurable draws reads 4.965 / 2.888 / 3.648 / 3.973,
+#: so 5.0 is the smallest round value at or above every estimate, and the false
+#: fire rate it buys is 1.00% / 0.00% / 0.00% / 0.75% against the 24-28% that
+#: 1.5 bought. It costs almost nothing: over 400 replications the TREATMENT
+#: clears 5.0 in 97.0% of draws against 98.8% at 1.5, and at the shipped seed
+#: the ratio is 6.517.
+#:
+#: **THE HORIZON STAYS AT 6, and the case against moving it is the instrument's
+#: POWER, not its convenience.** Relocating to lead 3 - the longest lead G3's
+#: 1-3 h wording covers - does not repair anything: at lead 3 the treatment
+#: clears its own null's 99th percentile in 64% of draws, so a single-draw
+#: verdict there would trade a 27% false FIRE rate for a ~36% false SILENCE
+#: rate, and at the shipped seed it reads 1.460, i.e. red for want of power
+#: rather than for want of a latent. At lead 1 the instrument has no power at
+#: all: 3.2% of TREATMENT draws clear 1.5 against 0.0% of null draws. So
+#: ADR-114 (b)'s three verdict calls at k=1,2,3 are not executable on THIS
+#: instrument, and that is a fact about the estimand: the index's null is exact
+#: at one step and this quotient's power is absent there. The two collapse
+#: instruments are complementary in the horizon, not substitutes (ADR-119 (4)).
+ABLATION_SD_RATIO_BAR: Final[float] = 5.0
 ABLATION_SD_RATIO_HORIZON_H: Final[int] = 6
 ABLATION_SD_RATIO_MEMBERS: Final[int] = 32
 ABLATION_SD_RATIO_SEED: Final[int] = 4
+
+#: The bar this check shipped with until M22. **NOT a bar**: nothing adjudicates
+#: on it and nothing may. It is retained as the fixed reference at which the
+#: horizon dependence of the null's TAIL was discovered and is still measured,
+#: so that finding survives its own repair - a control asserted against the
+#: current bar would go quiet the moment the current bar was right.
+ABLATION_SD_RATIO_BAR_RETIRED: Final[float] = 1.5
+
+#: The most no-latent draws that may clear :data:`ABLATION_SD_RATIO_BAR` at the
+#: verdict lead before the verdict itself is refused. 2% is one resolution step
+#: above what the bar was derived to buy (0-1% over four independent blocks) and
+#: an order of magnitude below what the retired bar bought (24-28%).
+ABLATION_NULL_FALSE_FIRE_CEILING: Final[float] = 0.02
+
+#: Replications behind the null tail published beside every verdict. 200 seeds
+#: resolve a rate to half a percentage point, which is the resolution the
+#: ceiling above is stated at; the module CLI takes more.
+ABLATION_NULL_TAIL_SEEDS: Final[int] = 200
 
 
 def check_independent_noise_ablation_collapses_in_area() -> Check:
@@ -1245,6 +1290,16 @@ def check_independent_noise_ablation_collapses_in_area() -> Check:
     **28.2%** at leads 1 to 6. This check runs at lead 6. Every lead is emitted
     below so a reader can see which one decided.
 
+    [M22] **THE NULL TAIL IS PUBLISHED BESIDE THE VERDICT AND IS MEASURED IN
+    THE SAME INVOCATION** (ADR-114 (c), ADR-120 (5)). A collapse verdict whose
+    bar's false fire rate is unknown is not a verdict, so the rate at the lead
+    the verdict is taken at is read here, from the more adversarial
+    ``null_no_latent`` family, and the verdict is REFUSED when it exceeds
+    :data:`ABLATION_NULL_FALSE_FIRE_CEILING`. The whole per-lead tail is emitted
+    beside it, at the shipped bar and at the retired one, because the finding
+    that made this repair necessary is a statement about the horizon and would
+    be invisible in a single number.
+
     **A ZERO DENOMINATOR IS NO LONGER A PASS.** ``max(sd, 1e-9)`` turned an
     ablation ensemble with no measurable spread into a ratio of order 1e9, which
     read as the most emphatic collapse the instrument can report. It fired that
@@ -1256,13 +1311,27 @@ def check_independent_noise_ablation_collapses_in_area() -> Check:
     ablation SD is 0.803, so this is a latent case made loud rather than an
     observed failure repaired.
     """
+    from wildfire_nowcast.eval.collapse_bars import null_tail_by_lead
+    from wildfire_nowcast.model.api import (
+        ABLATION_ARM_MODE,
+        ablation_arm,
+        assert_ablation_arm_is_demonstrative,
+    )
     from wildfire_nowcast.model.kernel import ContagionKernel, KernelConfig
     from wildfire_nowcast.model.latent import LatentConfig
 
     x0, static, weather = _toy_scene(wind_u=12.0)
     model = ContagionKernel(KernelConfig(), latent_config=LatentConfig(dim=3))
+    # The pair must be the same fit AND the ablation must remove something.
+    # `ablation_arm` refuses an arm whose parameters are not this model's own
+    # objects; the assert above it refuses a base with no latent, whose arm
+    # would be the same forecast under another name and would read 1.0 by
+    # construction. Neither can fire at this scene, which is why each has a
+    # check of its own below that plants the case it exists for.
+    assert_ablation_arm_is_demonstrative(model)
+    arms = {"latent": model, ABLATION_ARM_MODE: ablation_arm(model)}
     samples = {
-        mode: model.with_sampler(mode).predict(
+        mode: arm.predict(
             x0,
             static,
             weather,
@@ -1270,7 +1339,7 @@ def check_independent_noise_ablation_collapses_in_area() -> Check:
             ABLATION_SD_RATIO_HORIZON_H,
             ABLATION_SD_RATIO_SEED,
         )
-        for mode in ("latent", "independent")
+        for mode, arm in arms.items()
     }
 
     def _new_cells(arr: np.ndarray, lead: int) -> np.ndarray:
@@ -1297,19 +1366,43 @@ def check_independent_noise_ablation_collapses_in_area() -> Check:
     verdict = by_lead[ABLATION_SD_RATIO_HORIZON_H]
     ratio = float(verdict["sd_ratio"])
     measurable = bool(verdict["denominator_measurable"])
-    ok = measurable and ratio > ABLATION_SD_RATIO_BAR
+
+    tail = null_tail_by_lead(
+        bar=ABLATION_SD_RATIO_BAR,
+        horizon_h=ABLATION_SD_RATIO_HORIZON_H,
+        n_seeds=ABLATION_NULL_TAIL_SEEDS,
+        n_members=ABLATION_SD_RATIO_MEMBERS,
+    )
+    retired_tail = null_tail_by_lead(
+        bar=ABLATION_SD_RATIO_BAR_RETIRED,
+        horizon_h=ABLATION_SD_RATIO_HORIZON_H,
+        n_seeds=ABLATION_NULL_TAIL_SEEDS,
+        n_members=ABLATION_SD_RATIO_MEMBERS,
+    )
+    null_rate = tail[ABLATION_SD_RATIO_HORIZON_H]
+    calibrated = null_rate <= ABLATION_NULL_FALSE_FIRE_CEILING
+    ok = measurable and calibrated and ratio > ABLATION_SD_RATIO_BAR
     return Check(
         "independent_noise_ablation_collapses_in_area",
         ok,
         "holding z_t at the prior mean removes most of the ensemble's AREA spread "
         f"(SD ratio latent/independent = {ratio:.2f}, must exceed "
         f"{ABLATION_SD_RATIO_BAR:g}, AT LEAD {ABLATION_SD_RATIO_HORIZON_H} h over "
-        f"{ABLATION_SD_RATIO_MEMBERS} members"
+        f"{ABLATION_SD_RATIO_MEMBERS} members; that bar is cleared by "
+        f"{100 * null_rate:.1f}% of no-latent draws at this lead, against "
+        f"{100 * retired_tail[ABLATION_SD_RATIO_HORIZON_H]:.1f}% for the retired "
+        f"{ABLATION_SD_RATIO_BAR_RETIRED:g}"
         + (
             ""
             if measurable
             else "; the ablation arm has NO measurable spread, so the "
             "quotient has no value and this is not a demonstration of anything"
+        )
+        + (
+            ""
+            if calibrated
+            else "; the bar's false fire rate at this lead exceeds "
+            f"{100 * ABLATION_NULL_FALSE_FIRE_CEILING:.0f}%, so there is no verdict to take"
         )
         + ")",
         {
@@ -1322,6 +1415,306 @@ def check_independent_noise_ablation_collapses_in_area() -> Check:
             "denominator_measurable": measurable,
             "sd_ratio_by_lead": {k: v["sd_ratio"] for k, v in by_lead.items()},
             "by_lead": by_lead,
+            "arms": {mode: arm.name for mode, arm in arms.items()},
+            "null_false_fire_rate_at_verdict_lead": null_rate,
+            "null_false_fire_ceiling": ABLATION_NULL_FALSE_FIRE_CEILING,
+            "null_false_fire_rate_by_lead": tail,
+            "null_false_fire_rate_by_lead_at_retired_bar": retired_tail,
+            "retired_bar": ABLATION_SD_RATIO_BAR_RETIRED,
+            "null_tail_seeds": ABLATION_NULL_TAIL_SEEDS,
+            "null_tail_family": "null_no_latent",
+        },
+    )
+
+
+def check_the_ablation_arm_is_loadable_by_name() -> Check:
+    """[M22] G3 (d)'s arm must be obtainable the way a C5 consumer obtains a model.
+
+    ADR-119 (2) measured the gap exactly: ``with_sampler("independent")`` worked
+    in Python and ``load_model("contagion_kernel__independent")`` raised, so
+    every consumer that resolves a predictor BY NAME - which is every C5-shaped
+    consumer, ``sim/`` included - could not reach the ablation and fell back to
+    whatever fixture it had. The arm was correctly built and unreachable, and
+    the two packages disagreed about what they were measuring for that one
+    reason.
+
+    Four things, and the third is the one that matters:
+
+    1. the arm's address is in :func:`available_models` beside its base;
+    2. it resolves, from the registry name AND from a saved checkpoint;
+    3. **it is the SAME FIT.** Within one resolution the arm's parameters are
+       the model's own objects, not copies, so nothing about the comparison can
+       be attributed to the parameters. Across two resolutions of one checkpoint
+       the values agree bitwise, which is the strongest statement a name can
+       carry;
+    4. the address and the label are the same string, so a name written into an
+       artifact is a name that loads.
+    """
+    from pathlib import Path as _Path
+
+    from wildfire_nowcast.model.api import (
+        ABLATION_ARM_SUFFIX,
+        ablation_arm,
+        available_models,
+        load_model,
+        save_model,
+    )
+    from wildfire_nowcast.model.kernel import ContagionKernel, KernelConfig
+    from wildfire_nowcast.model.latent import LatentConfig
+
+    listed = "contagion_kernel" + ABLATION_ARM_SUFFIX in available_models()
+    by_name = load_model("contagion_kernel" + ABLATION_ARM_SUFFIX)
+    base = load_model("contagion_kernel")
+
+    live = ContagionKernel(KernelConfig(), latent_config=LatentConfig(dim=3))
+    arm = ablation_arm(live)
+    shared = all(
+        p is q
+        for (_, p), (_, q) in zip(
+            sorted(live.named_parameters()), sorted(arm.named_parameters()), strict=True
+        )
+    )
+
+    out = _Path(_process_scratch("wnc-arm-")) / "ckpt"
+    save_model(live, out)
+    from_ckpt = load_model(str(out) + ABLATION_ARM_SUFFIX)
+    reloaded = load_model(str(out))
+    drift = max(
+        float(np.max(np.abs(a.detach().numpy() - b.detach().numpy())))
+        for (_, a), (_, b) in zip(
+            sorted(from_ckpt.named_parameters()), sorted(reloaded.named_parameters()), strict=True
+        )
+    )
+    ckpt_shared = all(
+        p is q
+        for (_, p), (_, q) in zip(
+            sorted(from_ckpt.named_parameters()),
+            sorted(load_model(str(out) + ABLATION_ARM_SUFFIX).named_parameters()),
+            strict=True,
+        )
+    )
+
+    ok = (
+        listed
+        and by_name.sampler.is_ablation
+        and not base.sampler.is_ablation
+        and by_name.name == "contagion_kernel" + ABLATION_ARM_SUFFIX
+        and base.name == "contagion_kernel"
+        and shared
+        and from_ckpt.sampler.is_ablation
+        and not reloaded.sampler.is_ablation
+        and drift == 0.0
+    )
+    return Check(
+        "the_ablation_arm_is_loadable_by_name",
+        ok,
+        "load_model resolves the latent-off ablation arm from a registry name and from a "
+        "checkpoint, the arm shares the model's parameter OBJECTS within a resolution and "
+        "matches it bitwise across resolutions, and the address it loads by is the name it "
+        "reports back",
+        {
+            "available_models": available_models(),
+            "arm_name": by_name.name,
+            "base_name": base.name,
+            "arm_is_ablation": by_name.sampler.is_ablation,
+            "base_is_ablation": base.sampler.is_ablation,
+            "shares_parameter_objects": shared,
+            "checkpoint_arm_shares_parameter_objects": ckpt_shared,
+            "checkpoint_parameter_max_abs_difference": drift,
+        },
+    )
+
+
+def check_a_look_alike_ablation_is_refused_and_a_vacuous_one_cannot_be_scored() -> Check:
+    """[M22] The two ways an ablation arm can be wrong, each with its own plant.
+
+    Both guards are unreachable at the shipped configuration, which is exactly
+    why they need a check that MAKES them fire rather than a comment saying they
+    would.
+
+    **(1) A LOOK-ALIKE.** An arm whose parameters are equal but not identical is
+    a second model, and every difference between the two ensembles would then be
+    attributable to the sampler OR to the parameters. The plant is a predictor
+    whose ``with_sampler`` returns a freshly constructed kernel - the exact
+    shortcut a registry entry invites - and it is refused even though its
+    numbers would have looked right.
+
+    **(2) A VACUOUS ONE.** A model with no shared latent has an ablation that is
+    the same forecast under another name: the quotient is 1.0 by construction
+    and says nothing about ``z_t``. The plant is the deterministic G2 kernel,
+    and the refusal is what stops "the ablation failed to collapse" from being
+    read off a model that never had anything to remove.
+    """
+    import torch
+
+    from wildfire_nowcast.model.api import (
+        ablation_arm,
+        assert_ablation_arm_is_demonstrative,
+        load_model,
+    )
+    from wildfire_nowcast.model.kernel import ContagionKernel, KernelConfig
+    from wildfire_nowcast.model.latent import LatentConfig
+
+    latent_model = ContagionKernel(KernelConfig(), latent_config=LatentConfig(dim=3))
+
+    class _LookAlike(ContagionKernel):
+        """The shortcut: an arm built by CONSTRUCTION instead of by view."""
+
+        def with_sampler(self, mode: str) -> ContagionKernel:
+            from wildfire_nowcast.model.latent import LatentSampler
+
+            twin = ContagionKernel(
+                KernelConfig(), latent_config=LatentConfig(dim=3), sampler=LatentSampler(mode)
+            )
+            with torch.no_grad():
+                for (_, dst), (_, src) in zip(
+                    sorted(twin.named_parameters()),
+                    sorted(self.named_parameters()),
+                    strict=True,
+                ):
+                    dst.copy_(src)
+            return twin
+
+    look_alike = _LookAlike(KernelConfig(), latent_config=LatentConfig(dim=3))
+    values: dict[str, Any] = {}
+    try:
+        ablation_arm(look_alike)
+        values["look_alike"] = "ACCEPTED (wrong)"
+    except RuntimeError as exc:
+        values["look_alike"] = "refused"
+        values["look_alike_reason"] = str(exc)[:120]
+
+    equal = all(
+        bool(torch.equal(a.detach(), b.detach()))
+        for (_, a), (_, b) in zip(
+            sorted(look_alike.named_parameters()),
+            sorted(look_alike.with_sampler("independent").named_parameters()),
+            strict=True,
+        )
+    )
+    values["look_alike_parameters_were_EQUAL"] = equal
+
+    deterministic = load_model("contagion_kernel")
+    try:
+        assert_ablation_arm_is_demonstrative(deterministic)
+        values["vacuous"] = "ACCEPTED (wrong)"
+    except ValueError:
+        values["vacuous"] = "refused"
+
+    try:
+        assert_ablation_arm_is_demonstrative(latent_model)
+        values["control_latent_model"] = "accepted"
+    except ValueError:
+        values["control_latent_model"] = "REFUSED (wrong)"
+
+    ok = (
+        values["look_alike"] == "refused"
+        and equal
+        and values["vacuous"] == "refused"
+        and values["control_latent_model"] == "accepted"
+    )
+    return Check(
+        "a_look_alike_ablation_is_refused_and_a_vacuous_one_cannot_be_scored",
+        ok,
+        "an arm built by construction rather than by view is refused even though its "
+        "parameters are EQUAL, an ablation of a model with no latent cannot be scored, and a "
+        "real latent model passes both",
+        values,
+    )
+
+
+def check_area_dispersion_by_horizon_recombines_to_the_pooled_criterion() -> Check:
+    """[M22] G3's dispersion half now HAS a per-lead form, and it is exact.
+
+    ADR-114 (b) rules that a 1-3 h statement is three verdict-bearing calls;
+    ADR-120 (1) recorded that the rule could not be executed for this half of G3
+    because ``area_dispersion_ratio`` had no ``_by_horizon`` sibling. The sibling
+    is only worth having if it is the SAME quantity split, so the identity is
+    asserted here at both levels the criterion is read at:
+
+        area_dispersion_ratio == sqrt(factor * sum_h V[h] / sum_h E[h])
+
+    per window and pooled over windows. An approximate decomposition would let a
+    per-lead reading and the pooled reading disagree about a gate, which is
+    worse than having no decomposition at all.
+    """
+    rng = np.random.default_rng(19)
+    shape = (12, 12)
+    x0 = np.zeros(shape, np.uint8)
+    x0[5:7, 5:7] = 1
+    truth = np.repeat(x0[None], 3, axis=0)
+    truth[1, 4:8, 4:8] = 1
+    truth[2, 3:9, 3:9] = 1
+    windows = []
+    for k in range(3):
+        samples = np.repeat(truth[None], 8, axis=0).copy()
+        samples[rng.random(samples.shape) < 0.05 * (k + 1)] = 1
+        samples = np.maximum.accumulate(samples, axis=1)
+        windows.append(evaluate(samples, truth, x0=x0))
+
+    single = windows[0]["by_mask"]["domain"]
+    pooled = aggregate(windows)["by_mask"]["domain"]
+
+    # The identity is checked from the SUMS, not from the ratios, because the
+    # ratio is a square root of a quotient and recombining ratios would test
+    # arithmetic this module invented rather than the statistic the gate reads.
+    def _from_sums(blocks: Sequence[Mapping[str, Any]], n_members: int) -> float | None:
+        factor = (n_members + 1.0) / n_members
+        var = float(sum(sum(b["area_dispersion"]["sum_var_by_horizon"]) for b in blocks))
+        err = float(sum(sum(b["area_dispersion"]["sum_sq_err_by_horizon"]) for b in blocks))
+        return None if err <= 0.0 else float(np.sqrt(var * factor / err))
+
+    pools = [w["_pool"]["by_mask"]["domain"] for w in windows]
+    single_expected = _from_sums(pools[:1], 8)
+    pooled_expected = _from_sums(pools, 8)
+    single_error = abs(float(single["area_dispersion_ratio"]) - float(single_expected or 0.0))
+    pooled_error = abs(float(pooled["area_dispersion_ratio"]) - float(pooled_expected or 0.0))
+
+    by_h_single = single["area_dispersion_ratio_by_horizon"]
+    by_h_pooled = pooled["area_dispersion_ratio_by_horizon"]
+    absent = aggregate(
+        [
+            {
+                **w,
+                "_pool": {
+                    **w["_pool"],
+                    "by_mask": {
+                        m: {
+                            **blk,
+                            "area_dispersion": {
+                                k: v
+                                for k, v in blk["area_dispersion"].items()
+                                if not k.endswith("_by_horizon")
+                            },
+                        }
+                        for m, blk in w["_pool"]["by_mask"].items()
+                    },
+                },
+            }
+            for w in windows
+        ]
+    )["by_mask"]["domain"]["area_dispersion_ratio_by_horizon"]
+
+    ok = (
+        single_error < 1e-9
+        and pooled_error < 1e-9
+        and len(by_h_single) == 3
+        and len(by_h_pooled) == 3
+        and absent is None
+    )
+    return Check(
+        "area_dispersion_by_horizon_recombines_to_the_pooled_criterion",
+        ok,
+        "the per-lead dispersion sums recombine to the pooled G3 criterion exactly, per "
+        "window and over windows, and a block written before the statistic existed pools to "
+        "None rather than to a flat decomposition",
+        {
+            "by_horizon_single_window": by_h_single,
+            "by_horizon_pooled": by_h_pooled,
+            "pooled_criterion": pooled["area_dispersion_ratio"],
+            "recombination_error_single": single_error,
+            "recombination_error_pooled": pooled_error,
+            "absent_statistic_pools_to": absent,
         },
     )
 
@@ -1362,46 +1755,67 @@ def check_ablation_sd_ratio_null_is_one_at_every_lead() -> Check:
     )
 
 
-def check_ablation_sd_ratio_bar_fires_on_its_own_null_at_the_lead_it_runs_at() -> Check:
-    """[M21] THIS CHECK PINS A DEFECT, DELIBERATELY, and the defect is a TAIL.
+def check_ablation_sd_ratio_bar_is_calibrated_at_the_lead_it_runs_at() -> Check:
+    """[M21 found it, M22 repaired it] The TAIL is a function of the horizon, and
+    the bar that ships must be calibrated at the horizon it ships at.
 
     The level being lead-invariant does not make the BAR lead-invariant. The
     quotient's denominator is the ablation arm's area SD, and that falls as the
     fire decelerates, so the right tail grows with the lead even though the
-    median does not move. At the lead
-    :data:`ABLATION_SD_RATIO_HORIZON_H` the shipped bar is cleared by a large
-    fraction of draws that have NO SHARED LATENT AT ALL, and at lead 1 by
-    essentially none.
+    median does not move.
 
-    Asserted as a RELATION between the two ends rather than against a pinned
-    rate, so it stays true after any fix and does not have to be re-tuned when
-    the scene changes. If a future change makes the bar's false fire rate at the
-    verdict lead no worse than at lead 1, this check fails and that failure is
-    the news.
+    **TWO CLAUSES, AND THE FIRST OUTLIVES ITS OWN REPAIR.** M21's form asserted
+    only that the false fire rate at the verdict lead EXCEEDED the rate at lead
+    1, which is a statement that stays true whether the bar is well chosen or
+    catastrophic - it was green at the retired 1.5, where 24-28% of no-latent
+    draws passed. So:
+
+    (a) at the RETIRED bar, which is fixed and does not move when the shipped
+        bar does, the tail is still heavier at the verdict lead than at lead 1.
+        That is the M21 finding, preserved at the value it was found at, and it
+        fails only if the tail stops being a function of the horizon;
+    (b) at the SHIPPED bar the false fire rate at the verdict lead is at or
+        below :data:`ABLATION_NULL_FALSE_FIRE_CEILING`. That is the property the
+        repair bought, and it fails immediately if the bar is lowered back
+        towards where it was.
     """
-    from wildfire_nowcast.eval.collapse_bars import ratio_sweep, summarise_ratio
+    from wildfire_nowcast.eval.collapse_bars import null_tail_by_lead
 
-    rows = {
-        row.horizon_h: row
-        for row in summarise_ratio(ratio_sweep(families=("null_sigma_zero",), n_seeds=100))
-    }
-    first, verdict = rows.get(1), rows.get(ABLATION_SD_RATIO_HORIZON_H)
-    ok = (
-        first is not None
-        and verdict is not None
-        and first.fire_rate < verdict.fire_rate
-        and verdict.fire_rate > 0.0
+    shipped = null_tail_by_lead(
+        bar=ABLATION_SD_RATIO_BAR,
+        horizon_h=ABLATION_SD_RATIO_HORIZON_H,
+        n_seeds=ABLATION_NULL_TAIL_SEEDS,
+        n_members=ABLATION_SD_RATIO_MEMBERS,
     )
+    retired = null_tail_by_lead(
+        bar=ABLATION_SD_RATIO_BAR_RETIRED,
+        horizon_h=ABLATION_SD_RATIO_HORIZON_H,
+        n_seeds=ABLATION_NULL_TAIL_SEEDS,
+        n_members=ABLATION_SD_RATIO_MEMBERS,
+    )
+    horizon_dependent = retired[ABLATION_SD_RATIO_HORIZON_H] > retired[1]
+    calibrated = shipped[ABLATION_SD_RATIO_HORIZON_H] <= ABLATION_NULL_FALSE_FIRE_CEILING
+    ok = bool(horizon_dependent and calibrated)
     return Check(
-        "ablation_sd_ratio_bar_fires_on_its_own_null_at_the_lead_it_runs_at",
+        "ablation_sd_ratio_bar_is_calibrated_at_the_lead_it_runs_at",
         ok,
-        f"the bar {ABLATION_SD_RATIO_BAR:g} is cleared by no-latent draws far more often at "
-        f"lead {ABLATION_SD_RATIO_HORIZON_H}, where the verdict is taken, than at lead 1 - so "
-        "the false fire rate is a function of a horizon the record used to omit",
+        f"the tail is still horizon dependent at the retired {ABLATION_SD_RATIO_BAR_RETIRED:g} "
+        f"({100 * retired[1]:.1f}% at lead 1 vs "
+        f"{100 * retired[ABLATION_SD_RATIO_HORIZON_H]:.1f}% at lead "
+        f"{ABLATION_SD_RATIO_HORIZON_H}), and the shipped {ABLATION_SD_RATIO_BAR:g} is cleared "
+        f"by {100 * shipped[ABLATION_SD_RATIO_HORIZON_H]:.1f}% of no-latent draws at the lead "
+        f"the verdict is taken at, within the "
+        f"{100 * ABLATION_NULL_FALSE_FIRE_CEILING:.0f}% ceiling",
         {
-            "fire_rate_by_lead": {h: row.fire_rate for h, row in sorted(rows.items())},
+            "false_fire_rate_by_lead_shipped_bar": shipped,
+            "false_fire_rate_by_lead_retired_bar": retired,
             "verdict_lead": ABLATION_SD_RATIO_HORIZON_H,
             "bar": ABLATION_SD_RATIO_BAR,
+            "retired_bar": ABLATION_SD_RATIO_BAR_RETIRED,
+            "ceiling": ABLATION_NULL_FALSE_FIRE_CEILING,
+            "n_seeds": ABLATION_NULL_TAIL_SEEDS,
+            "tail_is_horizon_dependent_at_the_retired_bar": horizon_dependent,
+            "shipped_bar_is_calibrated": calibrated,
         },
     )
 
@@ -2926,8 +3340,13 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     # M21 - what that bar is worth. Its null LEVEL is lead-invariant and its
     # TAIL is not, and the closed form for the sibling one-step bar in sim/.
     check_ablation_sd_ratio_null_is_one_at_every_lead,
-    check_ablation_sd_ratio_bar_fires_on_its_own_null_at_the_lead_it_runs_at,
+    check_ablation_sd_ratio_bar_is_calibrated_at_the_lead_it_runs_at,
     check_one_step_index_bar_derivation_matches_the_shipped_index,
+    # M22 - the arm G3 (d) is about, obtainable the way a C5 consumer obtains
+    # any model, and the per-lead form of G3's OTHER half
+    check_the_ablation_arm_is_loadable_by_name,
+    check_a_look_alike_ablation_is_refused_and_a_vacuous_one_cannot_be_scored,
+    check_area_dispersion_by_horizon_recombines_to_the_pooled_criterion,
     check_elbo_kl_is_scaled_like_its_reconstruction_term,
     check_latent_spec_round_trips_and_absence_means_absence,
     # M8 - the MEAN-PRESERVING ACTIVITY GATE (reverses the M6 exemption), and

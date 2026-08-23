@@ -118,7 +118,7 @@ import torch
 from torch import Tensor, nn
 
 from wildfire_nowcast.common.contract import BURNED_OUT, BURNING, UNBURNED
-from wildfire_nowcast.model.api import validate_predict_inputs
+from wildfire_nowcast.model.api import ARM_SEPARATOR, validate_predict_inputs
 from wildfire_nowcast.model.inputs import static_index, weather_index
 from wildfire_nowcast.model.latent import (
     LatentConfig,
@@ -456,7 +456,14 @@ class ContagionKernel(nn.Module):
         self,
         config: KernelConfig | None = None,
         *,
-        name: str = "kernel",
+        # The default LABEL is the ADDRESS. `load_model("contagion_kernel")`
+        # used to return an object calling itself "kernel", so the string a
+        # consumer loaded by and the string it recorded afterwards were
+        # different and neither round-tripped; the ablation arm inherited that
+        # the moment it acquired a name of its own. Measured before it moved:
+        # inert across the whole suite, and all 108 archived specs on this disk
+        # carry an explicit `name`, so no checkpoint changes label.
+        name: str = kind,
         ellipse_params: EllipseParams | None = None,
         latent_config: LatentConfig | None = None,
         sampler: LatentSampler | None = None,
@@ -860,6 +867,14 @@ class ContagionKernel(nn.Module):
         model are provably the same fit - the only difference is whether ``z_t``
         is drawn or held at its prior mean. Any other construction of the
         ablation would confound the sampler with the parameters.
+
+        The label is built from :data:`~wildfire_nowcast.model.api.ARM_SEPARATOR`
+        so that it is the same string ``load_model`` resolves: this model's
+        default name is its ``kind``, so ``load_model("contagion_kernel")`` and
+        ``load_model("contagion_kernel__independent")`` return objects that
+        report those two names back. Reachable in Python and unreachable by name
+        was the whole defect (ADR-119 (2)); two spellings for the one arm would
+        have reproduced it one level down.
         """
         view = object.__new__(type(self))
         view.__dict__ = dict(self.__dict__)
@@ -867,7 +882,7 @@ class ContagionKernel(nn.Module):
         view._buffers = self._buffers
         view._modules = self._modules
         view.sampler = LatentSampler(mode)
-        view.name = f"{self.name}__{mode}"
+        view.name = f"{self.name}{ARM_SEPARATOR}{mode}"
         return view
 
     def to_spec(self) -> dict[str, Any]:
@@ -971,7 +986,7 @@ class ContagionKernel(nn.Module):
             )
         model = cls(
             cfg,
-            name=str(spec.get("name", "kernel")),
+            name=str(spec.get("name") or cls.kind),
             ellipse_params=EllipseParams.from_dict(spec.get("ellipse_init", {})),
             latent_config=latent_cfg,
             sampler=LatentSampler(str(spec.get("sampler_mode", "latent"))),

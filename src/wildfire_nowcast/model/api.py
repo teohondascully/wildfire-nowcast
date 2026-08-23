@@ -6,7 +6,19 @@ INTERFACES C5::
             n_members: int, horizon_h: int, seed: int)
         -> samples: uint8[n_members, horizon_h, H, W]
     load_model(path) -> object exposing predict
+    load_model(f"{path}__independent") -> that model's ABLATION ARM
     Baselines (persistence, ellipse) implement the SAME signature.
+
+THE ABLATION ARM IS PART OF THIS INTERFACE, and it has to be, because every
+C5-shaped consumer obtains a predictor BY NAME. G3 (d) asks whether removing the
+shared latent collapses the ensemble; that is a question about the model, so the
+arm it is asked of must be the model. ``<address>__independent`` resolves by
+loading ``<address>`` and taking a parameter-sharing view of it, and
+:func:`ablation_arm` refuses to return an arm whose parameters are not the very
+objects the model holds. A consumer that could only reach the ablation by
+constructing a kernel in Python would silently fall back to whatever fixture it
+had, which is how a visualisation stub came to stand in for the model in every
+collapse number this repository held (ADR-118, ADR-119).
 
 "the SAME signature" is the load-bearing clause. sim consumes every
 predictor identically and the G5 head-to-head against ELMFIRE depends on there
@@ -31,8 +43,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -48,11 +61,19 @@ from wildfire_nowcast.model.inputs import (
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "ABLATION_ARM_MODE",
+    "ABLATION_ARM_SUFFIX",
+    "ARM_SEPARATOR",
     "Predictor",
-    "predict",
-    "load_model",
-    "save_model",
+    "ablation_arm",
+    "ablation_arm_is_demonstrative",
+    "arm_name",
+    "assert_ablation_arm_is_demonstrative",
     "available_models",
+    "load_model",
+    "predict",
+    "save_model",
+    "split_arm_name",
     "validate_predict_inputs",
     "validate_samples",
     "SPEC_NAME",
@@ -60,6 +81,32 @@ __all__ = [
 
 #: Filename a saved predictor writes into its directory.
 SPEC_NAME = "model.json"
+
+#: Separates a model's identifier from the SAMPLER ARM drawn off it.
+#:
+#: There are two name spaces in C5 and they used to disagree. A model has an
+#: ADDRESS (the string ``load_model`` accepts) and a LABEL (``predictor.name``,
+#: which reaches run directories and figure legends). Before this module owned
+#: the join, ``load_model("contagion_kernel")`` returned an object whose label
+#: was ``"kernel"``, so the arm derived from it was addressed
+#: ``contagion_kernel__independent`` and labelled ``kernel__independent`` - two
+#: spellings for one thing, and neither round-tripped. The suffix below is now
+#: the ONLY spelling: :func:`load_model` resolves with it and
+#: :meth:`~wildfire_nowcast.model.kernel.ContagionKernel.with_sampler` labels
+#: with it, and the kernel's default label is its ``kind``, so address == label
+#: for the registry model and for its arm.
+ARM_SEPARATOR: Final[str] = "__"
+
+#: The sampler mode that IS the G3 ablation: ``z_t`` held at its prior mean, so
+#: the only randomness left is independent per-pixel Bernoulli. That model is
+#: known-broken here - independent per-pixel noise averages out over thousands
+#: of cells, so the ensemble has no area spread left - and exists ONLY as the
+#: ablation. It is never a candidate.
+ABLATION_ARM_MODE: Final[str] = "independent"
+
+#: ``<model>__independent``. Appending this to any address ``load_model``
+#: accepts addresses that model's latent-off ablation arm.
+ABLATION_ARM_SUFFIX: Final[str] = ARM_SEPARATOR + ABLATION_ARM_MODE
 
 
 @runtime_checkable
@@ -193,9 +240,11 @@ def predict(
 ) -> np.ndarray:
     """C5 ``predict``: sample ``n_members`` fire_state trajectories.
 
-    ``model`` may be a :class:`Predictor` or a registered baseline name
-    (``"persistence"``, ``"ellipse"``). Inputs and outputs are validated, so
-    this is also the recommended way to call a predictor you did not write.
+    ``model`` may be a :class:`Predictor` or any address :func:`load_model`
+    accepts: a registered baseline name (``"persistence"``, ``"ellipse"``), a
+    checkpoint directory, or either with :data:`ABLATION_ARM_SUFFIX` appended
+    for the latent-off ablation arm. Inputs and outputs are validated, so this
+    is also the recommended way to call a predictor you did not write.
     """
     resolved = load_model(model) if isinstance(model, str) else model
     validate_predict_inputs(x0, static, weather, n_members, horizon_h, seed)
@@ -236,16 +285,132 @@ def _registry() -> dict[str, Any]:
     return registry
 
 
+def arm_name(base: str, mode: str = ABLATION_ARM_MODE) -> str:
+    """The address of ``base``'s ``mode`` sampler arm."""
+    return f"{base}{ARM_SEPARATOR}{mode}"
+
+
+def split_arm_name(name: str) -> tuple[str, str] | None:
+    """``("contagion_kernel", "independent")`` for an arm address, else ``None``."""
+    if name.endswith(ABLATION_ARM_SUFFIX) and len(name) > len(ABLATION_ARM_SUFFIX):
+        return name[: -len(ABLATION_ARM_SUFFIX)], ABLATION_ARM_MODE
+    return None
+
+
 def available_models() -> list[str]:
-    """Names :func:`load_model` accepts without a path."""
-    return sorted(_registry())
+    """Names :func:`load_model` accepts without a path.
+
+    Includes the latent-off ABLATION ARM of every registered predictor that has
+    one. The arm is not a second registry entry and could not be: it is derived
+    from its base at resolution time, so an arm name cannot exist without the
+    model it ablates and cannot drift away from it.
+    """
+    registry = _registry()
+    names = set(registry)
+    names.update(arm_name(key) for key, cls in registry.items() if hasattr(cls, "with_sampler"))
+    return sorted(names)
+
+
+def _assert_arm_shares_parameters(model: Any, arm: Any) -> None:
+    """RAISE unless ``arm``'s parameters are the SAME OBJECTS as ``model``'s.
+
+    This is the guard, not a comment. The whole value of the ablation is that it
+    is the same fit: if the arm's parameters were merely EQUAL - a copy, a
+    re-load, a second construction from the same spec - then any difference
+    between the two ensembles would be attributable to the sampler OR to the
+    parameters, and the collapse comparison would be confounded exactly where it
+    claims not to be. Equality would still read as a clean result, which is why
+    the check is on identity and why it raises rather than warns.
+    """
+    named = getattr(model, "named_parameters", None)
+    arm_named = getattr(arm, "named_parameters", None)
+    if named is None or arm_named is None:
+        raise TypeError(
+            f"cannot verify that the ablation arm of {getattr(model, 'name', model)!r} shares "
+            "its parameters: the predictor exposes no named_parameters(). An unverifiable "
+            "sharing claim is refused rather than assumed - the arm's ONLY guarantee is that "
+            "it is the same fit."
+        )
+    base = dict(named())
+    view = dict(arm_named())
+    if set(base) != set(view):
+        raise RuntimeError(
+            "the ablation arm has a different parameter SET from the model it ablates "
+            f"(only in model: {sorted(set(base) - set(view))}; only in arm: "
+            f"{sorted(set(view) - set(base))}). It is a different model, not an ablation."
+        )
+    copied = [k for k in sorted(base) if view[k] is not base[k]]
+    if copied:
+        raise RuntimeError(
+            f"the ablation arm does NOT share the model's parameters: {copied} are distinct "
+            "objects. Something constructed a second model instead of taking a view of this "
+            "one; the arms would then differ in the sampler AND in the parameters, and the "
+            "collapse comparison would be confounded even when its numbers look right."
+        )
+
+
+def ablation_arm(model: Predictor | str | Path, mode: str = ABLATION_ARM_MODE) -> Predictor:
+    """The latent-off ABLATION of ``model``, sharing its parameters.
+
+    ``model`` may be a loaded predictor or any address :func:`load_model`
+    accepts. The arm is always ``model.with_sampler(mode)`` - never a second
+    construction - and :func:`_assert_arm_shares_parameters` checks that on
+    every call, so a future implementation that built a look-alike would raise
+    here instead of returning plausible numbers.
+    """
+    resolved = load_model(model) if isinstance(model, (str, Path)) else model
+    make = getattr(resolved, "with_sampler", None)
+    if make is None:
+        raise ValueError(
+            f"{getattr(resolved, 'name', resolved)!r} has no with_sampler(...), so it has no "
+            "latent to switch off and no ablation arm. Baselines are deterministic or "
+            "independent by construction; the arm exists only for predictors with a shared "
+            "per-step latent."
+        )
+    arm = make(mode)
+    _assert_arm_shares_parameters(resolved, arm)
+    return arm
+
+
+def ablation_arm_is_demonstrative(model: Any) -> bool:
+    """Would ablating ``model`` remove anything?
+
+    ``False`` when the base has no shared latent. Such a model's independent
+    arm is BIT-IDENTICAL to it, so a collapse ratio read off the pair is 1.0 by
+    construction and is a statement about the pair being the same forecast, not
+    about ``z_t``.
+    """
+    return getattr(model, "latent", None) is not None
+
+
+def assert_ablation_arm_is_demonstrative(model: Any) -> None:
+    """RAISE if a collapse verdict is about to be taken on a vacuous ablation."""
+    if not ablation_arm_is_demonstrative(model):
+        raise ValueError(
+            f"{getattr(model, 'name', model)!r} has NO shared latent, so holding z_t at its "
+            "prior mean removes nothing and the ablation arm is the same forecast under "
+            "another name. A collapse comparison on this pair reads 1.0 by construction. "
+            "G3 (d) asks whether removing z_t collapses the ensemble; it can only be asked "
+            "of a model that has one."
+        )
 
 
 def load_model(path: str | Path) -> Predictor:
-    """C5 ``load_model``: a baseline name, or a directory holding ``model.json``.
+    """C5 ``load_model``: a baseline name, a directory holding ``model.json``, or
+    either of those with ``__independent`` appended for the ABLATION ARM.
 
     A saved predictor is a directory, not a file, so a learned checkpoint can
     put weights beside its spec later without changing this signature.
+
+    **THE ARM IS DERIVED, NOT REGISTERED.** ``<address>__independent`` resolves
+    by loading ``<address>`` through this same function and taking
+    ``with_sampler("independent")`` on THAT object, so the arm shares the
+    parameters of the model it was derived from within the call that produced
+    it. A registry entry that constructed its own kernel would be a second model
+    that merely resembles the first, and no downstream number could tell the two
+    apart. An address that exists on disk always wins over the derived reading,
+    so a checkpoint directory whose name happens to end in ``__independent`` is
+    still loaded as itself.
     """
     key = str(path)
     registry = _registry()
@@ -254,11 +419,26 @@ def load_model(path: str | Path) -> Predictor:
 
     candidate = Path(path)
     spec_path = candidate / SPEC_NAME if candidate.is_dir() else candidate
-    if not spec_path.is_file():
-        raise FileNotFoundError(
-            f"no model at {path!r}: not a registered baseline ({', '.join(sorted(registry))}) "
-            f"and no {SPEC_NAME} at {spec_path}"
-        )
+    if spec_path.is_file():
+        return _from_spec_file(spec_path, registry)
+
+    arm = split_arm_name(key)
+    if arm is not None:
+        base_key, mode = arm
+        base_candidate = Path(base_key)
+        base_spec = base_candidate / SPEC_NAME if base_candidate.is_dir() else base_candidate
+        if base_key in registry or base_spec.is_file():
+            return ablation_arm(load_model(base_key), mode)
+
+    raise FileNotFoundError(
+        f"no model at {path!r}: not a registered baseline ({', '.join(available_models())}) "
+        f"and no {SPEC_NAME} at {spec_path}. A name ending {ABLATION_ARM_SUFFIX!r} is the "
+        "latent-off ablation ARM of the address before it and resolves only when that "
+        "address does."
+    )
+
+
+def _from_spec_file(spec_path: Path, registry: Mapping[str, Any]) -> Predictor:
     spec = json.loads(spec_path.read_text())
     kind = spec.get("kind")
     if kind not in registry:
@@ -266,7 +446,8 @@ def load_model(path: str | Path) -> Predictor:
             f"{spec_path} declares kind={kind!r}, which is not a known predictor "
             f"({', '.join(sorted(registry))})"
         )
-    return registry[kind].from_spec(spec)
+    predictor: Predictor = registry[kind].from_spec(spec)
+    return predictor
 
 
 def save_model(model: Any, path: str | Path) -> Path:

@@ -2,8 +2,15 @@
 
     .venv/bin/python -m wildfire_nowcast.eval.collapse_bars --out <artifact>.json
 
-TWO INSTRUMENTS CARRY THE NUMBER 1.5 AND THEY MEASURE DIFFERENT QUANTITIES
---------------------------------------------------------------------------
+TWO INSTRUMENTS ADOPTED THE NUMBER 1.5 FOR DIFFERENT ESTIMANDS
+---------------------------------------------------------------
+They did so independently - ``eval``'s ``> 1.5`` is a topological ancestor of
+``COLLAPSE_INDEX_THRESHOLD``, so neither was copied from the other - and each
+was wrong in a different way: the index in its LEVEL, the ratio in its TAIL
+(ADR-119 (4)). **``eval``'s has since moved to 5.0 (M22, below); the
+description of the coincidence is kept because it is what the measurement was
+for.**
+
 ``sim/ensemble.py`` holds ``COLLAPSE_INDEX_THRESHOLD = 1.5`` on
 ``independence_dispersion_index``, which is an EMPIRICAL spread over a
 THEORETICAL one: ``std(member areas) / sqrt(sum_i p_i (1 - p_i))``. Its null is
@@ -12,12 +19,12 @@ THEORETICAL one: ``std(member areas) / sqrt(sum_i p_i (1 - p_i))``. Its null is
 1.47-1.52 / 1.75-1.79 / 2.19-2.29 at horizons 1 / 2 / 3 / 4 / 6 with no latent
 anywhere. Its null is not horizon stable.
 
-:data:`wildfire_nowcast.eval.selftest.ABLATION_SD_RATIO_BAR` holds the same
+:data:`wildfire_nowcast.eval.selftest.ABLATION_SD_RATIO_BAR` held the same
 number, 1.5, on a DIFFERENT quantity: one EMPIRICAL spread over another
 EMPIRICAL spread, the latent arm's across-member area SD divided by the
 ablation arm's. Same literal, different estimand, so agreement between the two
-is a coincidence and disagreement between them would be a puzzle nobody had
-posed. This module measures the second one the way ``collapse_curve`` measured
+was a coincidence and disagreement between them would have been a puzzle nobody
+had posed. This module measures the second one the way ``collapse_curve`` measured
 the first, and derives the first one's ONE-STEP bar from the algebra of the
 construction it is asserted on.
 
@@ -34,49 +41,87 @@ horizon. This is a real structural advantage over the index and it is measured
 below rather than asserted: the null MEDIAN reads 1.000, 0.972, 0.991, 0.992,
 1.008, 0.999 at horizons 1 to 6.
 
-ITS TAIL IS NOT HORIZON STABLE, AND THE BAR SITS IN THE TAIL
--------------------------------------------------------------
+ITS TAIL IS NOT HORIZON STABLE, AND THE BAR USED TO SIT IN THE TAIL
+--------------------------------------------------------------------
 A ratio of two sample SDs is only as well behaved as its DENOMINATOR, and the
 ablation arm's area SD is not stable in the horizon. On the scene the shipped
 check uses it runs 0.843, 1.254, 1.419, 1.551, 1.139, 0.486 at horizons 1 to 6:
 the fire decelerates, the ablation ensemble becomes near deterministic, and the
 quotient acquires a heavy right tail exactly where the denominator is smallest.
-Over 400 seeds with the latent OFF ON BOTH ARMS, the fraction of draws clearing
-1.5 reads
+Over 400 seeds with the latent OFF ON BOTH ARMS, the fraction of draws that
+would have PASSED the shipped check at the retired bar of 1.5 reads
 
     h = 1   0.0%      h = 4    0.8%
     h = 2   1.5%      h = 5    5.2%
-    h = 3   2.5%      h = 6   28.0%
+    h = 3   2.5%      h = 6   26.8%
 
-so 1.5 is about the 99th percentile of this instrument's own null at horizons 1
-to 4 and about the 72nd percentile at horizon 6. The shipped check runs at
-horizon 6. Only 5 of those 400 draws are the degenerate case where the
-denominator is exactly zero, so the tail is the process and not a guard: among
-the 395 with a measurable denominator the fire rate is still 27.1%, and the null
-99th percentile runs 1.420, 1.543, 1.589, 1.480, 1.811, 3.973.
+for ``null_sigma_zero`` and 0.5 / 2.2 / 2.8 / 1.8 / 7.2 / 24.8% for
+``null_no_latent``, which removes the head outright and is the more adversarial
+of the two. So 1.5 was about the 99th percentile of this instrument's own null
+at horizons 1 to 4 and about the 73rd at horizon 6, which is the horizon the
+verdict is taken at. The tail is the process and not a guard: only 1.2% of the
+400 draws are the degenerate case where the denominator is exactly zero, and
+those are counted as FAILURES here, exactly as the shipped check counts them.
+The null's 99th percentile among measurable draws runs 1.420, 1.543, 1.589,
+1.480, 1.811, 3.973.
+
+[M22] **THE BAR IS NOW 5.0 AND THE HORIZON IS STILL 6.** The bar was derived
+from this instrument's own null at the lead it runs at, under the rule the check
+applies, over four independent blocks: the ``null_no_latent`` 99th percentile
+among measurable draws reads 4.965 (seeds 0-199), 2.888 (seeds 400-599), 3.648
+(``null_sigma_zero``, seeds 400-599) and 3.973 (``null_sigma_zero``, seeds
+0-399), so 5.0 is the smallest round value at or above every estimate. It buys a
+false fire rate of 1.00 / 0.00 / 0.00 / 0.75% on those same four blocks against
+the 24-28% that 1.5 bought, and it costs 1.8 points of power: over 400
+replications the TREATMENT clears 5.0 in 97.0% of draws against 98.8% at 1.5. At
+the shipped seed the ratio is 6.517.
+
+**CALIBRATING A BAR AGAINST THIS NULL IS NOT THE VACUITY ADR-114 (3) KILLED, AND
+THE DIFFERENCE IS WORTH STATING BECAUSE IT LOOKS THE SAME FROM OUTSIDE.** That
+ruling rejected calibrating the INDEX against a null measured from a no-latent
+run, because the index's subject IS the no-latent run, so the comparison reduces
+to "the ablation equals itself". Here the verdict compares a latent-ON arm
+against a latent-OFF one and the null is the sampling distribution of that
+quotient when there is no latent to find. The bar is a threshold on a statistic,
+calibrated against the distribution of that statistic under the hypothesis the
+check exists to reject. Nothing in the verdict is measured from the null.
+
+**WHY THE HORIZON DID NOT MOVE INSTEAD.** Relocating the verdict to lead 3, the
+longest lead G3's 1-3 h wording covers, repairs nothing: at lead 3 the treatment
+clears its own null's 99th percentile in 64.2% of draws, so a single-draw
+verdict there trades a 27% false FIRE rate for a ~36% false SILENCE rate, and at
+the shipped seed it reads 1.460 - red for want of power rather than for want of
+a latent. At lead 1 the instrument has no power at all: 3.2% of TREATMENT draws
+clear 1.5 against 0.0% of null draws. **ADR-114 (b)'s three verdict-bearing
+calls at k = 1, 2, 3 are therefore not executable on THIS instrument**, and that
+is a fact about the estimand rather than about the code: one instrument's null
+is exact at one step, the other's power is absent there, and they are
+complementary in the horizon rather than substitutes (ADR-119 (4)).
 
 THE HORIZON IS LOAD BEARING AND WAS NOT RECORDED ANYWHERE
 ----------------------------------------------------------
 At the shipped configuration (32 members, seed 4, the 25x25 grass plain with a
 12 m/s east wind) the ratio reads 0.922, 1.410, 1.460, 1.488, 2.690, 6.517 at
-horizons 1 to 6. It clears 1.5 at horizons 5 and 6 and at no other horizon, so
-changing one integer in the call turns a green gate-path check red, and until
-this module landed neither the horizon nor the member count appeared in the
-record the check emits. The pass at horizon 6 is not itself an artefact of the
-zero-denominator guard: at that seed the ablation SD is 0.803, not 0.
+horizons 1 to 6. It cleared the retired 1.5 at horizons 5 and 6 and at no other
+horizon, and it clears the shipped 5.0 at horizon 6 ALONE, so changing one
+integer in the call turns a green gate-path check red, and until this module
+landed neither the horizon nor the member count appeared in the record the check
+emits. The pass at horizon 6 is not itself an artefact of the zero-denominator
+guard: at that seed the ablation SD is 0.803, not 0.
 
 WHAT THIS DOES AND DOES NOT SETTLE
 -----------------------------------
-It does not move a bar. ``ABLATION_SD_RATIO_BAR`` and ``horizon_h = 6`` are
-read from :mod:`wildfire_nowcast.eval.selftest` and never restated here, so if
-either moves every number this module prints moves with it. The instrument is
-not vacuous: with the latent ON it separates from its own null from horizon 3
-upward, reaching 77.2% and 98.0% of draws above the bar at horizons 3 and 4 and
-100% at 5 and 6, against a null of 2.5% and 0.8%. What is established is that
-the bar's false fire rate is a function of the horizon it is evaluated at, that
-the horizon is 6, and that at 6 the rate is 28.0%. The degenerate denominator
-reaches the healthy arm too: 5 of the treatment's 400 draws at horizon 6 pass by
-dividing by the 1e-9 floor rather than by being wide.
+``ABLATION_SD_RATIO_BAR`` and ``horizon_h = 6`` are read from
+:mod:`wildfire_nowcast.eval.selftest` and never restated here, so if either
+moves every number this module prints moves with it. The instrument is not
+vacuous: with the latent ON it separates from its own null from horizon 3
+upward, reaching 77.2% and 98.0% of draws above the retired bar at horizons 3
+and 4 and 100% at 5, against a null of 2.5% and 0.8%. What is established is
+that the bar's false fire rate is a function of the horizon it is evaluated at,
+that the horizon is 6, and that at 6 the retired bar's rate was 26.8%. The
+degenerate denominator reaches the healthy arm too: 5 of the treatment's 400
+draws at horizon 6 divide by the 1e-9 floor rather than by being wide, and are
+scored as failures on both arms alike.
 
 It also establishes that the two collapse instruments cannot both be relocated
 to one step. At horizon 1 the ratio separates almost not at all: 3.2% of
@@ -129,13 +174,16 @@ independent-by-construction control readings, which are at ONE lead step; and
 the ~100x ``area_dispersion_ratio`` separation in ``eval/selftest.py``, which is
 also one lead step and whose body asserts the weaker 50x.
 
-**A number that cannot be split by lead has to say so, and one of them cannot.**
-``band_area_dispersion_ratio`` has no ``_by_horizon`` sibling anywhere in this
-tree, while the G2 shape criterion and the G3 calibration criterion both do. So
-the ruling that a 1-3 h statement is three verdict-bearing calls cannot be
-carried out for G3's dispersion half at all: the pooled number is the only one
-that exists. That is reported and not repaired here, because building a
-per-lead criterion changes what a gate reads.
+**A number that cannot be split by lead has to say so, and one of them could
+not.** ``band_area_dispersion_ratio`` had no ``_by_horizon`` sibling anywhere in
+this tree while the G2 shape criterion and the G3 calibration criterion both
+did, so the ruling that a 1-3 h statement is three verdict-bearing calls could
+not be carried out for G3's dispersion half at all (ADR-120 (1)). **M22 built
+the sibling** and it is exact: the per-lead sums recombine to the pooled
+criterion to floating point at every level of pooling. **The magnitudes quoted
+above are still the POOLED quantity** and stay quoted that way - re-labelling a
+number measured on the pooled statistic with a decomposition that did not exist
+when it was measured would be the reverse of the repair.
 
 **THE SWEEP MISSED ONE OF ITS OWN TARGETS FIRST TIME AND THAT IS RECORDED
 RATHER THAN TIDIED.** The horizon vocabulary it treats as sufficient included
@@ -169,6 +217,7 @@ import json
 import logging
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Final
 
@@ -191,6 +240,7 @@ __all__ = [
     "format_report",
     "index_bar_monte_carlo",
     "main",
+    "null_tail_by_lead",
     "ratio_by_horizon",
     "ratio_sweep",
     "shipped_ratio_bar",
@@ -381,7 +431,13 @@ def ratio_by_horizon(
                 sd_independent=sd_b,
                 ratio=ratio,
                 degenerate=sd_b == 0.0,
-                fires=ratio > bar,
+                # [M22] `fires` is the SHIPPED VERDICT, which since M21 refuses a
+                # zero denominator rather than dividing by the 1e-9 floor. It read
+                # `ratio > bar` alone until now, so this module scored a rule the
+                # gate-path check no longer applies and its tail counted the
+                # degenerate draws as passes. That is the one defect a bar's own
+                # control may not have: measuring a verdict nobody takes.
+                fires=(ratio > bar) and sd_b > 0.0,
             )
         )
     return out
@@ -393,10 +449,17 @@ def ratio_sweep(
     n_seeds: int = DEFAULT_SEEDS,
     n_members: int = 32,
     horizon_h: int | None = None,
+    bar: float | None = None,
 ) -> list[RatioCell]:
-    """Every family at every lead step over ``n_seeds`` replications."""
+    """Every family at every lead step over ``n_seeds`` replications.
+
+    ``bar`` defaults to the shipped one. It is an argument because the horizon
+    dependence of the tail was DISCOVERED at a bar that no longer ships, and a
+    finding you can only reproduce at the value you have since replaced is a
+    finding you have deleted.
+    """
     horizon = shipped_ratio_horizon() if horizon_h is None else int(horizon_h)
-    bar = shipped_ratio_bar()
+    bar = shipped_ratio_bar() if bar is None else float(bar)
     cells: list[RatioCell] = []
     for family in families:
         logger.info("ratio sweep: family=%s seeds=%d horizon=%d", family, n_seeds, horizon)
@@ -407,15 +470,19 @@ def ratio_sweep(
     return cells
 
 
-def summarise_ratio(cells: Sequence[RatioCell]) -> list[RatioSummary]:
+def summarise_ratio(cells: Sequence[RatioCell], bar: float | None = None) -> list[RatioSummary]:
     """Collapse the replications to one row per (family, lead step).
 
     The MEDIAN is reported beside the mean because the mean of this quantity is
     not a summary of it: one degenerate denominator moves the mean of 400 draws
     into the millions while the median does not move at all. Reporting only the
     mean would have hidden the very case that matters.
+
+    ``bar`` is recorded, not re-applied: ``fires`` was decided when the cell was
+    made. Passing a bar the cells were not swept at would produce a row whose
+    ``bar`` and whose ``fire_rate`` describe two different thresholds.
     """
-    bar = shipped_ratio_bar()
+    bar = shipped_ratio_bar() if bar is None else float(bar)
     keys = sorted({(c.family, c.horizon_h) for c in cells})
     rows: list[RatioSummary] = []
     for family, horizon in keys:
@@ -455,6 +522,56 @@ def summarise_ratio(cells: Sequence[RatioCell]) -> list[RatioSummary]:
             )
         )
     return rows
+
+
+@lru_cache(maxsize=8)
+def _null_cells(
+    family: str, horizon_h: int, n_seeds: int, n_members: int
+) -> tuple[tuple[int, float, bool], ...]:
+    """``(lead, ratio, degenerate)`` for one null family. Cached by argument.
+
+    Cached because the tail is read at more than one bar per invocation and the
+    sweep is the expensive half: the RATIOS do not depend on the bar, only the
+    counting does. Re-running the rollouts per bar would also make two readings
+    of the same null cost twice as much as they are worth.
+    """
+    out: list[tuple[int, float, bool]] = []
+    for seed in range(int(n_seeds)):
+        for cell in ratio_by_horizon(
+            family, seed, n_members=int(n_members), horizon_h=int(horizon_h), bar=float("inf")
+        ):
+            out.append((cell.horizon_h, cell.ratio, cell.degenerate))
+    return tuple(out)
+
+
+def null_tail_by_lead(
+    *,
+    bar: float,
+    horizon_h: int,
+    n_seeds: int,
+    n_members: int = 32,
+    family: str = "null_no_latent",
+) -> dict[int, float]:
+    """Fraction of NO-LATENT draws that would PASS the shipped check, per lead.
+
+    This is the number a collapse verdict has to be read against, and until M22
+    no verdict carried it. It applies the shipped rule exactly - a draw passes
+    only if it clears the bar AND its denominator is measurable - so the rate is
+    commensurable with the verdict it is published beside rather than merely
+    similar to it.
+
+    ``null_no_latent`` is the default because it is the more adversarial of the
+    two nulls: it removes the latent head entirely and pays for the arms'
+    independence with two different seeds, and its tail at lead 6 is the heavier
+    of the two at every bar measured.
+    """
+    cells = _null_cells(family, int(horizon_h), int(n_seeds), int(n_members))
+    rates: dict[int, float] = {}
+    for lead in range(1, int(horizon_h) + 1):
+        rows = [(r, d) for h, r, d in cells if h == lead]
+        passes = [(r > bar) and not d for r, d in rows]
+        rates[lead] = float(np.mean(passes)) if passes else float("nan")
+    return rates
 
 
 @dataclass(frozen=True)

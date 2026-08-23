@@ -493,6 +493,10 @@ def _score_mask(
     # function; an existing mutation surface stays exactly the shape its owner
     # declared it to be.
     area_truth = _truth_area_sum(truth_event, mask)
+    # [M22] Same rule as `_truth_area_sum` above: a new quantity gets a new
+    # function rather than a wider return from the one infra's mutation suite
+    # replaces wholesale.
+    area_var_h, area_err_h = _area_dispersion_by_horizon(member_event, truth_event, mask, n_members)
 
     # --- mode capture ------------------------------------------------------
     iou = _iou_block(member_event, truth_event, mask, x0, tolerance_cells)
@@ -509,6 +513,13 @@ def _score_mask(
         "arrival_crps_censor_cap_h": n_lead + 1,
         "dispersion_ratio": _ratio(disp_var * factor, disp_err),
         "area_dispersion_ratio": _ratio(area_var * factor, area_err),
+        # [M22] REPORTED beside the criterion, never instead of it. C6.1 / G3's
+        # dispersion half is adjudicated on the pooled `area_dispersion_ratio`
+        # above; which value a gate turns on is a maintainer ruling and is not
+        # changed by emitting its decomposition.
+        "area_dispersion_ratio_by_horizon": [
+            _ratio(v * factor, e) for v, e in zip(area_var_h, area_err_h, strict=True)
+        ],
         **_first_moment_block(sum_pred=area_truth + area_signed, sum_truth=area_truth, n=area_n),
         **cal_block,
         **iou,
@@ -546,6 +557,11 @@ def _score_mask(
             # GATE CONDITION, and a gate condition that is not in `results.json`
             # is the `_headline` allow-list defect for the third time.
             "sum_truth": area_truth,
+            # [M22] The per-lead sufficient statistics. Additive exactly like
+            # the scalars beside them, so the pooled ratio and its per-lead
+            # decomposition come out of the same two sums.
+            "sum_var_by_horizon": area_var_h,
+            "sum_sq_err_by_horizon": area_err_h,
         },
         "iou": {
             "best_member_sum": _nan_to_zero(iou["best_member_iou"]),
@@ -726,6 +742,45 @@ def _area_dispersion(
     err = (mean_area - truth_area) ** 2
     signed = mean_area - truth_area
     return float(var.sum()), float(err.sum()), int(mean_area.size), float(signed.sum())
+
+
+def _area_dispersion_by_horizon(
+    member_event: np.ndarray,
+    truth_event: np.ndarray,
+    mask: np.ndarray,
+    n_members: int,
+) -> tuple[list[float], list[float]]:
+    """[M22] ``_area_dispersion``'s two sums, kept PER LEAD instead of summed.
+
+    ADR-114 (b) rules that a 1-3 h collapse statement is three verdict-bearing
+    calls. G3 has two halves and that ruling was executable for only one of
+    them: the calibration and shape criteria both had a ``_by_horizon`` sibling
+    and ``area_dispersion_ratio`` had none, so its 1-3 h magnitudes were pooled
+    with no per-lead form to decompose into (ADR-120 (1)). This is that form.
+
+    **A SEPARATE FUNCTION, FOR THE REASON M9 RECORDED ABOVE.**
+    ``tests/test_playthrough_dispersion.py`` plants mutations by replacing
+    :func:`_area_dispersion` wholesale, so widening its return arity silently
+    breaks another lead's mutation coverage. A new quantity gets a new function.
+
+    **THE SIBLING IS EXACT, NOT AN APPROXIMATION OF THE POOLED NUMBER.** Both
+    returned sequences are ADDITIVE across leads and across windows, and the
+    pooled criterion is built from the same two sums with the lead axis summed
+    out first, so
+
+        area_dispersion_ratio == sqrt(factor * sum_h V[h] / sum_h E[h])
+
+    holds to floating point at every level of pooling. That identity is what
+    licenses reading the pooled magnitude and its per-lead decomposition as
+    statements about one quantity, and it is asserted rather than assumed
+    (``check_area_dispersion_by_horizon_recombines_to_the_pooled_criterion``).
+    """
+    areas = member_event[:, :, mask].sum(axis=2).astype(np.float64)  # [M, L]
+    truth_area = truth_event[:, mask].sum(axis=1).astype(np.float64)  # [L]
+    mean_area = areas.mean(axis=0)
+    var = areas.var(axis=0, ddof=1) if n_members > 1 else np.zeros_like(mean_area)
+    err = (mean_area - truth_area) ** 2
+    return [float(v) for v in var], [float(e) for e in err]
 
 
 def _iou_block(
@@ -1012,6 +1067,13 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
         "area_dispersion_ratio": _ratio(
             _sum("area_dispersion", "sum_var") * factor, _sum("area_dispersion", "sum_sq_err")
         ),
+        # [M22] ADR-120 (1) / ADR-114 (b). Pooled from the SAME sums with the
+        # lead axis kept, so `sqrt(factor * sum_h V / sum_h E)` reproduces the
+        # criterion above exactly. `None` - never a zero and never a silent
+        # omission - when a block predates the statistic: a run record written
+        # before M22 has no per-lead sums, and inventing them would make an
+        # absent decomposition look like a flat one.
+        "area_dispersion_ratio_by_horizon": _pool_area_dispersion_by_horizon(blocks, factor),
         **_area_error_decomposition(
             sum_var=_sum("area_dispersion", "sum_var") * factor,
             sum_sq_err=_sum("area_dispersion", "sum_sq_err"),
@@ -1066,6 +1128,28 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
         **cal_block,
         **_pool_iou_terms(blocks, iou_n),
     }
+
+
+def _pool_area_dispersion_by_horizon(
+    blocks: Sequence[Mapping[str, Any]], factor: float
+) -> list[float | None] | None:
+    """[M22] The per-lead dispersion ratio, pooled over windows. See C6.1.
+
+    Returns ``None`` if ANY block lacks the per-lead sums. A partial pool would
+    be a number over a different window set from the criterion beside it, which
+    is precisely the kind of quiet incommensurability the pooled/equal-block
+    convention exists to prevent.
+    """
+    per_block = [b.get("area_dispersion", {}) for b in blocks]
+    if not per_block or any(
+        "sum_var_by_horizon" not in b or "sum_sq_err_by_horizon" not in b for b in per_block
+    ):
+        return None
+    var = np.sum([np.asarray(b["sum_var_by_horizon"], dtype=np.float64) for b in per_block], axis=0)
+    err = np.sum(
+        [np.asarray(b["sum_sq_err_by_horizon"], dtype=np.float64) for b in per_block], axis=0
+    )
+    return [_ratio(float(v) * factor, float(e)) for v, e in zip(var, err, strict=True)]
 
 
 def _pool_iou_terms(blocks: Sequence[Mapping[str, Any]], iou_n: float) -> dict[str, Any]:
