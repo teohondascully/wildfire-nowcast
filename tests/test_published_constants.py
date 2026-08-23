@@ -545,8 +545,9 @@ def test_the_M8_comment_quotes_the_stored_per_arm_transfers() -> None:
 def test_M8_GATE_EXTRA_TRANSFER_LOSS_is_the_gate_arms_share_of_the_ellipses() -> None:
     """The numerator is checked against the artifact; the denominator is the prose's.
 
-    Which is exactly the disagreement the next test records: the denominator the
-    published arithmetic uses is not what the stored value rounds to.
+    Which is why the two tests below exist: the denominator the published
+    arithmetic uses is not what the ARTIFACT's stored float rounds to, and the
+    reason turns out to be a defect in the artifact rather than in the prose.
     """
     reference = _ellipse_reference()
     doc = _const_doc("model/train.py", "M8_ELLIPSE_TRANSFER")
@@ -559,32 +560,103 @@ def test_M8_GATE_EXTRA_TRANSFER_LOSS_is_the_gate_arms_share_of_the_ellipses() ->
     _quotes(doc, f"= **{TR.M8_GATE_EXTRA_TRANSFER_LOSS:.3f}**", "the quotient the prose states")
 
 
-def test_the_transfer_the_M8_prose_quotes_is_a_DOUBLE_ROUNDING_of_the_stored_value() -> None:
-    """DISAGREEMENT, FILED AND NOT FIXED. See BLOCKERS.md, 2026-08-22, @maintainer.
+def test_the_M8_artifacts_stored_transfer_is_a_QUOTIENT_OF_TWO_DISPLAY_VALUES() -> None:
+    """The artifact and the prose differ at the third place, and the artifact is wrong.
 
-    ``ellipse_cal3h`` is ``0.8374975213166767``, which is ``0.837`` at three
-    places under every rounding convention. The prose says ``transfer **0.838**``,
-    which is what you get by rounding to four places first and then to three, and
-    the artifact's own ``purpose`` string says ``0.838`` too. It propagates:
-    ``M8_GATE_EXTRA_TRANSFER_LOSS`` divides by the ``0.838``, and re-deriving it
-    from the stored float gives ``0.859`` rather than the published ``0.858``.
+    ``ellipse_cal3h`` looks like a measurement to sixteen digits. It is not: the
+    script that wrote this artifact hard-codes ``0.8447 / 1.0086``, the two
+    FOUR-PLACE DISPLAY values its own note quotes, so about five of those digits
+    are real. No path to that script is given here because it is the one M8-era
+    producing script that is not tracked, and a citation a reader cannot open is
+    the defect the ``runs/`` citation check exists to catch. That quotient is
+    ``0.8374975213166767`` and reads ``0.837`` at three places, while the prose
+    says ``transfer 0.838``.
 
-    Neither number is corrected here, because the stored value is itself the
-    quotient of two five-digit displays, so which of ``0.837`` and ``0.838`` is
-    right is not decidable from the artifact and is not mine to decide. This test
-    is the RECORD of the disagreement: it goes red the moment either side moves,
-    and it is to be deleted or inverted in the SAME commit that rules on it.
+    Reading the artifact naively demands correcting the prose to 0.837. That would
+    have introduced an error into public source, and the test below is why: the
+    unrounded operands still exist, and the true quotient rounds to 0.838. This
+    half is asserted everywhere, including a clone; the vindication needs an
+    untracked run directory and is separated for that reason alone.
     """
-    stored = _ellipse_reference()["ellipse_cal3h"]
-    assert f"{stored:.3f}" == "0.837", "the drift closed; this test must be retired with it"
-    assert f"{round(stored, 4):.3f}" == "0.838", "the double rounding that produced the prose"
+    reference = _ellipse_reference()
+    stored = reference["ellipse_cal3h"]
+    match = re.search(r"ratio ([0-9.]+), scoring ([0-9.]+) held-out", reference["note"])
+    assert match
+    displays = (float(match.group(2)), float(match.group(1)))
 
+    assert stored == displays[0] / displays[1], "the stored float is the DISPLAY quotient"
+    assert all(len(x.split(".")[1]) == 4 for x in match.groups()), "four places, not sixteen"
+    assert f"{stored:.3f}" == "0.837"
+    _quotes(_const_doc("model/train.py", "M8_ELLIPSE_TRANSFER"), "transfer **0.838**", "the prose")
+
+
+#: Where the unrounded operands live in a baselines record. Named as paths rather
+#: than as values so that this file still carries no copy of either number.
+_TRAIN_RATIO_KEYS = ("ellipse_calibration", "rule_of_record", "growth_ratio")
+_HELDOUT_RATIO_KEYS = ("c6_2_validity", "ellipse_cal3h", "off_state", "growth_stratum_ratio")
+
+
+def _dig(payload: Any, keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if not isinstance(payload, dict) or key not in payload:
+            return None
+        payload = payload[key]
+    return payload
+
+
+def test_the_unrounded_operands_EXIST_and_they_VINDICATE_the_M8_prose() -> None:
+    """ADR-095 asked for option (a) first. The operands were found, and they decide.
+
+    The two numbers the artifact's note quotes at four places are recorded at full
+    precision in the baselines runs of the same era, under
+    ``ellipse_calibration.rule_of_record.growth_ratio`` and
+    ``c6_2_validity.ellipse_cal3h.off_state.growth_stratum_ratio``. Runs are
+    selected by whether their operands DISPLAY as the pair the note quotes, so the
+    selection is derived from the artifact and this file stores neither number.
+
+    The true quotient is ``0.837527738869328``, which is ``0.838``. The published
+    prose was right all along; what is wrong is the artifact, which stores the
+    quotient of the roundings instead of the rounding of the quotient. The same
+    holds one level down: the gate share is ``0.858``, as published.
+
+    ``runs/baselines-*`` is untracked, so this skips in a clone. That is stated
+    rather than hidden, and the half that gates CI is the test above, which needs
+    only the tracked artifact.
+    """
+    reference = _ellipse_reference()
+    match = re.search(r"ratio ([0-9.]+), scoring ([0-9.]+) held-out", reference["note"])
+    assert match
+    want = (float(match.group(1)), float(match.group(2)))
+
+    found: set[tuple[float, float]] = set()
+    for path in sorted((repo_root() / "runs").glob("baselines-*/results.json")):
+        try:
+            payload = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        train = _dig(payload, _TRAIN_RATIO_KEYS)
+        heldout = _dig(payload, _HELDOUT_RATIO_KEYS)
+        if train is None or heldout is None:
+            continue
+        if (round(train, 4), round(heldout, 4)) == want:
+            found.add((float(train), float(heldout)))
+
+    if not found:
+        pytest.skip("no baselines record carrying the operands: this is a clone")
+    assert len(found) == 1, f"the runs disagree about the operands: {found}"
+    train, heldout = found.pop()
+
+    assert (round(train, 4), round(heldout, 4)) == want, "the displays are the note's"
+    assert train != round(train, 4) and heldout != round(heldout, 4), "full precision"
+
+    truth = heldout / train
     doc = _const_doc("model/train.py", "M8_ELLIPSE_TRANSFER")
-    _quotes(doc, "transfer **0.838**", "the unarbitrated third decimal")
+    _quotes(doc, f"transfer **{truth:.3f}**", "the TRUE quotient, not the artifact's")
+    _quotes(doc, f"= **{reference['gate_arms_mean'] / truth:.3f}**", "the TRUE gate share")
 
-    gate = _ellipse_reference()["gate_arms_mean"]
-    assert round(gate / 0.838, 3) == 0.858
-    assert round(gate / stored, 3) == 0.859
+    stored = reference["ellipse_cal3h"]
+    assert f"{stored:.3f}" != f"{truth:.3f}", "the artifact and the truth differ at 3 places"
+    assert abs(truth - stored) < 1e-4, "and only there: the displays are still the right pair"
 
 
 def test_M8_CONDITIONAL_PRIOR_TRANSFER_is_the_stored_multiplier_mean() -> None:
