@@ -270,13 +270,13 @@ DECLARATION_FILES: Final[tuple[str, ...]] = (
 #: that RISES fails, a count that FALLS fails so a sweep is recorded when it
 #: happens, and an entry that reaches zero is STALE and fails.
 #:
-#: OWNERS. Everything under ``sim/`` is @simviz's and everything under ``eval/``
-#: is @model's; both were filed with the enumeration rather than swept across a
-#: fence. ``data/`` is @data's. ``docs/interfaces.md`` is the contract document
-#: and only its owner edits it; its single entry is a citation of
-#: ``common/null_check.py``, which became a PACKAGE at A15, so the path has been
-#: dead since then and the two copies of the same sentence under ``common/``
-#: were repaired in the commit that added this file.
+#: OWNERS. Every entry is in a package the author of this module does not write
+#: to, and each was reported to that package's owner WITH the enumeration rather
+#: than swept across the boundary. ``docs/interfaces.md`` is the contract
+#: document and only its owner edits it; its single entry cites the module
+#: ``null_check`` by the single-file path it had before A15, when it became a
+#: package. The two copies of that same dead path under ``common/`` were
+#: repaired in the commit that added this file.
 DEBT: Final[dict[str, int]] = {
     "docs/interfaces.md": 1,
     "src/wildfire_nowcast/data/audit.py": 1,

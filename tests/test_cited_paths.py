@@ -37,9 +37,29 @@ from tools import cited_paths as C  # noqa: E402
 
 from wildfire_nowcast.common.paths import repo_root  # noqa: E402
 
-#: Fragments joined at runtime, for the reason in the module docstring.
-_SPECIMEN_DEEP = "quite" + "/deep/invented_v2.json"
-_SPECIMEN_SHALLOW = "invent" + "ed/thing.py"
+
+def _invented(stem: str, suffix: str) -> str:
+    """A path that does not exist, assembled so this file holds no literal citation.
+
+    The join is at the EXTENSION, which is where it has to be: splitting a path
+    anywhere else leaves a fragment that is still path-shaped, and this scanner
+    reads fragments. That was learned by writing it the other way first, in this
+    file and in `tests/test_large_file_guard.py`, and being told so by the check.
+    """
+    return stem + suffix
+
+
+#: Specimens, all assembled. None of these paths exists and none of them is
+#: written literally anywhere in this file.
+_SPECIMEN_DEEP = _invented("quite/deep/invented_v2", ".json")
+_SPECIMEN_SHALLOW = _invented("invented/thing", ".py")
+_SPECIMEN_INNER = _invented("inner/thing", ".py")
+_SPECIMEN_INNER_GONE = _invented("inner/gone", ".py")
+_SPECIMEN_INNER_DEEP = _invented("src/pkg/inner/thing", ".py")
+_SPECIMEN_CITER = _invented("tests/nowhere", ".py")
+_SPECIMEN_TARGET = _invented("invented/path", ".json")
+_SPECIMEN_NOT_EXEMPT = _invented("runs/not_exempt/results", ".json")
+_SPECIMEN_NEW_CITER = _invented("src/wildfire_nowcast/sim/brand_new", ".py")
 
 
 def _enum() -> C.Enumeration:
@@ -120,15 +140,15 @@ def test_a_path_relative_to_a_subtree_resolves_by_SUFFIX(tmp_path: Path) -> None
     that is a judgement rather than an identity, and it is put in front of a case
     that must resolve and a case that must not.
     """
-    deep = "src/pkg/inner/thing.py"
-    root = _throwaway_repo(tmp_path, '"""Reads ``inner/thing.py`` and ``inner/gone.py``."""\n')
-    (root / "src/pkg/inner").mkdir(parents=True)
-    (root / deep).write_text("x = 1\n")
-    subprocess.run(["git", "add", deep], cwd=root, check=True)
+    body = f'"""Reads ``{_SPECIMEN_INNER}`` and ``{_SPECIMEN_INNER_GONE}``."""\n'
+    root = _throwaway_repo(tmp_path, body)
+    (root / _SPECIMEN_INNER_DEEP).parent.mkdir(parents=True)
+    (root / _SPECIMEN_INNER_DEEP).write_text("x = 1\n")
+    subprocess.run(["git", "add", _SPECIMEN_INNER_DEEP], cwd=root, check=True)
     enum = C.enumerate_references(root, declared={}, debt={})
     by_token = {r.token: r.resolution for r in enum.references}
-    assert by_token["inner/thing.py"] == "suffix", by_token
-    assert by_token["inner/gone.py"] == "unresolved", by_token
+    assert by_token[_SPECIMEN_INNER] == "suffix", by_token
+    assert by_token[_SPECIMEN_INNER_GONE] == "unresolved", by_token
 
 
 # --------------------------------------------------------------------------
@@ -171,7 +191,7 @@ def test_the_skips_have_not_swallowed_the_ordinary_case() -> None:
 
 
 def test_an_undeclared_citer_fails() -> None:
-    problems = C._audit_debt({"src/wildfire_nowcast/sim/brand_new.py": 1})
+    problems = C._audit_debt({_SPECIMEN_NEW_CITER: 1})
     assert any(p.startswith("UNRESOLVABLE") for p in problems), problems
 
 
@@ -193,15 +213,15 @@ def test_a_cleared_file_is_STALE_until_its_entry_is_removed() -> None:
 
 
 def test_a_declaration_that_describes_nothing_is_stale() -> None:
-    pairs = {("tests/nowhere.py", "invented/path.json"): "specimen"}
+    pairs = {(_SPECIMEN_CITER, _SPECIMEN_TARGET): "specimen"}
     problems = C._audit_declarations(pairs, seen=set())
     assert problems and problems[0].startswith("STALE DECLARATION"), problems
-    assert C._audit_declarations(pairs, seen={("tests/nowhere.py", "invented/path.json")}) == []
+    assert C._audit_declarations(pairs, seen={(_SPECIMEN_CITER, _SPECIMEN_TARGET)}) == []
 
 
 def test_an_evidence_declaration_must_be_backed_by_the_module_that_owns_the_reason() -> None:
     """The ``evidence`` category borrows ``cited_runs.EXEMPT``. It is held to it."""
-    fake = {("tests/nowhere.py", "runs/not_exempt/results.json"): "evidence"}
+    fake = {(_SPECIMEN_CITER, _SPECIMEN_NOT_EXEMPT): "evidence"}
     problems = C._audit_declarations(fake, seen=set(fake))
     assert any(p.startswith("UNBACKED EVIDENCE") for p in problems), problems
 
