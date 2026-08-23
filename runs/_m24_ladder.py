@@ -15,6 +15,7 @@ itself wrapped. Same stride, members, seed and horizon as M11.
 
 from __future__ import annotations
 
+import gzip
 import json
 import time
 from pathlib import Path
@@ -44,7 +45,11 @@ from wildfire_nowcast.model.degrade import (
 )
 from wildfire_nowcast.model.inputs import iter_windows
 
-OUT = Path("runs/m24_frontdist.json")
+#: [M25] Written GZIPPED, and the plain form is never materialised. ADR-130 (5)
+#: records a verification diff that read "identical" because the report script
+#: had crashed looking for a `.json` beside a `.json.gz`; the 6.5 MB plain file
+#: existed only to be deleted again. The report reads either form.
+OUT = Path("runs/m24_frontdist.json.gz")
 BASE_CHECKPOINT = "runs/m9_probe_s1-20260809-222011"
 HORIZON = 3
 MEMBERS = 24
@@ -89,8 +94,24 @@ def score(samples: np.ndarray, window: Any) -> dict[str, Any]:
         "arrival_crps": band["arrival_crps"],
         "front": {
             str(h): {
+                # [M25, ADR-130 (4)] The two questions the score conflates, kept
+                # apart in the record: `n_empty` / `n_members` is P(silent), the
+                # `*_cond` terms are the score over the members that spoke, and
+                # `combined_cond is None` on a DEFINED lead means EVERY member
+                # was silent - a case that is counted, never dropped in silence.
                 k: front["by_horizon"][str(h)][k]
-                for k in ("combined", "truth_to_pred", "pred_to_truth")
+                for k in (
+                    "combined",
+                    "truth_to_pred",
+                    "pred_to_truth",
+                    "combined_cond",
+                    "truth_to_pred_cond",
+                    "pred_to_truth_cond",
+                    "censored_fraction",
+                    "censored_fraction_cond",
+                    "n_empty_members",
+                    "n_members",
+                )
             }
             for h in (1, 2, 3)
         },
@@ -173,7 +194,8 @@ def main() -> int:
         "elapsed_s": round(time.time() - started, 1),
         "per_fire": per_fire,
     }
-    OUT.write_text(json.dumps(payload, default=float))
+    with gzip.open(OUT, "wt") as handle:
+        json.dump(payload, handle, default=float)
     print("windows", n_windows_total, "elapsed_s", payload["elapsed_s"])
     print("split", payload["split_before"], payload["split_after"])
     print("scoring", scoring_before, payload["scoring_fingerprint_after"])

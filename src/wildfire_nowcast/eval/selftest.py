@@ -2527,6 +2527,183 @@ def check_front_distance_refuses_a_window_with_no_observed_front() -> Check:
     )
 
 
+def check_conditional_front_distance_equals_the_subensemble_scored_alone() -> Check:
+    """[M25, ADR-130 (4)] The conditional score answers ONE of the two questions.
+
+    ADR-130 (3) measured that the censored fraction equals the silent-member
+    fraction to within 0.05, so the unconditional level is approximately
+    ``cap x p_silent`` and the score conflates (a) did the member predict
+    anything at all with (b) given that it did, where. The conditional terms are
+    only meaningful if they are EXACTLY (b), so the property checked here is an
+    identity rather than an inequality: scoring a mixed ensemble and reading its
+    conditional terms must give the same numbers as deleting the silent members
+    first and scoring what is left unconditionally. Anything weaker would let a
+    re-normalisation error hide inside a plausible-looking improvement.
+
+    The inequality is checked too, because the identity alone would also hold for
+    a conditional score that did nothing: with silence present the unconditional
+    number must be strictly WORSE than the conditional one, and ``p_silent`` must
+    read the planted fraction exactly.
+    """
+    from wildfire_nowcast.eval.metrics import front_distance_crps
+
+    cap = 8.0
+    truth = np.zeros((15, 15), dtype=bool)
+    truth[7, 7] = True
+    mixed = np.zeros((8, 15, 15), dtype=bool)
+    mixed[5, 7, 8] = True  # three members speak, five are silent
+    mixed[6, 7, 9] = True
+    mixed[7, 8, 7] = True
+    subset = mixed[5:]
+
+    both = front_distance_crps(mixed, truth, cap_km=cap)
+    alone = front_distance_crps(subset, truth, cap_km=cap)
+
+    def _num(value: float | None) -> float:
+        assert value is not None, "a defined measurement must carry a number"
+        return float(value)
+
+    # `float(x or fallback)` is WRONG here for the SECOND time in two tasks:
+    # M24 (5) hit it on a CRPS of 0.0 and this check hit it on a p_silent of
+    # 0.0, which is the value a fully active ensemble is supposed to have. The
+    # check refused itself until every optional read below became explicit.
+    identity = (
+        _close(_num(both.truth_to_pred_cond), _num(alone.truth_to_pred))
+        and _close(_num(both.pred_to_truth_cond), _num(alone.pred_to_truth))
+        and _close(_num(both.combined_cond), _num(alone.combined))
+    )
+    ok = (
+        identity
+        and _close(_num(both.p_silent), 5.0 / 8.0)
+        and _close(_num(alone.p_silent), 0.0)
+        and _num(both.combined) > _num(both.combined_cond)
+        and both.n_nonsilent_members == 3
+    )
+    return Check(
+        "conditional_front_distance_equals_the_subensemble_scored_alone",
+        ok,
+        "the conditional terms of a mixed ensemble equal the unconditional terms of its "
+        "non-silent members scored alone, p_silent reads the planted fraction, and silence "
+        "makes the unconditional score strictly worse",
+        {
+            "p_silent": both.p_silent,
+            "conditional_terms": [both.truth_to_pred_cond, both.pred_to_truth_cond],
+            "subensemble_alone": [alone.truth_to_pred, alone.pred_to_truth],
+            "combined_unconditional_vs_conditional": [both.combined, both.combined_cond],
+            "cap_km": cap,
+        },
+    )
+
+
+def check_all_silent_episode_is_labelled_not_dropped_and_not_zero() -> Check:
+    """[M25, ADR-130 (4)] Three facts, three labels, and none of them is 0.0.
+
+    ADR-130 (4) names the all-silent episode as a DEFINED case that must not be
+    silently dropped, because dropping it selects exactly the episodes where the
+    ensemble was active - the ones that flatter a location score. There is no
+    non-silent sub-ensemble to condition on, so a NUMBER would have to be
+    invented; instead the case is LABELLED ``ALL_SILENT``, which is
+    distinguishable from ``UNDEFINED`` (the truth did not grow, so no question
+    was asked) and from a defined score of 0.0 (which is this channel's BEST
+    value). The general rule, and it has now bitten this repo in two packages:
+    three different facts must never share one spelling, and an absent value is
+    the worst spelling of all because every reader supplies a different default.
+
+    ``p_silent`` is asserted to survive the UNDEFINED case, because whether the
+    ensemble spoke does not depend on whether the truth grew - and it is the one
+    channel ADR-130 (4) clause 1 asks for whatever happens to the score.
+    """
+    from wildfire_nowcast.eval.metrics import (
+        FRONT_ALL_SILENT,
+        FRONT_DEFINED,
+        FRONT_UNDEFINED,
+        front_distance_crps,
+    )
+
+    cap = 6.0
+    truth = np.zeros((11, 11), dtype=bool)
+    truth[5, 5] = True
+    silent = np.zeros((4, 11, 11), dtype=bool)
+    speaking = np.zeros((4, 11, 11), dtype=bool)
+    speaking[:, 5, 6] = True
+
+    mute = front_distance_crps(silent, truth, cap_km=cap)
+    heard = front_distance_crps(speaking, truth, cap_km=cap)
+    no_question = front_distance_crps(silent, np.zeros((11, 11), dtype=bool), cap_km=cap)
+
+    ok = (
+        mute.cond_outcome == FRONT_ALL_SILENT
+        and mute.combined_cond is None
+        and mute.outcome == FRONT_DEFINED
+        and mute.p_silent is not None
+        and _close(float(mute.p_silent), 1.0)
+        and mute.truth_to_pred is not None
+        and _close(float(mute.truth_to_pred), cap)
+        and heard.cond_outcome == FRONT_DEFINED
+        and no_question.outcome == FRONT_UNDEFINED
+        and no_question.cond_outcome == FRONT_UNDEFINED
+        and no_question.p_silent is not None
+        and _close(float(no_question.p_silent), 1.0)
+    )
+    return Check(
+        "all_silent_episode_is_labelled_not_dropped_and_not_zero",
+        ok,
+        "an all-silent ensemble is ALL_SILENT with a None conditional score and an "
+        "unconditional score at the cap, an active one is DEFINED, a window with no observed "
+        "growth is UNDEFINED under both, and p_silent is reported in every case",
+        {
+            "all_silent": [mute.outcome, mute.cond_outcome, mute.combined_cond, mute.p_silent],
+            "active": [heard.outcome, heard.cond_outcome, heard.combined_cond],
+            "no_observed_front": [no_question.outcome, no_question.cond_outcome],
+            "unconditional_all_silent_is_the_cap": [mute.truth_to_pred, cap],
+        },
+    )
+
+
+def check_conditional_censoring_falls_when_the_silence_is_removed() -> Check:
+    """[M25] The mechanism ADR-130 (3) measured, checked rather than asserted.
+
+    The finding was that censoring and silence coincide to within 0.05 on real
+    windows, i.e. that most of the censoring IS silence. If that is right then
+    removing the silent members must remove most of the censoring, and this
+    check plants the extreme case: an ensemble whose only non-silent members
+    predict cells INSIDE the cap, so the conditional censored fraction must fall
+    to exactly 0 while the unconditional one equals the silent fraction exactly.
+    An implementation that computed the conditional score over the full member
+    axis would leave the two equal, which is the defect this refuses.
+    """
+    from wildfire_nowcast.eval.metrics import front_distance_crps
+
+    cap = 8.0
+    truth = np.zeros((21, 21), dtype=bool)
+    truth[10, 10] = True
+    members = np.zeros((10, 21, 21), dtype=bool)
+    members[7, 10, 12] = True  # 2 cells away, well inside the cap
+    members[8, 12, 10] = True
+    members[9, 10, 13] = True
+
+    terms = front_distance_crps(members, truth, cap_km=cap)
+    ok = (
+        terms.censored_fraction is not None
+        and terms.censored_fraction_cond is not None
+        and _close(float(terms.censored_fraction), 0.7)
+        and _close(float(terms.censored_fraction_cond), 0.0)
+        and terms.p_silent is not None
+        and _close(float(terms.p_silent), 0.7)
+    )
+    return Check(
+        "conditional_censoring_falls_when_the_silence_is_removed",
+        ok,
+        "with every non-silent member inside the cap the unconditional censored fraction "
+        "equals the silent fraction exactly and the conditional one is 0",
+        {
+            "censored_fraction": terms.censored_fraction,
+            "censored_fraction_conditional": terms.censored_fraction_cond,
+            "p_silent": terms.p_silent,
+        },
+    )
+
+
 def check_displacement_ladder_holds_area_exactly_and_moves_monotonically() -> Check:
     """[M24] ADR-128 (4) needs a SECOND ladder, and it must vary ONE thing.
 
@@ -3830,6 +4007,11 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_front_distance_pays_silence_the_MAXIMUM_not_the_minimum,
     check_front_distance_cannot_be_bought_by_collapsing_the_ensemble,
     check_front_distance_refuses_a_window_with_no_observed_front,
+    # M25 - ADR-130 (4): silence as its own channel, and the score conditional
+    # on non-silence. The all-silent episode is a DEFINED case with a LABEL.
+    check_conditional_front_distance_equals_the_subensemble_scored_alone,
+    check_all_silent_episode_is_labelled_not_dropped_and_not_zero,
+    check_conditional_censoring_falls_when_the_silence_is_removed,
     check_displacement_ladder_holds_area_exactly_and_moves_monotonically,
     # M11 - the degradation ladder and the power read-off that stands on it
     check_degradation_null_rung_is_bitwise_the_undegraded_forecast,

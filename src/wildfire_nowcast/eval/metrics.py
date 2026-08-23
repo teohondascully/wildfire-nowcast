@@ -88,6 +88,7 @@ __all__ = [
     "CELL_SIZE_KM",
     "FRONT_DEFINED",
     "FRONT_UNDEFINED",
+    "FRONT_ALL_SILENT",
     "DEFAULT_LEADS",
     "DEFAULT_N_BINS",
 ]
@@ -344,6 +345,15 @@ CELL_SIZE_KM = CELL_SIZE_M / 1000.0
 FRONT_DEFINED = "DEFINED"
 FRONT_UNDEFINED = "UNDEFINED"
 
+#: [M25] The CONDITIONAL score's third outcome, and it names a THIRD FACT rather
+#: than a spelling of either neighbour. ``UNDEFINED`` means the truth did not
+#: grow, so no question was asked. ``ALL_SILENT`` means the question WAS asked
+#: and every member declined to answer, so there is no non-silent sub-ensemble
+#: to condition on. ADR-130 (4) forbids dropping those episodes silently -
+#: dropping them would select exactly the episodes that flatter the score - so
+#: they are LABELLED, counted, and reported both ways by the caller.
+FRONT_ALL_SILENT = "ALL_SILENT"
+
 
 def default_front_distance_cap_km(horizon_h: int) -> float:
     """Censoring distance for a ``horizon_h`` window, in km.
@@ -431,6 +441,10 @@ class FrontDistanceTerms:
         "censored_fraction",
         "cap_km",
         "n_members",
+        "truth_to_pred_cond",
+        "pred_to_truth_cond",
+        "combined_cond",
+        "censored_fraction_cond",
     )
 
     def __init__(
@@ -447,6 +461,9 @@ class FrontDistanceTerms:
         censored_fraction: float | None,
         cap_km: float,
         n_members: int,
+        truth_to_pred_cond: float | None = None,
+        pred_to_truth_cond: float | None = None,
+        censored_fraction_cond: float | None = None,
     ) -> None:
         self.truth_to_pred = truth_to_pred
         self.pred_to_truth = pred_to_truth
@@ -464,6 +481,14 @@ class FrontDistanceTerms:
             if truth_to_pred is None or pred_to_truth is None
             else 0.5 * (float(truth_to_pred) + float(pred_to_truth))
         )
+        self.truth_to_pred_cond = truth_to_pred_cond
+        self.pred_to_truth_cond = pred_to_truth_cond
+        self.censored_fraction_cond = censored_fraction_cond
+        self.combined_cond = (
+            None
+            if truth_to_pred_cond is None or pred_to_truth_cond is None
+            else 0.5 * (float(truth_to_pred_cond) + float(pred_to_truth_cond))
+        )
 
     @property
     def defined(self) -> bool:
@@ -472,6 +497,36 @@ class FrontDistanceTerms:
     @property
     def outcome(self) -> str:
         return FRONT_DEFINED if self.defined else FRONT_UNDEFINED
+
+    @property
+    def n_nonsilent_members(self) -> int:
+        """[M25] Members whose increment inside the SCORED MASK is non-empty."""
+        return int(self.n_members) - int(self.n_empty_members)
+
+    @property
+    def p_silent(self) -> float | None:
+        """[M25] ADR-130 (4) clause 1: silence as its OWN channel, not a level.
+
+        The fraction of ensemble members that produced an EMPTY increment inside
+        the mask being scored. ADR-130 (3) measured that the censored fraction
+        equals this number to within 0.05, i.e. that the unconditional score's
+        level is approximately ``cap x p_silent``. That makes this a diagnostic
+        in its own right - it answers "did the member predict anything at all",
+        which is a different question from "given that it did, where" - and it
+        is reported whatever happens to the conditional score.
+
+        Defined whenever there are members, INCLUDING on windows where the
+        channel itself is UNDEFINED: whether the ensemble spoke does not depend
+        on whether the truth grew.
+        """
+        return None if self.n_members == 0 else float(self.n_empty_members) / float(self.n_members)
+
+    @property
+    def cond_outcome(self) -> str:
+        """[M25] Three-valued, and ``ALL_SILENT`` is neither a 0.0 nor a skip."""
+        if not self.defined:
+            return FRONT_UNDEFINED
+        return FRONT_DEFINED if self.combined_cond is not None else FRONT_ALL_SILENT
 
     @property
     def asymmetry(self) -> float | None:
@@ -494,7 +549,24 @@ class FrontDistanceTerms:
                 f"outcome {self.outcome} disagrees with combined={self.combined}; a defined "
                 "measurement carries a number and an undefined one carries None"
             )
-        for name in ("truth_to_pred", "pred_to_truth", "combined"):
+        if self.cond_outcome == FRONT_ALL_SILENT and self.n_nonsilent_members != 0:
+            raise AssertionError(
+                f"cond_outcome ALL_SILENT with {self.n_nonsilent_members} non-silent members; "
+                "the conditional score is undefined only when NO member spoke"
+            )
+        if self.cond_outcome == FRONT_DEFINED and self.n_nonsilent_members == 0:
+            raise AssertionError(
+                "cond_outcome DEFINED with zero non-silent members; a conditional score "
+                "cannot be computed over an empty sub-ensemble"
+            )
+        for name in (
+            "truth_to_pred",
+            "pred_to_truth",
+            "combined",
+            "truth_to_pred_cond",
+            "pred_to_truth_cond",
+            "combined_cond",
+        ):
             value = getattr(self, name)
             if value is not None and not (
                 -_FRONT_TOL_KM <= float(value) <= self.cap_km + _FRONT_TOL_KM
@@ -521,6 +593,13 @@ class FrontDistanceTerms:
             "cap_km": self.cap_km,
             "n_members": self.n_members,
             "outcome": self.outcome,
+            "p_silent": self.p_silent,
+            "n_nonsilent_members": self.n_nonsilent_members,
+            "combined_cond": self.combined_cond,
+            "truth_to_pred_cond": self.truth_to_pred_cond,
+            "pred_to_truth_cond": self.pred_to_truth_cond,
+            "censored_fraction_cond": self.censored_fraction_cond,
+            "cond_outcome": self.cond_outcome,
         }
 
 
@@ -585,6 +664,19 @@ def front_distance_crps(
     to it. Those windows are excluded rather than scored 0.0, which is the same
     admissibility rule the incumbent ``best_member_iou_shape_masked`` uses, so
     the two are comparable on exactly the same episodes.
+
+    **[M25, ADR-130 (4)] THE CONDITIONAL TERMS.** ADR-130 (3) measured that the
+    censored fraction equals the silent-member fraction to within 0.05, so this
+    score CONFLATES two questions: (a) did the member predict anything at all,
+    and (b) given that it did, WHERE. ``*_cond`` answers (b) alone - the SAME
+    two terms computed over the non-silent sub-ensemble only, with the fair
+    estimator re-normalised to that sub-ensemble's size (at one surviving member
+    the fair CRPS degenerates to ``|x - 0|``, which :func:`crps_ensemble` already
+    handles and which is stated here rather than hidden). ``p_silent`` carries
+    (a) as its own channel. When NO member spoke the conditional terms are
+    ``None`` with ``cond_outcome == ALL_SILENT``: that is a defined case, not a
+    skip, and a caller that drops it without counting it selects exactly the
+    episodes where the ensemble was active.
     """
     pred = np.asarray(member_increment, dtype=bool)
     obs = np.asarray(truth_increment, dtype=bool)
@@ -630,6 +722,24 @@ def front_distance_crps(
             per_member_b[m] = float(to_truth[pred[m]].mean())
     total_b, n_b = crps_ensemble(per_member_b[:, None], np.zeros(1), fair=fair)
 
+    # [M25] Conditional on NON-SILENCE. `values` and `per_member_b` are already
+    # per-member, so restricting the ROWS is exact - the sub-ensemble is scored
+    # by the same estimator on the same distances, and nothing is recomputed
+    # under a different definition.
+    nonsilent = sizes > 0
+    truth_to_pred_cond: float | None = None
+    pred_to_truth_cond: float | None = None
+    censored_cond: float | None = None
+    if bool(nonsilent.any()):
+        values_cond = values[nonsilent]
+        total_c, scored_c = crps_ensemble(values_cond, zeros, fair=fair)
+        truth_to_pred_cond = _snap(total_c / scored_c)
+        total_bc, n_bc = crps_ensemble(per_member_b[nonsilent][:, None], np.zeros(1), fair=fair)
+        pred_to_truth_cond = _snap(total_bc / n_bc)
+        censored_cond = float(
+            np.count_nonzero(values_cond >= float(cap_km) - 1e-9) / values_cond.size
+        )
+
     return FrontDistanceTerms(
         truth_to_pred=truth_to_pred,
         pred_to_truth=_snap(total_b / n_b),
@@ -642,6 +752,9 @@ def front_distance_crps(
         censored_fraction=float(np.count_nonzero(values >= float(cap_km) - 1e-9) / values.size),
         cap_km=float(cap_km),
         n_members=n_members,
+        truth_to_pred_cond=truth_to_pred_cond,
+        pred_to_truth_cond=pred_to_truth_cond,
+        censored_fraction_cond=censored_cond,
     ).check()
 
 
@@ -696,6 +809,11 @@ def _front_distance_block(
 
     mean_to_pred = _mean("truth_to_pred")
     mean_to_truth = _mean("pred_to_truth")
+    # [M25] `n_defined_leads` is the denominator of the unconditional mean;
+    # `n_cond_leads` is the denominator of the conditional one, and the two
+    # differ by exactly the ALL_SILENT leads. Both are emitted so a reader can
+    # see how many episodes the conditional number is NOT computed on.
+    n_all_silent = sum(1 for t in defined if t.cond_outcome == FRONT_ALL_SILENT)
     asymmetry = (
         float(np.log(mean_to_pred / mean_to_truth))
         if mean_to_pred is not None
@@ -714,6 +832,13 @@ def _front_distance_block(
         "truth_to_pred": mean_to_pred,
         "pred_to_truth": mean_to_truth,
         "asymmetry": asymmetry,
+        # [M25, ADR-130 (4)] The two questions, separated and both reported.
+        "combined_cond": _mean("combined_cond"),
+        "truth_to_pred_cond": _mean("truth_to_pred_cond"),
+        "pred_to_truth_cond": _mean("pred_to_truth_cond"),
+        "p_silent": _mean("p_silent"),
+        "n_all_silent_leads": n_all_silent,
+        "n_cond_leads": len(defined) - n_all_silent,
         "cap_km": float(cap_km),
         "cell_size_km": CELL_SIZE_KM,
         "estimator": "fair" if fair else "biased",
@@ -733,6 +858,10 @@ def _front_distance_block(
                 "combined": by_horizon[str(lead)]["combined"],
                 "truth_to_pred": by_horizon[str(lead)]["truth_to_pred"],
                 "pred_to_truth": by_horizon[str(lead)]["pred_to_truth"],
+                "combined_cond": by_horizon[str(lead)]["combined_cond"],
+                "truth_to_pred_cond": by_horizon[str(lead)]["truth_to_pred_cond"],
+                "pred_to_truth_cond": by_horizon[str(lead)]["pred_to_truth_cond"],
+                "p_silent": by_horizon[str(lead)]["p_silent"],
             }
             for lead in leads
         },
@@ -759,7 +888,18 @@ def _pool_front_distance(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     by_horizon: dict[str, Any] = {}
     for lead in leads:
         row: dict[str, Any] = {}
-        for name in ("combined", "truth_to_pred", "pred_to_truth"):
+        for name in (
+            "combined",
+            "truth_to_pred",
+            "pred_to_truth",
+            # [M25] `n_windows_combined_cond` is smaller than `n_windows_combined`
+            # by exactly the ALL_SILENT episodes, so the pooled conditional number
+            # carries its own denominator and cannot hide a dropped stratum.
+            "combined_cond",
+            "truth_to_pred_cond",
+            "pred_to_truth_cond",
+            "p_silent",
+        ):
             values = [
                 float(b["sum_by_lead"][str(lead)][name])
                 for b in entries
@@ -778,6 +918,10 @@ def _pool_front_distance(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "combined": _over_leads("combined"),
         "truth_to_pred": _over_leads("truth_to_pred"),
         "pred_to_truth": _over_leads("pred_to_truth"),
+        "combined_cond": _over_leads("combined_cond"),
+        "truth_to_pred_cond": _over_leads("truth_to_pred_cond"),
+        "pred_to_truth_cond": _over_leads("pred_to_truth_cond"),
+        "p_silent": _over_leads("p_silent"),
         "by_horizon": by_horizon,
         "n_windows": int(sum(int(b.get("n_windows", 0)) for b in blocks)),
         "cap_km": entries[0].get("cap_km"),
