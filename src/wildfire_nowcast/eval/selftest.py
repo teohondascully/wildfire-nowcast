@@ -41,6 +41,7 @@ from typing import Any
 import numpy as np
 
 from wildfire_nowcast.common import zarr_io as zio
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.eval.metrics import (
     aggregate,
     arrival_times,
@@ -2486,6 +2487,164 @@ def check_arm_a_reloads_from_a_pre_s1_spec_without_a_stage_head() -> Check:
     )
 
 
+# --------------------------------------------------------------------------
+# M19 - the collapse positive control, and what its index is actually null to
+# --------------------------------------------------------------------------
+
+
+def check_dispersion_index_null_is_exact_for_a_one_step_field() -> Check:
+    """[M19] The index reads 1.0 where 1.0 is provably the answer, and only there.
+
+    Two known answers, both forced by algebra rather than by a previous run:
+
+    * a field of INDEPENDENT Bernoullis has ``Var(area) = sum p_i (1 - p_i)``,
+      which is exactly what the index divides by, so it reads 1.0;
+    * the stub with ``latent_sigma=0`` over ONE step is such a field, because
+      given a frozen state each candidate cell ignites on its own draw.
+
+    The second is the one that matters: it separates "the model has no shared
+    innovation" from "the index has a bug", and it fails only if the scene, the
+    sampler or the instrument has moved. Measured over 12 seeds at 384 members,
+    both sit within 1 SEM of 1.0.
+    """
+    from wildfire_nowcast.eval.collapse_curve import (
+        constructed_independent_index,
+        stub_index,
+        summarise,
+    )
+
+    constructed = [constructed_independent_index(900, 384, seed) for seed in range(12)]
+    one_step = [stub_index(30, 1, 384, seed, scaling="scaled") for seed in range(12)]
+    rows = {row.family: row for row in summarise([*constructed, *one_step])}
+    out = {name: {"index": row.index_mean, "sd": row.index_sd} for name, row in rows.items()}
+    ok = all(abs(row.index_mean - 1.0) < 0.10 for row in rows.values())
+    return Check(
+        "dispersion_index_null_is_exact_for_a_one_step_field",
+        ok,
+        "an independent-by-construction field and the stub at latent_sigma=0 over ONE step "
+        "must both read 1.0, because that is the estimand the index divides by",
+        out,
+    )
+
+
+def check_dispersion_index_null_is_NOT_one_for_a_multi_step_field() -> Check:
+    """[M19] The same control over 3 h reads far above 1.0, with no latent anywhere.
+
+    THIS CHECK PINS A DEFECT, DELIBERATELY. ``latent_sigma=0`` removes the shared
+    innovation entirely, so a reader of ``COLLAPSE_INDEX_THRESHOLD`` expects a
+    number near 1. Over three steps the same ensemble reads ~1.4-1.5, because the
+    step-2 candidate set is a FUNCTION of the step-1 draw: contagion correlates
+    the indicators the index assumes are independent. The excess is the dynamics,
+    not the latent and not the sample size.
+
+    It is asserted as a strict inequality against the ONE-step measurement in the
+    check above rather than against a pinned constant, so it states a relation
+    that stays true after any fix and does not have to be re-tuned when the scene
+    changes. If a future change makes the multi-step null equal the one-step null,
+    this check fails and that failure is the news.
+    """
+    from wildfire_nowcast.eval.collapse_curve import stub_index
+
+    one_step = float(np.mean([stub_index(30, 1, 192, s, scaling="scaled").index for s in range(8)]))
+    three_step = float(
+        np.mean([stub_index(30, 3, 192, s, scaling="scaled").index for s in range(8)])
+    )
+    six_step = float(np.mean([stub_index(30, 6, 192, s, scaling="scaled").index for s in range(8)]))
+    ok = one_step < three_step < six_step and three_step > 1.25
+    return Check(
+        "dispersion_index_null_is_NOT_one_for_a_multi_step_field",
+        ok,
+        "the independent-pixel null of 1.0 is exact for one step ONLY; over 3 h and 6 h the "
+        "same latent-free ensemble reads well above it, so a fixed threshold on this index "
+        "is partly a threshold on horizon",
+        {"h1": one_step, "h3": three_step, "h6": six_step},
+    )
+
+
+def check_dispersion_index_level_is_free_of_the_member_count() -> Check:
+    """[M19] More members shrink the SPREAD of the index and not its LEVEL.
+
+    The obvious suspect for a 2% miss on a 24-member control is that a ratio of
+    variances from 24 samples is biased. It is not, and the reason is checkable:
+    the numerator is ``areas.std()`` with ``ddof=0``, low by ``sqrt((M-1)/M)``,
+    and the denominator uses the EMPIRICAL marginals from the same M members,
+    for which ``E[p_hat(1 - p_hat)] = p(1 - p)(M-1)/M``, low by the same factor.
+    A ratio carrying the same M-factor in both halves is M-free to first order.
+
+    So this asserts the shape rather than a value: the cell MEAN moves by less
+    than the seed SD across a 16x change in members, while the seed SD itself
+    falls by at least 2.5x. A member count cannot buy a control that the level
+    does not already give.
+    """
+    from wildfire_nowcast.eval.collapse_curve import stub_index, summarise
+
+    rows = {
+        m: summarise([stub_index(30, 3, m, s, scaling="scaled") for s in range(12)])[0]
+        for m in (24, 384)
+    }
+    level_shift = abs(rows[384].index_mean - rows[24].index_mean)
+    sd_ratio = rows[24].index_sd / rows[384].index_sd
+    ok = level_shift < rows[384].index_sd * 2 and sd_ratio > 2.5
+    return Check(
+        "dispersion_index_level_is_free_of_the_member_count",
+        ok,
+        "16x the members moves the index LEVEL by less than 2 seed-SD while cutting the "
+        "seed SD by more than 2.5x: members buy precision, not a verdict",
+        {
+            "index_at_24": rows[24].index_mean,
+            "index_at_384": rows[384].index_mean,
+            "level_shift": level_shift,
+            "sd_at_24": rows[24].index_sd,
+            "sd_at_384": rows[384].index_sd,
+            "sd_ratio": sd_ratio,
+        },
+    )
+
+
+def check_no_firing_configuration_is_reported_as_a_nearest_miss() -> Check:
+    """[M19] "nothing fired" and "the cheapest thing that fired" are different values.
+
+    ADR-104's rule applied to this module's own read-off. A control that fires on
+    11 of 12 seeds has not been shown to fire, and
+    :func:`smallest_firing_configuration` must return ``None`` for that case
+    rather than the nearest miss, because a nearest miss rendered in the
+    "smallest configuration" row is indistinguishable from a control that works.
+    Both directions are exercised: an all-firing summary returns a row, and the
+    same summary with one seed removed from the collapsed count returns None.
+    """
+    from dataclasses import replace
+
+    from wildfire_nowcast.eval.collapse_curve import (
+        CellSummary,
+        smallest_firing_configuration,
+    )
+
+    fires = CellSummary(
+        family="f",
+        domain=30,
+        horizon_h=3,
+        members=24,
+        n_seeds=12,
+        index_mean=1.2,
+        index_sd=0.1,
+        index_min=1.0,
+        index_max=1.4,
+        n_collapsed=12,
+        area_mean=40.0,
+    )
+    nearly = replace(fires, n_collapsed=11)
+    found = smallest_firing_configuration([fires], family="f", horizon_h=3)
+    missed = smallest_firing_configuration([nearly], family="f", horizon_h=3)
+    ok = found is not None and missed is None
+    return Check(
+        "no_firing_configuration_is_reported_as_a_nearest_miss",
+        ok,
+        "12/12 seeds returns a configuration and 11/12 returns None: a control that nearly "
+        "fires must not be printed in the row that says it fires",
+        {"all_seeds": found is not None, "one_seed_short": missed is None},
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -2557,17 +2716,35 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_arm_s_is_arm_a_plus_four_parameters_and_starts_there,
     check_stage_covariate_is_one_global_scalar_of_x_t,
     check_arm_a_reloads_from_a_pre_s1_spec_without_a_stage_head,
+    # M19 - what the collapse positive control's index is null to, and what it
+    # is not. The threshold in sim/ensemble.py is READ by these checks and is
+    # not restated, moved or argued with here.
+    check_dispersion_index_null_is_exact_for_a_one_step_field,
+    check_dispersion_index_null_is_NOT_one_for_a_multi_step_field,
+    check_dispersion_index_level_is_free_of_the_member_count,
+    check_no_firing_configuration_is_reported_as_a_nearest_miss,
 )
 
 
 def run_all(checks: Sequence[Callable[[], Check]] = CHECKS) -> list[Check]:
-    """Run every known-answer check; an exception is a failure, never a crash."""
+    """Run every known-answer check; an exception is a failure, never a crash.
+
+    [M19] A CRASHED CHECK MUST CARRY THE SAME NAME AS A PASSING ONE. Every
+    ``check_x`` returns ``Check("x", ...)``, so building the failure record from
+    ``fn.__name__`` filed it under ``"check_x"`` instead. A consumer indexing the
+    ``--json`` output by name therefore found the check present while it passed
+    and ABSENT the moment it started raising - the one state in which someone is
+    looking for it. Found by a discrimination plant whose runner keyed on the
+    name and got a ``KeyError`` rather than a False.
+    """
     results: list[Check] = []
     for fn in checks:
         try:
             results.append(fn())
         except Exception as exc:  # noqa: BLE001 - a raising check is a failing check
-            results.append(Check(fn.__name__, False, f"{type(exc).__name__}: {exc}"))
+            results.append(
+                Check(fn.__name__.removeprefix("check_"), False, f"{type(exc).__name__}: {exc}")
+            )
     return results
 
 
@@ -2577,7 +2754,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Known-answer verification for the C5 baselines and C6 metrics.",
     )
     parser.add_argument("--json", action="store_true", help="emit machine-readable results")
+    add_logging_arguments(parser)
     args = parser.parse_args(list(argv) if argv is not None else None)
+    # ADR-103: configured here and nowhere else. --json prints a document a
+    # caller parses, so a diagnostic must not be able to reach stdout beside it;
+    # configure_logging enforces that by refusing sys.stdout.
+    configure_from_args(args)
 
     results = run_all()
     failed = [c for c in results if not c.passed]
@@ -2586,7 +2768,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         for check in results:
             flag = "PASS" if check.passed else "FAIL"
-            print(f"[{flag}] {check.name} — {check.detail}")
+            print(f"[{flag}] {check.name}: {check.detail}")
             for key, value in check.values.items():
                 print(f"         {key}: {value}")
         print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
