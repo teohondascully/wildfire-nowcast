@@ -2,11 +2,50 @@
 
     .venv/bin/python -m wildfire_nowcast.eval.collapse_curve --out <artifact>.json
 
+THE PREMISE THIS MODULE RESTS ON, STATED HERE RATHER THAN CITED
+---------------------------------------------------------------
+This project models pixels as conditionally independent Bernoulli ONLY given a
+shared per-step latent ``z_t``. A kernel whose only stochasticity is
+independent per-pixel noise is retained as an ABLATION and is never a
+candidate. The reason is arithmetic before it is empirical: a sum of order
+10^4 independent Bernoullis concentrates on its mean, so members differ pixel
+by pixel while their total burned areas do not, and the ensemble carries no
+usable spread. It is also measured, on this repository's own arms: removing the
+shared latent narrows the ensemble by 3.7 to 7.8 times on 16 of 25 arms, and by
+1.1 to 1.6 times on the other nine, which had almost no dispersion left to
+lose. README.md states the same commitment publicly and carries those numbers.
+
+THIS FILE CARRIES THE DIRECT MEASUREMENT OF IT, SO IT POINTS NOWHERE FOR IT
+---------------------------------------------------------------------------
+The INSTRUMENT is controlled before it is used as a control. On a field that is
+independent BY CONSTRUCTION the index reads 1.0338, 1.0052, 1.0109, 1.0106,
+0.9936 at 24, 48, 96, 192, 384 members, with the seed spread falling 0.1215 to
+0.0429, and 0.9674 at 24 members over 200 seeds, judged COLLAPSED in 200 of 200
+draws. Without that reading, an index above 1.0 could mean a broken estimator
+just as easily as a correlated field, and nothing below could tell the two
+apart.
+
+Then the premise itself. With ``latent_sigma=0`` at horizon 1, one step of this
+ensemble sits ON the independent-pixel floor: 1.0154, 1.0273, 0.9998, 1.0133,
+1.0048 at the same five member counts, 12 of 12 seeds judged COLLAPSED at every
+one of them. Switching off the shared latent leaves nothing above the floor,
+and that is what collapse means here. The claim is measured in this file rather
+than repeated from somewhere a reader of this file cannot open.
+
+The same sweep is equally clear about what it does NOT establish, which is why
+the module exists at all. At ``latent_sigma=0`` and horizon 3 the index reads
+1.5114 over 200 seeds (sd 0.2073, range 0.9690 to 2.2568) and judges the
+documented control COLLAPSED in only 97 of 200 draws, a coin flip. It does not
+converge to 1.0 with size either: at 384 members and horizon 3 it reads 1.4713,
+1.4296, 1.3928, 1.3985, 1.3716 on domains 30, 60, 120, 240, 480. So a
+MULTI-STEP reading of this index is not a statement about the latent, and the
+premise above is legible at horizon 1 and unreadable above it. The section on
+the null, below, says why from the algebra rather than from these numbers.
+
 WHAT IS BEING ASKED, AND WHY IT IS A MEASUREMENT AND NOT A DECISION
 ------------------------------------------------------------------
-CLAUDE.md's ground truth says independent-per-pixel-noise-only models are
-known-broken by ensemble collapse and exist only as an ablation. G3's wording is
-"ablation demonstrates collapse". The documented positive control for that is
+G3's wording is "ablation demonstrates collapse". The documented positive
+control for that is
 ``StubEnsemble(latent_sigma=0)``: with the shared latent held at zero the
 ensemble should behave as independent pixels, so
 :func:`wildfire_nowcast.sim.ensemble.independence_dispersion_index` should read
@@ -63,12 +102,15 @@ retained for.
 index used here is the shipped one rather than a copy, so the curve describes
 the instrument in the tree and not a re-derivation of it.
 
-**A CLONE CANNOT CHECK THIS MODULE'S ARTIFACTS**, and no path to one is written
-here for that reason. The sweep artifacts land wherever ``--out`` says, and the
-run directory is excluded from the public tree by ``.gitignore``. Citing a path
-a clone cannot open is the ADR-105 (3) defect, so the numbers live in the
-coordination record and the CURVE IS RE-DERIVABLE by running the command above,
-which is the property that actually matters: nothing here reads a stored value.
+**A CLONE CANNOT OPEN THIS MODULE'S SWEEP ARTIFACTS**, and no path to one is
+written here for that reason. They land wherever ``--out`` says, and the run
+directory is excluded from the public tree by ``.gitignore``; naming a path a
+clone cannot open is the ADR-105 (3) defect and would trade one unopenable
+reference for another. Two things stand in its place, and both are better than
+a path. Every number this module asserts is written out above, in full, at the
+setting it was measured at. And THE CURVE IS RE-DERIVABLE by the one command at
+the top of this docstring: nothing here reads a stored value, so the artifacts
+are a record of a run and never the support for a claim.
 """
 
 from __future__ import annotations
