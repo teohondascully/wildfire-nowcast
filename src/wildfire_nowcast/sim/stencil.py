@@ -425,7 +425,7 @@ def render_stencils(
             ax.legend(fontsize=6, frameon=False, loc="upper left")
 
     fig.suptitle(
-        "One-step spread stencil on a UNIFORM, FLAT, single-fuel probe — "
+        "One-step spread stencil on a UNIFORM, FLAT, single-fuel probe - "
         "measured through C5 predict() only\n"
         "every source of anisotropy except wind is removed by construction, "
         "so a non-zero mean centroid "

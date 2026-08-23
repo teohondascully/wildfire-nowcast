@@ -446,7 +446,7 @@ def _draw_status(ax: Any, fire: FireFrames, t: int) -> None:
         ax.text(
             0.5,
             0.965,
-            f"DORMANT — no active fire line (hour {run} of this run). "
+            f"DORMANT - no active fire line (hour {run} of this run). "
             "LEGAL under C1.1; the fire has not gone out.",
             transform=ax.transAxes,
             ha="center",
@@ -585,13 +585,13 @@ def render_movie(
         if spec.pacing == "uniform"
         else f"EVENT pacing: high-growth hours dwell up to {spec.max_dwell}x — NOT real time"
     )
-    stamp(fig, f"{fire.fire_id} · {fire.source} · C1 v2.3 · {pacing_note} · {spec.fps} fps")
+    stamp(fig, f"{fire.fire_id} | {fire.source} | C1 v2.3 | {pacing_note} | {spec.fps} fps")
 
     writer, out_path = _writer(Path(out), spec.fps)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     fig.suptitle(
-        f"{fire.fire_id} — fire state + 10 m wind",
+        f"{fire.fire_id} - fire state + 10 m wind",
         fontsize=11,
         y=1.0 - 0.14 / fig._layout_in[1],  # noqa: SLF001
         va="top",

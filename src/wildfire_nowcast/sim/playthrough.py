@@ -553,7 +553,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--render-playthrough1",
         default="reports/figures/playthrough_coarsening.json",
-        help="coarsening playthrough artifact consumed by --render",
+        help=(
+            "coarsening playthrough artifact consumed by --render, written by "
+            "`python -m wildfire_nowcast.sim.coarsen`"
+        ),
     )
     # ADR-103: the flags, not the configuration. `main` configures. This CLI drives
     # `sim.elmfire`, which warns about a member whose mpirun returned non-zero, so
@@ -683,7 +686,7 @@ def render_verdict(
     ax.axvline(p2["arms"][0]["burned_at_t0"], color="k", ls="--", lw=1)
     ax.set_xlabel("cells burned after 3 h (dashed = t0 state)", fontsize=8)
     ax.set_title(
-        "PLAYTHROUGH 2 — synthetic TU5, 12 m/s, 3% FM. Red = flagged DEGENERATE.\n"
+        "PLAYTHROUGH 2 - synthetic TU5, 12 m/s, 3% FM. Red = flagged DEGENERATE.\n"
         "1 km WITH a canopy nearly matches 30 m; 30 m WITHOUT one is zero.",
         fontsize=9,
     )
@@ -702,7 +705,7 @@ def render_verdict(
     ax.set_ylabel("new cells in 3 h (member median)", fontsize=8)
     ax.legend(fontsize=7)
     ax.set_title(
-        "REAL FIRE — 2019 Kincade, three highest-growth windows.\n"
+        "REAL FIRE - 2019 Kincade, three highest-growth windows.\n"
         "Same windows, members and seed; ONLY the input path differs.",
         fontsize=9,
     )
@@ -742,7 +745,7 @@ def render_verdict(
         transform=ax.transAxes,
     )
     fig.suptitle(
-        "S4 — ELMFIRE on NATIVE INPUTS, CONTRACT OUTPUTS (ADR-026 (3)): adapter validation",
+        "S4 - ELMFIRE on NATIVE INPUTS, CONTRACT OUTPUTS (ADR-026 (3)): adapter validation",
         fontsize=12,
     )
     out_path = Path(out)

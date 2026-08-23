@@ -422,7 +422,7 @@ def render_drift(per_fire: dict[str, dict[str, Any]], out: str | Path) -> Path:
         ax.set_xticklabels([f.replace("2020_", "") for f in fires], fontsize=7.5, rotation=12)
         ax.set_yscale("log")
         ax.set_ylabel("ignition-rate ratio  on-class / off-class\n(ring-matched, pooled)")
-        ax.set_title(f"(a) {label} response — lower = more suppression", fontsize=9.5)
+        ax.set_title(f"(a) {label} response - lower = more suppression", fontsize=9.5)
         ax.grid(alpha=0.25, lw=0.5, axis="y")
         if col == 0:
             ax.legend(fontsize=7, frameon=False, ncol=2)
@@ -439,7 +439,7 @@ def render_drift(per_fire: dict[str, dict[str, Any]], out: str | Path) -> Path:
     ax.text(
         lim * 0.52,
         lim * 0.46,
-        "equal — no frame preference",
+        "equal - no frame preference",
         rotation=41,
         fontsize=6.5,
         color="#374151",

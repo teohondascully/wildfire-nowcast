@@ -307,7 +307,7 @@ def render_run_dashboard(
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band best-member IoU  (higher is better)")
-    ax.set_title("(2) band best-member IoU — shaded = available for SILENCE", fontsize=10)
+    ax.set_title("(2) band best-member IoU - shaded = available for SILENCE", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5)
     ax.set_ylim(0, None)
     ax.legend(fontsize=5.8, frameon=False, ncol=2, loc="upper right")
@@ -377,7 +377,7 @@ def render_run_dashboard(
     ax.set_xticklabels(models, rotation=38, ha="right", fontsize=6.4)
     ax.axhline(1.0, color=COL_TEXT, lw=0.8, ls="--")
     ax.set_ylabel("ratio")
-    ax.set_title("(3) G3 HALF ONE — ensemble dispersion. Read the DARK bars.", fontsize=10)
+    ax.set_title("(3) G3 HALF ONE - ensemble dispersion. Read the DARK bars.", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5, axis="y")
     ax.set_ylim(0, max(1.42, float(np.nanmax(dr + adr + [1.3])) * 1.08))
     ax.legend(fontsize=6.0, frameon=False, loc="upper left", bbox_to_anchor=(0.0, 0.78))
@@ -425,7 +425,7 @@ def render_run_dashboard(
         ax.set_xlabel("lead time (h)")
         ax.set_ylabel(f"{G3_KEYS['calibration']}  (probability points, lower better)")
         ax.set_title(
-            f"(4) G3 HALF TWO — {G3_KEYS['calibration']} on the {G3_KEYS['calibration_mask']} mask",
+            f"(4) G3 HALF TWO - {G3_KEYS['calibration']} on the {G3_KEYS['calibration_mask']} mask",
             fontsize=10,
         )
         ax.grid(alpha=0.25, lw=0.5)
@@ -442,7 +442,7 @@ def render_run_dashboard(
             "`aggregate()` inside by_mask[...].reliability_summary[<lead>],\n"
             "but `eval/baseline_run._headline` is a CURATED ALLOW-LIST and\n"
             "carries no calibration_* key. So a G3 run would print a table\n"
-            "WITHOUT its own gate criterion — the exact defect infra\n"
+            "WITHOUT its own gate criterion - the exact defect infra\n"
             "caught for C6.4 one gate ago (ADR-020 (6)).\n\n"
             "Verified by CALLING _headline, not by reading it.\n"
             "Raised against eval/baseline_run. Nothing here is a G3 verdict.",
@@ -476,7 +476,7 @@ def render_run_dashboard(
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band ECE  (lower is better)")
-    ax.set_title("(4b) RETIRED — band ECE. NOT G3's criterion.", fontsize=10)
+    ax.set_title("(4b) RETIRED - band ECE. NOT G3's criterion.", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5)
     ece_badge = _wrap(badge(classify("band_ece_by_horizon", evidence=evidence)), 88, 5)
     _badge_box(ax, ece_badge)
@@ -499,7 +499,7 @@ def render_run_dashboard(
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band reliability (REL)")
-    ax.set_title("(4c) DEMOTED — REL, G3's ORIGINAL bar. Do not quote.", fontsize=10)
+    ax.set_title("(4c) DEMOTED - REL, G3's ORIGINAL bar. Do not quote.", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5)
     rel_badge = _wrap(badge(classify("band_reliability_by_horizon", evidence=evidence)), 88, 5)
     _badge_box(ax, rel_badge)
@@ -523,7 +523,7 @@ def render_run_dashboard(
     ax.set_xticks([1, 2, 3])
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("band resolution  (higher is better)")
-    ax.set_title("(5) resolution — persistence sits at EXACTLY 0", fontsize=10)
+    ax.set_title("(5) resolution - persistence sits at EXACTLY 0", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5)
 
     # -- (6) silence / shape split, when supplied --------------------------
@@ -630,7 +630,7 @@ def render_run_dashboard(
         f"stratum: {stratum}",
     ]
     fig.suptitle(
-        "GATE-ATTEMPT DASHBOARD — every number here is C6 output; no model internal is read\n"
+        "GATE-ATTEMPT DASHBOARD - every number here is C6 output; no model internal is read\n"
         + "   |   ".join(str(b) for b in bits),
         fontsize=10.5,
     )

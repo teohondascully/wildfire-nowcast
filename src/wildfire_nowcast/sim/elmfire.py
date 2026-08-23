@@ -146,8 +146,10 @@ MAPPING_COMPROMISES: list[dict[str, str]] = [
             "measured, not asserted: exact on resolvable features; a fire finger "
             "narrower than 1 km is UNREPRESENTABLE at 1 km by any binary rule "
             "(500 m finger retains 67% of its area in 6 fragments). Biases ELMFIRE "
-            "LOW on fine fingering, which is the flattering direction and is why "
-            "it is measured in reports/figures/playthrough_coarsening.json."
+            "LOW on fine fingering, which is the flattering direction, so it is "
+            "measured and not asserted: `python -m wildfire_nowcast.sim.coarsen` "
+            "recomputes it from analytic scenes, with no corpus and no checkpoint, "
+            "so a reader who clones this repository can reproduce the number."
         ),
     },
     {

@@ -157,7 +157,7 @@ def render(report: dict[str, Any], out_png: Path) -> None:
     blocks = sorted({int(r["spatial_block_id"]) for r in rows})
     fig, axes = plt.subplots(2, 2, figsize=(14.5, 9.6))
     fig.suptitle(
-        "S5 — block 5 (CZU) cannot spread because its MEAN is 3-7x too small.\n"
+        "S5 - block 5 (CZU) cannot spread because its MEAN is 3-7x too small.\n"
         "The 'CZU is ordinary at w_brier=0' reading is the ratio's denominator, not its "
         "numerator.",
         fontsize=13,
@@ -271,7 +271,7 @@ def render(report: dict[str, Any], out_png: Path) -> None:
         ax.set_xlabel("Mahalanobis distance of scored conditions from TRAIN support")
         ax.set_ylabel("spread-to-signal (m7_offstate_s1)")
         ax.set_title(
-            "(D) TRANSFER TEST, n=4 — a TREND, not a law.\n"
+            "(D) TRANSFER TEST, n=4 - a TREND, not a law.\n"
             "Blocks 5 and 6 are equally far from train (4.17 vs 4.07)\n"
             "and 2.2x apart in spread. Distance cannot be the operative variable.",
             fontsize=9,

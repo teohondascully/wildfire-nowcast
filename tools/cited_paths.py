@@ -191,6 +191,42 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             ("tests/test_sim_review.py", "reports/figures/elmfire_degeneracy_verdict.json"),
             ("tests/test_sim_review.py", "reports/review.html"),
             ("tests/test_sim_s5_report.py", "reports/figures/s5_block5_anatomy.json"),
+            # Declared at S12 by the owner of `sim/`, for that package only. The
+            # test applied is ROLE and it is stated so the next reader can apply it:
+            # PLUMBING - where a program of this tree PUTS an artifact or GETS
+            # one - is declared here; PROVENANCE - "this file backs the number
+            # printed beside it" - is NOT, and the four provenance citations this
+            # package held were repaired in source instead. The producing command
+            # is named at every citation site below, so the reason above is
+            # checkable where the path is written and not only in this table.
+            ("src/wildfire_nowcast/sim/coarsen.py", "reports/figures/playthrough_coarsening.json"),
+            ("src/wildfire_nowcast/sim/dashboard.py", "reports/figures/dashboard.png"),
+            ("src/wildfire_nowcast/sim/e1_report.py", "reports/figures/e1_stage_decay.png"),
+            ("src/wildfire_nowcast/sim/elmfire.py", "reports/figures/elmfire_native_smoke.json"),
+            ("src/wildfire_nowcast/sim/ensemble.py", "outputs/synthetic_fire/tensor.zarr"),
+            ("src/wildfire_nowcast/sim/ensemble.py", "reports/figures/synthetic_ensemble.png"),
+            ("src/wildfire_nowcast/sim/growth.py", "reports/figures/growth_anatomy.png"),
+            (
+                "src/wildfire_nowcast/sim/playthrough.py",
+                "reports/figures/elmfire_degeneracy_verdict.json",
+            ),
+            (
+                "src/wildfire_nowcast/sim/playthrough.py",
+                "reports/figures/playthrough_coarsening.json",
+            ),
+            (
+                "src/wildfire_nowcast/sim/playthrough.py",
+                "reports/figures/playthrough_nondegeneracy.json",
+            ),
+            ("src/wildfire_nowcast/sim/review.py", "reports/review.html"),
+            ("src/wildfire_nowcast/sim/rundash.py", "reports/figures/gate_dashboard.png"),
+            ("src/wildfire_nowcast/sim/rundash.py", "reports/figures/iou_decomposition.json"),
+            ("src/wildfire_nowcast/sim/rundash.py", "reports/figures/null_check_report.json"),
+            (
+                "src/wildfire_nowcast/sim/selftest.py",
+                "reports/figures/playthrough_nondegeneracy.json",
+            ),
+            ("src/wildfire_nowcast/sim/stencil.py", "reports/figures/stencil.png"),
         ),
     ),
     "corpus": (
@@ -208,6 +244,13 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             ("tests/test_adopted_selftests.py", "data/events/crossings.json"),
             ("tests/test_data_crossings_rules.py", "data/events/crossings.json"),
             ("tests/test_data_leakage_stats.py", "data/leakage/c1_6_channel_leakage.json"),
+            # S12: both are command lines a reader types after building
+            # the corpus, in the usage block at the top of the module.
+            (
+                "src/wildfire_nowcast/sim/components.py",
+                "data/fires/2020_july_complex/tensor.zarr",
+            ),
+            ("src/wildfire_nowcast/sim/movie.py", "data/fires/2019_kincade/tensor.zarr"),
         ),
     ),
     "proposal": (
@@ -238,6 +281,14 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             ("tools/cited_runs.py", "runs/baselines-20260809-035037"),
             ("tools/cited_runs.py", "runs/baselines-20260809-073414"),
             ("tools/cited_runs.py", "runs/baselines-20260809-102243"),
+            # S12: the two modules that READ the records these two
+            # figures are built from. Membership is checked against
+            # tools/cited_runs.py::EXEMPT, so this borrows that reason and does
+            # not restate it.
+            ("src/wildfire_nowcast/sim/review.py", "runs/baselines-20260808-095003"),
+            ("src/wildfire_nowcast/sim/review.py", "runs/baselines-20260809-073414"),
+            ("src/wildfire_nowcast/sim/review.py", "runs/baselines-20260809-102243"),
+            ("src/wildfire_nowcast/sim/s5_report.py", "runs/baselines-20260809-073414"),
         ),
     ),
 }
@@ -288,20 +339,16 @@ DEBT: Final[dict[str, int]] = {
     "src/wildfire_nowcast/data/leakage.py": 1,
     "src/wildfire_nowcast/data/sources/barriers.py": 1,
     "src/wildfire_nowcast/eval/regime_calibration.py": 1,
-    "src/wildfire_nowcast/sim/coarsen.py": 1,
-    "src/wildfire_nowcast/sim/components.py": 2,
-    "src/wildfire_nowcast/sim/dashboard.py": 1,
-    "src/wildfire_nowcast/sim/e1_report.py": 1,
-    "src/wildfire_nowcast/sim/elmfire.py": 2,
-    "src/wildfire_nowcast/sim/ensemble.py": 2,
-    "src/wildfire_nowcast/sim/growth.py": 1,
-    "src/wildfire_nowcast/sim/movie.py": 1,
-    "src/wildfire_nowcast/sim/playthrough.py": 3,
-    "src/wildfire_nowcast/sim/review.py": 7,
-    "src/wildfire_nowcast/sim/rundash.py": 3,
-    "src/wildfire_nowcast/sim/s5_report.py": 1,
-    "src/wildfire_nowcast/sim/selftest.py": 1,
-    "src/wildfire_nowcast/sim/stencil.py": 1,
+    # S12: 26 of the 27 discharged - 22 declared above by ROLE and 4
+    # repaired in source, where the citation was PROVENANCE for a published
+    # number and the target can never be made reachable. The one that remains is
+    # not a judgement call: `sim/review.py` publishes
+    # `Provenance for the three bullets: <the artifact>` on the reviewer page,
+    # which is the exact class this module exists to catch, and its value is
+    # pinned by `tests/test_sim_review.py:566`, which is in a package this
+    # package's owner does not write to. Reported to that owner rather than
+    # swept across the boundary.
+    "src/wildfire_nowcast/sim/review.py": 1,
 }
 
 UNSEEN_BY_CONSTRUCTION: Final = (

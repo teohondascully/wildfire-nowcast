@@ -577,7 +577,8 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
 #: infra swept its own 38 in `common/`, `tools/` and `tests/` the same day, and
 #: the last 25 in `eval/`, `model/`, `runs/` and `sim/` went in one burst:
 #: `sim/` at `8b62729` (S11), `data/` at `8d3c5c0` (D14), `model/` at `7c78d32`
-#: (M19). Every one of those files is STILL TRACKED, checked against
+#: (M19); the 125 the widened sinks then exposed in `sim/` went at S12. Every
+#: one of those files is STILL TRACKED, checked against
 #: `git ls-files` rather than inferred from a count of zero, so this dict reads
 #: "swept" and not "deleted".
 #:
@@ -602,35 +603,19 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
 #: inferred classifier health from the SIZE of this dict could not survive the
 #: dict being emptied, and did not: a floor of 20 was left guarding a debt of 14.
 #:
-#: RE-POPULATED BY THE SINK WIDENING, AND EVERY ENTRY IS IN `sim/`.
-#: The drawn-text and page-fragment sinks were adopted from that package's own
-#: proposal, which asked for exactly this: the characters become ordinary pinned
-#: debt, swept by their owner, with the pin moving in the same commit as the
-#: sweep. 125 characters across 13 files, none of them in `common/`, `tools/`,
-#: `tests/`, `model/`, `eval/` or `data/`. The count this scanner reads is 125
-#: and the proposal's own measurement was 138; the two are different scanners
-#: over different definitions, and the number pinned here is the one this gate
-#: can reproduce.
-#: THE PIN IS NOT AN ACCEPTANCE. A dash in a figure title is what the reader of
-#: this project's output actually reads, which is the whole argument for the
-#: category; these are declared so the gate is green while their owner sweeps
-#: them, and every one of the four failure directions above applies to them from
-#: this commit on.
-OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {
-    "src/wildfire_nowcast/sim/components.py": 4,
-    "src/wildfire_nowcast/sim/dashboard.py": 2,
-    "src/wildfire_nowcast/sim/drift.py": 2,
-    "src/wildfire_nowcast/sim/e1_report.py": 2,
-    "src/wildfire_nowcast/sim/ensemble.py": 5,
-    "src/wildfire_nowcast/sim/growth.py": 3,
-    "src/wildfire_nowcast/sim/movie.py": 6,
-    "src/wildfire_nowcast/sim/playthrough.py": 3,
-    "src/wildfire_nowcast/sim/replay.py": 2,
-    "src/wildfire_nowcast/sim/review.py": 85,
-    "src/wildfire_nowcast/sim/rundash.py": 8,
-    "src/wildfire_nowcast/sim/s5_report.py": 2,
-    "src/wildfire_nowcast/sim/stencil.py": 1,
-}
+#: RE-POPULATED BY THE SINK WIDENING AT `88ebd93`, AND SWEPT AGAIN AT S12.
+#: The drawn-text and page-fragment sinks made 125 previously invisible
+#: characters visible across 13 `sim/` files, pinned as that package's debt with
+#: the sweep owed by its owner. All 125 are gone: 100 EM DASH, 24 MIDDLE DOT and
+#: 1 DOUBLE VERTICAL LINE, rewritten in the reader-visible literal only, on the
+#: exact lines this scanner named and no others. The control that makes that a
+#: measurement rather than a claim is the OTHER regions: `docstring`, `comment`,
+#: `err-msg`, `literal` and `prose` are unchanged across the sweep, so nothing
+#: was reclassified into a quieter bin - only the failing region fell, by
+#: exactly 125. The scanner's count was 125 where the proposal that asked for
+#: the widening measured 138; the two are different definitions and the gate
+#: reproduces this one.
+OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {}
 
 
 @dataclass(frozen=True)

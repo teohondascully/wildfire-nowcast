@@ -199,7 +199,7 @@ def render(payload: dict[str, Any], path: Path) -> Path:
     verdict = str(payload.get("verdict", "MISSING"))
     reason = str(payload.get("verdict_reason", ""))
     fig.suptitle(
-        f"E1 (ADR-064) — {payload.get('n_blocks_positive', '?')} of "
+        f"E1 (ADR-064) - {payload.get('n_blocks_positive', '?')} of "
         f"{payload.get('n_blocks_scored', '?')} held-out blocks ACCELERATE under ELMFIRE   |   "
         f"verdict: {verdict}",
         fontsize=13,
@@ -215,7 +215,7 @@ def render(payload: dict[str, Any], path: Path) -> Path:
                 f"split {payload.get('split_fingerprint')}",
                 f"members {payload.get('headline_member_prefix') or 'MISSING'}",
                 f"stride {payload.get('stride')}  horizon {payload.get('horizon_h')} h",
-                "stage_decay is NOT LICENSED to decide a gate — G5 is NOT attempted here",
+                "stage_decay is NOT LICENSED to decide a gate - G5 is NOT attempted here",
             )
         ),
     )

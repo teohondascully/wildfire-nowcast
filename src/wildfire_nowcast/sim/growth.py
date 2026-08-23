@@ -484,7 +484,7 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
     ax.set_xticklabels([f"{s}\n(vs mean wind)" for s in SECTORS], fontsize=8)
     ax.set_ylabel("predicted / truth new cells in sector")
     ax.set_title(
-        "(3) SHAPE, on growth windows only — head-deficient, rear-excessive.\n"
+        "(3) SHAPE, on growth windows only - head-deficient, rear-excessive.\n"
         "Compare kernel_init (untrained): the anisotropy is INVERTED by training.",
         fontsize=9.5,
     )
@@ -510,14 +510,14 @@ def render(summary: dict[str, Any], rows: list[WindowGrowth], out: str | Path) -
     ax.set_yscale("symlog", linthresh=1.0)
     ax.set_xlabel("truth new cells in window (symlog)")
     ax.set_ylabel("predicted new cells (ensemble mean, symlog)")
-    ax.set_title("(4) per window — the column at truth=0 is the whole story", fontsize=10)
+    ax.set_title("(4) per window - the column at truth=0 is the whole story", fontsize=10)
     ax.grid(alpha=0.25, lw=0.5)
     ax.legend(fontsize=6.5, frameon=False, ncol=2, loc="upper left")
 
     n_d = summary[order[0]]["n_windows_truth_dormant"] if order else 0
     n_w = summary[order[0]]["n_windows"] if order else 0
     fig.suptitle(
-        "ANATOMY OF THE GROWTH OVER-PREDICTION — every number via C5 predict() and the C1 "
+        "ANATOMY OF THE GROWTH OVER-PREDICTION - every number via C5 predict() and the C1 "
         "tensor; no model internal is read\n"
         f"{n_w} windows, {n_d} of them ({100.0 * n_d / max(n_w, 1):.0f}%) with BITWISE ZERO "
         "truth growth. Splits sum EXACTLY to C6.2's own growth_ratio (asserted).",

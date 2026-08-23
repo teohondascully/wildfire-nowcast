@@ -612,7 +612,7 @@ def render_small_multiples(
     ]
     fig.legend(handles=handles, loc="lower center", ncol=5, fontsize=8, frameon=False)
 
-    fig.suptitle(f"{fire_id} — member vs truth, growth band only\n{subtitle}", fontsize=11, y=0.995)
+    fig.suptitle(f"{fire_id} - member vs truth, growth band only\n{subtitle}", fontsize=11, y=0.995)
     fig.tight_layout(rect=(0.0, 0.045, 0.975, 0.965))
     if prob_im is not None:
         # Placed after tight_layout, in its own axes: a colourbar attached to the
@@ -750,7 +750,7 @@ def render_decomposition(
     ax.grid(alpha=0.22, lw=0.5, axis="y")
 
     fig.suptitle(
-        "WHERE band_best_member_iou comes from — silence credit vs mode capture\n"
+        "WHERE band_best_member_iou comes from - silence credit vs mode capture\n"
         "silence term = leads where truth grew ZERO cells in the band, where C6's "
         "empty-vs-empty IoU is 1.0 for a member that ignites nothing and 0.0 for "
         "one that ignites one cell",

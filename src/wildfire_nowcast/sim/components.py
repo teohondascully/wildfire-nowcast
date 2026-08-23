@@ -382,7 +382,7 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
             (src[0] + b[0]) / 2,
             (src[1] + b[1]) / 2,
             f"  {far['km_to_nearest_burning']:.1f} km to the nearest burning cell\n"
-            f"  at hour {far['ignition_hour']} — {verdict}",
+            f"  at hour {far['ignition_hour']} - {verdict}",
             color=COL_WARN,
             fontsize=9,
             fontweight="bold",
@@ -425,7 +425,7 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
     for k, ax_pos in enumerate((gs[0, 1], gs[0, 2])):
         ax = fig.add_subplot(ax_pos)
         if second is None:
-            ax.text(0.5, 0.5, "single ignition — nothing to show", ha="center", va="center")
+            ax.text(0.5, 0.5, "single ignition - nothing to show", ha="center", va="center")
             ax.set_xticks([])
             ax.set_yticks([])
             continue
@@ -444,7 +444,7 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_title(
-            f"hour {t} — {fire.label(t)}\n{int(burned.sum())} cells burned, "
+            f"hour {t} - {fire.label(t)}\n{int(burned.sum())} cells burned, "
             f"{result['components_per_hour'][t]} component(s)",
             fontsize=9,
             color=COL_WARN if k == 1 else COL_TEXT,
@@ -473,7 +473,7 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
     ax.grid(alpha=0.25, lw=0.5)
 
     fig.suptitle(
-        "C2 [v2.7] n_ignition_components — separate lightning ignitions filed under one fire id\n"
+        "C2 [v2.7] n_ignition_components - separate lightning ignitions filed under one fire id\n"
         "BINDING ON P3: crossings mining must EXCLUDE inter-component jumps, or the spot model "
         "trains on GOFER's filing convention and G4 becomes meaningless",
         fontsize=11,
@@ -493,9 +493,9 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
 def main(argv: list[str] | None = None) -> int:
     # allow_abbrev=False deliberately. This CLI takes --outdir, but the module
     # docstring and every other CLI in sim/ take --out, and argparse's default
-    # prefix matching silently accepted `--out figures/x.png` as `--outdir`,
-    # creating a DIRECTORY named `x.png` and writing the figure inside it. A
-    # mistyped flag must fail loudly, not quietly relocate the evidence.
+    # prefix matching silently accepted --out as an abbreviation of --outdir, so
+    # the PNG filename was taken as a DIRECTORY and the figure was written inside
+    # it. A mistyped flag must fail loudly, not quietly relocate the evidence.
     ap = argparse.ArgumentParser(
         prog="python -m wildfire_nowcast.sim.components", allow_abbrev=False
     )

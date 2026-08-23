@@ -213,7 +213,11 @@ def _collect_growth(d: PageData) -> None:
     ]
     d.growth = {
         "record": RECORD_G2,
-        "anatomy": "reports/figures/growth_anatomy.json",
+        "anatomy": (
+            "growth anatomy built by wildfire_nowcast.sim.growth; not tracked, "
+            "and neither is the record it is built from, so "
+            "**A CLONE CANNOT CHECK THIS NUMBER**"
+        ),
         "fingerprint": rec["split_before"]["fingerprint"],
         "truth_new_cells": float(val["nbfix_s1"]["n_new_cells_truth"]),
         "n_windows": int(val["nbfix_s1"]["n_windows"]),
@@ -277,7 +281,11 @@ def _collect_identity(d: PageData) -> None:
     wide = [r for r in rows if min(r["cv"]) > 1.0]
     d.identity = {
         "record": an["results_path"],
-        "artifact": "reports/figures/s5_block5_anatomy.json",
+        "artifact": (
+            "block-5 anatomy built by wildfire_nowcast.sim.s5_report; not tracked, "
+            "and neither is the record it is built from, so "
+            "**A CLONE CANNOT CHECK THIS NUMBER**"
+        ),
         "fingerprint": an["split_fingerprint"],
         "identity": an["identity"],
         "max_residual": float(an["max_identity_residual"]),
@@ -457,7 +465,7 @@ def fig_g2(d: PageData) -> Path:
     ax.set_ylim(0, 24)
     ax.set_ylabel("margin over the ellipse, in SD units")
     ax.set_title(
-        "(2) THE SAME MARGIN, UNDER TWO DENOMINATORS — read this before quoting '+16 SD'\n"
+        "(2) THE SAME MARGIN, UNDER TWO DENOMINATORS - read this before quoting '+16 SD'\n"
         "the headline divides by our own seed-to-seed wobble (n=4 training runs), not by\n"
         "variation across the independent spatial units (n=4 blocks)",
         fontsize=10.5,
@@ -532,7 +540,7 @@ def fig_g2(d: PageData) -> Path:
     ax.grid(axis="y", alpha=0.25)
 
     fig.suptitle(
-        "G2 — the deterministic kernel against the physics baseline, shown rather than asserted",
+        "G2 - the deterministic kernel against the physics baseline, shown rather than asserted",
         fontsize=13,
         y=0.985,
     )
@@ -567,7 +575,7 @@ def fig_dispersion(d: PageData) -> Path:
     ax.invert_yaxis()
     ax.set_xlabel("area dispersion ratio, equal-block pooled  (1.0 = calibrated spread)")
     ax.set_title(
-        f"(1) EVERY ARM EVER SCORED FOR G3 — {dd['n_arms']} of them.\n"
+        f"(1) EVERY ARM EVER SCORED FOR G3 - {dd['n_arms']} of them.\n"
         f"{dd['n_in_old_bar']} sit inside the original bar; {dd['n_in_geo_bar']} inside the "
         f"pre-registered GEOMETRIC bar [{lo:.4f}, {hi:.1f}] (green band),\n"
         "which was tightened on the side we fail. grey = the independent-noise ABLATION.\n"
@@ -597,7 +605,7 @@ def fig_dispersion(d: PageData) -> Path:
     ax.text(
         0.62,
         dd["n_ablation_strong"] - 0.15,
-        "below this line the latent buys almost nothing —\nthose arms were already near-collapsed",
+        "below this line the latent buys almost nothing -\nthose arms were already near-collapsed",
         fontsize=7.4,
         color=BAD,
         va="top",
@@ -607,7 +615,7 @@ def fig_dispersion(d: PageData) -> Path:
     ax.invert_yaxis()
     ax.set_xlabel("area dispersion ratio, equal-block pooled")
     ax.set_title(
-        "(2) ARE THE MEMBERS CLONES? The ablation answers — but only for HALF the arms.\n"
+        "(2) ARE THE MEMBERS CLONES? The ablation answers - but only for HALF the arms.\n"
         f"Removing the shared per-step latent collapses the spread "
         f"{dd['ablation_strong_min']:.1f}x-"
         f"{dd['ablation_strong_max']:.1f}x on {dd['n_ablation_strong']} of "
@@ -842,7 +850,7 @@ def fig_overprediction_map(d: PageData) -> Path:
         for k, v in sorted(ratios.items())
     )
     fig.suptitle(
-        "The calibration failure, as area on the ground — where the over-prediction actually lives",
+        "The calibration failure, as area on the ground - where the over-prediction actually lives",
         fontsize=13,
         y=1.06,
     )
@@ -860,8 +868,9 @@ def fig_overprediction_map(d: PageData) -> Path:
         fig,
         "review_overprediction_map.png",
         f"maps: C1 tensor (data/fires/{fire_id}/tensor.zarr), read-only; dark = burned at t0, "
-        "orange = truth's REAL new cells over the next 3 h. counts: "
-        f"reports/figures/growth_anatomy.json + {RECORD_G2}, split {FINGERPRINT_PRE_D6}. "
+        "orange = truth's REAL new cells over the next 3 h. counts: growth anatomy built "
+        f"by wildfire_nowcast.sim.growth + {RECORD_G2}, split {FINGERPRINT_PRE_D6}; neither is "
+        "tracked, so A CLONE CANNOT CHECK THIS NUMBER. "
         "THE CORNER SQUARES ARE AREA TOKENS DRAWN TO THE MAP'S OWN SCALE and make NO spatial "
         "claim: the model's actual spatial output is not rendered anywhere on this page, because "
         "that needs a checkpoint read and the model tree is being rewritten.",
@@ -910,7 +919,7 @@ def fig_identity(d: PageData) -> Path:
     )
     ax.set_ylabel("ensemble_CV\n(member SD / predicted mean)", fontsize=9)
     ax.set_title(
-        "(2) ensemble_CV, EVERY TRAINED ARM — the honest version of 'near-constant'\n"
+        "(2) ensemble_CV, EVERY TRAINED ARM - the honest version of 'near-constant'\n"
         "the LINES ARE FLAT block-to-block, but their LEVELS span "
         f"{idn['cv_value_min']:.2f}-{idn['cv_value_max']:.2f} = {idn['cv_value_span']:.1f}x\n"
         "ACROSS arms. The quoted '1.24-1.43x' is the FLATNESS OF A LINE, not the value of CV.",
@@ -941,14 +950,15 @@ def fig_identity(d: PageData) -> Path:
 
     fig.suptitle(
         "The identity (ADR-035):  adr = sqrt((M+1)/M) x ensemble_CV x growth_calibration "
-        f"x truth_shape x relief    —    max residual {idn['max_residual']:.1e}",
+        f"x truth_shape x relief    -    max residual {idn['max_residual']:.1e}",
         fontsize=12.5,
         y=0.995,
     )
     return _finish(
         fig,
         "review_identity.png",
-        f"source reports/figures/s5_block5_anatomy.json (built from {idn['record']}), split "
+        f"source: block-5 anatomy built by wildfire_nowcast.sim.s5_report from {idn['record']}; "
+        "neither is tracked, so A CLONE CANNOT CHECK THIS NUMBER. split "
         f"{FINGERPRINT_PRE_D6}. Known-answer check: the truth-scale denominator reproduces the "
         "record's own persistence RMS error to 0.0 exactly on 2 of 4 fires and <4e-15 on the other "
         "two.",
@@ -986,7 +996,7 @@ def fig_block5(d: PageData) -> Path:
     ax.set_title(
         f"(1) BLOCK 5 IS LOWEST IN {b5['n_arms_block5_lowest']} OF "
         f"{b5['n_arms_scored']} ARMS ON THE RECORD\n"
-        "every arm, every seed, every ablation, every baseline — the red line never\n"
+        "every arm, every seed, every ablation, every baseline - the red line never\n"
         "crosses another. It survived a latent redesign, a spatial latent, an asymmetric\n"
         "prior and a mean correction, and it does not move.",
         fontsize=10.5,
@@ -1005,7 +1015,7 @@ def fig_block5(d: PageData) -> Path:
         col = BAD if blk == 5 else COOL
         ax.scatter([xv], [yv], s=180, color=col, zorder=5)
         ax.annotate(
-            f"block {blk} · {fid.replace('2020_', '').replace('_lightning_complex', '')}\n"
+            f"block {blk} | {fid.replace('2020_', '').replace('_lightning_complex', '')}\n"
             f"truth growth per frontier cell {fr[fid]:.3f}",
             (xv, yv),
             textcoords="offset points",
@@ -1019,7 +1029,7 @@ def fig_block5(d: PageData) -> Path:
     ax.set_xlim(0.3, 6.0)
     ax.set_ylim(0.20, 1.45)
     ax.set_title(
-        "(2) IT IS NOT DISTANCE FROM THE TRAINING DATA — the obvious explanation, refuted\n"
+        "(2) IT IS NOT DISTANCE FROM THE TRAINING DATA - the obvious explanation, refuted\n"
         f"blocks 5 and 6 are EQUALLY FAR ({maha['2020_czu_lightning_complex']:.2f} vs "
         f"{maha['2020_dolan']:.2f}) and {ref['b6'] / ref['b5']:.1f}x apart in outcome.\n"
         "n = 4. This refutes a clean monotone story; it cannot support one. The mystery is open.",
@@ -1032,8 +1042,9 @@ def fig_block5(d: PageData) -> Path:
     return _finish(
         fig,
         "review_block5.png",
-        f"per-arm ratios: {RECORD_M8}. distances + truth rates: "
-        f"reports/figures/s5_block5_anatomy.json (from {RECORD_M7}). split {FINGERPRINT_PRE_D6}. "
+        f"per-arm ratios: {RECORD_M8}. distances + truth rates: block-5 anatomy built by "
+        f"wildfire_nowcast.sim.s5_report from {RECORD_M7}; neither is tracked, so A CLONE CANNOT "
+        f"CHECK THIS NUMBER. split {FINGERPRINT_PRE_D6}. "
         f"Mahalanobis over {len(b5['channels_used'])} C1 channels on the scored cells.",
     )
 
@@ -1121,11 +1132,11 @@ def build_html(d: PageData) -> Path:
     h1, h2, h3 = (g["horizons"][k] for k in ("1", "2", "3"))
 
     old = (
-        f'<span class="corpus old">OLD CORPUS · 12 fires · fingerprint '
+        f'<span class="corpus old">OLD CORPUS | 12 fires | fingerprint '
         f"<code>{FINGERPRINT_PRE_D6}</code></span>"
     )
     cur = (
-        f'<span class="corpus new">CORPUS OF RECORD · 21 fires · fingerprint '
+        f'<span class="corpus new">CORPUS OF RECORD | 21 fires | fingerprint '
         f"<code>{FINGERPRINT_OF_RECORD}</code></span>"
     )
 
@@ -1181,61 +1192,61 @@ hr{border:0;border-top:1px solid var(--line);margin:34px 0}
 
     # ---------------------------------------------------------------- intro
     A(f"""
-<h1>Wildfire nowcasting — what we have, what we do not, and what broke</h1>
+<h1>Wildfire nowcasting - what we have, what we do not, and what broke</h1>
 <p class="lede">You two helped design this. You have seen nothing since. The sketch was:
 learn a transition kernel <code>P(x<sub>t+1h</sub> | x<sub>t</sub>, features)</code>, Monte-Carlo it
 forward, get a calibrated ensemble. That is still the architecture. This page is the evidence,
-including the parts that did not work — which is most of the interesting parts.</p>
+including the parts that did not work - which is most of the interesting parts.</p>
 
 <div class="box">
-<h4>Read the corpus badges — they are not decoration</h4>
+<h4>Read the corpus badges - they are not decoration</h4>
 <p>We swapped the training corpus two days ago. <b>Every result on this page is bound to the
 OLD corpus</b> {old} and nothing has been re-scored against the current one {cur}. The badge
 exists because this project has twice been bitten by a split moving underneath a result: once a
 cross-validation fold changed while a model was training and four fires silently crossed from
 train to held-out, and once a stale normalisation file would have baked a held-out fire's
-statistics into training — caught, that time, before the run. Where a figure was rendered under
+statistics into training - caught, that time, before the run. Where a figure was rendered under
 the old corpus, it says so on the figure.</p>
 </div>
 
 <div class="toc">
 <b>What this page answers, in order</b>
 <ol>
-<li>Does it actually learn fire spread? (G2 — passed, with named limits)</li>
+<li>Does it actually learn fire spread? (G2 - passed, with named limits)</li>
 <li>What does the ensemble look like? (members vs truth; are they clones?)</li>
 <li>The calibration failure, made visual</li>
-<li>The identity that reframed the whole project — and one sentence of ours it kills</li>
+<li>The identity that reframed the whole project - and one sentence of ours it kills</li>
 <li>Block 5 / CZU: the open mystery</li>
 <li>What we have <em>not</em> attempted</li>
 </ol>
-<p class="small">Gate status: G0 <span class="gate gp">closed</span> · G1
-<span class="gate gp">closed</span> · G2 <span class="gate gp">PASSED</span> · G3
-<span class="gate gf">FAILED x4</span> · G4 <span class="gate gn">not attempted</span> ·
-G5 <span class="gate gn">not attempted</span> · G6 <span class="gate gn">not attempted</span></p>
+<p class="small">Gate status: G0 <span class="gate gp">closed</span> | G1
+<span class="gate gp">closed</span> | G2 <span class="gate gp">PASSED</span> | G3
+<span class="gate gf">FAILED x4</span> | G4 <span class="gate gn">not attempted</span> |
+G5 <span class="gate gn">not attempted</span> | G6 <span class="gate gn">not attempted</span></p>
 </div>
 
 <div class="box gap">
 <h4>How this page was built, so you can discount it correctly</h4>
 <p>Everything here is read out of run records and figure artifacts already on disk. No scoring
 code was re-run for this page, no model checkpoint was opened, and <code>predict()</code> was
-never called — the modelling lead is mid-rewrite of the evaluation package and running anything
+never called - the modelling lead is mid-rewrite of the evaluation package and running anything
 against it would produce numbers nobody could attribute later. Two consequences you should hold
 against us: <b>(a)</b> the ensemble panels below are the ones already rendered, not fresh ones
-chosen to flatter; <b>(b)</b> one panel we wanted — the kernel's actual spatial ensemble on a
-real fire — is a labelled gap, not a rendering.</p>
+chosen to flatter; <b>(b)</b> one panel we wanted - the kernel's actual spatial ensemble on a
+real fire - is a labelled gap, not a rendering.</p>
 </div>
 """)
 
     # ---------------------------------------------------------------- S1
     A(f"""
-<h2>1 · Does it actually learn fire spread?</h2>
+<h2>1. Does it actually learn fire spread?</h2>
 <p>Yes, on the criterion the gate was adjudicated on, against a real physics opponent, on
-{g["n_heldout_blocks"]} held-out <em>spatial blocks</em> (not fires — overlapping fires share a
+{g["n_heldout_blocks"]} held-out <em>spatial blocks</em> (not fires - overlapping fires share a
 landscape, so blocks are the independent unit). Held out:
 {", ".join(f["fire_id"].replace("_", " ") for f in g["horizons"]["1"]["per_block"])}. {old}</p>
 
 <p>Start with the fire itself. This is a real GOFER-labelled fire evolving hour by hour with the
-RTMA wind over it, straight out of the C1 tensor — no model involved. It is here because the
+RTMA wind over it, straight out of the C1 tensor - no model involved. It is here because the
 first thing anyone should check is whether the <em>data</em> is coherent.</p>
 """)
     A(
@@ -1243,18 +1254,18 @@ first thing anyone should check is whether the <em>data</em> is coherent.</p>
         "<figcaption><b>Shows.</b> 2019 Kincade, 134 hourly frames, wind quiver overlaid. The fire "
         "runs SW through the Oct-27 Diablo wind event (area-weighted downwind cosine +0.68 on 88% "
         "of growth hours, z=+4.5), is dormant when the wind is 1.7 m/s and bursts when it is 9.0, "
-        "holds at the barrier on the west flank and then crosses it — as the real fire crossed "
+        "holds at the barrier on the west flank and then crosses it - as the real fire crossed "
         "US-101. Nothing teleports (max front gap 3 km, median advance 1 cell/h).<br>"
         '<span class="ne"><b>Does not establish.</b> Anything about the model. This is the label '
         "and weather data only. It also does not establish that the 1 km rasterisation is adequate "
-        "— GOFER's effective resolution is ~2 km, so roughly a cell of this outline is "
+        "- GOFER's effective resolution is ~2 km, so roughly a cell of this outline is "
         "noise.</span>"
         "</figcaption></figure>"
     )
 
     A("""
 <p>Now the gate. G2 asks: does the learned kernel beat a wind-advected ellipse whose growth rate
-is calibrated on the training fires — separately at each horizon, so we do not get to pick the
+is calibrated on the training fires - separately at each horizon, so we do not get to pick the
 horizon where our opponent is weakest? The criterion is a best-member IoU restricted to the
 <em>shape</em> term on windows where truth actually grew. That last clause matters and is not
 cosmetic: the original metric ranked <em>doing nothing</em> above doing something, because an
@@ -1278,20 +1289,20 @@ empty prediction against an empty truth scores IoU 1.0.</p>
             "That the kernel is a good absolute forecaster. It beats this opponent on this "
             "criterion; panel 4 shows it losing to <em>predicting nothing at all</em> on pixelwise "
             "band Brier at 1 h. It also does not establish anything about the current 21-fire "
-            "corpus — this run is bound to the 12-fire split.",
+            "corpus - this run is bound to the 12-fire split.",
         )
     )
 
     A(f"""
 <div class="box fail">
-<h4>Where our own headline overstates itself — read this one</h4>
+<h4>Where our own headline overstates itself - read this one</h4>
 <p>We have been quoting <b>+{h1["margin_seed_sd_vs_rule"]:.1f} / +{h2["margin_seed_sd_vs_rule"]:.1f}
 / +{h3["margin_seed_sd_vs_rule"]:.1f} SD</b>. I reproduced those numbers exactly from the run
 record, and the denominator is <b>the standard deviation across our own four training seeds</b>
 ({h1["sd_across_seed"]:.5f} at 1 h). That is a statement about how reproducible our training is.
 It is <em>not</em> a statement about sampling variability across fires or landscapes.</p>
-<p>Recompute the same margin against variation across the four held-out spatial blocks — the
-units the contract itself calls independent — and it is <b>+{h1["margin_block_sd"]:.2f} /
+<p>Recompute the same margin against variation across the four held-out spatial blocks - the
+units the contract itself calls independent - and it is <b>+{h1["margin_block_sd"]:.2f} /
 +{h2["margin_block_sd"]:.2f} / +{h3["margin_block_sd"]:.2f} block-SD</b>
 (paired t = {h1["margin_block_t"]:.1f} / {h2["margin_block_t"]:.1f} / {h3["margin_block_t"]:.1f}
 on n=4). Same data, same record, different and much more relevant denominator. The direction of
@@ -1308,7 +1319,7 @@ reading.</p>
 <ul>
 <li>The kernel <b>loses to persistence</b> on window-pooled band Brier at 1 h and ties at 2 h.
 At 1 km cells, an hour of fire movement is often sub-cell, so persistence at 1 h is structural.</li>
-<li>The gate's 1 h number rests on <b>239 of 446</b> growth windows — 54% of the stratum, because
+<li>The gate's 1 h number rests on <b>239 of 446</b> growth windows - 54% of the stratum, because
 the criterion is undefined where truth did not grow.</li>
 <li>Growth calibration is <b>our worst number and the opponent's is better</b>. That is section
 3.</li>
@@ -1317,7 +1328,7 @@ the criterion is undefined where truth did not grow.</li>
 
     # ---------------------------------------------------------------- S2
     A("""
-<h2>2 · What does the ensemble look like?</h2>
+<h2>2. What does the ensemble look like?</h2>
 <p>This is the crux, and it is where we have spent most of the project. The question you would
 ask first is the right one: <b>are the members visibly different from each other, or are they
 clones?</b></p>
@@ -1330,8 +1341,8 @@ clones?</b></p>
             "A real 24-member ensemble drawn over a real fire at the peak of the Diablo wind "
             "event: "
             "member fronts (top left), burn probability (top right), median arrival hour and its "
-            "p90-p10 spread (bottom). The members are near-identical — pairwise IoU 0.956, "
-            "member-area CV 0.030 — and <b>truth's area lies entirely outside the member "
+            "p90-p10 spread (bottom). The members are near-identical - pairwise IoU 0.956, "
+            "member-area CV 0.030 - and <b>truth's area lies entirely outside the member "
             "range</b>. "
             "That red banner is the renderer's own collapse detector firing.",
             "Anything about our learned kernel. <b>This is the wind-ellipse baseline</b>, and on a "
@@ -1352,7 +1363,7 @@ clones?</b></p>
             "cells</b>. Bottom row, third column: an ellipse ensemble in which <b>24 of 24 members "
             "predict nothing</b> still scores IoU 0.333, which is why the gate criterion had to be "
             "redefined.",
-            "That members differ from <em>each other</em> — this shows only the best member per "
+            "That members differ from <em>each other</em> - this shows only the best member per "
             "model. It also shows how small the typical signal is: most of this problem is "
             "deciding "
             "whether two or four cells will ignite, not drawing a dramatic front.",
@@ -1361,8 +1372,8 @@ clones?</b></p>
 
     A("""
 <p>The quantitative answer is cleaner, and it is the one I would weight. Remove the shared
-per-step latent and leave only independent per-pixel noise — the ablation the original design
-called "known-broken, build it only as an ablation" — and the ensemble collapses. But it only
+per-step latent and leave only independent per-pixel noise - the ablation the original design
+called "known-broken, build it only as an ablation" - and the ensemble collapses. But it only
 collapses <em>hard</em> on the arms that had real width to begin with, and that qualification is
 on the figure rather than in a footnote:</p>
 """)
@@ -1372,13 +1383,13 @@ on the figure rather than in a footnote:</p>
             f"Left: every one of the {dsp['n_arms']} arms ever scored against G3's dispersion "
             f"criterion, sorted. <b>{dsp['n_in_old_bar']}</b> sit inside the original bar and "
             f"<b>{dsp['n_in_geo_bar']}</b> inside the tightened one, and no arm sits inside on all "
-            "four seeds — a criterion met on two seeds of four is a coin flip, not a pass. Right: "
+            "four seeds - a criterion met on two seeds of four is a coin flip, not a pass. Right: "
             "the ablation control. Removing the shared per-step latent collapses dispersion "
             f"{dsp['ablation_strong_min']:.1f}x-{dsp['ablation_strong_max']:.1f}x on "
             f"{dsp['n_ablation_strong']} of {dsp['n_ablation_pairs']} arms.",
             "<b>That the members are non-clones on every arm.</b> On the other "
             f"{dsp['n_ablation_weak']} arms the ablation changes the answer by only "
-            f"{dsp['ablation_weak_min']:.1f}x-{dsp['ablation_weak_max']:.1f}x — because those arms "
+            f"{dsp['ablation_weak_min']:.1f}x-{dsp['ablation_weak_max']:.1f}x - because those arms "
             f"were already nearly collapsed (all of them below {dsp['weak_arm_full_max']:.2f}). "
             "So the correlated-innovation machinery is demonstrably load-bearing where it was "
             "turned up, and demonstrably near-idle where it was not. It also does not establish "
@@ -1388,8 +1399,8 @@ on the figure rather than in a footnote:</p>
 
     A("""
 <div class="box gap">
-<h4>NOT MEASURED — a panel we owe you and cannot render today</h4>
-<p>We have no rendered <b>spatial</b> ensemble of the learned kernel on a held-out fire — the
+<h4>NOT MEASURED - a panel we owe you and cannot render today</h4>
+<p>We have no rendered <b>spatial</b> ensemble of the learned kernel on a held-out fire - the
 spaghetti-of-member-fronts picture, but for our model rather than for the ellipse. Producing one
 requires calling <code>predict()</code> against a checkpoint, and the evaluation package was
 being rewritten at the time; running the renderer against a tree being edited is a hazard we
@@ -1401,11 +1412,11 @@ unverified.</b></p>
 
     # ---------------------------------------------------------------- S3
     A(f"""
-<h2>3 · The calibration failure, made visual</h2>
+<h2>3. The calibration failure, made visual</h2>
 <p>Here is the number that should worry you most, and it is ours, not the baseline's. Pooled over
 all {gr["n_windows"]:,} scored held-out windows, the kernel predicts
 <b>{gr["pooled"]["nbfix_s2"]:.2f}x-{gr["pooled"]["nbfix_s1"]:.2f}x</b> truth's new burned
-area. The one-parameter wind ellipse — a model with a single fitted scalar — predicts
+area. The one-parameter wind ellipse - a model with a single fitted scalar - predicts
 <b>{gr["pooled"]["ellipse_cal3h"]:.2f}x</b>. <b>Our physics baseline is better calibrated in area
 than our neural simulator.</b> {old}</p>
 
@@ -1422,16 +1433,16 @@ than our neural simulator.</b> {old}</p>
             "own scale. Panel 1: the fire does not move and the kernel paints area anyway. Panel "
             "2: "
             "the median moving window. Panel 3: the fastest window on this fire, where we "
-            "<em>under</em>-predict badly. Panel 4: the whole held-out set — the kernel's "
+            "<em>under</em>-predict badly. Panel 4: the whole held-out set - the kernel's "
             f"total is {gr['predicted_total']['nbfix_s1']:,.0f} cells against truth's "
             f"{gr['truth_new_cells']:,.0f}, and <b>{gr['predicted_in_dormant']['nbfix_s1']:,.0f} "
             f"of "
             "it is spent in windows where the fire never moved.</b> The kernel ignites in "
             f"{gr['dormant_ignition_count']['nbfix_s1']} of {gr['n_dormant_windows']} such windows "
-            f"— "
+            f"- "
             "it is never once silent.",
             "Any spatial claim about the model. <b>The corner squares are area tokens, not "
-            "predictions</b> — the kernel's actual footprint is not drawn anywhere on this page. "
+            "predictions</b> - the kernel's actual footprint is not drawn anywhere on this page. "
             "Panels 1-3 are three windows from one fire, chosen as zero / median / maximum growth, "
             "so they illustrate the aggregate rather than evidencing it. Panel 4's totals are sums "
             "over overlapping 3-hour windows: a predicted-increment budget, not a map of burned "
@@ -1446,14 +1457,14 @@ than our neural simulator.</b> {old}</p>
 <b>{gr["n_growth_windows"]}</b> windows where truth grew, the kernel predicts
 <b>{gr["on_growth_windows"]["nbfix_s1"]:.3f}x</b> and
 <b>{gr["on_growth_windows"]["nbfix_s2"]:.3f}x</b>
-of truth's new area — better calibrated than the ellipse's
+of truth's new area - better calibrated than the ellipse's
 <b>{gr["on_growth_windows"]["ellipse_cal3h"]:.3f}x</b> on the same windows. The entire
 {gr["pooled"]["nbfix_s1"]:.2f}x is bought in the <b>{gr["n_dormant_windows"]}</b> windows with
 bitwise-zero growth.</p>
 <p><b>So the defect is not spread rate. It is a missing OFF state.</b> This decomposition
 reconciles with the evaluation package's own pooled ratio to a maximum absolute delta of
 {"exactly 0" if gr["reconciliation_max_delta"] == 0 else f"{gr['reconciliation_max_delta']:.0e}"}
-across all six models — it is arithmetic on their number,
+across all six models - it is arithmetic on their number,
 not a competing measurement. The practical consequence, which we flagged before anyone tuned
 anything: dividing the model's growth by ~3 to fix the headline would drive the growth-window
 ratio from 0.98 to about 0.33 and break the dispersion gate. The two defects need opposite
@@ -1471,7 +1482,7 @@ scalar hides the sign.</p>
 
     # ---------------------------------------------------------------- S4
     A(f"""
-<h2>4 · The identity — and the sentence of ours it kills</h2>
+<h2>4. The identity - and the sentence of ours it kills</h2>
 <p>G3 asks for a calibrated ensemble: a spread-skill ratio near 1. We failed it four times.
 Three of those attempts were aimed at the wrong quantity, and we only know that because someone
 decomposed the criterion instead of optimising against it.</p>
@@ -1480,14 +1491,14 @@ decomposed the criterion instead of optimising against it.</p>
 <p style="text-align:center;font-size:17px"><code>adr = sqrt((M+1)/M) &times; ensemble_CV &times;
 growth_calibration &times; truth_shape &times; relief</code></p>
 <p class="prov">Maximum residual over 96 model &times; block cells:
-<b>{idn["max_residual"]:.1e}</b> — machine epsilon. This is an identity, not a fit. The one new
+<b>{idn["max_residual"]:.1e}</b> - machine epsilon. This is an identity, not a fit. The one new
 quantity it needs (the RMS of truth's own growth) reproduces the record's own persistence error
 to 0.0 exactly on 2 of 4 fires and below 4e-15 on the other two.</p>
 
 <p>The consequence: <b>"the ensemble is under-dispersed" was a misreading of our own metric.</b>
 The denominator of that ratio is the model's own mean-area error, so a mean error shows up as a
 spread failure. Widening the ensemble cannot fix it; fixing the mean buys the spread for free.
-Three modelling tasks — a latent redesign, a spatial latent, an asymmetric prior — attacked the
+Three modelling tasks - a latent redesign, a spatial latent, an asymmetric prior - attacked the
 width term, which was never the binding one.</p>
 """)
     A(
@@ -1499,7 +1510,7 @@ width term, which was never the binding one.</p>
             f"{idn['gc_block_spread_min']:.1f}x-{idn['gc_block_spread_max']:.1f}x. Panels 2 and 3 "
             "show the same arms factor by factor: the CV lines are flat, the calibration lines are "
             "not and every one of them collapses on block 5.",
-            "That ensemble width is 'fine'. See the box below — it is flat across blocks, which is "
+            "That ensemble width is 'fine'. See the box below - it is flat across blocks, which is "
             "a "
             "different claim. Nor does it establish causation: the identity is algebra, so it "
             "tells "
@@ -1515,16 +1526,16 @@ width term, which was never the binding one.</p>
 every arm ever run". Read off the artifact, <b>that is not what the number is</b>.
 <code>ensemble_CV</code>'s <em>values</em> span
 <b>{idn["cv_value_min"]:.2f} to {idn["cv_value_max"]:.2f}</b> across the
-{idn["n_trained_arms"]} trained arms — a <b>{idn["cv_value_span"]:.1f}x</b> range. The model can
+{idn["n_trained_arms"]} trained arms - a <b>{idn["cv_value_span"]:.1f}x</b> range. The model can
 and did move ensemble width a great deal.</p>
 <p>1.24-1.43x is the <b>block-to-block max/min ratio within a single arm</b>, on the widest arms
-only — i.e. a measure of <em>flatness</em>, paired with the same statistic for
+only - i.e. a measure of <em>flatness</em>, paired with the same statistic for
 <code>growth_calibration</code>
 ({idn["gc_block_spread_min"]:.1f}x-{idn["gc_block_spread_max"]:.1f}x).
 Recomputing it off the artifact I get {idn["cv_block_spread_wide_min"]:.2f}x-
 {idn["cv_block_spread_wide_max"]:.2f}x on the {idn["n_wide_arms"]} widest arms, so even the
 quoted range is slightly narrower than the data.
-So the argument survives intact — CV does not explain why one block behaves differently — but the
+So the argument survives intact - CV does not explain why one block behaves differently - but the
 sentence "the ensemble's relative width is roughly fine" does not follow from it, because that is
 a claim about the level, and the level moves {idn["cv_value_span"]:.1f}x.</p>
 <p>This is the third instance in this project of a compound statistic being quoted in units other
@@ -1538,7 +1549,7 @@ there are more.</p>
     # ---------------------------------------------------------------- S5
     maha = b5["mahalanobis"]
     A("""
-<h2>5 · Block 5 / CZU — the open mystery</h2>
+<h2>5. Block 5 / CZU - the open mystery</h2>
 <p>One held-out block behaves unlike the other three, on every arm we have ever run, and we cannot
 explain it. We are presenting it as an open problem rather than as a solved one.</p>
 """)
@@ -1547,12 +1558,12 @@ explain it. We are presenting it as an open problem rather than as a solved one.
             figs["b5"],
             f"Left: the dispersion ratio per block for all {b5['n_arms_scored']} scored arms. "
             f"Block 5 "
-            f"is the lowest in <b>{b5['n_arms_block5_lowest']} of {b5['n_arms_scored']}</b> — the "
+            f"is the lowest in <b>{b5['n_arms_block5_lowest']} of {b5['n_arms_scored']}</b> - the "
             f"red "
             "line never crosses another. It survived a latent redesign, a spatial latent, an "
-            "asymmetric prior and a mean correction unchanged. Right: the obvious explanation — "
+            "asymmetric prior and a mean correction unchanged. Right: the obvious explanation - "
             "that "
-            "CZU is far from the training distribution — refuted. Blocks 5 and 6 are equally far "
+            "CZU is far from the training distribution - refuted. Blocks 5 and 6 are equally far "
             f"(Mahalanobis {maha['2020_czu_lightning_complex']:.2f} vs {maha['2020_dolan']:.2f}) "
             f"and "
             "differ by more than 2x in outcome, while blocks 3 and 4 are near "
@@ -1582,11 +1593,11 @@ explain it. We are presenting it as an open problem rather than as a solved one.
 <p>Truth's growth per frontier cell on CZU is
 <b>{b5["frontier_rate"]["2020_czu_lightning_complex"]:.3f}</b>
 against {b5["frontier_rate"]["2020_bobcat"]:.3f} / {b5["frontier_rate"]["2020_creek"]:.3f} /
-{b5["frontier_rate"]["2020_dolan"]:.3f} for its siblings — CZU is fast. The training fires span
+{b5["frontier_rate"]["2020_dolan"]:.3f} for its siblings - CZU is fast. The training fires span
 0.082-0.409, so CZU is at the fast end of the training distribution, not outside it. Our model's
 own predicted rate per frontier cell spans only ~1.7x where truth's spans ~5.7x:
 <b>we predict least where truth is fastest.</b> That is a failure to modulate the rate in response
-to covariates, not a failure to extrapolate — and it is what the current in-flight task is
+to covariates, not a failure to extrapolate - and it is what the current in-flight task is
 testing. CZU is also the CZU <em>Lightning Complex</em>: separate ignitions by construction, which
 a contagion-only kernel cannot reproduce at any temperature, and roughly a third of its domain is
 the Pacific Ocean.</p>
@@ -1595,7 +1606,7 @@ the Pacific Ocean.</p>
 
     # ---------------------------------------------------------------- S6
     A(f"""
-<h2>6 · What we have not attempted</h2>
+<h2>6. What we have not attempted</h2>
 <p>Plainly, because the temptation to imply otherwise is exactly what would cost us your trust.</p>
 
 <table>
@@ -1604,7 +1615,7 @@ the Pacific Ocean.</p>
 <tbody>
 <tr><td>G4</td><td style="text-align:left">The explicit long-range <b>spot component</b> beats a
 no-spot model on barrier-crossing / spotting episodes</td>
-<td style="text-align:left"><span class="gate gn">NOT ATTEMPTED</span> — <b>the spot model does
+<td style="text-align:left"><span class="gate gn">NOT ATTEMPTED</span> - <b>the spot model does
 not exist yet.</b> An event list of 12 events across 6 spatial blocks is recorded in the project
 decision log, to be scored leave-block-out; <em>I could not locate the machine-readable file on
 disk while writing this, so treat that count as reported and not as verified here.</em> On the
@@ -1613,7 +1624,7 @@ old 12-fire corpus there were only <b>two</b> never-merging spot candidates agai
 specifically to fix that.</td></tr>
 <tr><td>G5</td><td style="text-align:left"><b>ELMFIRE Monte Carlo</b> head-to-head, the
 operational-grade physics comparison</td>
-<td style="text-align:left"><span class="gate gn">NOT ATTEMPTED</span> — ELMFIRE is installed,
+<td style="text-align:left"><span class="gate gn">NOT ATTEMPTED</span> - ELMFIRE is installed,
 patched, and callable behind our prediction interface, but <b>no head-to-head has been run and no
 metric has been computed against it</b>.</td></tr>
 <tr><td>G6</td><td style="text-align:left">Expected-loss maps (burn probability &times; structures)
@@ -1644,7 +1655,7 @@ component. Nobody has ruled on that asymmetry yet.</li>
 {html.escape(em["note"])}</p>
 <p class="small">We also found and reported two uninitialised-variable reads in ELMFIRE's own
 Fortran source. We patched only the one we could prove was output-neutral, and avoided the code
-path containing the other rather than fixing it — silently improving your opponent's model is
+path containing the other rather than fixing it - silently improving your opponent's model is
 still cheating.</p>
 
 <hr>
@@ -1655,13 +1666,13 @@ calibrated physics baseline on held-out landscapes, and its trained version beat
 version on the same metric.</li>
 <li><b>The ensemble machinery works where it is turned up.</b> Removing the shared latent
 collapses the spread {dsp["ablation_strong_min"]:.1f}x-{dsp["ablation_strong_max"]:.1f}x on
-{dsp["n_ablation_strong"]} of {dsp["n_ablation_pairs"]} arms — and barely at all on the
+{dsp["n_ablation_strong"]} of {dsp["n_ablation_pairs"]} arms - and barely at all on the
 {dsp["n_ablation_weak"]} that were already narrow.</li>
 <li><b>The calibration does not work</b>, and the reason is not what we thought for three
 consecutive attempts. The binding defect is a missing OFF state plus a growth rate that does not
-respond enough to covariates — not ensemble width.</li>
+respond enough to covariates - not ensemble width.</li>
 <li><b>One block defies every explanation we have tried</b>, including the obvious one.</li>
-<li><b>The two hardest comparisons — the spot component and ELMFIRE — have not been run.</b></li>
+<li><b>The two hardest comparisons - the spot component and ELMFIRE - have not been run.</b></li>
 </ul>
 <p class="small">Everything above is bound to the superseded 12-fire corpus
 (<code>{FINGERPRINT_PRE_D6}</code>). The current corpus is 21 fires
@@ -1673,7 +1684,7 @@ expectation is that some of them will get worse.</p>
     doc = (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        "<title>wildfire-nowcast — evidence review</title>"
+        "<title>wildfire-nowcast - evidence review</title>"
         f"<style>{css}</style></head><body><div class='wrap'>"
         + "".join(body)
         + "</div></body></html>"

@@ -422,7 +422,7 @@ def render_dashboard(runs: list[C6Run], out: str | Path, *, dpi: int = 130) -> P
 
     head = runs[0].payload
     fig.suptitle(
-        f"C6 diagnostics — {', '.join(r.label for r in runs)}\n"
+        f"C6 diagnostics - {', '.join(r.label for r in runs)}\n"
         f"event={head.get('event')}  n_members={head.get('n_members')}  "
         f"horizon={head.get('horizon_h')} h  headline mask={head.get('primary_mask')}  "
         f"CRPS={head.get('crps_estimator')}",
@@ -463,7 +463,7 @@ def render_dashboard(runs: list[C6Run], out: str | Path, *, dpi: int = 130) -> P
             color="#7c2d12",
             va="top",
         )
-    stamp(fig, "reads C6 evaluate() JSON only — no model internals, no tensor")
+    stamp(fig, "reads C6 evaluate() JSON only - no model internals, no tensor")
     fig.savefig(out, dpi=dpi)
     plt.close(fig)
     return out

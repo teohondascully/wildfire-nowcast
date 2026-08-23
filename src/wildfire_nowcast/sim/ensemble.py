@@ -446,9 +446,9 @@ def render_ensemble(
     _headline(fig, fire.fire_id, model_name, inp, diag)
     stamp(
         fig,
-        f"{fire.source} · C1 v2.3 · C5 provisional split "
+        f"{fire.source} | C1 v2.3 | C5 provisional split "
         f"C_s={C5_CONVENTION['c_s']} C_w={C5_CONVENTION['c_w']}, weather origin "
-        f"{C5_CONVENTION['weather_time_origin']} (sim/c5.py:C5_CONVENTION) · seed={seed}",
+        f"{C5_CONVENTION['weather_time_origin']} (sim/c5.py:C5_CONVENTION) | seed={seed}",
     )
     fig.tight_layout(rect=(0, 0.012, 1, 0.925))
 
@@ -474,7 +474,7 @@ def render_ensemble(
 def _headline(fig: Any, fire_id: str, model_name: str, inp: C5Inputs, diag: dict[str, Any]) -> None:
     t_lbl = str(np.datetime_as_string(inp.times[0], unit="h")).replace("T", " ")
     fig.suptitle(
-        f"{fire_id} — ensemble from t0={inp.t0} (+1 h = {t_lbl}Z), horizon {inp.horizon_h} h\n"
+        f"{fire_id} - ensemble from t0={inp.t0} (+1 h = {t_lbl}Z), horizon {inp.horizon_h} h\n"
         f"{model_name}",
         fontsize=11,
         y=0.985,
@@ -505,7 +505,7 @@ def _headline(fig: Any, fire_id: str, model_name: str, inp: C5Inputs, diag: dict
         fig.text(
             0.5,
             0.918,
-            "  ‖  ".join(warnings),
+            "  ||  ".join(warnings),
             ha="center",
             va="top",
             fontsize=8.2,
