@@ -53,6 +53,56 @@ TWO FAMILIES
     ``f`` is the blend weight. Severity unit: IoU of the degraded increment
     against the base increment, measured per window.
 
+ONE ANCHOR PER BODY, AND WHY THE SENTENCE ABOVE WAS FALSE UNTIL M28
+-------------------------------------------------------------------
+[I21, M28] Every acceptance test written on this ladder reads a positive paired
+score difference as "the scorer saw the degradation" and a null as "the scorer
+is blind". Both readings rest on something this module used to state and not
+enforce: that each rung is strictly WORSE than the reference it degrades. On a
+state carrying a SECOND burned body it was not. It was measured on synthetic
+states where the answer is fixed by construction - same near body, same truth,
+same member draws, same grid, one extra burned body 47 km away and nothing else
+changed - and the paired change on ``front_distance_crps`` went from
+``+0.157/+0.442/+1.530/+4.083`` (6/6 windows worse) to
+``-0.069/-0.281/-0.675/-1.028`` (0/6) while the realised relocation GREW at every
+level. A nominally harsher rung produced a genuinely better forecast, so a null
+read off that ladder meant neither "seen" nor "blind".
+
+The cause was one anchor for the whole scene. ``rings``, ``bearing`` and
+``phi_base`` were all measured from the centroid of the ENTIRE t0 burn, which on
+a two-body state sits in empty space between the bodies - 38.765 km from the body
+that was actually growing, on the state above. The opposing lobe built from that
+anchor is not "180 degrees from the base increment" for either body, and because
+the selection was a single global competition the lobe could take mass OFF one
+body and put it on the other: measured, one component's increment went 734 cells
+-> 152 while the other went 502 -> 643. When the deleted mass was the reference's
+own largest ERROR, the rung IMPROVED the forecast.
+
+So the anchor, the bearing field and the geodesic rings are built PER CONNECTED
+COMPONENT of the t0 burn (8-connected, through ``common.components``, which is
+the neighbourhood D18 and D19 both counted bodies under), the free cells are
+partitioned into one territory per body by geodesic nearness, and each body
+relocates ITS OWN SHARE of the increment about ITS OWN centroid. Three things
+this deliberately does NOT do: it adds no free parameter, it does not touch the
+rung set or the severity units, and it is a NO-OP on a single-body window - the
+ring field a multi-source dilation produces IS the single-source one, so on one
+component every array below is the array this module built before. That no-op is
+a claim about OUTPUTS on 367 of the 404 held-out windows and it was checked as
+one: every rung of every window was digested either side of the edit, and 0 of
+9,542 single-body digests moved, while the ladder's own stored table reproduced
+at max |delta| = 0.0 first. The reduction is also asserted as an EQUALITY in
+``eval/selftest.py`` - with one body the grouping key IS ``not_free`` and the
+grouped order IS the base order - so a future edit that breaks it turns a check
+red rather than moving a number quietly.
+
+WHAT IT DOES NOT REPAIR, stated because the boundary is measurable: a body that
+is CONNECTED but has two lobes still has one centroid, and if that centroid sits
+in empty space the lobe is still built from it. Component labelling is a test of
+detachment, not of shape. Measured on exactly that case - the same two bodies
+joined by a one-cell bridge, which is ONE component - the ladder is bit-identical
+before and after the repair, so the limit is on the record rather than left to be
+discovered.
+
 WHAT THIS MODULE IS NOT
 -----------------------
 It is not a model, not a baseline and not a candidate for any gate. It has no
@@ -70,6 +120,7 @@ from typing import Any
 
 import numpy as np
 
+from wildfire_nowcast.common.components import NEIGHBOURHOOD_8, label_components
 from wildfire_nowcast.model.api import validate_predict_inputs, validate_samples
 
 __all__ = [
@@ -127,37 +178,77 @@ _PERM_SEED = 20260814
 _MAX_RINGS = 64
 
 
-def _shift_or(mask: np.ndarray) -> np.ndarray:
-    """8-connected dilation by one cell, zero-filled at the grid edge."""
-    out = mask.copy()
-    for dy in (-1, 0, 1):
-        for dx in (-1, 0, 1):
-            if dy == 0 and dx == 0:
-                continue
-            shifted = np.zeros_like(mask)
-            ys = slice(max(dy, 0), mask.shape[0] + min(dy, 0))
-            yd = slice(max(-dy, 0), mask.shape[0] + min(-dy, 0))
-            xs = slice(max(dx, 0), mask.shape[1] + min(dx, 0))
-            xd = slice(max(-dx, 0), mask.shape[1] + min(-dx, 0))
-            shifted[yd, xd] = mask[ys, xs]
-            out |= shifted
+def _shift(field: np.ndarray, dy: int, dx: int, fill: int) -> np.ndarray:
+    """``field`` resampled at ``(y + dy, x + dx)``, ``fill`` outside the grid."""
+    out = np.full_like(field, fill)
+    ys = slice(max(dy, 0), field.shape[0] + min(dy, 0))
+    yd = slice(max(-dy, 0), field.shape[0] + min(-dy, 0))
+    xs = slice(max(dx, 0), field.shape[1] + min(dx, 0))
+    xd = slice(max(-dx, 0), field.shape[1] + min(-dx, 0))
+    out[yd, xd] = field[ys, xs]
     return out
 
 
-def _geodesic_rings(seed_mask: np.ndarray, free: np.ndarray) -> np.ndarray:
-    """Ring index (1-based) of each ``free`` cell from ``seed_mask``; far = large."""
-    dist = np.full(seed_mask.shape, _MAX_RINGS + 1, dtype=np.int32)
-    reached = seed_mask.copy()
-    frontier = seed_mask.copy()
+def _seed_components(seed_mask: np.ndarray) -> tuple[np.ndarray, int]:
+    """8-connected labelling of the region the fire spreads FROM. C0's ONE copy.
+
+    Routed through ``common.components.label_components`` rather than written
+    again here. A second implementation of "how many bodies is this" is the
+    defect C0 exists to prevent, and this quantity has already produced one
+    cross-lead disagreement (ADR-019's SCU ``3 -> 2``) and one open
+    ``--manifest-check`` failure on 9 of 21 fires.
+
+    Named at module level so a control can PATCH it: forcing it to report one
+    component reproduces the pre-M28 construction exactly - measured, it returns
+    the inverted ladder to the digit - which is how a plant shows the repair acts
+    through the body labelling and through nothing else. ``eval/selftest.py``
+    runs that plant and its restore inside a check.
+    """
+    return label_components(seed_mask)
+
+
+def _geodesic_rings_and_owner(
+    labels: np.ndarray, free: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Ring index from the NEAREST body, and WHICH body that is. One dilation.
+
+    The ring field is bit-identical to a single dilation seeded from the union of
+    the bodies, because a multi-source geodesic distance over a shared free
+    region IS the minimum of the single-source ones. That is what makes the
+    per-component construction a no-op on a one-body state at the level of the
+    ARRAYS rather than only at the level of the outputs, and it is checked
+    against an independent per-component BFS in ``eval/selftest.py`` rather than
+    argued here.
+
+    ``owner`` is the 0-based index of a component ACHIEVING the minimum. Where
+    two bodies tie, the winner is settled by the propagation - deterministic
+    given the label ids, and no cell is ever owned by a body that is not tied for
+    nearest. Cells no body reaches inside ``_MAX_RINGS`` keep owner 0; they are
+    ranked after everything reachable and are never selected at any increment
+    size this ladder produces.
+    """
+    lab = np.asarray(labels, dtype=np.int32)
+    dist = np.full(lab.shape, _MAX_RINGS + 1, dtype=np.int32)
+    owner = np.zeros(lab.shape, dtype=np.int32)
+    seed = lab > 0
+    owner[seed] = lab[seed] - 1
+    reached = seed.copy()
+    frontier = np.where(seed, lab, 0).astype(np.int32)
+    unset = np.int32(np.iinfo(np.int32).max)
     for ring in range(1, _MAX_RINGS + 1):
-        nxt = _shift_or(frontier) & free & ~reached
+        best = np.full(lab.shape, unset, dtype=np.int32)
+        for dy, dx in NEIGHBOURHOOD_8:
+            shifted = _shift(frontier, dy, dx, 0)
+            best = np.minimum(best, np.where(shifted > 0, shifted, unset))
+        nxt = (best < unset) & free & ~reached
         if not nxt.any():
             break
         dist[nxt] = ring
+        owner[nxt] = best[nxt] - 1
         reached |= nxt
-        frontier = nxt
+        frontier = np.where(nxt, best, 0).astype(np.int32)
     dist[~free] = 0
-    return dist
+    return dist, owner
 
 
 class CellOrder:
@@ -184,35 +275,71 @@ class CellOrder:
         self.base_state_flat = arr.reshape(self.n_members, self.n_leads, -1)
 
         seed_mask = burned0 if burned0.any() else inc.any(axis=(0, 1))
-        self.rings = _geodesic_rings(seed_mask, self.free).reshape(-1)
+        labels, n_components = _seed_components(seed_mask)
+        rings, owner = _geodesic_rings_and_owner(labels, self.free)
+        self.rings = rings.reshape(-1)
+
+        # ONE ANCHOR SET PER BODY. With no seed at all there is no fire to anchor
+        # on and the pre-component fallback - the whole grid, one pseudo-body -
+        # is kept, so an empty forecast is degraded exactly as it was before.
+        if n_components == 0:
+            anchors = [np.ones_like(self.free)]
+            owner = np.zeros_like(owner)
+            n_components = 1
+        else:
+            anchors = [labels == c for c in range(1, n_components + 1)]
+        self.n_components = int(n_components)
+        self.owner = owner.reshape(-1)
 
         rng = np.random.default_rng(_PERM_SEED)
         self.perm = rng.permutation(self.n_cells)
 
-        # bearing of every cell from the centre of the region the fire spreads FROM
+        # bearing of every cell from the centre of the body it belongs to
         ys, xs = np.mgrid[0 : self.height, 0 : self.width]
-        anchor = seed_mask if seed_mask.any() else np.ones_like(self.free)
-        cy = float(ys[anchor].mean())
-        cx = float(xs[anchor].mean())
+        cy = np.array([float(ys[a].mean()) for a in anchors], dtype=np.float64)
+        cx = np.array([float(xs[a].mean()) for a in anchors], dtype=np.float64)
+        self.anchor_y, self.anchor_x = cy, cx
         self.bearing = np.arctan2(
-            (ys - cy).astype(np.float64), (xs - cx).astype(np.float64)
+            (ys - cy[owner]).astype(np.float64), (xs - cx[owner]).astype(np.float64)
         ).reshape(-1)
 
-        pooled = self.inc_flat.any(axis=(0, 1))
-        if pooled.any():
-            self.phi_base = float(
-                np.arctan2(
-                    (ys.reshape(-1)[pooled] - cy).mean(),
-                    (xs.reshape(-1)[pooled] - cx).mean(),
-                )
-            )
-        else:
-            self.phi_base = 0.0
+        # THE SORT GROUP, and the reason the whole construction reduces on one
+        # body: a cell's group is its territory, and every cell already burned at
+        # t0 goes to a group of its own that sorts LAST. On one component that is
+        # exactly the `not_free` key this class used to sort by, value for value,
+        # so every order below is the order it built before.
+        self.sort_group = np.where(self.free_flat, self.owner, self.n_components).astype(np.int32)
+        counts = np.bincount(self.sort_group, minlength=self.n_components + 1)
+        self.group_start = np.concatenate(([0], np.cumsum(counts)[:-1])).astype(np.int64)
 
+        # phi_base is PER BODY: the bearing of that body's own share of the
+        # pooled increment, from that body's own centroid. A body the forecast
+        # never grows keeps 0.0, the same fallback an empty pooled increment had.
+        pooled = self.inc_flat.any(axis=(0, 1))
+        self.phi_base = np.zeros(self.n_components, dtype=np.float64)
+        for component in range(self.n_components):
+            share = pooled & (self.owner == component)
+            if share.any():
+                self.phi_base[component] = float(
+                    np.arctan2(
+                        (ys.reshape(-1)[share] - cy[component]).mean(),
+                        (xs.reshape(-1)[share] - cx[component]).mean(),
+                    )
+                )
+
+        self._first = self._build_first_lead()
         self._base_rank = self._build_base_rank()
+        self._grouped_rank: np.ndarray | None = None
         self._opp_rank = self._build_opposing_rank()
 
     # -- the two orders ----------------------------------------------------
+
+    def _build_first_lead(self) -> np.ndarray:
+        """``[M, H*W]`` first lead at which the base burns the cell; never -> ``T + 1``."""
+        first = np.full((self.n_members, self.n_cells), self.n_leads + 1, dtype=np.int32)
+        for lead in range(self.n_leads - 1, -1, -1):
+            first = np.where(self.inc_flat[:, lead], lead + 1, first)
+        return first
 
     def _build_base_rank(self) -> np.ndarray:
         """``[M, H*W]`` rank. First ``|I_h|`` entries are exactly ``I_h``, per lead.
@@ -221,28 +348,66 @@ class CellOrder:
         number: a packed key is correct only while every field stays inside the
         stride chosen for it, and a grid small enough to break that assumption
         would silently reorder rather than fail.
+
+        GLOBAL, and it stays global: this is the order the AREA family takes the
+        first ``round(k * n_h)`` of, and ``k < 1`` means "keep the cells the base
+        burns EARLIEST" across the whole scene, which is a statement about TIME
+        and not about which body a cell belongs to. The area family relocates
+        nothing, so the per-body construction has nothing to say about it and
+        leaves it alone - measured, not intended: all twelve area rungs are
+        bit-identical on all 404 held-out windows, multi-body ones included.
         """
-        # first lead at which the base burns the cell; never -> n_leads + 1
-        first = np.full((self.n_members, self.n_cells), self.n_leads + 1, dtype=np.int32)
-        for lead in range(self.n_leads - 1, -1, -1):
-            first = np.where(self.inc_flat[:, lead], lead + 1, first)
-        not_free = np.broadcast_to(~self.free_flat, first.shape)
-        rings = np.broadcast_to(self.rings, first.shape)
-        perm = np.broadcast_to(self.perm, first.shape)
-        return _ranks_from(np.lexsort((perm, rings, first, not_free), axis=-1))
+        not_free = np.broadcast_to(~self.free_flat, self._first.shape)
+        rings = np.broadcast_to(self.rings, self._first.shape)
+        perm = np.broadcast_to(self.perm, self._first.shape)
+        return _ranks_from(np.lexsort((perm, rings, self._first, not_free), axis=-1))
+
+    def _grouped_base_rank(self) -> np.ndarray:
+        """The base order with the TERRITORY as its leading key. One body: identical.
+
+        The relocating families rank inside a body, so both terms of their blend
+        have to be ranks on the same scale inside that body. Grouping the base
+        order by territory does exactly that and nothing else: within a territory
+        the relative order is untouched, because restricting a total order to a
+        subset preserves it. With one component ``sort_group`` IS ``not_free``,
+        so this array equals :meth:`_build_base_rank`'s element for element.
+        """
+        if self._grouped_rank is None:
+            group = np.broadcast_to(self.sort_group, self._first.shape)
+            rings = np.broadcast_to(self.rings, self._first.shape)
+            perm = np.broadcast_to(self.perm, self._first.shape)
+            self._grouped_rank = _ranks_from(np.lexsort((perm, rings, self._first, group), axis=-1))
+        return self._grouped_rank
 
     def _build_opposing_rank(self) -> np.ndarray:
-        """``[H*W]`` rank of a lobe pointing 180 degrees from the base increment."""
+        """``[H*W]`` rank of ONE LOBE PER BODY, each 180 degrees from its own increment.
+
+        Every term is now read at the cell's own body: its ring index is measured
+        from that body, its bearing is measured from that body's centroid, and
+        the direction it is pushed is 180 degrees from that body's own share of
+        the increment. The grouping key keeps the lobes from competing with each
+        other, which is the half that stops a rung from moving mass off one body
+        and onto another.
+        """
         target = self.phi_base + np.pi
         score = np.minimum(self.rings, _MAX_RINGS + 1).astype(np.float64) - _LOBE_LAMBDA * np.cos(
-            self.bearing - target
+            self.bearing - target[self.owner]
         )
-        keys = (self.perm[None, :], score[None, :], (~self.free_flat)[None, :])
+        keys = (self.perm[None, :], score[None, :], self.sort_group[None, :])
         return _ranks_from(np.lexsort(keys, axis=-1))[0]
 
-    def shift_offset(self, level: float) -> tuple[int, int]:
-        """Integer ``(dy, dx)`` for a ``level``-cell translation. See :func:`shift_offset_cells`."""
-        return shift_offset_cells(self.phi_base, level)
+    def shift_offsets(self, level: float) -> tuple[tuple[int, int], ...]:
+        """Integer ``(dy, dx)`` PER BODY for a ``level``-cell translation.
+
+        One offset per body, each along that body's own outward bearing, for the
+        reason :func:`shift_offset_cells` gives for using the increment's own
+        bearing at all: a direction that is not the fire's own turns the realised
+        severity into an accident of which way that fire happened to be running.
+        A scene-wide direction on a two-body scene is that same accident one level
+        up. Plural, not a scalar, so a caller cannot read one body's heading as
+        the scene's.
+        """
+        return tuple(shift_offset_cells(float(phi), level) for phi in self.phi_base)
 
     def _build_shifted_rank(self, level: float) -> np.ndarray:
         """``[M, H*W]`` rank of the base order TRANSLATED by ``level`` cells.
@@ -253,29 +418,43 @@ class CellOrder:
         integer-for-integer, and ``level = 0`` returns the base rank itself -
         the identity rung, by construction rather than by a branch.
 
-        A translated cell that lands off the grid or on ground already burned at
-        t0 cannot be selected (it would un-burn nothing and would break C1.1), so
-        those cells are ranked LAST and the shortfall is filled by the next cells
-        of the same translated order. That keeps the area exact; it does mean the
-        REALISED displacement is at most the requested one near a boundary, which
-        is why the realised centroid displacement is measured on the samples
-        rather than assumed from the level (:func:`realised_displacement_km`).
+        A translated cell that lands off the grid, on ground already burned at t0,
+        or outside its own body's territory cannot be selected (it would un-burn
+        nothing and would break C1.1, or it would put one body's front on top of
+        another's), so those cells are ranked LAST and the shortfall is filled by
+        the next cells of the same translated order. That keeps the area exact; it
+        does mean the REALISED displacement is at most the requested one near a
+        boundary, which is why the realised centroid displacement is measured on
+        the samples rather than assumed from the level
+        (:func:`realised_displacement_km`).
+
+        EACH BODY MOVES ALONG ITS OWN HEADING. With one body the territory test
+        is vacuous and the source of every destination cell is the same rectangle
+        the single-offset translation read, so this is that translation exactly.
         """
-        dy, dx = self.shift_offset(level)
-        if (dy, dx) == (0, 0):
-            return self._base_rank
-        grid = self._base_rank.reshape(self.n_members, self.height, self.width)
-        far = np.int32(self.n_cells + 1)
-        moved = np.full_like(grid, far)
-        ys_dst = slice(max(dy, 0), self.height + min(dy, 0))
-        ys_src = slice(max(-dy, 0), self.height + min(-dy, 0))
-        xs_dst = slice(max(dx, 0), self.width + min(dx, 0))
-        xs_src = slice(max(-dx, 0), self.width + min(-dx, 0))
-        moved[:, ys_dst, xs_dst] = grid[:, ys_src, xs_src]
-        score = moved.reshape(self.n_members, -1).astype(np.float64)
-        not_free = np.broadcast_to(~self.free_flat, score.shape)
+        offsets = self.shift_offsets(level)
+        if all(offset == (0, 0) for offset in offsets):
+            return self._grouped_base_rank()
+        grid = self._grouped_base_rank().reshape(self.n_members, self.height, self.width)
+        owner2d = self.owner.reshape(self.height, self.width)
+        dy = np.array([o[0] for o in offsets], dtype=np.int64)[owner2d]
+        dx = np.array([o[1] for o in offsets], dtype=np.int64)[owner2d]
+        ys, xs = np.mgrid[0 : self.height, 0 : self.width]
+        src_y, src_x = ys - dy, xs - dx
+        inside = (src_y >= 0) & (src_y < self.height) & (src_x >= 0) & (src_x < self.width)
+        clipped_y = np.clip(src_y, 0, self.height - 1)
+        clipped_x = np.clip(src_x, 0, self.width - 1)
+        same_body = inside & (owner2d[clipped_y, clipped_x] == owner2d)
+        source = (clipped_y * self.width + clipped_x).reshape(-1)
+        far = float(self.n_cells + 1)
+        score = np.where(
+            same_body.reshape(-1)[None, :],
+            grid.reshape(self.n_members, -1)[:, source].astype(np.float64),
+            far,
+        )
+        group = np.broadcast_to(self.sort_group, score.shape)
         perm = np.broadcast_to(self.perm, score.shape)
-        return _ranks_from(np.lexsort((perm, score, not_free), axis=-1))
+        return _ranks_from(np.lexsort((perm, score, group), axis=-1))
 
     # -- the rungs ---------------------------------------------------------
 
@@ -298,13 +477,66 @@ class CellOrder:
             return self._build_shifted_rank(float(level))
         blend = float(level)
         if blend == 0.0:
-            return self._base_rank
-        mixed = (1.0 - blend) * self._base_rank.astype(np.float64) + blend * self._opp_rank[
-            None, :
-        ].astype(np.float64)
-        not_free = np.broadcast_to(~self.free_flat, mixed.shape)
+            return self._grouped_base_rank()
+        mixed = (1.0 - blend) * self._grouped_base_rank().astype(
+            np.float64
+        ) + blend * self._opp_rank[None, :].astype(np.float64)
+        group = np.broadcast_to(self.sort_group, mixed.shape)
         perm = np.broadcast_to(self.perm, mixed.shape)
-        return _ranks_from(np.lexsort((perm, mixed, not_free), axis=-1))
+        return _ranks_from(np.lexsort((perm, mixed, group), axis=-1))
+
+    def component_quota(self) -> np.ndarray:
+        """``[M, T, C + 1]`` cells of the base increment sitting in each territory.
+
+        EACH BODY'S SHARE, counted rather than apportioned. Three properties the
+        ladder already claimed and that this is what keeps true once selection
+        happens per body:
+
+        * total area stays integer-EXACT, because every increment cell is free
+          and every free cell has exactly one owner, so the shares sum to
+          ``base_sizes`` - asserted below, not assumed, since a partition that
+          lost a cell would quietly shrink every shape rung;
+        * the schedule stays non-decreasing in the lead, because the base
+          increment is nested in the lead and intersecting a fixed territory with
+          a nested family leaves it nested;
+        * the ``f = 0`` / ``level = 0`` rung stays BITWISE the base forecast,
+          because within a territory the base order puts that territory's own
+          ``I_h`` cells first - they are the only ones with ``first <= h + 1`` -
+          and there are exactly ``quota`` of them.
+
+        The last column is the group holding the cells already burned at t0 and
+        is always 0: they are never selected, which is how C1.1 is kept.
+        """
+        quota = np.zeros((self.n_members, self.n_leads, self.n_components + 1), dtype=np.int64)
+        for component in range(self.n_components):
+            in_territory = self.sort_group == component
+            quota[:, :, component] = self.inc_flat[:, :, in_territory].sum(axis=2)
+        if not np.array_equal(quota.sum(axis=2), self.base_sizes):
+            raise AssertionError(
+                "the territory partition lost increment cells: shares sum to "
+                f"{quota.sum(axis=2).sum()} against {self.base_sizes.sum()} base increment cells"
+            )
+        return quota
+
+    def selection(self, mode: str, level: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """``(ranks, quota, group)``: take the first ``quota[g]`` cells of each group.
+
+        ONE selection rule with the group structure as its only variable, so the
+        two families differ by the group and not by a second code path. The AREA
+        family has ONE group - the whole scene - which is the selection this class
+        performed before bodies were distinguished; the relocating families have
+        one group per body plus the burned-at-t0 group, and rank inside it.
+        """
+        if mode == MODE_AREA:
+            sizes = self.sizes_for(mode, level)
+            return (
+                self._base_rank,
+                sizes[:, :, None],
+                np.zeros(self.n_cells, dtype=np.int32),
+            )
+        ranks = self.order_for(mode, level)
+        local = ranks - self.group_start[self.sort_group][None, :]
+        return local, self.component_quota(), self.sort_group
 
 
 def _ranks_from(order: np.ndarray) -> np.ndarray:
@@ -371,13 +603,12 @@ def degrade_samples(
     """Return the rung's C5 samples. ``mode='area', level=1.0`` is the identity."""
     arr = np.asarray(base_samples)
     co = order if order is not None else CellOrder(arr, x0)
-    ranks = co.order_for(mode, level)
-    sizes = co.sizes_for(mode, level)
+    ranks, quota, group = co.selection(mode, level)
 
     out = np.zeros_like(co.base_state_flat)
     burned0_state = np.asarray(x0).reshape(-1) > 0
     for lead in range(co.n_leads):
-        keep = ranks < sizes[:, lead][:, None]
+        keep = ranks < quota[:, lead][:, group]
         base_state = co.base_state_flat[:, lead]
         # a kept cell the base also burns keeps its base state (1 vs 2 matters to
         # nothing downstream today, but inventing a state would be a silent change

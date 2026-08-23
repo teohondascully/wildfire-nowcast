@@ -27,6 +27,23 @@ paths rather than the easy ones:
   *the model has two components*), so every
   downstream consumer needs a fixture where it actually happens.
 
+**C2's ``n_ignition_components`` IS DERIVED HERE, NOT DECLARED (I22).** It used
+to be the literal ``1``, and the ratified deriver
+``data.ignitions.count_ignition_components`` reads **2** on the tensor this
+module has just written, on every seed tried: the scripted spot lands ~30 km
+out, never merges (the river is impassable, so it cannot), and rule (c) counts a
+never-merging body beyond ``SPOT_RANGE_MAX_KM = 15 km`` as a separate ignition.
+**The spot is not a defect and is not moved** - it is the barrier crossing this
+fixture exists to exercise, and :func:`_simulate_perimeters` refuses to build a
+fire without one. What was wrong was a generator asserting a number it did not
+compute. The value now comes from the ratified rule through
+:func:`c2_ignition_components`, and the fixture's own construction - ONE seed
+plus ONE scripted spot - is recorded beside it in
+``provenance.ignition_components.synthetic_construction`` rather than being
+quietly substituted for it. The two are different questions about the same
+tensor (ADR-137: an unlabelled component count is not a number, it is a
+question), and C2's question is the genealogy rule's.
+
 Physics here is a caricature - an anisotropic wind/slope-driven dilation with
 correlated noise. It is *not* a baseline and must never be scored as one.
 
@@ -42,7 +59,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import numpy as np
 import xarray as xr
@@ -58,6 +75,9 @@ from wildfire_nowcast.common.grid import Grid
 from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import outputs_dir
 from wildfire_nowcast.common.states import apply_state_rule, dilate
+
+if TYPE_CHECKING:  # pragma: no cover - typing only; the runtime import stays deferred
+    from wildfire_nowcast.data.ignitions import IgnitionReport
 
 __all__ = [
     "SyntheticFire",
@@ -586,6 +606,38 @@ def build_synthetic_dataset(
     return ds, geometry
 
 
+def c2_ignition_components(ds: xr.Dataset, *, cell_size_m: float) -> IgnitionReport:
+    """C2's ``n_ignition_components`` for a generated fire, DERIVED not declared.
+
+    A thin delegation to ``data.ignitions.count_ignition_components`` - the rule
+    ADR-019 ratified, re-run from the ``fire_state`` field this module has just
+    written. It exists so the generator has exactly ONE way to obtain the number
+    it stamps into a manifest, and so a test can call that way on an arbitrary
+    state array. A control that only asserts "the manifest agrees with the rule"
+    on this fixture is HALF BLIND, and measurably so: it fires on the literal
+    ``1`` this module used to carry and is silent on a literal ``2``, because
+    the fixture reads 2 either way. Discriminating between them needs a state
+    whose answer is 1.
+
+    **Why ``common/`` reaches into ``data/``, and why the import is deferred.**
+    The C2 estimand's single implementation lives in ``data/ignitions.py``, not
+    here, so this is a producer computing a derived quantity through the
+    verifier's code rather than through a second copy of it - which is what C0
+    requires and what the literal violated. The dependency direction is
+    inverted, so the import is function-local: importing ``common.synthetic``
+    does not drag ``data/`` in, and no import cycle can form even if ``data/``
+    ever imports this module. ``sim/components.py`` delegates to the same
+    function under the same name for the same reason (S13). PROPOSED and not
+    taken (I22): the rule may belong in ``common/components.py`` beside
+    ``label_components``, which was hoisted there for exactly this reason - but
+    moving a ratified ``data/`` module belongs to whoever owns that package, not
+    to this one.
+    """
+    from wildfire_nowcast.data.ignitions import count_ignition_components  # noqa: PLC0415
+
+    return count_ignition_components(zio.fire_state_of(ds), cell_size_m=cell_size_m)
+
+
 def make_synthetic_fire(
     seed: int,
     n_hours: int = 24,
@@ -625,6 +677,10 @@ def make_synthetic_fire(
     )
     grid_used = grid or default_grid_for(n_hours)
 
+    # C2 [v2.7]: DERIVED, not defaulted - from the tensor this call just built,
+    # through the rule ADR-019 ratified, before anything is written to disk.
+    ignitions = c2_ignition_components(ds, cell_size_m=grid_used.cell_size_m)
+
     norm_stats_path = out_dir / "norm_stats.json"
     manifest = zio.build_manifest(
         fire_id=fire_id,
@@ -652,7 +708,7 @@ def make_synthetic_fire(
         },
         norm_stats_path="norm_stats.json",
         fuel_vintage_lag_years=0,
-        n_ignition_components=1,
+        n_ignition_components=ignitions.n_ignition_components,
         extra={
             "synthetic": {
                 "seed": int(seed),
@@ -670,6 +726,28 @@ def make_synthetic_fire(
             }
         },
     )
+
+    # C2 [v2.7] asks for the METHOD and the per-fire EVIDENCE beside the integer,
+    # in `provenance.ignition_components`. Attached after the canonical builder
+    # because that builder stringifies provenance values ({source: pull-date})
+    # and a flattened evidence report is not evidence - the same re-attachment
+    # `data/assemble.py` does for its QA block. `synthetic_construction` is the
+    # generator's own answer to a DIFFERENT question and is deliberately not
+    # allowed to become the C2 integer: this is the only fire in the project
+    # whose ignition count is known by construction, and the construction and
+    # the rule disagree by 1 on it (BLOCKERS, S13).
+    manifest["provenance"]["ignition_components"] = {
+        **ignitions.to_provenance(),
+        "synthetic_construction": (
+            f"BY CONSTRUCTION this fixture has ONE seed (row/col {list(geometry.ignition_rc)}) "
+            f"plus ONE scripted spot fire (row/col {list(geometry.spot_rc)}, hour "
+            f"{int(geometry.crossing_hour)}) thrown across an impassable water barrier. The "
+            "C2 rule counts that spot as a second ignition because it never merges (it "
+            "cannot - the barrier is unburnable) and lands beyond data.ignitions."
+            "SPOT_RANGE_MAX_KM. The rule's answer is the C2 value; this sentence is the "
+            "construction, and the two are different questions about the same tensor"
+        ),
+    }
 
     written_tensor, written_manifest = zio.write_fire(ds, manifest, out_dir)
     if with_norm_stats:
@@ -733,6 +811,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"shape       : {tuple(int(ds.sizes[d]) for d in ('time', 'y', 'x'))} (t, y, x)")
         print(f"state counts: unburned={counts[0]} burning={counts[1]} burned_out={counts[2]}")
         print(f"crossing_hr : {result.geometry.crossing_hour} (spot at {result.geometry.spot_rc})")
+        man = zio.read_manifest(result.manifest_path)
+        prov = man["provenance"]["ignition_components"]
+        print(
+            f"ignitions   : C2 n_ignition_components = {man['n_ignition_components']}, DERIVED "
+            "by data.ignitions.count_ignition_components from the tensor above (1 seed + "
+            f"{len(prov['separate_ignition_births'])} never-merging body beyond the spot range; "
+            "the fixture's own construction is 1 seed + 1 scripted spot, and provenance says so)"
+        )
         print(
             f"dormancy    : hours {result.geometry.dormancy_hours[0]}-"
             f"{result.geometry.dormancy_hours[1] - 1} -> {empty.size}/{state.shape[0]} frames "

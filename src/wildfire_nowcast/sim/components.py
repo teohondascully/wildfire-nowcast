@@ -5,10 +5,13 @@
         --outdir reports/figures --manifest-check
 
 GOFER files separate lightning ignitions under ONE fire id (ADR-014 §7, C2
-[v2.7]). ``2020_july_complex`` is declared as 2 components and SCU as 3, and the
+[v2.7]). ``2020_july_complex`` is declared as 2 ignitions and SCU as 2, and the
 consequence is a 47 km apparent "teleport" that is not spotting and that no
 contagion kernel can or should reproduce. This module makes that visible, because
 a number in a manifest is easy to forget and a picture of two fires is not.
+(This paragraph read "SCU as 3" until S13. It was wrong in exactly the way ADR-019
+found the ESTIMAND wrong: 3 is SCU's final-FOOTPRINT component count, 2 is its C2
+IGNITION count. Both numbers are true of SCU; only one of them is C2's.)
 
 **Detection rule.** Walk the cumulative burned region hour by hour. A new
 *ignition component* is a connected component of ``ever(t)`` containing no cell of
@@ -18,21 +21,61 @@ already-burning cell. That distance is the whole diagnostic: contagion at 1 km/h
 cannot produce 47 km, so the number itself separates "filing artifact" from
 "spot fire" without anyone having to remember which fire is which.
 
+**THIS MODULE DOES NOT DEFINE C2's INTEGER, AND SINCE S13 IT NO LONGER PRETENDS
+TO.** Two rules exist, both defensible, and they disagree on exactly one fire:
+
+* the ``data/`` GENEALOGY rule - ``data.ignitions.count_ignition_components``,
+  ratified by ADR-019 - where a body that EVER merges is not an ignition, however
+  long it takes. **That is the C2 estimand.** It is what the 21 stored manifests
+  hold, and re-running it from each shipped tensor reproduces the stored integer
+  on 21 of 21 fires (D19).
+* this module's SIMULATION rule, where a body that merges within
+  ``FRAGMENT_MERGE_WINDOW_H`` hours was one fire filed in pieces and one that
+  stays detached longer is a separate body worth drawing. That window is right
+  for the question ``sim/`` asks - what must the spot component be able to
+  produce - and **it is not withdrawn**.
+
+``2020_czu_lightning_complex`` is the one fire between them: a second body born at
+h25, 14.14 km out, merging at **h55 - 30 hours later**. ``data/`` calls it a spot
+(CZU = 1 ignition, the stored value); this page calls it a separate body. Both
+readings are on the figure, each under its own name.
+
+Until S13 the topology count was exported TWICE - once as
+``n_components_detected`` and once, byte for byte the same integer, as
+``n_ignition_components`` - and ``--manifest-check`` asserted C2 against the
+second name. It therefore printed a CONTRACT failure on **9 of 21 fires whose
+stored values ADR-019 had personally ratified**: a check that could not pass on
+correct data, which is the same defect class as one that cannot fail. The
+confusable name is GONE. The topology count keeps its incumbent name,
+``n_components_detected``, which the module already documented as NOT C2's, and
+the C2 assertion delegates to the ratified deriver
+(:func:`c2_ignition_components`).
+
+A further rename to something with no ``components`` in it at all - the count is
+really unconnected BIRTHS, first-frame bodies plus later detached ones - is
+PROPOSED and not taken: ``tests/test_sim_components.py:125`` reads the incumbent
+name and ``tests/`` is not this lead's to write.
+
 **Why this is not the same as the movie's teleport mark.** The movie flags a
 large front gap in a single frame, which also fires on genuine long-range
 spotting and on the ordinary ignition hour. This looks at the topology of the
 burned set and answers a different question: how many INDEPENDENT fires are in
 this store. The two are complementary and disagreeing is informative.
 
-**Binding on P3.** Crossings mining must exclude inter-component jumps, or the
-spot component trains on GOFER's filing convention and G4 becomes meaningless.
-``ignition_components()`` returns the exact hours and cells to exclude.
+**Binding on P3, RETARGETED by ADR-137 and corrected here in S13.** Crossings
+mining must exclude inter-component jumps, or the spot component trains on
+GOFER's filing convention and G4 becomes meaningless - but it must do that from
+the PER-BODY records (``components`` here, ``provenance.ignition_components`` in
+the manifest), **never by filtering on the integer**. Filtering on the integer
+would have deleted SCU's 3 crossing events, 25% of the corpus. The integer is
+safe as a gate and unsafe as a selector.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import textwrap
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -45,6 +88,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
 from wildfire_nowcast.common.components import label_components  # noqa: E402
+from wildfire_nowcast.data.ignitions import count_ignition_components  # noqa: E402
 from wildfire_nowcast.sim.reader import FireFrames, load_fire  # noqa: E402
 from wildfire_nowcast.sim.style import (  # noqa: E402
     COL_BARRIER,
@@ -58,15 +102,35 @@ from wildfire_nowcast.sim.style import (  # noqa: E402
 __all__ = [
     "label_components",
     "IgnitionComponent",
+    "c2_ignition_components",
+    "c2_manifest_verdict",
     "ignition_components",
     "render_components",
     "main",
 ]
 
+#: Where C2's integer comes from. Printed and written into every record this
+#: module produces, so a reader of the JSON can see at a glance that the number
+#: was NOT computed here. A name in the output is the cheapest available guard
+#: against the S13 defect coming back under a different key.
+C2_DERIVATION: str = "data.ignitions.count_ignition_components (ADR-019)"
+
 #: Separation at or below which two blobs in the SAME frame are one fire that
 #: GOFER rasterised into two pieces. Anchored to the label noise scale the corpus
 #: already has (~2 km effective GOES resolution), NOT fitted to any fire.
 FRAGMENT_KM: float = 2.0
+
+#: Hours within which two bodies becoming 8-connected proves they were one fire
+#: filed in pieces. **This module's rule, for the SIMULATION question, and it is
+#: deliberately NOT C2's.** ``data/ignitions.py`` and ``data/crossings.py:396``
+#: require ``not merges_later`` - merging disqualifies a body however long it
+#: takes - which is right for counting IGNITIONS and wrong for asking what a spot
+#: component must be able to produce. Exactly one fire in the 21-fire corpus sits
+#: between the two rules (CZU's second body, born h25 at 14.14 km, merging 30 h
+#: later); the next-largest merging gap anywhere is 8.25 km. Hoisted out of the
+#: classifier in S13 so the window is DECLARED and travels in the JSON, rather
+#: than sitting as a literal that a reader has to open the source to find.
+FRAGMENT_MERGE_WINDOW_H: int = 12
 
 #: Separation at or above which a new component is confidently a DIFFERENT fire
 #: rather than long-range spotting. Provisional, declared not fitted: an order of
@@ -127,6 +191,61 @@ class IgnitionComponent:
     classification: str = "primary"
 
 
+def c2_ignition_components(fire: FireFrames) -> int:
+    """C2's ``n_ignition_components``, computed by the package that OWNS it.
+
+    A thin delegation to ``data.ignitions.count_ignition_components`` - the
+    deriver ADR-019 ratified, the one that produced the 21 stored manifests, and
+    the one D19 re-ran to reproduce every stored integer 21 of 21 times. It is
+    handed the shipped ``fire_state`` field, which is exactly the input it
+    documents: it relies only on the C1.1 absorbing guarantee, under which
+    ``state != 0`` already IS the monotone ever-burned set.
+
+    **It exists so that ``--manifest-check`` compares like with like.** C0 forbids
+    the producer and the verifier computing the same-named quantity through
+    different code, and until S13 this module did precisely that - it asserted C2
+    against its own ``FRAGMENT_MERGE_WINDOW_H`` topology count and so failed on 9
+    of 21 fires whose stored values are correct. Nothing here re-implements the
+    rule. If ``data/`` changes it, this check changes with it, which is the point;
+    a verifier with its own private copy of the rule is a second estimand wearing
+    the first one's name.
+    """
+    return int(
+        count_ignition_components(
+            fire.state, cell_size_m=float(fire.geom.cell_size_m)
+        ).n_ignition_components
+    )
+
+
+def c2_manifest_verdict(fire_id: str, declared: Any, derived: int | None) -> str | None:
+    """``None`` if the manifest's C2 integer is verified, else the failure text.
+
+    Split out of ``main`` so that both halves are testable without a store, and
+    so the THREE outcomes sit in one readable place: verified, WRONG, and NOT
+    CHECKABLE. The third is a refusal and never a pass - a missing key, or a
+    store that never burns, means the comparison did not happen, and a check that
+    reports silence as success is the defect one level up from the one S13 fixed.
+    """
+    if derived is None:
+        return (
+            f"{fire_id}: C2 NOT CHECKED - this store never burns, so "
+            f"{C2_DERIVATION} has no ignition to count. Refusing, not passing."
+        )
+    if declared is None:
+        return (
+            f"{fire_id}: manifest carries NO n_ignition_components. C2 [v2.7] requires the "
+            f"key, DERIVED not defaulted; {C2_DERIVATION} gives {derived} for this tensor. "
+            "A missing key is a failure, not a skip."
+        )
+    if declared != derived:
+        return (
+            f"{fire_id}: manifest declares n_ignition_components={declared!r} but "
+            f"{C2_DERIVATION}, re-run from this tensor, gives {derived}. C2 [v2.7] requires "
+            "the stored integer to be the DERIVED one."
+        )
+    return None
+
+
 def ignition_components(fire: FireFrames) -> dict[str, Any]:
     """Every independent ignition in the store, with its separation distance.
 
@@ -139,6 +258,12 @@ def ignition_components(fire: FireFrames) -> dict[str, Any]:
     n_t = fire.n_hours
     cell_m = fire.geom.cell_size_m
     xs, ys = fire.geom.x_centres, fire.geom.y_centres
+
+    # C2's integer, from `data/`, computed BEFORE anything here so the record
+    # cannot be assembled without it. `None` for a store that never burns: the
+    # deriver refuses that input (C2 requires >= 1) and so does this module,
+    # rather than reporting a 0 that would read as a verified answer.
+    c2_derived: int | None = c2_ignition_components(fire) if bool(ever.any()) else None
 
     components: list[IgnitionComponent] = []
     seed_rc: list[tuple[int, int]] = []
@@ -214,7 +339,7 @@ def ignition_components(fire: FireFrames) -> dict[str, Any]:
         if comp.index == 1:
             comp.classification = "primary"
         elif sep <= FRAGMENT_KM or (
-            comp.hours_until_merge is not None and comp.hours_until_merge <= 12
+            comp.hours_until_merge is not None and comp.hours_until_merge <= FRAGMENT_MERGE_WINDOW_H
         ):
             comp.classification = "first_frame_fragment"
         elif sep >= SEPARATE_IGNITION_KM:
@@ -264,16 +389,27 @@ def ignition_components(fire: FireFrames) -> dict[str, Any]:
 
     return {
         "fire_id": fire.fire_id,
-        # Raw topology: connected regions that appeared where fire could not have
-        # spread to. This is NOT C2's n_ignition_components - see the breakdown.
+        # RAW TOPOLOGY: bodies that appeared where fire could not have spread to -
+        # first-frame bodies plus later detached births - counted BEFORE any
+        # classification. NOT an ignition count under anyone's rule. Until S13 this
+        # same integer was ALSO exported as `n_ignition_components`, and
+        # --manifest-check asserted C2 against THAT name; the module docstring
+        # records what the duplicate cost. One name, and it is not C2's.
         "n_components_detected": len(components),
-        "n_ignition_components": len(components),
+        # C2's integer, DELEGATED to the ratified deriver and not computed here.
+        # `None` only when the store never burns, in which case the check refuses.
+        "c2_n_ignition_components_derived": c2_derived,
+        "c2_derivation": C2_DERIVATION,
         # What the topology count is actually made of. A first_frame_fragment is
         # ONE fire filed in two pieces; a spot_candidate is the phenomenon the P2
         # spot component must LEARN and must NOT be excluded from P3 mining.
         "classification_counts": by_class,
+        # THIS PAGE'S OWN ignition estimate, under THIS page's merge window, kept
+        # deliberately alongside C2's and deliberately not named like it. On CZU
+        # it reads 2 against C2's 1 and both are right about different questions.
         "candidate_separate_ignitions": 1 + by_class.get("separate_ignition", 0),
         "fragment_km_threshold": FRAGMENT_KM,
+        "fragment_merge_window_h": FRAGMENT_MERGE_WINDOW_H,
         "separate_ignition_km_threshold": SEPARATE_IGNITION_KM,
         "components": [asdict(c) for c in components],
         "components_per_hour": per_hour_counts,
@@ -303,7 +439,9 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
     geom = fire.geom
     assignment = result["assignment"]
     comps = result["components"]
-    n = result["n_ignition_components"]
+    n = result["n_components_detected"]
+    c2 = result.get("c2_n_ignition_components_derived")
+    c2_txt = "not checkable (never burns)" if c2 is None else str(c2)
 
     fig = plt.figure(figsize=(15.4, 7.6))
     gs = fig.add_gridspec(
@@ -335,7 +473,7 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
     _SHORT = {
         "primary": "primary",
         "first_frame_fragment": "same fire, filed in 2 pieces",
-        "separate_ignition": "SEPARATE FIRE",
+        "separate_ignition": "separate BODY (this page's rule)",
         "spot_candidate": "spot candidate — KEEP for P3",
     }
     # Alternate the label offset so co-located first-frame fragments do not
@@ -373,23 +511,37 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
             xytext=src,
             arrowprops={"arrowstyle": "<->", "color": COL_WARN, "lw": 1.6, "ls": "--"},
         )
+        # The verdict names WHOSE rule it is. It used to read "NOT spotting, a
+        # separate fire" flat, which on CZU is this page's 12 h rule contradicting
+        # a C2 value ADR-019 ratified, with nothing on the page to say so.
         verdict = (
-            "NOT spotting — a separate fire"
+            f"detached >{result.get('fragment_merge_window_h', FRAGMENT_MERGE_WINDOW_H)} h"
+            " - a separate BODY here"
             if far.get("classification") == "separate_ignition"
             else "too far for 1 h of contagion — SPOT CANDIDATE, keep it"
         )
+        # The callout is ANCHORED TO THE PANEL, not to the arrow's midpoint. From
+        # the midpoint it ran off whichever edge it was nearest - on SCU the C2
+        # line was the part that fell outside - and it landed on top of the
+        # per-component labels. A box wider than half the panel cannot be centred
+        # on an arbitrary point and stay inside; the arrow already says where.
         ax.text(
-            (src[0] + b[0]) / 2,
-            (src[1] + b[1]) / 2,
-            f"  {far['km_to_nearest_burning']:.1f} km to the nearest burning cell\n"
-            f"  at hour {far['ignition_hour']} - {verdict}",
+            0.02,
+            0.10,  # clear of the scale bar, which owns the bottom strip
+            f"{far['km_to_nearest_burning']:.1f} km to the nearest burning cell "
+            f"at hour {far['ignition_hour']}\n"
+            f"{verdict}\n"
+            f"C2 counts {c2_txt} ignition(s) here (ADR-019 rule)",
+            transform=ax.transAxes,
             color=COL_WARN,
-            fontsize=9,
+            fontsize=8.5,
             fontweight="bold",
-            va="center",
+            va="bottom",
+            ha="left",
+            zorder=8,
             bbox={
                 "facecolor": "white",
-                "alpha": 0.82,
+                "alpha": 0.88,
                 "edgecolor": COL_WARN,
                 "lw": 0.8,
                 "boxstyle": "round,pad=0.3",
@@ -400,14 +552,21 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
     add_north_arrow(ax)
     add_scale_bar(ax, geom)
     counts = result.get("classification_counts", {})
-    bits = [f"{n} components detected"]
+    bits = [f"{n} unconnected birth(s) detected here"]
     if counts.get("separate_ignition"):
-        bits.append(f"{counts['separate_ignition']} SEPARATE FIRE(S)")
+        bits.append(f"{counts['separate_ignition']} separate BODY(-IES) on this page's rule")
     if counts.get("spot_candidate"):
         bits.append(f"{counts['spot_candidate']} spot candidate(s)")
     if counts.get("first_frame_fragment"):
         bits.append(f"{counts['first_frame_fragment']} same-fire fragment(s)")
-    ax.set_title(f"{fire.fire_id}: " + ",  ".join(bits), fontsize=11)
+    # Two lines, and C2 owns the first one. Written flat it overran the axes and
+    # collided with the neighbouring panel's title - a page that has to state two
+    # numbers has to leave room for both.
+    ax.set_title(
+        f"{fire.fire_id} - C2 = {c2_txt} ignition(s)\n"
+        + "\n".join(textwrap.wrap(",  ".join(bits), width=62)),
+        fontsize=10,
+    )
 
     # -- (2)(3) the frames either side of the FIRST GENUINELY DETACHED
     # component. `not is_primary` picked component 2, which on july_complex is a
@@ -473,9 +632,12 @@ def render_components(fire: FireFrames, result: dict[str, Any], out: str | Path)
     ax.grid(alpha=0.25, lw=0.5)
 
     fig.suptitle(
-        "C2 [v2.7] n_ignition_components - separate lightning ignitions filed under one fire id\n"
-        "BINDING ON P3: crossings mining must EXCLUDE inter-component jumps, or the spot model "
-        "trains on GOFER's filing convention and G4 becomes meaningless",
+        "Separate lightning ignitions filed under one fire id - TWO COUNTS, ONE PICTURE\n"
+        f"C2 [v2.7] n_ignition_components = {c2_txt}, from {C2_DERIVATION}; this page detects "
+        f"{n} unconnected births and {result.get('candidate_separate_ignitions', '?')} candidate "
+        f"ignition(s) under its own {FRAGMENT_MERGE_WINDOW_H} h merge window\n"
+        "BINDING ON P3 (ADR-137): mining must exclude inter-component jumps from the PER-BODY "
+        "records, NEVER by filtering on the integer - that would delete SCU's 3 crossing events",
         fontsize=11,
     )
     stamp(
@@ -508,7 +670,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--manifest-check",
         action="store_true",
-        help="compare the detected count with C2 n_ignition_components",
+        help="assert the manifest's C2 n_ignition_components against the RATIFIED deriver "
+        f"({C2_DERIVATION}) re-run from this tensor - NOT against this module's own "
+        "topology count, which answers a different question and would fail on 9 of 21 "
+        "corpus fires whose stored values are correct (S13)",
     )
     args = ap.parse_args(argv)
 
@@ -527,25 +692,30 @@ def main(argv: list[str] | None = None) -> int:
             declared = m.get(
                 "n_ignition_components", (m.get("provenance") or {}).get("n_ignition_components")
             )
+        derived = result["c2_n_ignition_components_derived"]
         entry = {k: v for k, v in result.items() if k != "assignment"}
         entry["c2_declared_n_ignition_components"] = declared
+        entry["c2_declared_matches_derived"] = declared == derived
         entry["figure"] = str(fig)
         summary["fires"][fire.fire_id] = entry
         gaps = ", ".join(
             f"#{c['index']}@h{c['ignition_hour']} {c['km_to_nearest_burning']:.1f} km"
             for c in result["components"]
         )
+        # BOTH counts on every line, each named. The old line printed one number
+        # under the word "detected" beside "C2 declares", which invited the reader
+        # to compare two quantities that are not the same quantity.
         print(
-            f"[components] {fire.fire_id}: detected {result['n_ignition_components']} "
-            f"(C2 declares {declared})  [{gaps}]  -> {fig}"
+            f"[components] {fire.fire_id}: C2 n_ignition_components = {derived} derived "
+            f"/ {declared!r} declared; {result['n_components_detected']} unconnected birth(s), "
+            f"{result['candidate_separate_ignitions']} candidate ignition(s) under this page's "
+            f"{FRAGMENT_MERGE_WINDOW_H} h rule  [{gaps}]  -> {fig}"
         )
-        if args.manifest_check and declared != result["n_ignition_components"]:
-            print(
-                f"[components] CONTRACT: {fire.fire_id} manifest declares "
-                f"{declared!r} but the tensor contains {result['n_ignition_components']}. "
-                "C2 [v2.7] requires this key; P3 crossings mining reads it."
-            )
-            rc = 1
+        if args.manifest_check:
+            problem = c2_manifest_verdict(fire.fire_id, declared, derived)
+            if problem is not None:
+                print(f"[components] CONTRACT: {problem}")
+                rc = 1
     (outdir / "ignition_components.json").write_text(json.dumps(summary, indent=1) + "\n")
     return rc
 

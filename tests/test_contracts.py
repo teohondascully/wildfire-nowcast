@@ -286,6 +286,45 @@ def test_c2_v27_keys_are_present_and_int(manifest_path: Path, labels_only: bool,
     )
 
 
+def test_c2_ignition_components_reproduces_the_ratified_deriver(
+    manifest_path: Path, tensor_ds: xr.Dataset, labels_only: bool
+) -> None:
+    """C2 [v2.7] says DERIVED, not defaulted - so re-derive it and compare.
+
+    ENFORCEMENT OF AN EXISTING CLAUSE, NOT A NEW ONE. "DERIVED" was previously
+    unchecked: a manifest carrying a hand-typed integer satisfied every check
+    there was, because a stored int cannot be told from a computed one by
+    reading it. This re-runs the RATIFIED rule
+    (``data.ignitions.count_ignition_components``, ADR-019 - the same estimand
+    ``sim/components.py`` delegates to since S13) against the ``fire_state``
+    field of the store the manifest describes, and requires the two to agree.
+
+    Verified before it was added, so it cannot surprise anyone: it reproduces
+    the stored integer on **21 of 21 corpus fires** (I22, re-measured; D19
+    measured the same 21/21 independently) and on the synthetic fixture, whose
+    literal ``1`` it would have caught - the deriver reads 2 there, because the
+    scripted spot never merges and lands ~30 km out (I22).
+    """
+    if labels_only:
+        pytest.skip("--labels-only: interim stores carry no C2 manifest")
+    from wildfire_nowcast.data.ignitions import count_ignition_components
+
+    manifest = json.loads(manifest_path.read_text())
+    stored = manifest.get(
+        C.MANIFEST_IGNITION_COMPONENTS_KEY,
+        manifest.get("provenance", {}).get(C.MANIFEST_IGNITION_COMPONENTS_KEY),
+    )
+    derived = count_ignition_components(
+        zio.fire_state_of(tensor_ds), cell_size_m=float(tensor_ds.attrs[C.ATTR_CELL_SIZE])
+    ).n_ignition_components
+    assert stored == derived, (
+        f"C2 [v2.7] {C.MANIFEST_IGNITION_COMPONENTS_KEY} = {stored!r} in the manifest but the "
+        f"ratified deriver reads {derived} on this very tensor. C2 says DERIVED, not defaulted: "
+        "a producer may not assert a number it did not compute. If the RULE is what is wrong "
+        "here, that is data.ignitions' owner's call and belongs in a BLOCKER, not in a manifest"
+    )
+
+
 def _manifest_missing(manifest_path: Path, tmp_path: Path, key: str) -> Path:
     manifest = json.loads(manifest_path.read_text())
     manifest.pop(key, None)

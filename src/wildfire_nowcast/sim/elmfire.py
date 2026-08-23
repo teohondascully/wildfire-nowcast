@@ -81,6 +81,7 @@ from wildfire_nowcast.sim.coarsen import (
     coarsen_occupancy,
     fine_grid,
 )
+from wildfire_nowcast.sim.headrate import distance_to_burned_fine, head_advance
 from wildfire_nowcast.sim.landfire import NativeStack, fetch_native_stack
 
 # ADR-103: a logger, and NOTHING else at import. `main` configures. This module
@@ -96,11 +97,13 @@ __all__ = [
     "InputMode",
     "ElmfireConfig",
     "ElmfireNativeModel",
+    "StackWindowError",
     "find_binary",
     "build",
     "write_envi_bsq",
     "read_bil",
     "window_grids",
+    "slice_stack_to_window",
     "main",
 ]
 
@@ -465,6 +468,95 @@ def window_grids(
     return Window(r0, c0, coarse, fine_grid(coarse, refine), refine)
 
 
+class StackWindowError(ValueError):
+    """A pre-supplied stack cannot be reconciled with the grid it will be run on.
+
+    Raised at model CONSTRUCTION, before any ELMFIRE process is started, so the
+    cost of the mistake is nothing rather than a whole Monte Carlo ensemble.
+    """
+
+
+#: Grid corners and cell sizes are floats produced by an exact integer refinement
+#: of a metre-scale grid, so they agree to far better than this. A tolerance of a
+#: millimetre distinguishes "the same grid" from "a grid one cell over" without
+#: making a float comparison the thing that fails.
+_GRID_TOL_M = 1e-3
+
+
+def _aligned_offset(origin_a: float, origin_b: float, cell_size_m: float) -> int | None:
+    """Whole cells from ``origin_a`` to ``origin_b``, or ``None`` if not aligned."""
+    steps = (origin_b - origin_a) / cell_size_m
+    nearest = round(steps)
+    if abs(steps - nearest) * cell_size_m > _GRID_TOL_M:
+        return None
+    return int(nearest)
+
+
+def slice_stack_to_window(stack: NativeStack, window: Window, domain: Grid) -> NativeStack:
+    """Cut a pre-supplied whole-domain ``stack`` down to ``window``.
+
+    ``ElmfireConfig.stack`` is a stack supplied once, for the whole domain, by a
+    caller that has one already. ``predict`` then runs on a WINDOW, and every
+    other array it builds (the initial state, phi, the weather block, the
+    write-back) is in window coordinates. Handing ELMFIRE a domain-sized fuel
+    stack beside a window-sized phi is not a smaller mistake than handing it the
+    wrong file: it is a wrong georeference, and it used to surface as a broadcast
+    error after the simulator had already run.
+
+    Both lattices are supported because both are supplied today: the native arm
+    passes a stack on ``fine_grid(domain, refine)`` and the lobotomised arm
+    passes one on ``domain`` itself. A stack that is already exactly the window
+    is returned unchanged, so the case where the window IS the whole domain is a
+    genuine identity and cannot perturb an existing result.
+    """
+    target = (
+        window.fine
+        if abs(stack.grid.cell_size_m - window.fine.cell_size_m) <= _GRID_TOL_M
+        else window.coarse
+    )
+    if abs(stack.grid.cell_size_m - target.cell_size_m) > _GRID_TOL_M:
+        raise StackWindowError(
+            f"`stack` has {stack.grid.cell_size_m:.4f} m cells, which is neither the "
+            f"{domain.cell_size_m:.4f} m domain lattice nor its {window.refine}x "
+            f"refinement ({window.fine.cell_size_m:.4f} m). Supply `stack_provider`, "
+            "a callable taking the Window and returning that window's own stack."
+        )
+    row_off = _aligned_offset(stack.grid.y_max, target.y_max, -target.cell_size_m)
+    col_off = _aligned_offset(stack.grid.x_min, target.x_min, target.cell_size_m)
+    if row_off is None or col_off is None:
+        raise StackWindowError(
+            "`stack` is not aligned with the grid it would be run on: its north-west "
+            f"corner ({stack.grid.x_min}, {stack.grid.y_max}) is not a whole number of "
+            f"{target.cell_size_m:.4f} m cells from the window's "
+            f"({target.x_min}, {target.y_max}). Supply `stack_provider`, a callable "
+            "taking the Window and returning that window's own stack."
+        )
+    ny, nx = target.shape
+    if row_off < 0 or col_off < 0 or row_off + ny > stack.grid.ny or col_off + nx > stack.grid.nx:
+        raise StackWindowError(
+            f"`stack` is {stack.grid.shape} and does not contain the window's "
+            f"{target.shape} block at offset ({row_off}, {col_off}). A plain `stack` "
+            "must cover the WHOLE domain, because the window is chosen inside "
+            "`predict` from the ignition state. Supply `stack_provider`, a callable "
+            "taking the Window and returning that window's own stack."
+        )
+    if row_off == 0 and col_off == 0 and stack.grid.shape == target.shape:
+        return stack
+    return NativeStack(
+        grid=target,
+        layers={
+            k: np.ascontiguousarray(v[row_off : row_off + ny, col_off : col_off + nx])
+            for k, v in stack.layers.items()
+        },
+        provenance={
+            **stack.provenance,
+            "sliced_from_supplied_stack": True,
+            "slice_rows": [row_off, row_off + ny],
+            "slice_cols": [col_off, col_off + nx],
+        },
+    )
+
+
 # --------------------------------------------------------------------------
 # the C5 model
 # --------------------------------------------------------------------------
@@ -546,6 +638,29 @@ class ElmfireNativeModel:
         self.config = config or ElmfireConfig()
         self.name = name
         self.last_run: dict[str, Any] = {}
+        self._check_supplied_stack()
+
+    def _check_supplied_stack(self) -> None:
+        """Refuse an unusable ``stack`` HERE, where nothing has been spent yet.
+
+        ``predict`` chooses its window from the ignition state, so the only claim
+        that can be checked without one is that the stack covers the whole
+        domain. That is the claim ``stack`` is making, and until now nothing
+        checked it: a stack that did not cover the domain reached ELMFIRE with a
+        window-sized phi raster beside domain-sized fuels, ran a full ensemble at
+        the wrong georeference, and failed on a broadcast error afterwards.
+        """
+        cfg = self.config
+        if cfg.stack is None:
+            return
+        if cfg.stack_provider is not None:
+            logger.warning(
+                "both `stack` and `stack_provider` are set; `stack_provider` wins and "
+                "`stack` will not be read (ElmfireConfig documents this precedence)"
+            )
+            return
+        whole = Window(0, 0, self.grid, fine_grid(self.grid, cfg.refine), cfg.refine)
+        slice_stack_to_window(cfg.stack, whole, self.grid)
 
     # -- inputs ----------------------------------------------------------
 
@@ -554,7 +669,7 @@ class ElmfireNativeModel:
         if cfg.stack_provider is not None:
             return cfg.stack_provider(window)
         if cfg.stack is not None:
-            return cfg.stack
+            return slice_stack_to_window(cfg.stack, window, self.grid)
         if cfg.mode is InputMode.NATIVE:
             return fetch_native_stack(window.fine, cfg.fire_year)
         # LOBOTOMISED: the S3 configuration, rebuilt from C1 at 1 km with the
@@ -737,6 +852,17 @@ SCRATCH = 'null'
         ]
 
         out = np.zeros((n_members, horizon_h, height, width), dtype=np.uint8)
+        # Distance from the t0 burned set, on the fine lattice, ONCE: it depends
+        # on the initial state alone, so recomputing it per member and per lead
+        # would be the same array four times. See `sim/headrate.py` for why the
+        # head is measured here and not on the returned 1 km samples.
+        distance_fine = distance_to_burned_fine(x0_win, refine)
+        # NOT `burned_fine`: that name is rebound inside the lead loop below to
+        # mean "burned by this lead", and the first version of this line was
+        # shadowed by it. The symptom was a head of 0.0 km beside 71,953 new fine
+        # cells in the same record, which is why the two counts are cross-checked
+        # against each other after every member rather than trusted.
+        initial_burned_fine = x0_fine > 0
         runs: list[dict[str, Any]] = []
         for member in range(int(n_members)):
             rng = np.random.default_rng(int(seed) * 1_000_003 + member)
@@ -814,11 +940,31 @@ SCRATCH = 'null'
                         window.col0 : window.col0 + window.coarse.nx,
                     ] = coarse.astype(np.uint8)
                 out[member] = np.maximum(out[member], x0[None])
+                head = head_advance(
+                    arrival,
+                    distance_fine,
+                    initial_burned_fine,
+                    cell_size_m=analysis.cell_size_m,
+                    horizon_h=int(horizon_h),
+                )
+                fine_new_cells = int(np.count_nonzero(reached & (x0_fine == 0)))
+                # The same quantity by two routes. They agreed on every run that
+                # produced a number here; they disagreed the one time a variable
+                # was shadowed, and a head that reads 0.0 km looks exactly like a
+                # fire that did not move.
+                if head["n_reached_fine_cells"] != fine_new_cells:
+                    raise RuntimeError(
+                        "head diagnostic disagrees with the new-cell count on member "
+                        f"{member}: {head['n_reached_fine_cells']} vs {fine_new_cells}. "
+                        "They are the same set counted twice, so this is a defect in "
+                        "the diagnostic, not a property of the fire."
+                    )
                 runs.append(
                     {
                         "member": member,
                         "returncode": proc.returncode,
-                        "fine_new_cells": int(np.count_nonzero(reached & (x0_fine == 0))),
+                        "fine_new_cells": fine_new_cells,
+                        "head": head,
                     }
                 )
             finally:

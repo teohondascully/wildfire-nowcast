@@ -79,6 +79,11 @@ __all__ = [
     "test_every_playthrough_arm_declares_its_expected_verdict",
     "test_e1_domain_slice_is_exact_and_a_one_cell_shift_is_not",
     "test_e1_refuses_a_mismatched_refine_rather_than_misregistering",
+    "test_the_head_distance_field_agrees_with_a_brute_force_over_every_burned_cell",
+    "test_the_head_reads_the_ceiling_when_the_front_runs_at_the_ceiling",
+    "test_the_head_is_measured_from_the_t0_state_and_not_from_the_final_one",
+    "test_a_supplied_stack_is_cut_to_the_window_and_left_alone_when_it_already_is_one",
+    "test_a_stack_that_cannot_be_reconciled_is_refused_and_the_message_names_the_cure",
     "test_e1_reads_the_verdict_off_the_pre_registered_rule_in_both_directions",
     "test_e1_a_partial_run_is_self_identifying_and_names_its_fires",
     "test_e1_scores_every_block_at_the_same_ensemble_size",
@@ -101,6 +106,10 @@ __all__ = [
     "test_the_s4_one_pager_is_reachable_from_the_command_line",
     "test_a_broken_ffmpeg_makes_the_writer_fall_back_AND_SAY_SO",
     "test_no_module_in_sim_configures_logging_at_import",
+    "test_the_c2_number_is_delegated_and_the_topology_count_is_not_named_like_it",
+    "test_the_c2_verdict_names_the_deriver_and_refuses_what_it_cannot_measure",
+    "test_manifest_check_passes_the_derived_c2_value_and_fails_the_topology_count",
+    "test_the_c2_value_follows_the_genealogy_rule_and_not_this_page_s_merge_window",
 ]
 
 # ADR-103: a logger, and NOTHING else at import. The PASS/FAIL lines and the
@@ -1110,6 +1119,208 @@ def test_e1_refuses_a_mismatched_refine_rather_than_misregistering() -> None:
         domain.slice_for(window_grids(coarse, x0, reach_cells=1, refine=3))
 
 
+def test_the_head_distance_field_agrees_with_a_brute_force_over_every_burned_cell() -> None:
+    """The boundary restriction is an OPTIMISATION and must change no value.
+
+    :func:`~wildfire_nowcast.sim.headrate.distance_to_burned_fine` scans only the
+    blocks on the burned set's boundary. That is correct, and correctness by
+    argument is what a plausible-but-wrong number looks like on the way in, so it
+    is compared against a scan over every burned fine cell. The comparison is
+    then shown to be CAPABLE of failing by dropping blocks from the boundary.
+    """
+    from wildfire_nowcast.sim.headrate import block_boundary, distance_to_burned_fine
+
+    rng = np.random.default_rng(20260823)
+    for refine in (1, 3, 5):
+        for _ in range(3):
+            coarse = (rng.random((7, 9)) < 0.3).astype(np.uint8)
+            if not coarse.any():
+                coarse[3, 4] = 1
+            got = distance_to_burned_fine(coarse, refine)
+            burned_fine = np.repeat(np.repeat(coarse > 0, refine, axis=0), refine, axis=1)
+            by, bx = np.nonzero(burned_fine)
+            qy, qx = np.nonzero(~burned_fine)
+            brute = np.zeros(burned_fine.shape, dtype=np.float64)
+            d2 = (qy[:, None] - by[None, :]) ** 2 + (qx[:, None] - bx[None, :]) ** 2
+            brute[qy, qx] = np.sqrt(d2.min(axis=1))
+            assert np.allclose(got, brute), (refine, float(np.abs(got - brute).max()))
+
+    # PLANT: the same comparison against a distance that skips half the boundary
+    # must FAIL, or the assertion above proves nothing.
+    coarse = np.zeros((7, 9), dtype=np.uint8)
+    coarse[2:5, 3:6] = 1
+    refine = 3
+    edge = block_boundary(coarse > 0)
+    rows, cols = np.nonzero(edge)
+    kept = slice(0, max(1, len(rows) // 2))
+    burned_fine = np.repeat(np.repeat(coarse > 0, refine, axis=0), refine, axis=1)
+    qy, qx = np.nonzero(~burned_fine)
+    partial = np.zeros(burned_fine.shape, dtype=np.float64)
+    r0 = rows[kept] * refine
+    c0 = cols[kept] * refine
+    dy = np.maximum(
+        np.maximum(r0[None, :] - qy[:, None], qy[:, None] - (r0[None, :] + refine - 1)), 0
+    )
+    dx = np.maximum(
+        np.maximum(c0[None, :] - qx[:, None], qx[:, None] - (c0[None, :] + refine - 1)), 0
+    )
+    partial[qy, qx] = np.sqrt((dy * dy + dx * dx).min(axis=1))
+    assert not np.allclose(partial, distance_to_burned_fine(coarse, refine)), (
+        "dropping boundary blocks did not change the field, so the agreement above "
+        "was not evidence of anything"
+    )
+
+
+def test_the_head_reads_the_ceiling_when_the_front_runs_at_the_ceiling() -> None:
+    """A measurement that only ever reads BELOW a limit has not been shown to work.
+
+    An arrival raster is built by hand at exactly ELMFIRE's crown fire spread
+    rate limit and at half of it, so the instrument is checked against a rate it
+    is supposed to detect and against one it is supposed to not detect.
+    """
+    from wildfire_nowcast.sim.headrate import (
+        CROWN_FIRE_SPREAD_RATE_LIMIT_KMH as cap,
+    )
+    from wildfire_nowcast.sim.headrate import (
+        distance_to_burned_fine,
+        head_advance,
+    )
+
+    refine, cell_m, horizon = 10, 100.0, 3
+    coarse = np.zeros((3, 40), dtype=np.uint8)
+    coarse[1, 0] = 1
+    dist = distance_to_burned_fine(coarse, refine)
+    burned = np.repeat(np.repeat(coarse > 0, refine, axis=0), refine, axis=1)
+    for rate_kmh in (cap, cap / 2.0):
+        # arrival = distance / rate, in seconds. Never-reached stays negative.
+        km = dist * cell_m / 1000.0
+        arrival = np.where(burned, -1.0, km / rate_kmh * 3600.0)
+        arrival = np.where(arrival > horizon * 3600.0, -1.0, arrival)
+        got = head_advance(arrival, dist, burned, cell_size_m=cell_m, horizon_h=horizon)
+        assert abs(got["sustained_head_kmh"] - rate_kmh) < 0.05 * rate_kmh, got
+        assert abs(got["max_radial_rate_kmh"] - rate_kmh) < 0.05 * rate_kmh, got
+        at_cap = got["share_beyond_floor_at_90pct_of_cap"]
+        if rate_kmh == cap:
+            assert at_cap > 0.9, ("a front running at the limit must be seen there", got)
+        else:
+            assert at_cap == 0.0, ("a front at half the limit must not read at it", got)
+
+
+def test_the_head_is_measured_from_the_t0_state_and_not_from_the_final_one() -> None:
+    """The regression this instrument was born with, kept as a test.
+
+    The first version took the burned mask from a variable the lead loop rebinds
+    to "burned by this lead". Handed that mask, the reached set is empty and the
+    head reads 0.0 km beside tens of thousands of new cells. Zero is a plausible
+    number for a fire that did not move, which is why ``predict`` cross-checks
+    the reached count against its own new-cell count instead of trusting it.
+    """
+    from wildfire_nowcast.sim.headrate import distance_to_burned_fine, head_advance
+
+    refine, cell_m, horizon = 5, 200.0, 3
+    coarse = np.zeros((3, 20), dtype=np.uint8)
+    coarse[1, 0] = 1
+    dist = distance_to_burned_fine(coarse, refine)
+    initial = np.repeat(np.repeat(coarse > 0, refine, axis=0), refine, axis=1)
+    km = dist * cell_m / 1000.0
+    arrival = np.where(initial, -1.0, km / 1.0 * 3600.0)
+    arrival = np.where(arrival > horizon * 3600.0, -1.0, arrival)
+    right = head_advance(arrival, dist, initial, cell_size_m=cell_m, horizon_h=horizon)
+    assert right["head_km_by_lead"][-1] > 0.0 and right["n_reached_fine_cells"] > 0
+
+    final = initial | (arrival >= 0.0)
+    wrong = head_advance(arrival, dist, final, cell_size_m=cell_m, horizon_h=horizon)
+    assert wrong["head_km_by_lead"] == [0.0, 0.0, 0.0] and wrong["n_reached_fine_cells"] == 0, (
+        "the defect no longer reproduces, so this test no longer guards anything"
+    )
+
+
+def test_a_supplied_stack_is_cut_to_the_window_and_left_alone_when_it_already_is_one() -> None:
+    """``ElmfireConfig.stack`` is a WHOLE-DOMAIN stack and ``predict`` runs on a
+    WINDOW. Slicing it is the repair; the case where the window is the whole
+    domain must stay the identity, because that is the shipped playthrough and a
+    landed result depends on it being unchanged."""
+    from wildfire_nowcast.common.grid import Grid
+    from wildfire_nowcast.sim.coarsen import fine_grid
+    from wildfire_nowcast.sim.elmfire import slice_stack_to_window, window_grids
+    from wildfire_nowcast.sim.landfire import NativeStack
+
+    refine = 4
+    domain = Grid(x_min=0.0, y_max=20_000.0, nx=20, ny=20, cell_size_m=1000.0, crs="EPSG:5070")
+    fine = fine_grid(domain, refine)
+    layers = {"dem": np.arange(fine.ny * fine.nx, dtype=np.int16).reshape(fine.shape)}
+    stack = NativeStack(grid=fine, layers=layers, provenance={"scope": "whole domain"})
+
+    x0 = np.zeros(domain.shape, dtype=np.uint8)
+    x0[10, 10] = 1
+    whole = window_grids(domain, x0, reach_cells=40, refine=refine)
+    assert whole.coarse.shape == domain.shape
+    assert slice_stack_to_window(stack, whole, domain) is stack, (
+        "when the window is the whole domain the slice must be the identity OBJECT"
+    )
+
+    small = window_grids(domain, x0, reach_cells=2, refine=refine)
+    assert small.coarse.shape != domain.shape
+    cut = slice_stack_to_window(stack, small, domain)
+    assert cut.grid.shape == small.fine.shape
+    assert cut.grid.x_min == small.fine.x_min and cut.grid.y_max == small.fine.y_max
+    r0, c0 = small.row0 * refine, small.col0 * refine
+    expected = layers["dem"][r0 : r0 + small.fine.ny, c0 : c0 + small.fine.nx]
+    assert np.array_equal(cut.layers["dem"], expected), (
+        "the slice is at the wrong offset, which is a wrong georeference and would "
+        "read as a physics result"
+    )
+
+
+def test_a_stack_that_cannot_be_reconciled_is_refused_and_the_message_names_the_cure() -> None:
+    """The carried defect was a shape mismatch raised AFTER the simulator ran.
+
+    Three unusable stacks, one control. Each refusal must name ``stack_provider``,
+    because the whole cost of this defect was that the message did not say what
+    to do about it.
+    """
+    import pytest  # noqa: PLC0415
+
+    from wildfire_nowcast.common.grid import Grid
+    from wildfire_nowcast.sim.coarsen import fine_grid
+    from wildfire_nowcast.sim.elmfire import (
+        StackWindowError,
+        slice_stack_to_window,
+        window_grids,
+    )
+    from wildfire_nowcast.sim.landfire import NativeStack
+
+    refine = 4
+    domain = Grid(x_min=0.0, y_max=20_000.0, nx=20, ny=20, cell_size_m=1000.0, crs="EPSG:5070")
+    fine = fine_grid(domain, refine)
+    x0 = np.zeros(domain.shape, dtype=np.uint8)
+    x0[10, 10] = 1
+    window = window_grids(domain, x0, reach_cells=2, refine=refine)
+
+    def _stack(grid: Grid) -> NativeStack:
+        return NativeStack(
+            grid=grid,
+            layers={"dem": np.zeros(grid.shape, dtype=np.int16)},
+            provenance={"plant": "yes"},
+        )
+
+    # CONTROL: the shipped shape must be accepted, or the three refusals below
+    # would only prove that the function refuses everything.
+    slice_stack_to_window(_stack(fine), window, domain)
+    slice_stack_to_window(_stack(domain), window, domain)
+
+    too_small = _stack(
+        fine_grid(Grid(x_min=0.0, y_max=4_000.0, nx=4, ny=4, cell_size_m=1000.0), refine)
+    )
+    out_of_register = _stack(
+        fine_grid(Grid(x_min=125.0, y_max=20_000.0, nx=20, ny=20, cell_size_m=1000.0), refine)
+    )
+    wrong_lattice = _stack(Grid(x_min=0.0, y_max=20_000.0, nx=40, ny=40, cell_size_m=500.0))
+    for plant in (too_small, out_of_register, wrong_lattice):
+        with pytest.raises(StackWindowError, match="stack_provider"):
+            slice_stack_to_window(plant, window, domain)
+
+
 def test_e1_reads_the_verdict_off_the_pre_registered_rule_in_both_directions() -> None:
     """ADR-064 (4) fixes the rule BEFORE the run: >=4/5 positive -> the defect is
     the model class's; >=4/5 negative -> E-P1 refuted; 3/5 -> not_a_verdict. A
@@ -1726,6 +1937,184 @@ def test_no_module_in_sim_configures_logging_at_import() -> None:
         "a handler decides the format for a program it is not."
     )
     assert installed_handler() is None or installed_handler() in before
+
+
+# -- C2 vs this package's own component count (S13) -------------------------
+#
+# The defect these three target is the MIRROR of the usual one: not a check that
+# cannot fail, but a check that could not PASS. `--manifest-check` asserted C2's
+# `n_ignition_components` against this package's raw detached-topology count and
+# so printed a CONTRACT failure on 9 of 21 corpus fires whose stored values
+# ADR-019 ratified. Two rules, both defensible, one estimand named C2.
+
+
+def test_the_c2_number_is_delegated_and_the_topology_count_is_not_named_like_it() -> None:
+    """The record may not carry a second quantity under C2's name.
+
+    The synthetic fire is the fixture BECAUSE the two rules disagree on it: its
+    generated spot lands ~30 km out and never merges, so the ratified deriver
+    counts 2 while the topology walk finds 4 unconnected births. A fixture where
+    they agree could not tell a delegated number from a re-implemented one.
+    """
+    from wildfire_nowcast.data.ignitions import count_ignition_components  # noqa: PLC0415
+    from wildfire_nowcast.sim import components as CP  # noqa: PLC0415
+    from wildfire_nowcast.sim.reader import load_fire  # noqa: PLC0415
+
+    fire = load_fire(_synthetic_tensor_path())
+    result = CP.ignition_components(fire)
+
+    assert "n_ignition_components" not in result, (
+        "a key named `n_ignition_components` is back in sim's record. That name belongs to "
+        "C2's estimand, which `data.ignitions` owns; exporting a 12 h-window topology count "
+        "under it is what made --manifest-check fail on 9 of 21 correct fires (S13)."
+    )
+    independent = count_ignition_components(fire.state, cell_size_m=fire.geom.cell_size_m)
+    assert result["c2_n_ignition_components_derived"] == independent.n_ignition_components, (
+        "the C2 field in sim's record disagrees with the ratified deriver called directly. "
+        "It is supposed to BE the ratified deriver, not agree with it."
+    )
+    assert result["n_components_detected"] != independent.n_ignition_components, (
+        "this fixture no longer separates the two rules, so this test cannot tell a delegated "
+        "C2 value from a re-implemented one. Point it at a fire where they disagree before "
+        "trusting a green here."
+    )
+    assert result["c2_derivation"] == CP.C2_DERIVATION
+    assert "data.ignitions" in result["c2_derivation"]
+
+
+def test_the_c2_verdict_names_the_deriver_and_refuses_what_it_cannot_measure() -> None:
+    """Verified / WRONG / NOT CHECKABLE - and the third is never silence."""
+    from wildfire_nowcast.sim.components import C2_DERIVATION, c2_manifest_verdict  # noqa: PLC0415
+
+    assert c2_manifest_verdict("f", 2, 2) is None
+
+    wrong = c2_manifest_verdict("f", 3, 2)
+    assert wrong is not None and "3" in wrong and "2" in wrong and C2_DERIVATION in wrong, wrong
+
+    missing = c2_manifest_verdict("f", None, 2)
+    assert missing is not None and "NO n_ignition_components" in missing, missing
+
+    unmeasurable = c2_manifest_verdict("f", 1, None)
+    assert unmeasurable is not None and "NOT CHECKED" in unmeasurable, (
+        "a store the deriver cannot count must REFUSE. Returning None here would report "
+        "'no problem found' for a comparison that never happened."
+    )
+
+
+def test_manifest_check_passes_the_derived_c2_value_and_fails_the_topology_count() -> None:
+    """The wiring, end to end, with the S13 defect itself as the plant.
+
+    CONTROL: a manifest carrying the value the ratified deriver produces exits 0.
+    PLANT:   the same manifest carrying this module's raw topology count - the
+             number `--manifest-check` used to assert C2 against - exits 1.
+    If the comparison is ever re-pointed at the topology count, BOTH halves break,
+    which is the property that keeps this defect from coming back quietly.
+    """
+    import json  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim import components as CP  # noqa: PLC0415
+    from wildfire_nowcast.sim.reader import load_fire  # noqa: PLC0415
+
+    src = Path(_synthetic_tensor_path())
+    with tempfile.TemporaryDirectory() as tmp:
+        store = Path(tmp) / "fire"
+        _shutil.copytree(src.parent, store)  # never touch data/ or the shared fixture
+        tensor = store / src.name
+        manifest = tensor.parent / "manifest.json"
+        payload = json.loads(manifest.read_text())
+
+        fire = load_fire(str(tensor))
+        derived = CP.c2_ignition_components(fire)
+        topology = CP.ignition_components(fire)["n_components_detected"]
+        assert derived != topology, "the plant and the control would be the same number"
+
+        argv = ["--tensor", str(tensor), "--outdir", str(Path(tmp) / "fig"), "--manifest-check"]
+
+        payload["n_ignition_components"] = derived
+        manifest.write_text(json.dumps(payload))
+        assert CP.main(argv) == 0, (
+            "the check refuses a manifest carrying exactly what the ratified deriver derives. "
+            "That is the S13 defect: a contract check that cannot pass on correct data."
+        )
+
+        payload["n_ignition_components"] = topology
+        manifest.write_text(json.dumps(payload))
+        assert CP.main(argv) == 1, (
+            "a manifest whose C2 integer is genuinely wrong passed. A check that cannot fail "
+            "is worth less than no check, because everyone downstream believes it ran."
+        )
+
+
+def _two_rule_disagreement_fire():  # noqa: ANN202
+    """CZU in miniature, in memory: a body 21 km out that merges 19 hours later.
+
+    Built rather than loaded because the disagreement has to be GUARANTEED. The
+    real CZU is the one fire in the 21-fire corpus where the genealogy rule and
+    this package's 12 h window part company, its store is untracked, and a
+    fixture that only happens to disagree today is a control that expires
+    silently. Here the geometry forces it: the second body is far enough to be a
+    ``separate_ignition`` on this page's rule and it merges, so the genealogy
+    rule refuses to count it.
+    """
+    from wildfire_nowcast.sim.reader import FireFrames  # noqa: PLC0415
+    from wildfire_nowcast.sim.style import plot_extent  # noqa: PLC0415
+
+    h, w, n_t = 7, 30, 24
+    state = np.zeros((n_t, h, w), dtype=np.uint8)
+    for t in range(n_t):
+        state[t, 2:5, : t + 1] = BURNING  # main body, one column per hour
+        if t >= 2:
+            state[t, 2:5, 22:24] = BURNING  # detached body, born h2, absorbed h21
+    times = np.datetime64("2020-08-16T00", "ns") + np.arange(n_t) * np.timedelta64(1, "h")
+    zeros = np.zeros((n_t, h, w), dtype=np.float32)
+    return FireFrames(
+        fire_id="two_rule_disagreement",
+        state=state,
+        times=times,
+        wind_u=zeros,
+        wind_v=zeros,
+        barrier=np.zeros((h, w), dtype=bool),
+        elevation=np.zeros((h, w), dtype=np.float32),
+        geom=plot_extent(np.arange(w) * 1000.0, np.arange(h)[::-1] * 1000.0, cell_size_m=1000.0),
+        source="in-memory (sim.selftest)",
+        attrs={},
+    )
+
+
+def test_the_c2_value_follows_the_genealogy_rule_and_not_this_page_s_merge_window() -> None:
+    """The C2 field must move with ``data/``'s rule even where this page disagrees.
+
+    This test exists because a plant caught the previous one being blind. Swapping
+    the delegated value for this module's OWN ignition estimate
+    (``candidate_separate_ignitions``) left the synthetic-store test GREEN, because
+    on that fire the two happen to read 2. Numeric agreement on one fixture is not
+    delegation. Here they are 1 and 2 by construction, so the substitution fails.
+    """
+    from wildfire_nowcast.data.ignitions import count_ignition_components  # noqa: PLC0415
+    from wildfire_nowcast.sim import components as CP  # noqa: PLC0415
+
+    fire = _two_rule_disagreement_fire()
+    result = CP.ignition_components(fire)
+    independent = count_ignition_components(fire.state, cell_size_m=fire.geom.cell_size_m)
+
+    assert independent.n_ignition_components == 1, (
+        "the fixture stopped separating the rules: the genealogy rule no longer reads 1 on a "
+        "body that merges, so a green here would prove nothing."
+    )
+    assert result["candidate_separate_ignitions"] == 2, (
+        "the fixture stopped separating the rules: this page no longer reads 2 on a body that "
+        "stays detached past its merge window."
+    )
+    assert result["c2_n_ignition_components_derived"] == 1, (
+        "the C2 field followed THIS module's merge window instead of the genealogy rule "
+        f"({CP.C2_DERIVATION}). On CZU that substitution reads 2 against a stored, ratified 1 "
+        "and puts --manifest-check back where S13 found it."
+    )
+    assert (
+        CP.c2_manifest_verdict(fire.fire_id, 1, result["c2_n_ignition_components_derived"]) is None
+    )
+    assert CP.c2_manifest_verdict(fire.fire_id, 2, result["c2_n_ignition_components_derived"])
 
 
 # -- runner ----------------------------------------------------------------

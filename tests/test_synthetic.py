@@ -26,6 +26,7 @@ from wildfire_nowcast.common.synthetic import (
     SYNTHETIC_BLOCK_ID,
     SyntheticFire,
     build_synthetic_dataset,
+    c2_ignition_components,
     default_grid_for,
     make_synthetic_fire,
 )
@@ -444,3 +445,186 @@ def test_cli_writes_a_conformant_triple(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert out.exists()
     assert C.check_all(out).ok, C.check_all(out).format(verbose=True)
+
+
+# --------------------------------------------------------------------------
+# [I22] C2 `n_ignition_components` is DERIVED, and the spot is why it is 2
+#
+# It was the literal `1` until I22, while the ratified deriver
+# `data.ignitions.count_ignition_components` read 2 on the tensor the same call
+# had just written (found in S13, reproduced on seeds 0/1/2). Two facts about
+# both true, and only one of them is C2's:
+#
+#   BY CONSTRUCTION   one seed + one scripted spot thrown over the river = 1
+#                     ignition and 1 spot.
+#   BY THE C2 RULE    the spot never merges (it cannot; the barrier is
+#                     unburnable) and lands ~30 km out, past
+#                     `SPOT_RANGE_MAX_KM = 15`, so rule (c) counts it = 2.
+#
+# The spot is NOT a defect and is not moved: it is the barrier crossing C4
+# exists to exercise, `_simulate_perimeters` refuses to build a fire without
+# one, and three tests above assert it is there. What was wrong was a generator
+# ASSERTING A NUMBER IT DID NOT COMPUTE. The repair is that the emitted value
+# now comes from the rule, whatever the rule says.
+#
+# THE CONTROL BELOW IS BLIND ON ITS OWN AND SAYS SO. `declared == derived` is
+# satisfied by a literal `2` exactly as well as by a derivation, which is the
+# defect S13's own control had. The plant is what carries the weight:
+# it moves the DERIVER and requires the manifest to follow it to a value
+# (`_PLANTED_COUNT`) that no fire in this project can produce.
+# --------------------------------------------------------------------------
+
+#: A count nothing in this project produces: the corpus tops out at 2 and the
+#: fixture at 2, so a manifest carrying it can only have got it from the plant.
+_PLANTED_COUNT = 7
+
+
+def _derived_count(fire: SyntheticFire) -> int:
+    ds = zio.open_tensor(fire.tensor_path)
+    return int(
+        c2_ignition_components(
+            ds, cell_size_m=float(ds.attrs[C.ATTR_CELL_SIZE])
+        ).n_ignition_components
+    )
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_c2_ignition_components_is_the_derived_value_not_a_literal(
+    seed: int, tmp_path: Path
+) -> None:
+    """CONTROL, and it must NOT fire. Blind by itself - see the section header."""
+    fire = make_synthetic_fire(seed=seed, n_hours=24, out=tmp_path / f"s{seed}" / "tensor.zarr")
+    manifest = zio.read_manifest(fire.manifest_path)
+    assert manifest["n_ignition_components"] == _derived_count(fire), (
+        "the generator's declared C2 count no longer matches the ratified deriver re-run "
+        "from the tensor it just wrote. A generator may not assert a number it does not "
+        "compute (I22)"
+    )
+    assert manifest["n_ignition_components"] == 2, (
+        "the fixture's derived C2 count moved off 2. Either the scripted spot stopped "
+        "happening - in which case the barrier-crossing tests above should also be red and "
+        "C4 is broken - or data.ignitions' rule changed, which belongs to that "
+        "package to declare"
+    )
+
+
+def test_the_second_counted_body_IS_the_scripted_spot_and_nothing_else() -> None:
+    """The 2 is the barrier crossing, not noise, not a rasterisation hole.
+
+    Failure condition, in one sentence: the count reads 2 for some reason other
+    than the scripted spot - a stray never-merging fragment beyond the spot
+    range would give the same integer and would mean the fixture's known answer
+    had quietly stopped being known.
+    """
+    ds, geometry = build_synthetic_dataset(seed=0, n_hours=24)
+    report = c2_ignition_components(ds, cell_size_m=float(ds.attrs[C.ATTR_CELL_SIZE]))
+    separate = report.separate_ignition_births
+    assert report.n_first_frame_seeds == 1, "the fixture has exactly one ignition seed"
+    assert len(separate) == 1, f"expected exactly one counted detached body, got {separate}"
+    assert separate[0].hour == geometry.crossing_hour, (
+        f"the counted body is at hour {separate[0].hour}, not the scripted crossing hour "
+        f"{geometry.crossing_hour}: the 2 is coming from somewhere else"
+    )
+    assert separate[0].gap_km > 15.0, (
+        "the scripted spot has come inside data.ignitions.SPOT_RANGE_MAX_KM, so the fixture "
+        "no longer exercises a jump no contiguous spread could produce (C4)"
+    )
+    assert not separate[0].merges_later, "the river is impassable; the spot cannot merge"
+
+
+def test_a_single_bodied_state_derives_1_so_the_control_above_is_not_blind() -> None:
+    """1 vs 2 BY CONSTRUCTION, through the exact call the generator makes.
+
+    The control asserts `declared == derived` on a fixture where both read 2, so
+    it cannot tell a derivation from a literal `2`. This is the observation that
+    proves the delegation is a function of the state and not a constant: the
+    same call, on a state built to hold one body, returns 1; on the fixture it
+    returns 2. Without this, `declared == derived` is an identity, not a check.
+    """
+    ds, geometry = build_synthetic_dataset(seed=0, n_hours=24)
+    cell = float(ds.attrs[C.ATTR_CELL_SIZE])
+    two = c2_ignition_components(ds, cell_size_m=cell).n_ignition_components
+
+    state = _state(ds).copy()
+    # Delete everything east of the RIVER (`river_col_range`, not the barrier
+    # mask - that also carries lakes further east): the spot goes, the main body
+    # is untouched. Nothing else about the store changes.
+    state[:, :, geometry.river_col_range[1] + 1 :] = C.UNBURNED
+    one = c2_ignition_components(
+        ds.assign({C.FIRE_STATE: (ds[C.FIRE_STATE].dims, state)}), cell_size_m=cell
+    ).n_ignition_components
+
+    assert (one, two) == (1, 2), (
+        f"the deriver read {one} on a single-bodied state and {two} on the fixture. If those "
+        "are equal the control above is BLIND and proves nothing about the manifest"
+    )
+
+
+def test_the_manifest_follows_the_deriver_when_the_deriver_moves(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """PLANT, and it must fire, naming itself.
+
+    Move the RATIFIED deriver and require the manifest to move with it. A
+    literal - `1`, `2` or any other - fails this, because the planted value is
+    one no fire in this project produces. This is the observation the blind
+    control cannot make.
+    """
+    from wildfire_nowcast.data import ignitions as ign
+
+    planted = ign.IgnitionReport(
+        n_ignition_components=_PLANTED_COUNT,
+        first_burn_hour=0,
+        n_first_frame_seeds=_PLANTED_COUNT,
+        first_frame_seed_separations_km=[],
+        detached_births=[],
+    )
+    monkeypatch.setattr(ign, "count_ignition_components", lambda *a, **k: planted)
+
+    fire = make_synthetic_fire(seed=0, n_hours=24, out=tmp_path / "planted" / "tensor.zarr")
+    manifest = zio.read_manifest(fire.manifest_path)
+    assert manifest["n_ignition_components"] == _PLANTED_COUNT, (
+        f"the deriver was moved to {_PLANTED_COUNT} and the manifest still says "
+        f"{manifest['n_ignition_components']}: the generator is not reading the deriver, "
+        "it is asserting a number of its own (I22)"
+    )
+    assert (
+        manifest["provenance"]["ignition_components"]["n_ignition_components"] == _PLANTED_COUNT
+    ), "the evidence block and the integer disagree, which is worse than either being wrong"
+
+
+def test_the_generator_is_restored_after_the_plant(tmp_path: Path) -> None:
+    """RESTORED. Same call, unpatched: 2 again, and the tensor is untouched.
+
+    The plant above moves a value the generator READS; this asserts it moves
+    nothing the generator WRITES, so the fixture every other lead builds against
+    is bit-identical either side of the sequence.
+    """
+    a = make_synthetic_fire(seed=0, n_hours=24, out=tmp_path / "a" / "tensor.zarr")
+    b = make_synthetic_fire(seed=0, n_hours=24, out=tmp_path / "b" / "tensor.zarr")
+    assert zio.read_manifest(a.manifest_path)["n_ignition_components"] == 2
+    assert a.geometry == b.geometry
+    assert np.array_equal(
+        _state(zio.open_tensor(a.tensor_path)), _state(zio.open_tensor(b.tensor_path))
+    )
+
+
+def test_the_manifest_carries_the_evidence_and_the_construction_separately(
+    default_synthetic: SyntheticFire,
+) -> None:
+    """C2 [v2.7] wants the METHOD and the per-fire evidence beside the integer.
+
+    And the fixture's own construction is recorded as a DIFFERENT sentence, not
+    substituted for the rule's answer. This is the only fire in the project
+    whose ignition count is known by construction, and the construction and the
+    rule disagree by 1 on it (BLOCKERS, S13) - a reader must be able to see both
+    without opening this generator.
+    """
+    prov = zio.read_manifest(default_synthetic.manifest_path)["provenance"]
+    evidence = prov["ignition_components"]
+    assert evidence["n_ignition_components"] == 2
+    assert "count_ignition_components" in evidence["method"], (
+        "provenance must name the function that produced the number, not just the number"
+    )
+    assert "SPOT_RANGE_MAX_KM" in evidence["synthetic_construction"]
+    assert "scripted spot" in evidence["synthetic_construction"]

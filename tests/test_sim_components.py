@@ -6,10 +6,13 @@ WHAT THIS FILE PROTECTS
 
 1. **C2 ``n_ignition_components``**, a contract key since v2.7, which
    ``docs/interfaces.md`` requires to be DERIVED rather than defaulted and which
-   is now stamped into all 21 fire manifests. The count this module publishes as
-   ``candidate_separate_ignitions`` reproduced the declared value for
-   ``2020_july_complex`` by a second method, and the same evidence corrected
-   ``2020_scu`` from 3 to 2.
+   is now stamped into all 21 fire manifests. This module does NOT define that
+   integer and since S13 no longer pretends to: it DELEGATES to
+   ``data.ignitions.count_ignition_components`` (ADR-019) and publishes the
+   result under ``c2_n_ignition_components_derived``. Its own
+   ``candidate_separate_ignitions`` is a SECOND, differently-scoped estimate -
+   it was the evidence that corrected ``2020_scu``, and it reads 2 where C2
+   reads 3 on the fixture below.
 2. **The exclusion rule that binds crossings mining.** A jump between ignition
    components must be excluded from spot-event mining, or the long-range spot
    component of the kernel trains on the label provider's filing convention. The
@@ -24,10 +27,37 @@ the whole ladder was unexecuted by any test.
 
 THE FIXTURE
 -----------
-A synthetic fire with an analytically known answer: four detected components, of
-which exactly two are candidate separate ignitions. No tensor store is read, so
+A synthetic fire with an analytically known answer. No tensor store is read, so
 the test runs anywhere and its expected values are arithmetic rather than
 recorded.
+
+**AND IT ANSWERS FOUR DIFFERENT QUESTIONS WITH FOUR DIFFERENT NUMBERS** (I22,
+on the accepted S13 proposal). This file used to say "four detected
+components, of which exactly two are candidate separate ignitions", which named
+one number wrongly and left the others unnamed:
+
+===========================================  ======  ===================================
+quantity                                     value   who computes it
+===========================================  ======  ===================================
+UNCONNECTED BIRTHS - bodies appearing where     5     ``sim.components``, raw topology,
+fire could not have spread to, over all               BEFORE any classification
+hours, first-frame seeds included
+this page's CANDIDATE IGNITIONS - births        2     ``sim.components``, its own
+still detached after                                  ``FRAGMENT_MERGE_WINDOW_H``
+``FRAGMENT_MERGE_WINDOW_H``, plus the
+primary
+**C2's ``n_ignition_components``**              3     ``data.ignitions``, the RATIFIED
+                                                      rule (ADR-019); merging
+                                                      disqualifies a body however long
+                                                      it takes
+FINAL-FOOTPRINT components                      4     connected components of the last
+                                                      frame; cannot see a merge at all
+===========================================  ======  ===================================
+
+The corpus shows the same spread (czu 3 births vs 1 ignition; scu 5 vs 2 vs 3),
+so this is not a fixture artefact. ADR-137's sentence, with numbers attached:
+**an unlabelled component count is not a number, it is a question.** Every
+assertion below names which question it is pinning.
 """
 
 from __future__ import annotations
@@ -35,6 +65,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from wildfire_nowcast.common.components import label_components
 from wildfire_nowcast.sim.components import (
     FRAGMENT_KM,
     SEPARATE_IGNITION_KM,
@@ -88,6 +119,31 @@ def _synthetic_fire() -> FireFrames:
     )
 
 
+#: Spellings this file will accept for the UNCONNECTED-BIRTH count, most
+#: recent last. S13 renamed the key to something with no "components" in it -
+#: the module's own prose calls them unconnected births - hit the pin below,
+#: and REVERTED its rename rather than write in ``tests/``, which is not its
+#: package. The rename is accepted (I22) and the pin is what is fixed here: a
+#: test may pin a QUANTITY, but a test that pins a SPELLING makes another
+#: lead's vocabulary fix cost a cross-package edit, which is how a misleading
+#: name survives. Exactly one of these must be present, so a rename cannot
+#: quietly become an ADDITION and leave two names for one integer - which is
+#: the S13 defect itself, and the reason `n_ignition_components` was deleted
+#: from that dict. A third spelling fails here, loudly, and is one line to add.
+BIRTH_COUNT_KEYS = ("n_components_detected", "n_unconnected_births")
+
+
+def _birth_count(result: dict[str, object]) -> int:
+    """The unconnected-birth count, under whichever accepted name it carries."""
+    present = [k for k in BIRTH_COUNT_KEYS if k in result]
+    assert len(present) == 1, (
+        f"expected exactly one of {list(BIRTH_COUNT_KEYS)} in the result, found {present}. "
+        "Two names for one integer is the S13 defect; zero means the key was renamed to "
+        "something this file does not know - add the new spelling to BIRTH_COUNT_KEYS"
+    )
+    return int(result[present[0]])  # type: ignore[call-overload]
+
+
 @pytest.fixture(scope="module")
 def result() -> dict[str, object]:
     return ignition_components(_synthetic_fire())
@@ -110,10 +166,18 @@ def test_the_fixture_actually_exercises_every_branch_of_the_ladder(
     }, f"the fixture stopped covering the ladder: {counts}"
 
 
-def test_the_published_count_is_the_CLASSIFIED_one_not_the_topology_count(
+def test_the_birth_count_the_ignition_counts_and_the_footprint_are_FOUR_NUMBERS(
     result: dict[str, object],
 ) -> None:
-    """The number that goes to a C2 manifest is not the number of blobs.
+    """Pins WHICH quantity each number is, because they differ on this fixture.
+
+    The old name of this test said "the published count is the CLASSIFIED one
+    not the topology count", and its message called
+    ``candidate_separate_ignitions`` "the derived C2 count". It is not: C2's
+    count on this same fire is **3**, from the ratified ``data/`` rule, and this
+    page's own estimate is **2** because its 12 h merge window disqualifies a
+    body the genealogy rule keeps. Both are right about different questions and
+    the S13 defect was one of them wearing the other's name.
 
     Failure condition, in one sentence: any fire whose separation distances stay
     the same but whose classification changes, for instance a first-frame
@@ -122,10 +186,29 @@ def test_the_published_count_is_the_CLASSIFIED_one_not_the_topology_count(
     the ignition frame) rather than from the smaller of that and the distance to
     the other blobs in the same frame.
     """
-    assert result["n_components_detected"] == 5
+    assert _birth_count(result) == 5, (
+        "UNCONNECTED BIRTHS moved. This is the raw topology count - first-frame bodies "
+        "plus later detached ones, before any classification - and it is neither C2's "
+        f"ignition count nor the footprint count: {result}"
+    )
     assert result["candidate_separate_ignitions"] == 2, (
-        "the derived C2 count moved. It is 1 (the primary) plus the components "
-        f"classified separate_ignition, and this fire has exactly one of those: {result}"
+        "THIS PAGE's candidate-ignition count moved. It is 1 (the primary) plus the "
+        "components classified separate_ignition under this module's own "
+        f"FRAGMENT_MERGE_WINDOW_H, and this fire has exactly one of those: {result}"
+    )
+    assert result["c2_n_ignition_components_derived"] == 3, (
+        "C2's n_ignition_components moved on this fixture. It is DELEGATED to "
+        "data.ignitions.count_ignition_components (ADR-019), so this reads 3 where the "
+        "line above reads 2: the 3 km first-frame pair is two seeds under "
+        "SEED_MERGE_KM = 2.25 while the 6 km spot is inside SPOT_RANGE_MAX_KM and is not "
+        "counted. If this fails and nothing in sim/ changed, a threshold in data/ moved "
+        "and that belongs to that package to declare, not to this file to absorb"
+    )
+    footprint, n_footprint = label_components(_synthetic_fire().state[-1] != 0)
+    assert n_footprint == 4, (
+        f"the FINAL-FOOTPRINT component count moved to {n_footprint}. It is the estimand "
+        "ADR-019 retired for C2 - it cannot see a merge - and it is pinned here only so "
+        f"that all four numbers stay visibly different: {footprint.max()}"
     )
 
 

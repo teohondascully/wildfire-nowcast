@@ -2890,6 +2890,245 @@ def check_degradation_rungs_hit_their_declared_severity() -> Check:
     )
 
 
+def _toy_two_body_base(bridge: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """A forecast over TWO detached burned bodies, both of which the members grow.
+
+    Small, and anisotropic on purpose: an isotropic dilation makes each predicted
+    increment a complete annulus that a lobe drawn out of the same annulus
+    overlaps whichever way it points, so no shape rung could express severity and
+    the check below would pass on a state that cannot fail it.
+
+    ``bridge=True`` joins the two bodies with a one-cell path. The bodies, the
+    members and the grid are otherwise identical, so it isolates DETACHMENT: the
+    same geometry seen as one body instead of two.
+    """
+    rng = np.random.default_rng(28)
+    height, width, members, leads = 20, 44, 4, 3
+    x0 = np.zeros((height, width), np.uint8)
+    x0[8:12, 5:9] = 2
+    x0[8:12, 33:37] = 2
+    if bridge:
+        x0[2, 5:37] = 2
+        x0[2:8, 6] = 2
+        x0[2:8, 34] = 2
+    base = np.zeros((members, leads, height, width), np.uint8)
+    for m in range(members):
+        cur = x0 > 0
+        for lead in range(leads):
+            add = np.zeros_like(cur)
+            for y, x in zip(*np.nonzero(cur), strict=True):
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        yy, xx = y + dy, x + dx
+                        if 0 <= yy < height and 0 <= xx < width:
+                            if rng.random() < (0.55 if dx > 0 else 0.08):
+                                add[yy, xx] = True
+            cur = cur | add
+            base[m, lead] = np.where(cur, 1, 0)
+        base[m] = np.maximum.accumulate(base[m], axis=0)
+    return np.maximum(base, x0[None, None]).astype(np.uint8), x0
+
+
+def _bfs_distance(seed: np.ndarray, free: np.ndarray, cap: int) -> np.ndarray:
+    """Geodesic distance from ONE body, by an explicit queue. The reference copy."""
+    from collections import deque
+
+    dist = np.full(seed.shape, cap + 1, dtype=np.int32)
+    queue: deque[tuple[int, int, int]] = deque()
+    for y, x in zip(*np.nonzero(seed), strict=True):
+        queue.append((int(y), int(x), 0))
+    seen = seed.copy()
+    while queue:
+        y, x, d = queue.popleft()
+        if d >= cap:
+            continue
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                yy, xx = y + dy, x + dx
+                if not (0 <= yy < seed.shape[0] and 0 <= xx < seed.shape[1]):
+                    continue
+                if seen[yy, xx] or not free[yy, xx]:
+                    continue
+                seen[yy, xx] = True
+                dist[yy, xx] = d + 1
+                queue.append((yy, xx, d + 1))
+    return dist
+
+
+def check_body_territories_reproduce_a_per_body_bfs_and_reduce_on_one_body() -> Check:
+    """[M28] The per-body construction, against an independent distance, both ways.
+
+    I21 measured that a shape rung on a two-body state can produce a genuinely
+    BETTER forecast than the reference it degrades, because ``rings``, ``bearing``
+    and ``phi_base`` were all read from ONE anchor sitting in empty space between
+    the bodies. The repair reads them per connected body. Two things have to be
+    true for that to be a repair rather than a rewrite, and they pull in opposite
+    directions, so both are checked here:
+
+    * on MANY bodies the ring field must be the distance to the NEAREST body and
+      the owner must be a body that ACHIEVES that distance - compared against a
+      queue-based BFS run once per body, a different algorithm from the array
+      dilation under test, because a verifier sharing its subject's code reports
+      agreement with itself (C0);
+    * on ONE body every array must be the array the module built before bodies
+      were distinguished. That reduction is what makes the repair a no-op on 367
+      of the 404 held-out windows, and it is an EQUALITY, so it is asserted as
+      one rather than inferred from the outputs looking unchanged.
+    """
+    from wildfire_nowcast.model.degrade import (
+        _MAX_RINGS,
+        CellOrder,
+        _geodesic_rings_and_owner,
+        _seed_components,
+    )
+
+    base, x0 = _toy_two_body_base()
+    free = x0 == 0
+    labels, n_bodies = _seed_components(x0 > 0)
+    rings, owner = _geodesic_rings_and_owner(labels, free)
+    per_body = np.stack(
+        [_bfs_distance(labels == c, free, _MAX_RINGS) for c in range(1, n_bodies + 1)]
+    )
+    nearest = per_body.min(axis=0)
+    rings_match = bool(np.array_equal(rings[free], nearest[free]))
+    owner_achieves = bool(
+        np.all(per_body[owner[free], np.nonzero(free)[0], np.nonzero(free)[1]] == rings[free])
+    )
+    order = CellOrder(base, x0)
+    territories = np.bincount(order.sort_group, minlength=n_bodies + 1)
+    partitions = bool(territories[:n_bodies].sum() == int(free.sum()))
+
+    one_base, one_x0 = _toy_ladder_base()
+    one = CellOrder(one_base, one_x0)
+    reduces = bool(
+        one.n_components == 1
+        and one.phi_base.shape == (1,)
+        and np.all(one.owner == 0)
+        and np.array_equal(one.sort_group, (~one.free_flat).astype(one.sort_group.dtype))
+        and np.array_equal(one._grouped_base_rank(), one._base_rank)
+    )
+    return Check(
+        "body_territories_reproduce_a_per_body_bfs_and_reduce_on_one_body",
+        rings_match and owner_achieves and partitions and reduces and n_bodies == 2,
+        "the ring field is the distance to the NEAREST body under an independently written "
+        "BFS, every owner achieves that distance, the territories partition the free cells, "
+        "and on a single body the grouping key IS `not_free` and the grouped order IS the "
+        "base order - so the construction is the pre-M28 one there, by equality",
+        {
+            "n_bodies": int(n_bodies),
+            "rings_equal_nearest_body_bfs": rings_match,
+            "owner_achieves_the_minimum": owner_achieves,
+            "territory_sizes": territories.tolist(),
+            "free_cells": int(free.sum()),
+            "one_body_reduction_holds": reduces,
+        },
+    )
+
+
+def check_shape_and_shift_rungs_keep_each_body_share_and_turn_it_180_degrees() -> Check:
+    """[M28] A rung may move a body's front. It may not move it to ANOTHER body.
+
+    The mechanism I21 named: ``MODE_SHAPE`` replaced the reference's spatial
+    spread with ONE shared lobe, so mass migrated between bodies - measured on a
+    two-body plant, one body's pooled increment went 734 cells -> 152 while the
+    other went 502 -> 643. When the deleted mass was the reference's own largest
+    ERROR, the nominally harsher rung IMPROVED the forecast and the ladder
+    stopped being monotone in badness.
+
+    So the invariant is per BODY and per (member, lead), not pooled: each body
+    keeps exactly the number of increment cells it had. That is what "relocate
+    each body's share about its own centroid" means operationally, and it is the
+    property that makes the area exactness claim survive the split.
+
+    THE PLANT IS IN HERE, because an invariant nobody has seen fail is an
+    invariant nobody has tested. ``_seed_components`` is forced to report one
+    body - which is exactly the pre-M28 construction, reached without touching
+    any other line - and the share invariant must BREAK. It is restored in a
+    ``finally`` and re-measured, so a green line here means the check fired on
+    the defect and cleared on the repair, in one run.
+    """
+    from wildfire_nowcast.model import degrade
+
+    base, x0 = _toy_two_body_base()
+    free = x0 == 0
+    rungs = [(degrade.MODE_SHAPE, f) for f in (0.05, 0.15, 0.40, 1.00)]
+    rungs += [(degrade.MODE_SHIFT, d) for d in (1.0, 4.0, 8.0)]
+
+    # THE PARTITION THE SHARES ARE COUNTED IN IS THE CHECK'S OWN, from the
+    # queue BFS above, not the module's ``sort_group``. Counting a body's share
+    # in the module's own partition is how the first version of this check went
+    # blind: with the labelling forced to one body there is one group, the share
+    # is the total, and the invariant becomes true by construction on the very
+    # defect it exists to catch.
+    labels, n_bodies = degrade._seed_components(x0 > 0)
+    per_body = np.stack(
+        [_bfs_distance(labels == c, free, degrade._MAX_RINGS) for c in range(1, n_bodies + 1)]
+    )
+    territory = np.argmin(per_body, axis=0)
+    flat_territory = territory.reshape(-1)
+
+    def shares(samples: np.ndarray) -> np.ndarray:
+        inc = (np.asarray(samples) > 0) & free[None, None]
+        flat = inc.reshape(inc.shape[0], inc.shape[1], -1)
+        return np.stack([flat[:, :, flat_territory == c].sum(axis=2) for c in range(n_bodies)])
+
+    def all_shares_held() -> tuple[bool, dict[str, Any]]:
+        order = degrade.CellOrder(base, x0)
+        reference = shares(base)
+        held = {}
+        for mode, level in rungs:
+            deg = degrade.degrade_samples(base, x0, mode=mode, level=level, order=order)
+            held[f"{mode}_{level}"] = bool(np.array_equal(shares(deg), reference))
+        return all(held.values()), held
+
+    repaired_ok, repaired_detail = all_shares_held()
+
+    # the lobe's own claim, on the OUTPUT: each body's mass turns 180 degrees
+    # about ITS OWN centroid, not about a point in the empty space between them
+    order = degrade.CellOrder(base, x0)
+    moved = degrade.degrade_samples(base, x0, mode=degrade.MODE_SHAPE, level=1.0, order=order)
+    ys, xs = np.mgrid[0 : x0.shape[0], 0 : x0.shape[1]]
+    turns = []
+    for c in range(order.n_components):
+        territory = (order.sort_group == c).reshape(x0.shape)
+        before = ((base > 0) & free[None, None]).any(axis=(0, 1)) & territory
+        after = ((moved > 0) & free[None, None]).any(axis=(0, 1)) & territory
+        cy, cx = order.anchor_y[c], order.anchor_x[c]
+        a = np.arctan2(ys[before].mean() - cy, xs[before].mean() - cx)
+        b = np.arctan2(ys[after].mean() - cy, xs[after].mean() - cx)
+        turns.append(float(np.degrees(abs(np.arctan2(np.sin(b - a), np.cos(b - a))))))
+    turned = all(turn > 150.0 for turn in turns)
+
+    original = degrade._seed_components
+
+    def _one_body(seed_mask: np.ndarray) -> tuple[np.ndarray, int]:
+        return np.where(np.asarray(seed_mask, dtype=bool), 1, 0).astype(np.int32), 1
+
+    degrade._seed_components = _one_body  # type: ignore[assignment]
+    try:
+        planted_ok, planted_detail = all_shares_held()
+    finally:
+        degrade._seed_components = original
+    restored_ok, _ = all_shares_held()
+
+    return Check(
+        "shape_and_shift_rungs_keep_each_body_share_and_turn_it_180_degrees",
+        repaired_ok and turned and not planted_ok and restored_ok,
+        "every shape and shift rung leaves each body's increment cell count unchanged per "
+        "member and lead, and each body's mass turns ~180 degrees about ITS OWN centroid; "
+        "with the body labelling forced to one component - the pre-M28 construction - the "
+        "share invariant BREAKS, and it comes back when the force is removed",
+        {
+            "share_held_by_rung_repaired": repaired_detail,
+            "share_held_by_rung_planted": planted_detail,
+            "plant": "model.degrade._seed_components forced to report ONE body",
+            "plant_broke_the_invariant": not planted_ok,
+            "restored": restored_ok,
+            "turn_deg_per_body": turns,
+        },
+    )
+
+
 def check_base_prediction_cache_cannot_return_another_window() -> Check:
     """[M11] The ladder's 16 rungs share ONE forward pass. Prove the key is safe.
 
@@ -3943,6 +4182,202 @@ def check_no_firing_configuration_is_reported_as_a_nearest_miss() -> Check:
     )
 
 
+def check_student_t_tail_is_exact_against_closed_forms_and_published_criticals() -> Check:
+    """[M29] The tail that decides a cell, checked against three references.
+
+    A test that adjudicates has to return the same p twice, so the tail is
+    computed from the regularised incomplete beta rather than sampled. The
+    number is then checked against references this module does not own:
+
+    * the CLOSED FORMS at ``df = 1`` (Cauchy, ``0.5 - atan(t)/pi``) and
+      ``df = 2`` (``0.5 - t / (2 sqrt(2 + t^2))``), at five values of ``t``
+      spanning both tails and zero;
+    * four PUBLISHED critical values, whose tails must come back as the levels
+      that define them: ``t(0.95, 4) = 2.131846786``, ``t(0.95, 9) =
+      1.833112933``, ``t(0.975, 4) = 2.776445105``, ``t(0.99, 4) =
+      3.746947388``;
+    * ``sf(0, df) = 0.5`` exactly at every ``df``, which no continued fraction
+      gets right by accident.
+
+    The negative control is the direction: ``sf`` must be strictly decreasing in
+    ``t``. A tail that is not monotone is not a tail, and a one-sided test built
+    on one would reject at both ends.
+    """
+    import math as _math
+
+    from wildfire_nowcast.eval.blocktest import student_t_sf
+
+    probes = (-3.0, -0.5, 0.0, 1.0, 4.7)
+    err_df1 = max(abs(student_t_sf(t, 1) - (0.5 - _math.atan(t) / _math.pi)) for t in probes)
+    err_df2 = max(
+        abs(student_t_sf(t, 2) - (0.5 - t / (2.0 * _math.sqrt(2.0 + t * t)))) for t in probes
+    )
+    published = {
+        "t_0.95_df4": (2.131846786, 4, 0.05),
+        "t_0.95_df9": (1.833112933, 9, 0.05),
+        "t_0.975_df4": (2.776445105, 4, 0.025),
+        "t_0.99_df4": (3.746947388, 4, 0.01),
+    }
+    err_crit = {k: abs(student_t_sf(t, df) - want) for k, (t, df, want) in published.items()}
+    at_zero = {df: student_t_sf(0.0, df) for df in (1, 2, 4, 9)}
+    grid = [student_t_sf(t / 4.0, 4) for t in range(-40, 41)]
+    monotone = all(a > b for a, b in zip(grid[:-1], grid[1:], strict=True))
+    ok = bool(
+        err_df1 < 1e-12
+        and err_df2 < 1e-12
+        and max(err_crit.values()) < 1e-9
+        and all(v == 0.5 for v in at_zero.values())
+        and monotone
+    )
+    return Check(
+        "student_t_tail_is_exact_against_closed_forms_and_published_criticals",
+        ok,
+        "the one-sided t tail reproduces the df=1 and df=2 closed forms to 1e-12, returns the "
+        "four published critical levels to 1e-9, is exactly 0.5 at t=0, and is strictly "
+        "decreasing in t",
+        {
+            "max_abs_error_df1_closed_form": err_df1,
+            "max_abs_error_df2_closed_form": err_df2,
+            "abs_error_vs_published_criticals": err_crit,
+            "sf_at_zero": at_zero,
+            "strictly_decreasing_in_t": monotone,
+        },
+    )
+
+
+def check_the_block_test_keeps_a_null_and_rejects_a_plant_that_names_itself() -> Check:
+    """[M29] Control, plant and direction on the paired block test itself.
+
+    CONTROL, two shapes, both of which must NOT reject at ``alpha = 0.05``:
+    differences that are identically zero - the state an identity rung produces,
+    where ``0 / 0`` is refused as UNDEFINED rather than reported as a pass - and
+    five differences with real scatter whose mean is exactly zero.
+
+    PLANT: five differences that are unambiguously non-null (mean 1.0, block SD
+    0.079) must reject on all three tests. **The rejection text must NAME the
+    plant**, because a plant whose output is indistinguishable from the real
+    table's is not a control; every outcome string repeats the label it was
+    given, and this check asserts the label is in all three.
+
+    DIRECTION: the same plant with every sign flipped must NOT reject. The test
+    is one-sided by design - a ladder rung is a degradation, so the alternative
+    is fixed before any table exists - and a one-sided test that fires on the
+    wrong tail is a two-sided test wearing the wrong label.
+    """
+    from wildfire_nowcast.eval.blocktest import BlockDifferences, block_test
+
+    blocks = ("creek", "czu", "dolan", "july", "borel")
+    zero = block_test(BlockDifferences(blocks, (0.0,) * 5, "CONTROL_identity_rung"))
+    scattered = (0.8, -1.2, 0.5, -0.6, 0.5)
+    centred_values = tuple(v - sum(scattered) / 5.0 for v in scattered)
+    centred = block_test(BlockDifferences(blocks, centred_values, "CONTROL_centred_scatter"))
+    plant_label = "PLANT_unambiguous_positive_shift"
+    plant = block_test(BlockDifferences(blocks, (1.00, 1.10, 0.90, 1.05, 0.95), plant_label))
+    flipped = block_test(
+        BlockDifferences(blocks, (-1.00, -1.10, -0.90, -1.05, -0.95), "PLANT_wrong_tail")
+    )
+    named = all(
+        plant_label in plant[k]["detail"]
+        for k in ("paired_t", "paired_sign", "sign_flip_permutation_mean")
+    )
+    ok = bool(
+        zero["paired_t"]["outcome"].startswith("UNDEFINED")
+        and not any(zero["rejects"].values())
+        and not any(centred["rejects"].values())
+        and all(plant["rejects"].values())
+        and not any(flipped["rejects"].values())
+        and named
+    )
+    return Check(
+        "the_block_test_keeps_a_null_and_rejects_a_plant_that_names_itself",
+        ok,
+        "an identity rung is UNDEFINED rather than a pass, a mean-zero set with real scatter "
+        "does not reject, a constructed non-null rejects on all three tests and names itself in "
+        "every outcome string, and the same plant on the other tail does not reject",
+        {
+            "identity_outcome": zero["paired_t"]["outcome"],
+            "centred_p": centred["paired_t"]["p_one_sided"],
+            "plant_rejects": plant["rejects"],
+            "plant_p_t": plant["paired_t"]["p_one_sided"],
+            "plant_named_in_every_outcome": named,
+            "flipped_rejects": flipped["rejects"],
+        },
+    )
+
+
+def check_both_exact_tests_are_floored_at_one_over_two_to_the_n() -> Check:
+    """[M29] What the three tests can and cannot say at five blocks.
+
+    Both distribution-free tests are built on ``2**n`` equally likely sign
+    assignments, so neither can report a one-sided p below ``1 / 2**n``. At
+    ``n = 5`` that floor is **0.03125**, which is under 0.05 - so they can
+    reject, but ONLY on a unanimous set of blocks. The consequence is asserted
+    here rather than left to a reader: four blocks out of five in the same
+    direction cannot reach 0.05 on either exact test **however large the
+    effect**, while the t can. A disagreement between them at this ``n`` is
+    therefore a statement about power and not a tie to be broken by preference.
+
+    The other half is the t's own implied bar. At ``n = 5``, ``t = sqrt(5) *
+    |mean| / sd``, so rejecting at 0.05 is exactly ``|mean| / sd >= 2.131846786
+    / sqrt(5) = 0.9534`` block-SD - which is checked here by driving a set of
+    differences to that ratio and confirming the p crosses at it.
+    """
+    import math as _math
+
+    from wildfire_nowcast.eval.blocktest import (
+        BlockDifferences,
+        min_attainable_p,
+        paired_sign,
+        sign_flip_permutation,
+        student_t_sf,
+    )
+
+    floors = min_attainable_p(5)
+    # 4 of 5 in one direction, with the dissenter driven arbitrarily small
+    four_of_five = BlockDifferences(
+        ("a", "b", "c", "d", "e"), (10.0, 10.0, 10.0, 10.0, -1e-9), "four_of_five"
+    )
+    sign_four = paired_sign(four_of_five)
+    perm_four = sign_flip_permutation(four_of_five)
+    unanimous = BlockDifferences(("a", "b", "c", "d", "e"), (1.0, 1.0, 1.0, 1.0, 1e-9), "unanimous")
+    sign_five = paired_sign(unanimous)
+
+    crit = 2.131846786
+    implied_bar = crit / _math.sqrt(5.0)
+    # a set whose |mean|/sd is exactly the implied bar, by construction: centre
+    # and scale to unit block SD, then shift the mean to the bar itself.
+    base = np.array([-1.0, -0.5, 0.0, 0.5, 1.0], dtype=np.float64)
+    arr = base / float(base.std(ddof=1)) + implied_bar
+    ratio = float(arr.mean()) / float(arr.std(ddof=1))
+    p_at_bar = student_t_sf(_math.sqrt(5.0) * ratio, 4)
+    ok = bool(
+        floors["paired_sign"] == 0.03125
+        and floors["sign_flip_permutation"] == 0.03125
+        and floors["paired_t"] is None
+        and not sign_four["rejects"]
+        and not perm_four["rejects"]
+        and sign_five["rejects"]
+        and abs(ratio - implied_bar) < 1e-9
+        and abs(p_at_bar - 0.05) < 1e-6
+    )
+    return Check(
+        "both_exact_tests_are_floored_at_one_over_two_to_the_n",
+        ok,
+        "at 5 blocks the sign and permutation tests cannot report below 0.03125 and so require "
+        "unanimity: 4 of 5 in one direction does not reject at any effect size, 5 of 5 does, and "
+        "the t's implied bar is 0.9534 block-SD",
+        {
+            "min_attainable_p": floors,
+            "four_of_five_sign_p": sign_four["p_one_sided"],
+            "four_of_five_permutation_p": perm_four["p_one_sided"],
+            "five_of_five_sign_p": sign_five["p_one_sided"],
+            "t_implied_effect_size_bar_at_n5": implied_bar,
+            "effect_size_of_the_tuned_set": ratio,
+            "p_at_that_effect_size": p_at_bar,
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -4016,6 +4451,12 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     # M11 - the degradation ladder and the power read-off that stands on it
     check_degradation_null_rung_is_bitwise_the_undegraded_forecast,
     check_degradation_rungs_hit_their_declared_severity,
+    # M28 - I21's finding: a shape rung on a MULTI-BODY state was not a
+    # degradation. The construction is now per connected body; these two pin the
+    # distance field against an independent BFS and the share invariant against
+    # its own plant.
+    check_body_territories_reproduce_a_per_body_bfs_and_reduce_on_one_body,
+    check_shape_and_shift_rungs_keep_each_body_share_and_turn_it_180_degrees,
     check_base_prediction_cache_cannot_return_another_window,
     check_mde_read_off_requires_a_SUSTAINED_crossing,
     # L1 - the label-noise floor: the morphology, the severity ladder, the oracle
@@ -4046,6 +4487,12 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_dispersion_index_null_is_NOT_one_for_a_multi_step_field,
     check_dispersion_index_level_is_free_of_the_member_count,
     check_no_firing_configuration_is_reported_as_a_nearest_miss,
+    # M29 - the instrument that decides a cell under the pre-registered rule: an
+    # exact t tail, control/plant/direction on the block test, and what the two
+    # distribution-free tests can and cannot express at five blocks.
+    check_student_t_tail_is_exact_against_closed_forms_and_published_criticals,
+    check_the_block_test_keeps_a_null_and_rejects_a_plant_that_names_itself,
+    check_both_exact_tests_are_floored_at_one_over_two_to_the_n,
 )
 
 
