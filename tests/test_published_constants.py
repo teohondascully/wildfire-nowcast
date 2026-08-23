@@ -254,6 +254,34 @@ def test_the_comment_reader_reads_a_block_and_reports_nothing_where_there_is_non
         _const_doc("model/train.py", "NO_SUCH_CONSTANT_EXISTS")
 
 
+#: A record that is CITED by published source, is present on this disk, and is
+#: deliberately NOT tracked. It is the only shape that tells :func:`_artifact`'s
+#: two possible implementations apart.
+_UNTRACKED_BUT_PRESENT = "runs/baselines-20260809-073414/results.json"
+
+
+def test_the_artifact_loader_refuses_a_record_that_is_PRESENT_but_UNTRACKED() -> None:
+    """The positive control for the index check, and the reason it is not ``is_file``.
+
+    ``_artifact`` used to assert ``path.is_file()`` beneath a docstring promising
+    every artifact it reads is in ``git ls-files``. On this machine those two
+    answers agree for every tracked artifact, so no existing test could have
+    noticed the difference. This one is built from the case where they disagree:
+    a cited, untracked record that happens to be on this disk.
+
+    In a clone the record is absent as well as untracked, so the same call still
+    raises and the test still passes. That is deliberate: the assertion is about
+    what a reader can open, and a control whose outcome depends on which machine
+    it runs on is the defect ADR-102 was written about.
+    """
+    assert not _tracked(_UNTRACKED_BUT_PRESENT), (
+        f"{_UNTRACKED_BUT_PRESENT} is tracked now. If that is intended, this control has "
+        "lost its subject and needs a new one, not deleting."
+    )
+    with pytest.raises(AssertionError, match="NOT in the git index"):
+        _artifact(_UNTRACKED_BUT_PRESENT)
+
+
 def test_the_pinned_set_is_the_whole_cited_class() -> None:
     """A new constant citing an artifact fails here until someone pins it.
 
