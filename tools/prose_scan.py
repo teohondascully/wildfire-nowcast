@@ -284,8 +284,9 @@ _LOG_RECEIVERS: Final = frozenset({"logger", "logging", "LOGGER", "_logger", "lo
 #: a claim of completeness. It is admitted because the alternative measured
 #: worse: the two existing sinks are an output CALL and any KEYWORD argument,
 #: and every one of these is positional, so a title drawn on the reader's screen
-#: was invisible while the same string in a `print` was a gate failure. @simviz
-#: measured 138 characters `sim/` renders and this scanner could not see, against
+#: was invisible while the same string in a `print` was a gate failure. The
+#: proposal measured 138 characters `sim/` renders and this scanner could not see,
+#: against
 #: the 10 the pin held for that package: 7% of what a reader of these figures
 #: actually reads.
 _DRAWN_CALLS: Final = frozenset(
@@ -575,7 +576,7 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
 #: **EMPTY, AND EMPTY IS THE SUCCESS STATE.** 63 were measured at `738e7b7`;
 #: infra swept its own 38 in `common/`, `tools/` and `tests/` the same day, and
 #: the last 25 in `eval/`, `model/`, `runs/` and `sim/` went in one burst:
-#: @simviz at `8b62729` (S11), @data at `8d3c5c0` (D14), @model at `7c78d32`
+#: `sim/` at `8b62729` (S11), `data/` at `8d3c5c0` (D14), `model/` at `7c78d32`
 #: (M19). Every one of those files is STILL TRACKED, checked against
 #: `git ls-files` rather than inferred from a count of zero, so this dict reads
 #: "swept" and not "deleted".
@@ -601,8 +602,8 @@ def scan_repository(repo_root: Path, *, include_prose: bool = True) -> list[Occu
 #: inferred classifier health from the SIZE of this dict could not survive the
 #: dict being emptied, and did not: a floor of 20 was left guarding a debt of 14.
 #:
-#: RE-POPULATED BY THE SINK WIDENING, AND EVERY ENTRY IS @simviz's.
-#: The drawn-text and page-fragment sinks were adopted from @simviz's own
+#: RE-POPULATED BY THE SINK WIDENING, AND EVERY ENTRY IS IN `sim/`.
+#: The drawn-text and page-fragment sinks were adopted from that package's own
 #: proposal, which asked for exactly this: the characters become ordinary pinned
 #: debt, swept by their owner, with the pin moving in the same commit as the
 #: sweep. 125 characters across 13 files, none of them in `common/`, `tools/`,

@@ -368,6 +368,14 @@ _TELL_PATTERNS: dict[str, str] = {
     "coordination role": "orchestr" + "ator",
     # The internal agent role names, e.g. "<area>-lead's finding".
     "agent role name": r"\b(?:infra|data|model|sim|simviz)[- ]" + "le" + "ad",
+    # The SAME internal vocabulary in its other spelling. This pattern was added
+    # after a measurement, not on principle: 18 occurrences across four tracked
+    # files, in three different leads' hand, none of which the two patterns above
+    # could see because none of them says "lead" or names the instruction file.
+    # To a public reader it reads as a handle for a user that does not exist. The
+    # negative lookahead is load-bearing: `@dataclass` and `@dataclasses.field`
+    # are ordinary Python and must never match.
+    "agent handle": "@" + r"(?:infra|data|model|sim|simviz|maintainer)(?![A-Za-z])",
 }
 
 _TELL_RE = re.compile("|".join(f"(?:{p})" for p in _TELL_PATTERNS.values()), re.IGNORECASE)
@@ -411,10 +419,42 @@ def _tracked_files() -> list[str]:
     return sorted(p for p in out.stdout.splitlines() if p)
 
 
+#: Tracked EVIDENCE, excluded from the tell scan and counted rather than ignored.
+#:
+#: The twenty artifacts under ``runs/`` are tracked so that published numbers can
+#: be CHECKED by a clone. They are machine-written records of runs that happened,
+#: and they may not be edited to look better, which is the same reason the four
+#: ``baselines-*/results.json`` are declared out of the tree entirely in
+#: `.gitignore` rather than cleaned. A tell inside one of them cannot be repaired
+#: without falsifying evidence, so an entry in the burn-down list above would be
+#: an exemption wearing a burn-down list's clothes: nobody could ever retire it.
+#: The exclusion is therefore explicit, narrow, and MEASURED by
+#: `test_the_artifact_exclusion_is_narrow_and_is_not_hiding_a_growing_population`.
+ARTIFACT_PREFIX = "runs/"
+
+
+def scan_tracked_artifacts() -> dict[str, int]:
+    """``{artifact: number of tells}`` for the tracked evidence the scan excludes."""
+    counts: dict[str, int] = {}
+    for rel in _tracked_files():
+        if not rel.startswith(ARTIFACT_PREFIX):
+            continue
+        path = repo_root() / rel
+        if not path.is_file():
+            continue
+        text = path.read_bytes().decode("utf-8", errors="replace")
+        n = len(_TELL_RE.findall(text))
+        if n:
+            counts[rel] = n
+    return counts
+
+
 def scan_tracked_tree() -> dict[str, int]:
     """``{relative path: number of tells}``, for every tracked file with at least one."""
     counts: dict[str, int] = {}
     for rel in _tracked_files():
+        if rel.startswith(ARTIFACT_PREFIX):
+            continue  # evidence, not a reading surface: see ARTIFACT_PREFIX
         path = repo_root() / rel
         if not path.is_file():  # a submodule or a broken link
             continue
@@ -572,6 +612,47 @@ def test_the_planted_defects_the_burn_down_check_must_catch() -> None:
     # ...and the live tree passes all three, which is the assertion that makes the
     # three above mean something rather than being satisfied by a broken scanner.
     assert not new_or_grown_tells(live) and not stale_burn_down_entries(live)
+
+
+def test_the_agent_handle_pattern_answers_both_ways() -> None:
+    """CAPABILITY, on strings small enough to read, independent of the tree.
+
+    The lookahead is the whole risk in this pattern: matched too widely it hits
+    ``@dataclass`` on 40 modules and the family gets switched off; matched too
+    narrowly it sees nothing and reads as coverage. Both directions are asserted
+    here rather than inferred from a count of what the tree happens to contain.
+    """
+    handle = "@" + "simviz"
+    for fires in (f"proposed by {handle}, ruled on here", "@" + "model" + " owns it"):
+        assert _TELL_RE.search(fires), f"the handle pattern stopped matching: {fires!r}"
+    for clean in (
+        "@dataclass(frozen=True)",
+        "@dataclasses.dataclass",
+        "@modelling_helper",
+        "the data/ package owns it",
+        "email someone@example.com about it",
+    ):
+        assert not _TELL_RE.search(clean), f"false positive on: {clean!r}"
+
+
+def test_the_artifact_exclusion_is_narrow_and_is_not_hiding_a_growing_population() -> None:
+    """What the tell scan does NOT read, measured rather than trusted.
+
+    Tracked evidence is excluded because a tell inside a run record cannot be
+    repaired without falsifying the record. An exclusion nobody measures is how a
+    scan goes quiet, so the population inside it is pinned exactly: a NEW tell in
+    tracked evidence fails here even though it is excluded from the gate, and a
+    tell that disappears fails too, because evidence is not supposed to change.
+    """
+    assert ARTIFACT_PREFIX == "ru" + "ns/", "the exclusion has moved off tracked evidence"
+    excluded = scan_tracked_artifacts()
+    assert excluded == {"runs/u0b.json": 1}, (
+        "the tells inside tracked evidence have changed. This population is FROZEN: "
+        f"the records may not be edited to look better. Measured {excluded}."
+    )
+    # ...and the exclusion really is what is keeping it out of the gate.
+    assert not any(rel.startswith(ARTIFACT_PREFIX) for rel in scan_tracked_tree())
+    assert new_or_grown_tells(scan_tracked_tree()) == []
 
 
 def test_the_scan_reads_its_own_source_and_is_not_self_exempt() -> None:

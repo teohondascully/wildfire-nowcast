@@ -54,7 +54,7 @@ _LEVEL_METHODS = frozenset(
 _CONFIGURATION_CALLS = frozenset({"configure_logging", "configure_from_args"})
 _FORBIDDEN_CONFIGURATION_CALLS = frozenset({"basicConfig", "dictConfig", "fileConfig"})
 
-#: The shims ADR-103 (2) names. **RETIRED AT D14 and now EMPTY**: @data converted
+#: The shims ADR-103 (2) names. **RETIRED AT D14 and now EMPTY**: their owner converted
 #: both, and the list is emptied in the same commit because a burn-down entry that
 #: outlives its reason is an allow-list. It fired in the retirement direction
 #: before it was emptied, which is the observation infra could not make itself.
@@ -273,7 +273,7 @@ def test_at_least_one_main_actually_configures_logging() -> None:
 
 
 # --------------------------------------------------------------------------
-# rule 4: the hand-rolled shim is a burn-down, and it belongs to @data
+# rule 4: the hand-rolled shim is a burn-down, and it belongs to the `data/` package
 # --------------------------------------------------------------------------
 
 
@@ -321,7 +321,7 @@ def burn_down_drift(
 
     Hoisted out of the test so that BOTH directions can be demonstrated on
     synthetic sets. The second direction is otherwise unprovable by infra: it
-    fires when @data deletes a shim, and infra may not edit `data/`.
+    fires when a shim is deleted by the owner of `data/`, which this lead may not edit.
     """
     return sorted(set(found) - declared), sorted(declared - set(found))
 
@@ -335,14 +335,14 @@ def test_the_print_logger_shims_are_exactly_the_two_that_are_declared() -> None:
         "introduce a second logging convention. Use logging.getLogger(__name__)."
     )
     assert not gone, (
-        f"{gone} no longer contains the shim it is listed for. @data has converted it - "
+        f"{gone} no longer contains the shim it is listed for. It has been converted - "
         "remove it from PRINT_LOGGER_SHIMS in the same commit, because a burn-down entry "
         "that outlives its reason is an allow-list."
     )
 
 
 def test_the_burn_down_fires_in_BOTH_directions_on_a_synthetic_pair() -> None:
-    """C3.5 for the direction infra cannot plant: a shim @data has already deleted."""
+    """C3.5 for the direction infra cannot plant: a shim its owner has already deleted."""
     declared = frozenset({"a.py", "b.py"})
     assert burn_down_drift({"a.py", "b.py"}, declared) == ([], [])
     assert burn_down_drift({"a.py", "b.py", "c.py"}, declared) == (["c.py"], [])
@@ -353,7 +353,7 @@ def test_the_burn_down_fires_in_BOTH_directions_on_a_synthetic_pair() -> None:
 def test_the_two_retired_shims_stayed_retired() -> None:
     """The positive half of an EMPTY burn-down, which `all(...)` over `frozenset()` is not.
 
-    When @data emptied ``PRINT_LOGGER_SHIMS`` at D14, the ownership assertion that
+    When ``PRINT_LOGGER_SHIMS`` was emptied at D14, the ownership assertion that
     used to live here became ``all(... for path in frozenset())``, i.e. ``True``
     unconditionally: a check that cannot fail, which is the class this repository
     has now found four times. What replaces it is a statement that can:

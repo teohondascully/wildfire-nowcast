@@ -612,7 +612,7 @@ CLAUSE_IMPLEMENTATIONS: dict[str, ClauseImpl] = {
         where=("wildfire_nowcast.eval.validity.baseline_validity",),
         note="the zero-ignition VOID condition is code. The v2.8 per-horizon calibration "
         "amendment is NOT yet the reported form (baseline_run calibrates at one horizon per "
-        "run and records others as `alternative_horizons`) - routed to @model, see A10.",
+        "run and records others as `alternative_horizons`) - routed to the model owner, A10.",
     ),
     "C6.3": ClauseImpl(
         CLAUSE_ENFORCED,

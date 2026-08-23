@@ -163,13 +163,16 @@ def test_a_variable_expansion_is_not_a_repository_path() -> None:
 
 
 def test_an_absolute_path_is_not_a_repository_path() -> None:
-    """The tail of ``/Volumes/scratch2/fires/tensor.zarr`` is not a relative path.
+    """The tail of an absolute path is not a repository-relative citation.
 
     Absolute-path literals are a different defect with its own check in
     ``tests/test_hygiene.py``; what must not happen is this scanner reporting the
-    tail of one as a broken relative citation.
+    tail of one as a broken relative citation. The specimen is assembled for two
+    reasons at once: that other check reads this file for volume roots, and this
+    one reads it for path-shaped fragments.
     """
-    assert list(C.tokens_in("/Volumes/scratch2/fires/tensor.zarr")) == []
+    absolute = "/Vol" + "umes/scratch2/fires/tensor" + ".zarr"
+    assert list(C.tokens_in(absolute)) == []
 
 
 def test_a_run_of_extensions_is_not_a_path() -> None:

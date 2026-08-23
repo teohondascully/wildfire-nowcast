@@ -16,8 +16,9 @@ f-strings, concatenations and escaped dashes as well: **63 at `738e7b7`**, of
 which 38 were infra's and are swept here, and 25 belong to `eval/`, `model/`,
 `sim/` and `runs/` and were a burn-down.
 
-**THE BURN-DOWN IS COMPLETE AND THAT IS WHY THIS FILE CHANGED (I16).** @simviz,
-@data and @model swept the last 25 in one burst, the declared debt reached zero,
+**THE BURN-DOWN IS COMPLETE AND THAT IS WHY THIS FILE CHANGED (I16).** The owners
+of `sim/`, `data/` and `model/` swept the last 25 in one burst, the declared debt
+reached zero,
 and four assertions here broke on the success of the thing they guarded. The
 worst of them asserted `len(found) >= 20` over the live tree and said so in its
 own failure message: *"Either three leads cleared their debt at once, or the sink
@@ -197,8 +198,8 @@ def test_the_internal_literals_are_still_the_large_majority_and_still_excluded()
     )
 
 
-#: THE SAME ONE-VARIABLE CONSTRUCTION FOR THE TWO SINKS ADOPTED FROM @simviz's
-#: PROPOSAL. Each pair differs in the sink and in nothing else: same character,
+#: THE SAME ONE-VARIABLE CONSTRUCTION FOR THE TWO SINKS ADOPTED FROM THE
+#: PROPOSAL THAT ASKED FOR THEM. Each pair differs in the sink and in nothing else: same character,
 #: same line, same words.
 _PLANTED_DRAWN: str = 'def render(ax):\n    ax.set_title("a planted dash — drawn on a figure")\n'
 _PLANTED_UNDRAWN: str = 'def render(ax):\n    ax.set_zorder("a planted dash — drawn on a figure")\n'
@@ -320,7 +321,7 @@ def test_a_count_that_FALLS_fails_too_because_a_tolerated_fall_leaves_slack() ->
     A fall was tolerated on the reasoning that three leads write in these files and
     a pin that goes red on their progress gets deleted. Planting in a fresh clone
     showed what that costs: at 2102917 the declared debt read 25 while the tree
-    held 24, because @model had swept one in eval/reporting.py. The scanner printed
+    held 24, because one in eval/reporting.py had been swept. The scanner printed
     the declared 25 and PASSed, so the slack was invisible AND refillable: a later
     commit could put a new literal back into that file and RISEN would not fire,
     because 2 is not greater than 2. A pin is a pin in both directions.
