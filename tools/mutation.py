@@ -497,12 +497,28 @@ def build_workspace(repo: Path, workspace: Path, *, pristine: bool = False) -> i
 
 
 def _child_env(workspace: Path, python: Path) -> dict[str, str]:
-    """A minimal, explicit environment. The workspace's own ``src`` comes FIRST."""
+    """A minimal, explicit environment. The workspace's own ``src`` comes FIRST.
+
+    TMPDIR IS LOAD-BEARING AND ITS ABSENCE MADE THE LEAK DETECTOR BLIND. This
+    environment is built from nothing rather than copied, so anything not listed
+    here is simply gone from the child. TMPDIR was not listed, so every child
+    pytest fell back to Python's default of ``/tmp`` while the detector compared
+    before and after in the PARENT's ``tempfile.gettempdir()``. Two different
+    directories: the difference was taken over a location the suite never wrote
+    to, and it reported an empty leak list no matter what the children left
+    behind. Measured, not reasoned about - parent ``/private/tmp/probe-XXXX``,
+    child ``/tmp``.
+
+    Pinning it to the parent's value does two things. The detector now watches
+    where the children actually write, and a private TMPDIR isolates the whole
+    process tree instead of only its root.
+    """
     return {
         "PATH": f"{python.parent}:/usr/bin:/bin:/usr/sbin:/sbin",
         "HOME": str(Path.home()),
         "PYTHONPATH": str(workspace / "src"),
         "PYTHONDONTWRITEBYTECODE": "1",
+        "TMPDIR": tempfile.gettempdir(),
         "_ZO_DOCTOR": "0",
     }
 
@@ -546,24 +562,41 @@ def failing_tests(output: str) -> list[str]:
     return sorted(set(out))
 
 
+#: How many times the baseline may find a new sandbox artifact before giving up.
+#: A cap rather than a while-loop, because "keep deselecting until green" is also
+#: how a genuinely broken suite gets swept under the rug one test at a time.
+MAX_BASELINE_ROUNDS: Final = 10
+
+
 def baseline(workspace: Path, python: Path) -> list[str]:
-    """Control 3: run unmutated, deselect whatever the sandbox itself breaks."""
-    code, output = _run_pytest(workspace, python, ())
-    if code == 0:
-        return []
-    broken = failing_tests(output)
-    if not broken:
-        raise RuntimeError(
-            f"unmutated workspace exited {code} and named no test:\n{output[-3000:]}"
-        )
-    deselect = [arg for node in broken for arg in ("--deselect", node)]
-    code, output = _run_pytest(workspace, python, deselect)
-    if code != 0:
-        raise RuntimeError(
-            f"unmutated workspace still exits {code} after deselecting {broken}. A sweep against "
-            f"a red suite kills every mutant and means nothing.\n{output[-3000:]}"
-        )
-    return broken
+    """Control 3: run unmutated, deselect whatever the sandbox itself breaks.
+
+    ITERATES, because the suite runs under ``-x`` and therefore names ONE failure
+    per attempt. The single-pass version worked only by luck: this repository's
+    own checkout has exactly one sandbox artifact, so one round was always enough.
+    Pointed at a clone it found a second (uninstalled git hooks) and aborted the
+    whole sweep, which is how the limitation surfaced.
+
+    Every deselected node is returned and printed, never silently dropped, because
+    a suite that is already red kills every mutant and means nothing.
+    """
+    broken: list[str] = []
+    for _ in range(MAX_BASELINE_ROUNDS):
+        deselect = [arg for node in broken for arg in ("--deselect", node)]
+        code, output = _run_pytest(workspace, python, deselect)
+        if code == 0:
+            return broken
+        found = [node for node in failing_tests(output) if node not in broken]
+        if not found:
+            raise RuntimeError(
+                f"unmutated workspace exited {code} and named no NEW test. Already "
+                f"deselected {broken}.\n{output[-3000:]}"
+            )
+        broken.extend(found)
+    raise RuntimeError(
+        f"unmutated workspace still red after {MAX_BASELINE_ROUNDS} rounds, having deselected "
+        f"{broken}. A sweep against a red suite kills every mutant and means nothing."
+    )
 
 
 # --------------------------------------------------------------------------
@@ -775,11 +808,31 @@ def sweep(
         out.leaked = sorted(temp_entries() - before)
 
 
+#: Names the detector must NOT call a leak. Exactly one entry, and it is narrow on
+#: purpose: ``pytest-of-<user>`` is pytest's own ``tmp_path`` base, which pytest
+#: creates once and garbage-collects down to the last three runs. It is BOUNDED and
+#: self-managing, which is the opposite of the per-call ``mkdtemp`` this detector
+#: exists to catch. Without it the unplanted control fires on every run, and a
+#: detector that fires on everything is as useless as one that fires on nothing.
+IGNORED_TEMP_PREFIXES: Final = ("pytest-of-",)
+
+
 def temp_entries() -> set[str]:
-    """Every name directly under the temp directory, for before/after comparison."""
+    """Every name directly under the temp directory, for before/after comparison.
+
+    Excludes :data:`IGNORED_TEMP_PREFIXES`. That exclusion was added because the
+    unplanted control FIRED: a clean 3-mutant sweep reported one leaked entry,
+    ``pytest-of-thondascully``. Reporting it would have made the gate exit 3 on
+    every green run, and it would have made the planted capture unfalsifiable,
+    since residue would be present either way.
+    """
     root = Path(tempfile.gettempdir())
     try:
-        return {entry.name for entry in root.iterdir()}
+        return {
+            entry.name
+            for entry in root.iterdir()
+            if not entry.name.startswith(IGNORED_TEMP_PREFIXES)
+        }
     except OSError:  # pragma: no cover - unreadable temp dir
         return set()
 

@@ -2337,3 +2337,82 @@ def test_the_isolated_runner_removes_its_own_temp_root() -> None:
     assert "shutil.rmtree(root" in guarded, (
         "the isolated runner leaves its mkdtemp root behind on every run"
     )
+
+
+def test_a_child_launched_by_the_sweep_shares_the_parents_temp_directory() -> None:
+    """The two line test that would have caught a detector blind twice over.
+
+    ``_child_env`` is built from nothing rather than copied, so anything not
+    listed is gone from the child. TMPDIR was not listed, so children fell back to
+    ``/tmp`` while the leak detector compared before and after in the PARENT's
+    temp directory. The difference was taken over a location the suite never wrote
+    to, and it reported an empty leak list whatever the children left behind.
+    """
+    python = repo_root() / ".venv" / "bin" / "python"
+    if not python.exists():  # pragma: no cover - provisioned environments only
+        pytest.skip("no .venv in this tree")
+    env = mutation._child_env(repo_root(), python)
+    assert "TMPDIR" in env, "the child temp directory is unpinned again"
+    child = subprocess.run(
+        [str(python), "-c", "import tempfile; print(tempfile.gettempdir())"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert child == mutation.tempfile.gettempdir(), (
+        f"the sweep's children write to {child} while the detector watches "
+        f"{mutation.tempfile.gettempdir()}"
+    )
+
+
+def test_the_leak_detector_FIRES_on_a_child_that_deliberately_leaks(tmp_path: Path) -> None:
+    """The standing positive control. A detector never seen to fire is worth nothing.
+
+    This one was green twice while blind, so the mechanism is exercised end to
+    end: a private temp directory for the whole process tree, a child launched
+    through the sweep's own ``_child_env`` that leaks on purpose, and the parent's
+    before/after difference required to name it. The negative half runs on the
+    same rig, because a difference that reports nothing for a clean child and
+    nothing for a leaking one is not a detector.
+    """
+    python = repo_root() / ".venv" / "bin" / "python"
+    if not python.exists():  # pragma: no cover - provisioned environments only
+        pytest.skip("no .venv in this tree")
+
+    def run(code: str) -> list[str]:
+        with mock.patch.object(mutation.tempfile, "gettempdir", return_value=str(tmp_path)):
+            env = mutation._child_env(repo_root(), python)
+            before = mutation.temp_entries()
+            subprocess.run([str(python), "-c", code], env=env, check=True, capture_output=True)
+            return sorted(mutation.temp_entries() - before)
+
+    leaked = run("import tempfile; tempfile.mkdtemp(prefix='deliberate-leak-')")
+    assert leaked and leaked[0].startswith("deliberate-leak-"), (
+        "a child that deliberately leaked was not seen by the detector, so the detector "
+        f"is watching the wrong directory again: {leaked}"
+    )
+
+    clean = run("import tempfile;  tempfile.TemporaryDirectory().cleanup()")
+    assert clean == [], f"a child that leaked nothing was reported as leaking: {clean}"
+
+
+def test_the_detectors_ignore_list_stays_narrow(tmp_path: Path) -> None:
+    """An exclusion is a hole. This one is one prefix wide and must stay that way.
+
+    ``pytest-of-<user>`` is pytest's own tmp_path base: created once, garbage
+    collected to the last three runs, bounded. Everything else that appears in the
+    temp directory during a sweep is residue. The unplanted control fired on that
+    single name, which is why the exclusion exists at all, and widening it is how a
+    detector quietly stops detecting.
+    """
+    assert mutation.IGNORED_TEMP_PREFIXES == ("pytest-of-",), (
+        "the ignore list grew. Every added prefix is a class of leak this gate can no "
+        "longer see, and it was added by someone who found it inconvenient."
+    )
+    with mock.patch.object(mutation.tempfile, "gettempdir", return_value=str(tmp_path)):
+        (tmp_path / "pytest-of-someone").mkdir()
+        assert mutation.temp_entries() == set(), "the pytest base is not being excluded"
+        (tmp_path / "wnc-selftest-abcd").mkdir()
+        (tmp_path / "deliberate-leak-abcd").mkdir()
+        assert mutation.temp_entries() == {"wnc-selftest-abcd", "deliberate-leak-abcd"}
