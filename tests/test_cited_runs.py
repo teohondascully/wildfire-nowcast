@@ -1,7 +1,8 @@
 """The ``runs/`` citation class: enumerated by a walk, not by a typed pattern.
 
 The class was first enumerated with ``runs/[A-Za-z0-9_]*\\.json`` and came back
-as twelve. It is twenty-one. The two misses were STRUCTURAL rather than unlucky:
+as twelve. It was twenty-one then and is twenty-four now, the three additions
+being M19's sweep artifacts. The two misses were STRUCTURAL rather than unlucky:
 the character class excludes ``/`` and ``-``, so no subdirectory can ever match,
 and the literal suffix excludes every extension but one. The five files that
 second miss hid are the analysis scripts that produced published numbers.
@@ -30,7 +31,13 @@ from wildfire_nowcast.common.paths import repo_root  # noqa: E402
 
 #: What the tree is expected to hold. Both halves are pinned: a citation that
 #: stops being tracked fails, and a NEW citation that nobody accounted for fails.
-EXPECTED_TRACKED = 17
+#:
+#: 17 -> 20 when M19's three sweep artifacts were tracked, so that the finding
+#: that the documented collapse ablation fires 97 times in 200 can be CHECKED by
+#: a clone rather than only re-run. Both numbers here were OBSERVED FAILING
+#: FIRST (``assert 20 == 17`` and, below, ``assert 15 == 12``); neither was
+#: derived from the change and then confirmed by the change.
+EXPECTED_TRACKED = 20
 EXPECTED_EXEMPT = 4
 EXPECTED_CLASS = EXPECTED_TRACKED + EXPECTED_EXEMPT
 
@@ -114,7 +121,10 @@ def test_the_replacement_finds_the_whole_class_where_the_superseded_pattern_foun
     superseded = _source_file_tokens(C.SUPERSEDED_PATTERN)
     replacement = _source_file_tokens(C.RUNS_TOKEN)
 
-    assert len(superseded) == 12, sorted(superseded)
+    # 12 -> 15: the three M19 artifacts are ``runs/<word>.json``, which is the one
+    # shape the superseded pattern could always see. The number that carries the
+    # finding is ``missed`` below, and it is UNCHANGED at 9.
+    assert len(superseded) == 15, sorted(superseded)
     assert len(replacement) == EXPECTED_CLASS, sorted(replacement)
     assert superseded < replacement, "the replacement must be a strict superset"
 

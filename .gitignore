@@ -103,6 +103,32 @@ env/
 !/runs/_s1_bitidentity.py
 !/runs/_s1_score.py
 
+# M19's three sweep artifacts, 1,101,009 bytes. `eval/collapse_curve.py` carries
+# the collapse measurement the dispersion gate turns on, and its finding that
+# the documented ablation control fires in only 97 of 200 draws rested on three
+# files a clone could not open. The module writes no `runs/` path and reads no
+# stored value, so the curve stays re-derivable by the one command in its
+# docstring; these are tracked so its published numbers can also be CHECKED and
+# not merely re-run. Verified before tracking, across all three: 0 internal-role
+# occurrences, 0 absolute paths, 0 bytes outside printable ASCII.
+#
+# ONE negation each, and the alternatives were MEASURED rather than reasoned
+# about, on a skeleton of the 662 real untracked paths under `runs/`:
+#   `!/runs/m19_collapse_curve.json` x3   3 files      the form used here
+#   `!/runs/`                             0 files      a SILENT NO-OP
+#   `!/runs/*.json`                      81 files      19.1 MB
+#   `!/runs/m19_*`                        3 files      and a silent fourth later
+# `!/runs/` changes nothing because `/runs/*` excludes the directory's CONTENTS
+# and never the directory, so there is nothing for it to re-open; a negation
+# that looks one level too high can fail by doing nothing at all, as easily as
+# by staging too much. The per-level ladder that `/data/interim/_index/...`
+# needs above is the other case: there the PARENT is excluded, git does not
+# descend into it, and a lone deep negation matches nothing and fails silently.
+# These three sit at depth 1, so one line each opens them and nothing else.
+!/runs/m19_collapse_curve.json
+!/runs/m19_documented_control.json
+!/runs/m19_domain_extension.json
+
 # Generated figures and the review page (32.8 MB, rebuilt by sim/review.py).
 # WARNING: these are only regenerable together with /runs/, which is ALSO
 # ignored - so a fresh clone cannot reproduce them. See STATE.md "PROVENANCE

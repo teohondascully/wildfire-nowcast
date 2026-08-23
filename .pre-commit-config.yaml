@@ -87,6 +87,18 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=500]
         stages: [pre-commit]
+        # ONE PATH, NAMED, NOT A RAISED LIMIT. `runs/m19_collapse_curve.json` is
+        # 820,811 bytes (802 KB) of measured evidence: the collapse-index curve
+        # behind the finding that the documented ablation control fires 97 times
+        # in 200. It is deliberately tracked so a clone can CHECK that number
+        # rather than only re-run it, and it tripped this hook at 802 KB against
+        # a 500 KB bar. The bar stays where it is for everything else, including
+        # the other two artifacts of the same sweep, which pass it on their own
+        # size. Raising `--maxkb` to admit one file would weaken the guard
+        # against the accident it exists for, which is a stray `git add data/`
+        # of the ~700 MB corpus. `tests/test_large_file_guard.py` proves the
+        # guard still refuses an unnamed file over the bar.
+        exclude: ^runs/m19_collapse_curve\.json$
       - id: check-merge-conflict
         stages: [pre-commit]
       - id: check-yaml
