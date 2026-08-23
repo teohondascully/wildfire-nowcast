@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import atexit as _atexit
 import functools as _functools
+import logging
+import os
 import shutil as _shutil
 import sys
 import tempfile as _tempfile
@@ -90,7 +92,14 @@ __all__ = [
     "test_the_burn_probability_panel_draws_nothing_where_no_member_burned",
     "test_replay_draws_the_ensemble_beside_the_best_member",
     "test_the_s4_one_pager_is_reachable_from_the_command_line",
+    "test_a_broken_ffmpeg_makes_the_writer_fall_back_AND_SAY_SO",
+    "test_no_module_in_sim_configures_logging_at_import",
 ]
+
+# ADR-103: a logger, and NOTHING else at import. The PASS/FAIL lines and the
+# tally are this runner's OUTPUT and stay on stdout; a test that could not run
+# here, or a run that was interrupted, is a diagnostic about the run.
+logger = logging.getLogger(__name__)
 
 
 # -- orientation (C1.4) ----------------------------------------------------
@@ -568,15 +577,54 @@ def test_elmfire_mapping_compromises_are_declared_not_remembered() -> None:
 
 
 def test_elmfire_is_never_silently_substituted() -> None:
-    """A missing binary must raise, never fall back to another model."""
+    """A missing binary must raise, never fall back to another model.
+
+    **This test could not fail before.** It called ``find_binary`` on a path that
+    does not exist, caught ``ElmfireNotInstalled`` and passed, caught anything
+    else and passed, and had no ``else`` - so a ``find_binary`` that RETURNED a
+    substitute, which is the one behaviour the name of this test forbids, went
+    straight through it. Same family as the plant that renamed ``--render`` to
+    ``--render-DISABLED`` and was still a substring (ADR-104 (5)).
+
+    It now asserts in both worlds, because which world we are in depends on
+    whether a vendored ELMFIRE happens to be built on this disk:
+
+    * nothing installed  -> the call MUST raise ``ElmfireNotInstalled``;
+    * something installed -> the call may return that binary, and what is then
+      forbidden is returning the path we asked for, which does not exist. A
+      returned path must exist and be executable.
+
+    The branch that could not be exercised here is LOGGED rather than left
+    implicit (ADR-097 (3): a check that excludes a case says so).
+    """
     from wildfire_nowcast.sim.elmfire import ElmfireNotInstalled, find_binary
 
+    missing = "/nonexistent/elmfire-binary-that-does-not-exist"
     try:
-        find_binary("/nonexistent/elmfire-binary-that-does-not-exist")
+        installed: Path | None = find_binary()
     except ElmfireNotInstalled:
-        pass
-    except Exception:  # pragma: no cover
-        pass  # a real install was found on PATH; that is also fine
+        installed = None
+
+    if installed is None:
+        try:
+            got = find_binary(missing)
+        except ElmfireNotInstalled:
+            return
+        raise AssertionError(
+            f"no ELMFIRE is installed, yet find_binary({missing!r}) returned {got}. "
+            "A silently substituted baseline is how a gate gets decided against nothing."
+        )
+
+    logger.warning(
+        "an ELMFIRE binary is installed at %s, so the RAISING half of this test cannot "
+        "run on this machine; asserting the substitution rule instead",
+        installed,
+    )
+    got = find_binary(missing)
+    assert got != Path(missing), f"find_binary returned the missing path {missing} itself"
+    assert got.exists() and os.access(got, os.X_OK), (
+        f"find_binary fell back to {got}, which is not an executable file"
+    )
 
 
 # -- S4: coarsening (playthrough 1) ---------------------------------------
@@ -1337,17 +1385,119 @@ def test_the_s4_one_pager_is_reachable_from_the_command_line() -> None:
     assert callable(PT.render_verdict)
 
 
+# -- S11: a fallback that used to be silent now says so (ADR-103) ----------
+
+
+class _Captured(logging.Handler):
+    """A handler that keeps records, for asserting that a diagnostic was EMITTED.
+
+    Attached to one named logger and removed in a ``finally``, and it sets no
+    level anywhere: WARNING already reaches handlers under the default effective
+    level, so this observes the convention rather than configuring around it.
+    ADR-103 permits configuration only in ``main``; this configures nothing.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def _capture(logger_name: str) -> tuple[logging.Logger, _Captured]:
+    captured = _Captured()
+    target = logging.getLogger(logger_name)
+    target.addHandler(captured)
+    return target, captured
+
+
+def test_a_broken_ffmpeg_makes_the_writer_fall_back_AND_SAY_SO() -> None:
+    """The fallback was a `print` from library code; the probe beside it said nothing.
+
+    Two separate defects in ten lines: ``_writer`` printed to stderr from inside a
+    library, so a caller could not turn it off or route it, and ``ffmpeg_usable``
+    swallowed the exception from its own probe and returned ``False``, which reads
+    as "no ffmpeg" when what happened was "ffmpeg is installed and broken". This
+    machine's Homebrew ffmpeg is exactly the second case.
+
+    What is asserted is the OBSERVABLE consequence - a GIF path and a WARNING that
+    names the file - not the text of a message.
+    """
+    from wildfire_nowcast.sim import movie as MV  # noqa: PLC0415
+
+    target, captured = _capture("wildfire_nowcast.sim.movie")
+    real = MV.ffmpeg_usable
+    try:
+        MV.ffmpeg_usable = lambda: False  # type: ignore[assignment]
+        writer, out = MV._writer(Path("nowhere/fire.mp4"), 4)
+    finally:
+        MV.ffmpeg_usable = real  # type: ignore[assignment]
+        target.removeHandler(captured)
+
+    assert out.suffix == ".gif", out
+    assert type(writer).__name__ == "PillowWriter", type(writer).__name__
+    warnings = [r for r in captured.records if r.levelno >= logging.WARNING]
+    assert len(warnings) == 1, [r.getMessage() for r in captured.records]
+    assert "fire.gif" in warnings[0].getMessage(), warnings[0].getMessage()
+    assert warnings[0].name == "wildfire_nowcast.sim.movie", warnings[0].name
+
+
+def test_no_module_in_sim_configures_logging_at_import() -> None:
+    """The library half of ADR-103, asserted where simviz can see it fail.
+
+    ``tests/test_logging_convention.py`` scans the whole shipped tree for this and
+    is the enforcer; this is the same property measured through BEHAVIOUR rather
+    than through the parse tree, and it runs in the standalone
+    ``python -m wildfire_nowcast.sim.selftest`` where the pytest suite does not.
+    Importing every module in this package must leave the root logger's handler
+    list exactly as it was.
+    """
+    import importlib  # noqa: PLC0415
+    import pkgutil  # noqa: PLC0415
+
+    from wildfire_nowcast import sim as PKG  # noqa: PLC0415
+    from wildfire_nowcast.common.logs import installed_handler  # noqa: PLC0415
+
+    before = list(logging.getLogger().handlers)
+    names = [m.name for m in pkgutil.iter_modules(PKG.__path__)]
+    assert len(names) >= 20, names
+    for name in names:
+        importlib.import_module(f"{PKG.__name__}.{name}")
+    assert list(logging.getLogger().handlers) == before, (
+        "importing sim/ changed the root logger's handlers. A library that installs "
+        "a handler decides the format for a program it is not."
+    )
+    assert installed_handler() is None or installed_handler() in before
+
+
 # -- runner ----------------------------------------------------------------
 
 
 def run_all() -> int:
+    """Run every ``test_*`` in this module and print the tally.
+
+    ``except BaseException`` used to sit here alone, so **Ctrl-C was recorded as a
+    test failure and the runner carried on to the next test**: the one signal that
+    means "stop" was swallowed and mislabelled, and the tally at the end counted a
+    run nobody completed. An interruption is now logged and re-raised; a test
+    failure is still caught, because catching those is what a runner is for.
+    """
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failures: list[tuple[str, BaseException]] = []
     for fn in tests:
         try:
             fn()
             print(f"  PASS  {fn.__name__}")
-        except BaseException as exc:  # noqa: BLE001
+        except (KeyboardInterrupt, SystemExit):
+            logger.warning(
+                "interrupted during %s; %d of %d tests had run and the tally below is NOT a result",
+                fn.__name__,
+                tests.index(fn),
+                len(tests),
+            )
+            raise
+        except Exception as exc:  # noqa: BLE001
             failures.append((fn.__name__, exc))
             print(f"  FAIL  {fn.__name__}: {exc}")
     print(f"\n{len(tests) - len(failures)}/{len(tests)} passed")

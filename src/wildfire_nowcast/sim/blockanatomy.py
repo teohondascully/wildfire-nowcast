@@ -824,7 +824,7 @@ def build_playthrough() -> Any:
                 "was NOT DETECTED and the harness said so**: I had planted it inside "
                 "`adr_parts`, where a constant rescaling of the normaliser cancels between "
                 "`s2s` and `relief`, leaves the identity intact, and leaves the cross-block "
-                "ORDER intact — invisible to every comparison probe. It is caught only by the "
+                "ORDER intact - invisible to every comparison probe. It is caught only by the "
                 "ABSOLUTE known-answer probe, and only once planted where the bug would really "
                 "live: at the call site.",
             ),

@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import os
 import shutil
@@ -71,6 +72,7 @@ from typing import Any
 import numpy as np
 
 from wildfire_nowcast.common.grid import Grid
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.sim.c5 import STATIC_C5, WEATHER_C5
 from wildfire_nowcast.sim.coarsen import (
     COARSENING_RULE,
@@ -80,6 +82,12 @@ from wildfire_nowcast.sim.coarsen import (
     fine_grid,
 )
 from wildfire_nowcast.sim.landfire import NativeStack, fetch_native_stack
+
+# ADR-103: a logger, and NOTHING else at import. `main` configures. This module
+# shells out to a Fortran program whose wall-clock abort is SILENT, so what it
+# has to say about a run is exactly the kind of thing that must not be a print
+# inside a library.
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "BUILD_NOTES",
@@ -313,6 +321,13 @@ def build(*, source_root: Path = VENDOR_ROOT) -> Path:
     link = [fc, *defines, *fflags]
     if sdk:
         link += ["-L", f"{sdk}/usr/lib"]
+    else:
+        # BUILD_NOTES delta_2 says this flag is why `ld` finds libSystem. Without
+        # it the link fails several minutes later with an unrelated-looking error.
+        logger.warning(
+            "xcrun --show-sdk-path returned nothing; linking WITHOUT -L<sdk>/usr/lib "
+            "(BUILD_NOTES delta_2). Expect ld to fail to find libSystem"
+        )
     link += ["-o", "elmfire", *[f"{s}.o" for s in objects]]
     subprocess.run(link, cwd=work, check=True)
     final = out_bin / "elmfire"
@@ -565,7 +580,7 @@ class ElmfireNativeModel:
                 "asp": np.rint(asp).astype(np.int16),
             },
             provenance={
-                "source": "C1 tensor at 1 km, canopy zeroed — NEGATIVE CONTROL ONLY",
+                "source": "C1 tensor at 1 km, canopy zeroed - NEGATIVE CONTROL ONLY",
                 "note": "reproduces the ADR-025 (4) configuration that gave +2 vs +54",
             },
         )
@@ -761,6 +776,19 @@ SCRATCH = 'null'
                     check=False,
                     env={**os.environ, **cfg.env},
                 )
+                if proc.returncode != 0:
+                    # ELMFIRE's wall-clock abort is SILENT: elmfire_level_set.f90:1263
+                    # sets T = TSTOP + 1 and no raster records that it happened. A
+                    # non-zero return is the only signal we get, and it used to reach
+                    # nothing but a field in the payload nobody reads until later.
+                    logger.warning(
+                        "member %d of %s returned %d; a truncated or absent arrival "
+                        "raster is possible. stderr tail: %s",
+                        member,
+                        self.binary.name,
+                        proc.returncode,
+                        proc.stderr[-400:].strip(),
+                    )
                 arrival = self._read_arrival(work / "outputs", analysis.shape)
                 if arrival is None:
                     raise RuntimeError(
@@ -844,7 +872,11 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     ap.add_argument("--refine", type=int, default=DEFAULT_REFINE)
     ap.add_argument("--seed", type=int, default=20260807)
     ap.add_argument("--out", default="reports/figures/elmfire_native_smoke.json")
+    add_logging_arguments(ap)
     args = ap.parse_args(argv)
+    # ADR-103: the ONE place this program configures logging. INFO by default: a
+    # build or a smoke run is long, and its narration is the point.
+    configure_from_args(args, default_verbosity=1)
 
     if args.build:
         print(f"[elmfire] built {build()}")

@@ -238,7 +238,7 @@ def fetch_native_stack(
             "bounds_5070": [round(b, 2) for b in grid.bounds],
             "interpolation": "RSP_NearestNeighbor for every layer",
             "encodings_left_native": (
-                "CC percent, CH/CBH m x 10, CBD kg/m3 x 100 — ELMFIRE's own "
+                "CC percent, CH/CBH m x 10, CBD kg/m3 x 100 - ELMFIRE's own "
                 "namelist defaults expect exactly this"
             ),
         },

@@ -931,7 +931,7 @@ def main(argv: list[str] | None = None) -> int:
     (outdir / "iou_decomposition.json").write_text(json.dumps(payload_out, indent=1) + "\n")
     print(f"[replay] {fig}")
     if mismatches:
-        print("[replay] REPRODUCTION MISMATCH — the figures describe a different experiment:")
+        print("[replay] REPRODUCTION MISMATCH - the figures describe a different experiment:")
         for m in mismatches:
             print("   ", m)
         return 1

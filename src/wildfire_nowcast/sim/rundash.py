@@ -362,7 +362,7 @@ def render_run_dashboard(
         color="#cbd5e1",
         edgecolor="#64748b",
         lw=0.6,
-        label="dispersion_ratio — QUARANTINED (C6.1)",
+        label="dispersion_ratio - QUARANTINED (C6.1)",
     )
     ax.bar(
         xs + 0.2,
@@ -371,7 +371,7 @@ def render_run_dashboard(
         color="#0f766e",
         edgecolor="#134e4a",
         lw=0.6,
-        label=f"area_dispersion_ratio — ADJUDICATES G3, bar [{lo}, {hi}]",
+        label=f"area_dispersion_ratio - ADJUDICATES G3, bar [{lo}, {hi}]",
     )
     ax.set_xticks(xs)
     ax.set_xticklabels(models, rotation=38, ha="right", fontsize=6.4)

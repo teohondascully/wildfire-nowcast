@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,7 +61,16 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
+from wildfire_nowcast.common.logs import (  # noqa: E402
+    add_logging_arguments,
+    configure_from_args,
+)
 from wildfire_nowcast.sim.style import COL_MEMBER, COL_TRUTH, stamp  # noqa: E402
+
+# ADR-103: a logger, and NOTHING else at import. `main` configures. The rendered
+# page and the contract lines are this program's output; an import that failed
+# under it is a diagnostic.
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "C6Run",
@@ -201,7 +211,7 @@ def _panel_reliability(ax: Any, runs: list[C6Run], lead_h: int) -> None:
                 lw=1.4,
                 color=st["color"],
                 ls="-" if mask_name == "growth_band" else ":",
-                label=f"{run.label} · {st['label']}",
+                label=f"{run.label} | {st['label']}",
                 zorder=3,
             )
             drew = True
@@ -238,7 +248,7 @@ def _panel_spread(ax: Any, runs: list[C6Run]) -> None:
                 lw=1.4,
                 color=st["color"],
                 ls="-" if mask_name == "growth_band" else ":",
-                label=f"{run.label} · {st['label']}",
+                label=f"{run.label} | {st['label']}",
             )
     ax.set_xlabel("lead time (h)")
     ax.set_ylabel("Brier score")
@@ -350,6 +360,9 @@ def _reporting_banner(fig: Any) -> None:
 
         st = reporting_status()
     except Exception as exc:  # pragma: no cover
+        # The banner still says SMOKE TEST ONLY, so the reader is not misled - but
+        # the reason it could not read C3.3 was known only to this frame.
+        logger.warning("could not read C3.3 reporting status: %s", exc, exc_info=True)
         st = {"reportable": False, "reason": f"reporting_status unavailable: {exc}"}
 
     if st.get("reportable"):
@@ -465,7 +478,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--label", action="append", default=None, help="label per metrics file")
     ap.add_argument("--dpi", type=int, default=130)
+    add_logging_arguments(ap)
     args = ap.parse_args(argv)
+    # ADR-103: the ONE place this program configures logging.
+    configure_from_args(args)
 
     labels = args.label or [None] * len(args.metrics)
     if len(labels) != len(args.metrics):

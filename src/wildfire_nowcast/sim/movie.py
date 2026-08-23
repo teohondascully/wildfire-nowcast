@@ -33,9 +33,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import shutil
 import subprocess
-import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -52,6 +52,10 @@ from matplotlib.animation import FFMpegWriter, PillowWriter  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.patches import Patch  # noqa: E402
 
+from wildfire_nowcast.common.logs import (  # noqa: E402
+    add_logging_arguments,
+    configure_from_args,
+)
 from wildfire_nowcast.sim.reader import FireFrames, load_fire  # noqa: E402
 from wildfire_nowcast.sim.style import (  # noqa: E402
     COL_BARRIER,
@@ -67,6 +71,12 @@ from wildfire_nowcast.sim.style import (  # noqa: E402
     stamp,
     state_cmap,
 )
+
+# ADR-103: a logger, and NOTHING else at import. `main` configures. This module
+# is a LIBRARY to `review.py` and to every lead who renders a fire, so the
+# container it fell back to and the probe that failed are diagnostics, not the
+# program's output. The summary table `main` prints is the output.
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "MovieSpec",
@@ -506,6 +516,9 @@ def ffmpeg_usable() -> bool:
             == 0
         )
     except Exception:  # pragma: no cover - environment dependent
+        # A probe that fails is not the same as an absent ffmpeg, and the caller
+        # cannot tell them apart from a bool. Say which one happened.
+        logger.warning("ffmpeg at %s did not answer -version; treating it as unusable", exe)
         return False
 
 
@@ -515,10 +528,10 @@ def _writer(out: Path, fps: int) -> tuple[Any, Path]:
         if ffmpeg_usable():
             return FFMpegWriter(fps=fps, bitrate=2600, codec="libx264"), out
         out = out.with_suffix(".gif")
-        print(
-            f"[movie] ffmpeg is missing or non-functional; writing {out} instead. "
-            "(Rendering is unaffected; only the container changes.)",
-            file=sys.stderr,
+        logger.warning(
+            "ffmpeg is missing or non-functional; writing %s instead. Rendering is "
+            "unaffected, only the container changes",
+            out,
         )
     if out.suffix.lower() != ".gif":
         out = out.with_suffix(".gif")
@@ -653,7 +666,10 @@ def main(argv: list[str] | None = None) -> int:
         "last hour's burned region; 1 reproduces data QA's no-8-neighbour definition",
     )
     ap.add_argument("--summary-json", default=None)
+    add_logging_arguments(ap)
     args = ap.parse_args(argv)
+    # ADR-103: the ONE place this program configures logging.
+    configure_from_args(args)
 
     spec = MovieSpec(
         pacing=args.pacing,

@@ -53,6 +53,7 @@ from typing import Any
 import numpy as np
 
 from wildfire_nowcast.common.grid import Grid
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.sim.absent import (
     EXIT_NOTHING_EXAMINED,
     AbsentMeasurementError,
@@ -554,11 +555,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="reports/figures/playthrough_coarsening.json",
         help="coarsening playthrough artifact consumed by --render",
     )
+    # ADR-103: the flags, not the configuration. `main` configures. This CLI drives
+    # `sim.elmfire`, which warns about a member whose mpirun returned non-zero, so
+    # the level control has to reach here even though this module logs nothing.
+    add_logging_arguments(ap)
     return ap
 
 
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     args = build_parser().parse_args(argv)
+    # ADR-103: the ONE place this program configures logging. INFO by default: a
+    # playthrough runs ELMFIRE many times and its narration is the point.
+    configure_from_args(args, default_verbosity=1)
     if args.real_tensor:
         ab = real_fire_ab(
             args.real_tensor,

@@ -524,15 +524,19 @@ OUTPUT_LITERAL_DEBT: Final[dict[str, int]] = {
     "src/wildfire_nowcast/eval/reporting.py": 1,  # was 2; @model swept one
     "src/wildfire_nowcast/eval/selftest.py": 1,
     "src/wildfire_nowcast/model/train.py": 3,
-    # @simviz
-    "src/wildfire_nowcast/sim/blockanatomy.py": 1,
-    "src/wildfire_nowcast/sim/coarsen.py": 1,
-    "src/wildfire_nowcast/sim/dashboard.py": 2,
-    "src/wildfire_nowcast/sim/elmfire.py": 1,
-    "src/wildfire_nowcast/sim/elmfire_stage.py": 1,
-    "src/wildfire_nowcast/sim/landfire.py": 1,
-    "src/wildfire_nowcast/sim/replay.py": 1,
-    "src/wildfire_nowcast/sim/rundash.py": 2,
+    # @simviz: swept to 0 at S11. `sim/` carried 10 across 8 files and carries
+    # none. The entries are REMOVED rather than set to 0, because a zero entry is
+    # STALE by this pin's own rule and an entry that outlives its reason is an
+    # allow-list.
+    #
+    # MEASURED WHILE SWEEPING, AND NOT SWEPT: `sim/` holds 138 more typographic
+    # characters that a reader sees and this scanner does not, because both sinks
+    # are POSITIONAL rather than keyword - 40 drawn on a figure by `set_title`,
+    # `suptitle`, `text`, `annotate`, `style.stamp`, and 98 written into the HTML
+    # page `sim/review.py` renders. That is 14x the debt this pin held for `sim/`.
+    # Widening REGION_OUTPUT's sinks to drawn text is a PROPOSAL for @infra rather
+    # than an edit simviz may make in this file, on the same reasoning that keeps
+    # `raise`/`assert` messages out of the failing category.
 }
 
 

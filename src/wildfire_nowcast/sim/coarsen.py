@@ -622,7 +622,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
             f"comp {row['components_coarse']}  {'ok' if row['passed'] else 'FAIL'}"
         )
     for name, why in report["defects_caught_by"].items():
-        print(f"[coarsen] planted defect {name:<13} caught by: {why or 'NOTHING — BAD'}")
+        print(f"[coarsen] planted defect {name:<13} caught by: {why or 'NOTHING - BAD'}")
     print(f"[coarsen] {report['verdict']}  -> {out}")
     return 0 if report["verdict"] == "PASS" else 1
 

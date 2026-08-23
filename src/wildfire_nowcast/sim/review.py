@@ -28,6 +28,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import logging
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,7 +41,13 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
 
+from wildfire_nowcast.common.logs import configure_logging  # noqa: E402
 from wildfire_nowcast.sim.style import add_north_arrow  # noqa: E402
+
+# ADR-103: a logger, and NOTHING else at import. `main` configures. What this
+# page PRINTS is its output; what it says about how it was built - a figure it
+# could not downscale, a section it could not fill - is a diagnostic.
+logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------
 # provenance constants - the C8 archive boundary, named, never inlined
@@ -1055,7 +1062,14 @@ def _data_uri(path: Path, *, max_width: int | None = 1750) -> str:
                     im.save(buf, format="JPEG", quality=88, optimize=True)
                     raw, mime = buf.getvalue(), "image/jpeg"
         except Exception:  # pragma: no cover - rendering fallback
-            pass
+            # The page still renders, at full size. Saying so matters because the
+            # symptom of this path is a 40 MB HTML file and no other trace.
+            logger.warning(
+                "could not downscale %s to %d px; embedding it at full size",
+                path.name,
+                max_width,
+                exc_info=True,
+            )
     return f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
 
 
@@ -1669,6 +1683,9 @@ expectation is that some of them will get worse.</p>
 
 
 def main() -> int:
+    # ADR-103: the ONE place this program configures logging. No flags of its own,
+    # so WILDFIRE_LOG_LEVEL is how a reader raises it.
+    configure_logging()
     d = collect()
     out = build_html(d)
     size_mb = out.stat().st_size / 1e6

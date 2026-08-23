@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import os
 import time
@@ -63,6 +64,7 @@ from typing import Any, Final
 import numpy as np
 
 from wildfire_nowcast.common.grid import Grid
+from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
 from wildfire_nowcast.common.paths import fire_tensor_path, norm_stats_path
 from wildfire_nowcast.common.zarr_io import open_tensor, read_norm_stats
 from wildfire_nowcast.eval.baseline_run import load_splits
@@ -111,6 +113,13 @@ __all__ = [
     "score",
     "main",
 ]
+
+# ADR-103: a logger, and NOTHING else at import. `main` configures.
+# This module NARRATES: it resumes from a checkpoint, it skips a half-written
+# row, it walks 1372 windows for hours. All of that is ABOUT the run and belongs
+# on stderr with a timestamp; the verdict JSON at the end is the run's OUTPUT and
+# stays on stdout.
+logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -519,6 +528,15 @@ def run_fire(
     is killed at window 310 of 346 therefore costs 36 windows, not 310. The
     partial file is kept after a successful run so the resume path is auditable
     rather than a claim.
+
+    **The resume EXPLAINS ITSELF, now on the log rather than on stdout.** Three
+    things are said and none of them was said before: how many windows were taken
+    from disk, that a truncated row was dropped and why, and the running ETA. The
+    CLI configures INFO by default (``configure_from_args(..., default_verbosity=1)``)
+    precisely so that this narration stays visible without a flag, and it now
+    carries a timestamp, so a run that was killed and resumed can be reconstructed
+    from the log instead of from the operator's memory. The checkpoint mechanism
+    itself - append, flush, skip by ``t0`` - is untouched by this.
     """
     binary = str(find_binary())
     t0s = window_t0s(fire_id, stride=stride)
@@ -536,16 +554,28 @@ def run_fire(
                 row = json.loads(line)
             except json.JSONDecodeError:
                 # A row half-written when the process died. Dropping it is right:
-                # it will simply be recomputed. Silently KEEPING it would not be.
+                # it will simply be recomputed. Silently KEEPING it would not be,
+                # and silently DROPPING it left the resume with a window it could
+                # not account for: the count went down and nothing said why.
+                logger.warning(
+                    "%s: dropping a truncated checkpoint row (%d chars) from %s; "
+                    "it was half-written when the previous process died and will be "
+                    "recomputed",
+                    fire_id,
+                    len(line),
+                    partial_path,
+                )
                 continue
             if int(row.get("n_members_run", members)) == int(members):
                 done[int(row["t0"])] = row
     jobs = [(i, t0, spatial_block_id) for i, t0 in enumerate(t0s) if t0 not in done]
     if progress and done:
-        print(
-            f"[E1] {fire_id}: resuming — {len(done)} of {len(t0s)} windows already "
-            f"on disk in {partial_path}",
-            flush=True,
+        logger.info(
+            "%s: resuming, %d of %d windows already on disk in %s",
+            fire_id,
+            len(done),
+            len(t0s),
+            partial_path,
         )
 
     scoring_before = scoring_code_fingerprint()
@@ -632,10 +662,14 @@ def run_fire(
 def _report(fire_id: str, done: int, total: int, started: float) -> None:
     dt = time.time() - started
     rate = dt / max(1, done)
-    print(
-        f"{fire_id:<30} {done:>4}/{total:<4} {dt:>7.0f}s  "
-        f"{rate:>5.2f}s/window  eta {(total - done) * rate / 60:>6.1f} min",
-        flush=True,
+    logger.info(
+        "%-30s %4d/%-4d %7.0fs  %5.2fs/window  eta %6.1f min",
+        fire_id,
+        done,
+        total,
+        dt,
+        rate,
+        (total - done) * rate / 60,
     )
 
 
@@ -973,7 +1007,12 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     ap.add_argument("--rows-dir", default="runs")
     ap.add_argument("--out", default="runs/e1.json")
     ap.add_argument("--reference-rows", default="runs/s1_rows_a_s1.json")
+    add_logging_arguments(ap)
     args = ap.parse_args(argv)
+    # ADR-103: the ONE place this program configures logging. INFO by default
+    # because this wrapper runs for hours and its progress narration is the point;
+    # `--log-level WARNING` silences it and leaves the verdict JSON on stdout.
+    configure_from_args(args, default_verbosity=1)
 
     fires = held_out_fires()
     if args.fires:
@@ -1000,7 +1039,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     if not args.score_only:
         for f in fires:
             out = rows_dir / f"e1_rows_{f.fire_id}.json"
-            print(f"[E1] {f.fire_id} block {f.spatial_block_id} -> {out}", flush=True)
+            logger.info("scoring %s (block %s) into %s", f.fire_id, f.spatial_block_id, out)
             run_fire(
                 f.fire_id,
                 spatial_block_id=int(f.spatial_block_id),
