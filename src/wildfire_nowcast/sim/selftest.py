@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import atexit as _atexit
 import functools as _functools
+import json
 import logging
 import os
 import shutil as _shutil
@@ -59,6 +60,15 @@ __all__ = [
     "test_c5_weather_starts_at_t0_plus_one",
     "test_c5_refuses_to_run_past_the_last_hour",
     "test_stub_states_are_absorbing",
+    "test_g5_window_key_binds_every_argument_it_claims_to_and_no_others",
+    "test_g5_a_missing_ensemble_raises_instead_of_substituting_silence",
+    "test_g5_the_store_round_trips_bit_identically_and_leaves_no_partial_file",
+    "test_g5_the_commensurability_control_can_fail_and_refuses_to_pass_without_a_reference",
+    "test_g5_the_gate_columns_carry_the_criterion_and_label_the_barred_one",
+    "test_a_reliability_page_keeps_the_empty_bins_the_curve_drops",
+    "test_the_reliability_page_curve_control_agrees_here_and_fails_on_a_plant",
+    "test_the_wilson_interval_contains_its_own_estimate_where_float_error_says_otherwise",
+    "test_a_commitment_is_counted_off_the_bin_lower_edge_and_never_off_a_straddle",
     "run_all",
     "test_every_key_the_dashboard_plots_is_classified",
     "test_a_quarantined_key_without_its_clause_is_a_violation",
@@ -2115,6 +2125,394 @@ def test_the_c2_value_follows_the_genealogy_rule_and_not_this_page_s_merge_windo
         CP.c2_manifest_verdict(fire.fire_id, 1, result["c2_n_ignition_components_derived"]) is None
     )
     assert CP.c2_manifest_verdict(fire.fire_id, 2, result["c2_n_ignition_components_derived"])
+
+
+# -- G5: the ELMFIRE cache, and the controls that make its table quotable ---
+#
+# `wildfire_nowcast.sim.g5` shipped ruff-clean and mypy-clean with NO suite behind
+# it. That is a weaker state than it looks: the tree-wide scans that would have
+# caught its two unresolvable citations read the GIT INDEX, so an UNTRACKED
+# module is invisible to them and a green suite says nothing whatever about it.
+# These tests are what that module needs before it can be described as tested.
+#
+# Every one of them targets a REFUSAL. The module's value is not that it can
+# replay an ensemble - it is that it declines to replay the wrong one, and a
+# refusal that has never been observed refusing is a comment.
+
+
+def _g5_window(rng: np.random.Generator, h: int = 6, w: int = 7) -> tuple[np.ndarray, np.ndarray]:
+    x0 = np.zeros((h, w), dtype=np.uint8)
+    x0[h // 2, w // 2] = BURNING
+    weather = rng.normal(size=(3, 5, h, w)).astype(np.float32)
+    return x0, weather
+
+
+def test_g5_window_key_binds_every_argument_it_claims_to_and_no_others() -> None:
+    """The cache key is the whole safety argument, so each binding is asserted.
+
+    A hit is only evidence that the stored array belongs to this window if the
+    key moves when the window moves. Each of the five bound arguments is
+    perturbed by the smallest amount that is still a different call.
+    """
+    from wildfire_nowcast.sim.g5 import window_key  # noqa: PLC0415
+
+    rng = np.random.default_rng(0)
+    x0, weather = _g5_window(rng)
+    base = window_key(x0, weather, 4, 3, 11)
+    assert window_key(x0.copy(), weather.copy(), 4, 3, 11) == base, (
+        "the key is not a pure function of its arguments; a cache keyed on it cannot be "
+        "evidence of anything"
+    )
+
+    moved_x0 = x0.copy()
+    moved_x0[0, 0] = BURNED_OUT
+    moved_weather = weather.copy()
+    moved_weather[0, 0, 0, 0] += np.float32(1e-3)
+    perturbations = {
+        "x0": window_key(moved_x0, weather, 4, 3, 11),
+        "weather": window_key(x0, moved_weather, 4, 3, 11),
+        "n_members": window_key(x0, weather, 5, 3, 11),
+        "horizon_h": window_key(x0, weather, 4, 2, 11),
+        "seed": window_key(x0, weather, 4, 3, 12),
+    }
+    collisions = [name for name, key in perturbations.items() if key == base]
+    assert not collisions, (
+        f"the key does not bind {collisions}; a stored ensemble would be replayed for a "
+        "window it was not produced for and nothing downstream could tell"
+    )
+
+
+def test_g5_a_missing_ensemble_raises_instead_of_substituting_silence() -> None:
+    """C6.2's failure mode, made unreachable: a miss RAISES and a wrong shape RAISES.
+
+    Both directions matter and only one of them is obvious. A miss returning
+    zeros is a baseline that predicts nothing and scores like a careful one. A
+    HIT of the wrong shape is worse, because it is a real array from a real
+    ELMFIRE run and it belongs to a different grid.
+    """
+    from wildfire_nowcast.sim.g5 import (  # noqa: PLC0415
+        CachedEnsembleModel,
+        EnsembleStore,
+        MissingEnsemble,
+        window_key,
+    )
+
+    rng = np.random.default_rng(1)
+    x0, weather = _g5_window(rng)
+    static = np.zeros((len(STATIC_C5), *x0.shape), dtype=np.float32)
+    with _tempfile.TemporaryDirectory(prefix="simviz-g5-") as tmp:
+        store = EnsembleStore(Path(tmp))
+        model = CachedEnsembleModel(store)
+        try:
+            model.predict(x0, static, weather, 4, 3, 11)
+        except MissingEnsemble as exc:
+            assert "Refusing to substitute" in str(exc)
+        else:
+            raise AssertionError(
+                "a window with no stored ensemble was answered rather than refused; "
+                "a silently degraded baseline is exactly what C6.2 exists to catch"
+            )
+
+        key = window_key(x0, weather, 4, 3, 11)
+        store.put(key, np.zeros((4, 3, x0.shape[0], x0.shape[1] + 1), dtype=np.uint8), {})
+        try:
+            model.predict(x0, static, weather, 4, 3, 11)
+        except MissingEnsemble as exc:
+            assert "expected" in str(exc)
+        else:
+            raise AssertionError(
+                "a stored ensemble of the WRONG SHAPE was returned; it is a real ELMFIRE "
+                "array for a different grid and it would score as this window's forecast"
+            )
+        assert model.hits == [], "a refused window must not be recorded as a hit"
+
+
+def test_g5_the_store_round_trips_bit_identically_and_leaves_no_partial_file() -> None:
+    """The replay claim is bitwise, and the `.npz` suffix trap is pinned.
+
+    ``np.savez_compressed`` APPENDS ``.npz`` to a path that lacks it, so a temp
+    name of ``key.npz.part`` is written as ``key.npz.part.npz`` and the rename
+    then fails on a file that does not exist. That defect is recorded in the
+    module and it is the kind that only shows up after a long run, so the
+    absence of a stray part file is asserted rather than trusted.
+    """
+    from wildfire_nowcast.sim.g5 import EnsembleStore  # noqa: PLC0415
+
+    rng = np.random.default_rng(2)
+    samples = rng.integers(0, 3, size=(4, 3, 6, 7)).astype(np.uint8)
+    with _tempfile.TemporaryDirectory(prefix="simviz-g5-") as tmp:
+        store = EnsembleStore(Path(tmp))
+        path = store.put("deadbeef", samples, {"fire_id": "x", "t0": 7})
+        assert path.name == "deadbeef.npz"
+        assert np.array_equal(store.get("deadbeef"), samples), "the replay is not bitwise"
+        assert store.get("deadbeef").dtype == np.uint8
+        assert store.meta("deadbeef") == {"fire_id": "x", "t0": 7}
+        assert store.n_stored() == 1 and store.bytes_on_disk() > 0
+        leftovers = sorted(p.name for p in Path(tmp).iterdir() if p.name != "deadbeef.npz")
+        assert not leftovers, f"the atomic write left {leftovers} behind"
+
+        # Idempotent overwrite: a re-run must replace, not accumulate.
+        store.put("deadbeef", samples, {"fire_id": "x", "t0": 7})
+        assert store.n_stored() == 1
+
+
+def test_g5_the_commensurability_control_can_fail_and_refuses_to_pass_without_a_reference() -> None:
+    """PLANT. The control that licenses the whole table is put in front of a difference.
+
+    ``_commensurability_control`` is what allows an ELMFIRE column assembled
+    outside ``run_baselines`` to be printed beside one produced by it. A control
+    that has only ever been run on matching inputs is a control nobody has seen
+    work, and this project has shipped four of those.
+
+    The third case is the one that is easy to get wrong: with NO reference the
+    function must report that it did not run. Absence of a failure is not a
+    pass, and ``ran: False`` is how that is said in a machine-readable way.
+    """
+    from wildfire_nowcast.sim.g5 import _commensurability_control  # noqa: PLC0415
+
+    class _Cal:
+        def to_dict(self) -> dict[str, float]:
+            return {"scale": 1.25}
+
+    per_fire = {
+        "2020_dolan": {
+            "models": {
+                "persistence": {"growth_windows": {"band_brier_by_horizon": {"3": 0.5}}},
+                "ellipse": {"growth_windows": {"band_brier_by_horizon": {"3": 0.25}}},
+                "elmfire": {"growth_windows": {"band_brier_by_horizon": {"3": 0.75}}},
+            }
+        }
+    }
+    reference = {
+        "kind": "baselines",
+        "stride": 16,
+        "ellipse_calibration": {"rule_of_record": {"scale": 1.25}},
+        "per_fire": {"2020_dolan": {"models": _copy_models(per_fire["2020_dolan"]["models"])}},
+    }
+
+    control = _commensurability_control(per_fire, reference, _Cal())
+    assert control["ran"] and control["n_not_identical"] == 0
+    assert control["calibration_identical"] is True
+    assert control["verdict"].startswith("COMMENSURABLE"), control["verdict"]
+    assert control["n_checked"] == 2, "only persistence and the ellipse are shared columns"
+
+    # PLANT: one shared number moves in the last decimal place. ELMFIRE's own
+    # column is untouched, which is the point - a difference in a column both
+    # tables were supposed to reproduce condemns the column that only one of
+    # them has.
+    planted = json.loads(json.dumps(reference))
+    planted["per_fire"]["2020_dolan"]["models"]["ellipse"]["growth_windows"][
+        "band_brier_by_horizon"
+    ]["3"] = 0.2500000001
+    caught = _commensurability_control(per_fire, planted, _Cal())
+    assert caught["n_not_identical"] == 1, (
+        "the control did not see a shared column move; it cannot license the ELMFIRE column"
+    )
+    assert caught["verdict"].startswith("NOT COMMENSURABLE"), caught["verdict"]
+
+    absent = _commensurability_control(per_fire, None, _Cal())
+    assert absent["ran"] is False and "verdict" not in absent, (
+        "a control with no reference reported a verdict; not running must never read as a pass"
+    )
+
+
+def _copy_models(models: dict[str, object]) -> dict[str, object]:
+    """Deep copy through JSON, so the reference cannot share a mutable node with the subject."""
+    copied: dict[str, object] = json.loads(json.dumps(models))
+    return copied
+
+
+def test_g5_the_gate_columns_carry_the_criterion_and_label_the_barred_one() -> None:
+    """G3's columns must name the adjudicating key and mark the quarantined one.
+
+    ``dispersion_ratio`` is carried on purpose - the sentence that states G3 uses
+    that word and C6.1 bars that key from adjudicating - so the label beside it
+    is doing the whole job of keeping a reader from quoting it.
+    """
+    from wildfire_nowcast.sim.g5 import G3_COLUMNS, g5_table  # noqa: PLC0415
+
+    labels = dict(G3_COLUMNS)
+    assert "band_area_dispersion_ratio" in labels
+    assert "CRITERION" in labels["band_area_dispersion_ratio"]
+    assert "REPORTED ONLY" in labels["dispersion_ratio"], (
+        "the barred dispersion key is printed without saying it is barred"
+    )
+    assert "REPORTED ONLY" in labels["arrival_crps"]
+
+    payload = {
+        "stride": 16,
+        "n_members": 4,
+        "seed": 20260807,
+        "split_fingerprint": "b3e5dadad01eaef9",
+        "per_fire": {
+            "2020_dolan": {
+                "models": {
+                    "elmfire": {
+                        "growth_windows": {
+                            "band_area_dispersion_ratio": 0.0844,
+                            "band_brier_by_horizon": {"1": 0.1, "2": 0.2, "3": 0.3},
+                        }
+                    }
+                }
+            }
+        },
+    }
+    text = g5_table(payload)
+    assert "elmfire" in text and "0.0844" in text
+    assert "0.1000/0.2000/0.3000" in text, "the per-horizon column collapsed to one number"
+    assert "--" in text, (
+        "a per-fire entry with no spatial_block_id must render as `--`; a diagnostic table "
+        "that raises on a malformed payload fails exactly when it is wanted"
+    )
+
+    with_block = json.loads(json.dumps(payload))
+    with_block["per_fire"]["2020_dolan"]["spatial_block_id"] = 6
+    assert "    6 2020_dolan" in g5_table(with_block)
+
+
+# -- the reliability page: a diagram that cannot hide its own sample size ---
+
+
+def _rel_bins(lead_h: int, counts: list[int], burned: list[int]) -> list[dict[str, object]]:
+    """Ten C6-shaped bins with the counts and burn totals a test wants to see drawn."""
+    out: list[dict[str, object]] = []
+    for i, (n, y) in enumerate(zip(counts, burned, strict=True)):
+        lo = i / 10.0
+        out.append(
+            {
+                "lead_h": lead_h,
+                "bin_index": i,
+                "bin_lower": lo,
+                "bin_upper": lo + 0.1,
+                "n": n,
+                "sum_p": n * (lo + 0.05),
+                "sum_y": y,
+                "mean_forecast": (lo + 0.05) if n else None,
+                "observed_frequency": (y / n) if n else None,
+            }
+        )
+    return out
+
+
+def test_a_reliability_page_keeps_the_empty_bins_the_curve_drops() -> None:
+    """The occupancy axis exists to show an unused bin, so an unused bin must survive.
+
+    ``dashboard.reliability_curve`` drops empty bins and is right to: plotting
+    one at (0, 0) draws a perfectly-calibrated point resting on nothing. The
+    occupancy row makes the opposite demand of the same data, and a page that
+    silently inherited the drop would show nine bins where the forecast used
+    seven and never say which two were unused.
+    """
+    from wildfire_nowcast.sim import reliability as R  # noqa: PLC0415
+
+    counts = [1_000_000, 500, 0, 0, 40, 30, 0, 20, 9, 0]
+    burned = [400, 40, 0, 0, 5, 0, 0, 0, 0, 0]
+    bins = _rel_bins(3, counts, burned)
+
+    rows = R.bin_rows(bins, 3)
+    assert len(rows) == 10, "an empty bin was dropped from the occupancy table"
+    assert [r.n for r in rows] == counts
+    assert [r.occupied for r in rows] == [n > 0 for n in counts]
+    assert rows[2].mean_forecast is None and rows[2].observed_frequency is None, (
+        "an empty bin was given a forecast of 0.0; that is a measurement where there is none"
+    )
+
+    conc = R.concentration(bins, 3)
+    assert conc["n_cells_total"] == sum(counts)
+    assert conc["n_occupied_bins"] == 6 and conc["n_bins"] == 10
+    assert abs(conc["lowest_bin_share"] - counts[0] / sum(counts)) < 1e-12
+
+    com = R.commitment(bins, 3, 0.5)
+    assert com["n_cells"] == 30 + 20 + 9 and com["n_burned"] == 0
+    assert com["observed_frequency"] == 0.0
+    bound = com["exact_one_sided_upper95"]
+    assert bound is not None and 0.0 < bound < 1.0
+    assert bound < 3.0 / com["n_cells"], (
+        "the exact zero-success bound is not tighter than the rule-of-three approximation "
+        "it replaces, so one of the two is wrong"
+    )
+
+
+def test_the_reliability_page_curve_control_agrees_here_and_fails_on_a_plant() -> None:
+    """CONTROL PLUS PLANT on the check that says this page holds no second curve."""
+    from wildfire_nowcast.sim import reliability as R  # noqa: PLC0415
+
+    bins = _rel_bins(3, [1000, 500, 0, 0, 40, 30, 0, 20, 9, 0], [4, 40, 0, 0, 5, 0, 0, 0, 0, 0])
+    agree = R.curve_agreement(bins, 3)
+    assert agree["identical"] is True, agree
+    assert agree["n_points_here"] == 6 == agree["n_points_dashboard"]
+    assert agree["n_points_here"] < len(bins), (
+        "every bin is occupied in this fixture, so the agreement check is comparing a curve "
+        "that never had anything to drop and proves nothing"
+    )
+
+    planted = [dict(b) for b in bins]
+    planted[1]["observed_frequency"] = 0.5
+    disagree = R.curve_agreement(bins, 3, reference_bins=planted)
+    assert disagree["identical"] is False, (
+        "the curve control passed against a curve that had been moved; it cannot detect a "
+        "second implementation drifting from the first"
+    )
+
+
+def test_the_wilson_interval_contains_its_own_estimate_where_float_error_says_otherwise() -> None:
+    """The 1e-17 that matplotlib found and inspection did not.
+
+    At ``k = 0`` the Wilson lower limit is analytically zero: ``centre`` and
+    ``half`` are the same quantity and cancel. In floating point the
+    cancellation leaves a residual of order 1e-17 with the WRONG SIGN, so the
+    interval failed to contain its own point estimate on exactly the zero-burn
+    bins this page is about. The raw formula is recomputed here so the guard is
+    shown to be load-bearing rather than decorative.
+    """
+    from wildfire_nowcast.sim.reliability import wilson_interval  # noqa: PLC0415
+
+    z = 1.959963984540054
+    residuals = []
+    for n in (9, 12, 18, 24, 25, 49, 162):
+        denom = 1.0 + z * z / n
+        centre = (0.0 + z * z / (2 * n)) / denom
+        half = (z / denom) * ((z * z / (4 * n * n)) ** 0.5)
+        residuals.append(centre - half)
+        lo, hi = wilson_interval(0, n)
+        assert lo == 0.0, f"the lower limit at k=0, n={n} is {lo!r}, above its own estimate"
+        assert 0.0 < hi < 1.0
+    assert any(r > 0 for r in residuals), (
+        "the raw formula no longer produces a positive residual at k=0, so this test has "
+        "stopped demonstrating why the guard exists"
+    )
+
+    lo, hi = wilson_interval(7, 7)
+    assert hi == 1.0 and lo < 1.0
+    lo, hi = wilson_interval(1, 4)
+    assert lo < 0.25 < hi
+    assert wilson_interval(0, 0) != wilson_interval(0, 1)
+
+
+def test_a_commitment_is_counted_off_the_bin_lower_edge_and_never_off_a_straddle() -> None:
+    """A cell is never counted as a commitment on the strength of a bin that straddles."""
+    from wildfire_nowcast.sim import reliability as R  # noqa: PLC0415
+
+    counts = [10, 10, 10, 10, 111, 7, 0, 0, 0, 0]
+    bins = _rel_bins(2, counts, [0, 0, 0, 0, 5, 2, 0, 0, 0, 0])
+    at_half = R.commitment(bins, 2, 0.5)
+    assert at_half["n_cells"] == 7 and at_half["n_burned"] == 2, (
+        "the [0.4, 0.5) bin was counted at a 0.5 threshold; its cells sit below the line"
+    )
+    assert at_half["bins_used"][0] == [0.5, 0.6], (
+        "the lowest bin above the threshold is not the one at the threshold"
+    )
+    assert len(at_half["bins_used"]) == 5, (
+        "the empty bins above the threshold were dropped from bins_used; a reader could not "
+        "tell an arm that never used them from an arm for which they do not exist"
+    )
+
+    at_four = R.commitment(bins, 2, 0.4)
+    assert at_four["n_cells"] == 118 and at_four["n_burned"] == 7
+    assert R.commitment(bins, 2, 0.7)["n_cells"] == 0
+    assert R.commitment(bins, 2, 0.7)["observed_frequency"] is None, (
+        "an arm that never commits scored a frequency; 0/0 is not 0.0"
+    )
 
 
 # -- runner ----------------------------------------------------------------
