@@ -363,8 +363,9 @@ def test_a_config_declaring_a_DIFFERENT_version_is_an_error(tmp_path: Path) -> N
 # THE REMEDY, AND IT IS NOT "CITE A PUBLIC FILE". State the constraint inline. If
 # a citation is genuinely better, cite a document you have CHECKED contains the
 # claim: reachability is not support (ADR-105 (3)). The message below used to
-# recommend `docs/decisions.md` by name, and that file is 87 lines about splits,
-# pooling and the dispersion bar; four citations in another package took the
+# recommend `docs/decisions.md` by name, and that file was 87 lines about splits,
+# pooling and the dispersion bar at the time (129 today, same subjects, now with
+# headings); four citations in another package took the
 # advice and landed on a file that says nothing about their subjects, one of them
 # inside an error telling a user where to find "the exact commands to run"
 # (ADR-116 (3)). A remedy string is read by someone looking for the shortest way
