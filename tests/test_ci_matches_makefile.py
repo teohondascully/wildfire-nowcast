@@ -28,7 +28,12 @@ actually says which targets execute.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 
 from wildfire_nowcast.common.paths import repo_root
 
@@ -166,4 +171,106 @@ def test_the_workflow_pins_an_interpreter_the_project_supports() -> None:
     ), (
         f"the pinned interpreter {py_version.group(1)} is older than pyproject's floor "
         f"{requires.group(1)}: CI would run a python the package declares unsupported"
+    )
+
+
+# --------------------------------------------------------------------------
+# PIPEFAIL (ADR-149)
+# --------------------------------------------------------------------------
+
+#: A recipe whose LEFT-HAND command fails and whose right-hand command succeeds.
+#: Under `/bin/sh -c` this exits 0, which is the whole defect: a gate that
+#: rejected its own arguments and made no network call was read as a pass because
+#: `$?` belonged to `tail`. `false` rather than a real gate so the probe measures
+#: the shell and not the gate.
+_PIPE_PROBE = "_i25_pipefail_probe"
+
+_PROBE_MAKEFILE = f"""{_PIPE_PROBE}_fail:
+\t@false | tail -1
+
+{_PIPE_PROBE}_ok:
+\t@true | tail -1
+"""
+
+
+def _make(target: str, extra_makefile: Path) -> subprocess.CompletedProcess[str]:
+    """Run one target through the REAL Makefile with an extra file appended.
+
+    Two `-f` flags rather than a copy: the shell settings under test are read
+    from `Makefile` itself, so a test that passed against a rewritten copy could
+    not be wrong about the file the project actually uses.
+
+    `MAKEFLAGS` is stripped because this suite is itself reached through `make
+    test-all`: without it the child inherits the parent's jobserver and its
+    stderr acquires warnings that have nothing to do with the property measured.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in ("MAKEFLAGS", "MFLAGS", "MAKELEVEL")}
+    return subprocess.run(
+        ["make", "-f", "Makefile", "-f", str(extra_makefile), target],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+
+def test_a_failing_command_on_the_left_of_a_pipe_turns_a_recipe_RED() -> None:
+    """The guard, watched catching something rather than read off two lines.
+
+    ADR-149: a gate was run through `| tail` and `$?` was read. `$?` is the
+    pipeline's LAST element, so the verdict reported success for a command that
+    had rejected its own arguments. No recipe in the Makefile pipes a gate today;
+    this fails the moment one does and the Makefile has stopped setting pipefail.
+
+    THE CONTROL IS THE HALF THAT MAKES IT READABLE: the same probe with a
+    succeeding left-hand side must stay green, or this test would also pass on a
+    Makefile that is simply broken.
+    """
+    assert shutil.which("make"), (
+        "`make` is not on PATH, so this test cannot execute the guard it exists to prove. "
+        "It is not skipped: every gate in this project is a make target, and an environment "
+        "without make cannot run any of them"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        probe = Path(tmp) / "pipefail_probe.mk"
+        probe.write_text(_PROBE_MAKEFILE, encoding="utf-8")
+
+        control = _make(f"{_PIPE_PROBE}_ok", probe)
+        assert control.returncode == 0, (
+            "the CONTROL probe (`true | tail -1`) failed, so a red result below would say "
+            f"nothing about pipefail:\n{control.stdout}\n{control.stderr}"
+        )
+
+        planted = _make(f"{_PIPE_PROBE}_fail", probe)
+        assert planted.returncode != 0, (
+            "`false | tail -1` reported SUCCESS through the project Makefile. Some recipe "
+            "piping a gate into `tail`, `head` or `grep` now reports the exit status of the "
+            "PAGER instead of the gate. See the SHELL assignment at the top of the Makefile: "
+            "the flag must sit on SHELL, because `.SHELLFLAGS` is ignored by GNU make 3.81, "
+            "which is what macOS ships"
+        )
+
+
+def test_pipefail_is_on_SHELL_and_not_only_on_SHELLFLAGS() -> None:
+    """The half the executable test above cannot see on a modern make.
+
+    `.SHELLFLAGS` was added in GNU make **3.82**. macOS ships 3.81, which parses
+    the assignment and never reads it, so the obvious spelling
+    (`SHELL := /bin/bash` plus `.SHELLFLAGS := -o pipefail -c`) is live on the
+    ubuntu-latest runner and INERT on every developer machine here. The test above
+    would go green on CI while the guard was absent locally; this one names the
+    spelling, so the version-dependent hole is closed on both.
+    """
+    makefile = _makefile_text()
+    shell = re.search(r"^SHELL\s*:?=\s*(.+)$", makefile, flags=re.MULTILINE)
+    assert shell, "the Makefile no longer assigns SHELL, so recipes run under /bin/sh"
+    assert "pipefail" in shell.group(1), (
+        f"SHELL is `{shell.group(1).strip()}` and does not carry `-o pipefail`. If it was moved "
+        "to .SHELLFLAGS the guard is a no-op under GNU make 3.81 (macOS), which is exactly "
+        "where the defect ADR-149 records was committed"
+    )
+    assert "/bin/bash" in shell.group(1), (
+        "pipefail is not POSIX: /bin/sh is dash on the ubuntu-latest runner and `-o pipefail` "
+        "is an error there. The interpreter has to be pinned for the flag to be portable"
     )

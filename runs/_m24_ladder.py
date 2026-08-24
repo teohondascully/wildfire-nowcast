@@ -174,7 +174,7 @@ def main() -> int:
         print(f"{split.fire_id}: {len(windows)} growth windows", flush=True)
 
     payload = {
-        "task": "M24 (ADR-128 (4)) — front_distance_crps acceptance test",
+        "task": "M24 (ADR-128 (4)) - front_distance_crps acceptance test",
         "base_checkpoint": BASE_CHECKPOINT,
         "horizon_h": HORIZON,
         "n_members": MEMBERS,

@@ -3,6 +3,42 @@
 # Every target runs against the repo-root .venv (ADR-001: uv, CPython 3.12).
 # Never invoke bare `python`/`pytest`/`ruff` - they may be system Python.
 
+# SHELL AND .SHELLFLAGS ARE A GUARD, NOT A STYLE CHOICE (ADR-149).
+# make's default is `/bin/sh -c`, and a pipeline's exit status there is its LAST
+# element. So `<gate> | tail -5` reports tail's success: a gate that rejected its
+# own arguments, made no network call and did nothing at all still reads as a
+# pass. That is not hypothetical - it is how a verdict was taken here, and the
+# reader of `$?` had no way to see it. No recipe in this file pipes a gate today,
+# so this is prophylactic; the hazard is one edit away in every recipe, and the
+# edit that introduces it looks like a formatting change.
+# bash rather than /bin/sh because pipefail is NOT POSIX: /bin/sh is dash on the
+# ubuntu-latest runner and `set -o pipefail` is an error there, so pinning the
+# interpreter is what makes the flag portable rather than locally true.
+#
+# THE FLAG IS ON `SHELL`, NOT ON `.SHELLFLAGS`, AND THAT IS THE WHOLE POINT.
+# `.SHELLFLAGS` arrived in GNU make 3.82. macOS ships **3.81**, which parses the
+# assignment, stores it and NEVER READS IT. Written the obvious way
+# (`SHELL := /bin/bash` + `.SHELLFLAGS := -o pipefail -c`) this guard is live on
+# the CI runner and INERT on the machine every lead actually works on: measured
+# here, `false | tail -1` exited **0** under that spelling and **2** under this
+# one. A prophylactic that is a no-op exactly where the human is typing is the
+# defect class this repository keeps re-finding, and it would have shipped had
+# the guard not been watched catching something.
+# make splits a multi-word SHELL in both versions, so this spelling is honoured
+# by 3.81 and by 4.x. `.SHELLFLAGS := -c` is set anyway - it is 3.82+'s default,
+# it is what 3.81 hard-codes, and pinning it stops a later edit there from
+# silently dropping the `-c` that makes the recipe a command.
+#
+# DELIBERATELY NOT `-e`: errexit changes the meaning of the multi-command recipes
+# below - `contract-all-fires` runs a loop whose per-fire failures are counted
+# and reported rather than fatal - and make already checks the status of each
+# recipe line. One change, one property.
+# `tests/test_ci_matches_makefile.py` EXECUTES a failing pipeline through THIS
+# file rather than reading these two lines, because a guard nobody watched catch
+# something is the class of check this repository keeps finding in its own past.
+SHELL        := /bin/bash -o pipefail
+.SHELLFLAGS  := -c
+
 VENV   := .venv
 PY     := $(VENV)/bin/python
 
@@ -311,8 +347,25 @@ null-check: | $(PY)
 ##         the sweep edits eval/ by construction and C-4 freezes that while any
 ##         lead is running. Add `--pristine` for a number quotable against a sha,
 ##         `--only common/states.py` to look at one module.
-##         DELIBERATELY NOT IN `make ci`: it is ~40 minutes against CI's job of
-##         returning a verdict in three. `make check` is the same argument.
+##         DELIBERATELY NOT IN `make ci`, AND THE REASON IS NOW A MEASUREMENT
+##         RATHER THAN THE "~40 minutes" THAT STOOD HERE (I25). Measured, not
+##         estimated: `--pristine --workers 4` (this target's own default) at
+##         `68ebd2f` took **110.4 min / 6625.4 s** for 138 mutants, on a 12-core
+##         machine with two other leads working in it. The number it replaces was
+##         inherited from `MEASURED_AT`'s 43.3 min at `1a7c480`; the suite has
+##         grown by roughly 350 tests since, and every one of them runs 138 times
+##         here. Wiring that into `make ci` multiplies the gate by more than an
+##         order of magnitude and puts a git worktree per worker on the runner.
+##         A SEPARATE SCHEDULED target is the right shape; a prerequisite of `ci`
+##         is not. `make check` is the same argument.
+##         THE GAP IS NARROWER THAN "not in ci" SOUNDS, and the distinction is
+##         worth keeping straight: `budget_verdict` is a pure function and
+##         `tests/test_hygiene.py` exercises it in BOTH directions in
+##         milliseconds, inside `make ci`. The COMPARISON is gated. Only the
+##         VALUE compared against is not - and that value has already moved:
+##         the same sweep read **25 survivors against a budget of 21**, four of
+##         them in three `eval/` modules that did not exist when the pin was
+##         taken. It is NOT raised here; see BLOCKERS.md.
 MUTATION_ARGS ?= --workers 4
 mutation: | $(PY)
 	$(PY) tools/mutation.py $(MUTATION_ARGS)
