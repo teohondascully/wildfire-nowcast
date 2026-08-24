@@ -1,0 +1,111 @@
+# THE MUTATION SWEEP, ON A SCHEDULE, BECAUSE IT WAS ON NOTHING.
+#
+# `make mutation` runs the whole test suite once per single-token mutant of
+# `common/` and `eval/` and compares the surviving set against
+# `PINNED_SURVIVORS` in `tools/mutation.py`. It is NOT part of `make ci` and
+# that ruling stands on a measurement: 110.4 min at `68ebd2f` against 245 s for
+# the entire rest of the gate, more than an order of magnitude, plus a git
+# worktree per worker on the runner.
+#
+# WHAT THIS FILE FIXES. Until it existed the sweep was in `make ci` and in
+# `make check` and in no schedule - that is, in NOTHING - so the pin drifted
+# from 21 to 25 survivors with nothing red anywhere. A target nobody runs is
+# not better than no target; it is worse, because the repo carries a pin that
+# reads like a live check.
+#
+# WEEKLY, NOT NIGHTLY. One run is roughly two hours of runner time. Weekly puts
+# a bound on that and still catches drift long before a human would.
+#
+# THE FIRST SCHEDULED RUN IS ITSELF AN EXPERIMENT, and this is written down
+# BEFORE it happens so the result cannot be interpreted after the fact:
+# `PINNED_SURVIVORS` was measured on darwin/arm64 and this runner is
+# ubuntu/x86_64. A mutant is KILLED when the suite exits non-zero, so any test
+# that behaves differently across platforms can move the set. If the first run
+# reports a diff, that diff is a PLATFORM measurement until someone shows
+# otherwise - it is not evidence that anyone regressed, and it must not be
+# pasted into the pin without saying which machine measured it.
+name: mutation
+
+on:
+  schedule:
+    # Mondays, 07:17 UTC. Deliberately off the hour: GitHub queues scheduled
+    # jobs at :00 heavily enough that a run can start tens of minutes late.
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: "parallel workspaces (one git worktree and one suite each)"
+        default: "4"
+      max_mutants:
+        description: >
+          truncate to the first N mutants. NON-ZERO MAKES THIS A SMOKE TEST, NOT
+          A MEASUREMENT: a partial sweep refuses to adjudicate the pin, because
+          every pinned survivor outside the selection would read DISAPPEARED.
+          Use it to prove this workflow runs end to end in minutes.
+        default: "0"
+
+concurrency:
+  # NOT cancel-in-progress. A two-hour measurement cancelled by the next
+  # scheduled trigger produces no result and leaks its worktrees on the way out:
+  # the sweep's cleanup is a `finally`, and SIGKILL does not run one.
+  group: mutation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    name: survivor set over common/ and eval/
+    runs-on: ubuntu-latest
+    # The sweep is measured at ~110 min on 4 workers with a 12-core machine and
+    # this runner has fewer; 300 leaves headroom without letting a hung run burn
+    # a whole 6-hour budget.
+    timeout-minutes: 300
+    steps:
+      # `fetch-depth: 0` for the same reason `ci.yml` needs it, and for one
+      # more: this sweep RUNS THE SUITE, and `tests/test_hygiene.py` refuses to
+      # pass on a shallow clone. A failing test in the unmutated workspace is
+      # DESELECTED by the sweep as an environment artifact, so a shallow
+      # checkout would not go red - it would quietly measure with that check
+      # switched off.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.lock
+
+      - name: install
+        run: make install
+
+      # FIRST, AND IN SECONDS. This reports pinned survivors that no longer name
+      # a live mutant at all. It cannot fail the job on its own: a stale pin is
+      # exactly the state the sweep below exists to re-measure, and stopping
+      # here would leave the run with nothing to say. The sweep still fails on
+      # the same entries, as VANISHED.
+      - name: stale pin check (minute 1, not minute 111)
+        continue-on-error: true
+        run: make mutation-pin
+
+      - name: sweep
+        run: |
+          make mutation-scheduled \
+            MUTATION_WORKERS="${{ inputs.workers || '4' }}" \
+            MUTATION_EXTRA="${{ (inputs.max_mutants && inputs.max_mutants != '0') && format('--max-mutants {0}', inputs.max_mutants) || '' }}"
+
+      # `if: always()`, because the run that FAILS is the one whose result
+      # someone needs to read site by site. At `68ebd2f` the only durable record
+      # of a 110-minute sweep was 25 descriptors pasted into a blocker by hand,
+      # and the run before that left no record at all.
+      - name: keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-sweep-${{ github.sha }}
+          path: outputs/mutation/sweep.json
+          retention-days: 90
+          if-no-files-found: warn

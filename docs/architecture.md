@@ -198,7 +198,8 @@ a sales document.
   it as absent and nothing has been scored with one.
 * `tests/contract/` is proposed in `tests/README.md` and does not exist, so
   there is still no route from a clause number to the code enforcing it.
-* the mutation sweep is a real gate with a real budget and it is not part of
-  `make ci`, because one sweep measured at over an hour and a half against a
-  full suite of about four minutes. the comparison is gated; the value compared
-  against is not.
+* the mutation sweep is a real gate with a real pin - the SET of surviving
+  mutants, not a count of them - and it is not part of `make ci`, because one
+  sweep measured at over an hour and a half against a full suite of about four
+  minutes. it runs weekly instead. the comparison is gated in `make ci`; the set
+  compared against is not.

@@ -1995,11 +1995,39 @@ def test_the_mutant_selection_is_deterministic_and_lands_inside_the_list() -> No
     )
 
 
-def test_the_survivor_budget_is_a_number_with_its_method_attached() -> None:
-    """A pin without a reproduction recipe is a number someone has to believe."""
-    assert isinstance(mutation.SURVIVOR_BUDGET, int) and mutation.SURVIVOR_BUDGET >= 0
+def test_the_pin_is_a_set_of_well_formed_descriptors_with_its_method_attached() -> None:
+    """A pin without a reproduction recipe is a number someone has to believe.
+
+    And it is a SET, not a count (ADR-154). The shape is asserted here rather than
+    trusted because every field of the key does work: drop the occurrence ordinal
+    and two identical lines collapse into one entry, drop the site index and two
+    sites on one line do.
+    """
+    assert isinstance(mutation.PINNED_SURVIVORS, frozenset)
+    assert mutation.PINNED_SURVIVORS, "an empty pin adjudicates nothing"
     assert "mutants" in mutation.MEASURED_AT and "common/" in mutation.MEASURED_AT
     assert mutation.TARGET_PACKAGES == ("common", "eval")
+    assert not hasattr(mutation, "SURVIVOR_BUDGET"), (
+        "the integer pin is back beside the set, and the first thing anyone will do is "
+        "read the number"
+    )
+
+    prefixes = tuple(f"src/wildfire_nowcast/{p}/" for p in mutation.TARGET_PACKAGES)
+    for key in mutation.PINNED_SURVIVORS:
+        rel, line_text, occurrence, index, old, new = key
+        assert rel.startswith(prefixes) and rel.endswith(".py"), rel
+        assert (repo_root() / rel).is_file(), f"{rel} is pinned and does not exist"
+        assert line_text == line_text.strip() and line_text, key
+        assert isinstance(occurrence, int) and occurrence >= 0, key
+        assert isinstance(index, int) and index >= 0, key
+        assert old and old != new, key
+
+    # THE FILE'S CONTENT IS NOT READ ANYWHERE ABOVE, and that is deliberate: this
+    # test runs INSIDE the sweep, against a tree where one of these very lines is
+    # mutated. Asserting on the text of a swept source file manufactures a kill for
+    # every mutant of that file. `--check-pin` asks that question instead, outside
+    # pytest, against the real tree.
+    assert len(mutation.pinned_modules()) == len({k[0] for k in mutation.PINNED_SURVIVORS})
 
 
 def test_the_swept_corpus_is_not_empty_and_is_the_two_declared_packages() -> None:
@@ -2183,7 +2211,8 @@ def test_every_declared_equivalent_mutant_names_a_proof_that_exists() -> None:
     """
     assert mutation.EQUIVALENT_MUTANTS, "the registry is empty, so this checks nothing"
     for key, (reason, node) in mutation.EQUIVALENT_MUTANTS.items():
-        rel, line_text, index, old, new = key
+        rel, line_text, occurrence, index, old, new = key
+        assert occurrence >= 0
         assert (repo_root() / rel).is_file(), rel
         text = (repo_root() / rel).read_text()
         # The mutated form is accepted, and ONLY that one. Without it this very
@@ -2204,42 +2233,207 @@ def test_every_declared_equivalent_mutant_names_a_proof_that_exists() -> None:
         assert index >= 0 and old and new
 
 
-def test_the_equivalence_key_is_content_addressed_and_not_a_line_number() -> None:
+def test_the_mutant_key_is_content_addressed_and_not_a_line_number() -> None:
     """A key that moved with the file would go stale on any edit above it."""
     source = "def f(a, b):\n    return max(a, 0) + min(b, 0)\n"
     sites = mutation.mutable_sites(source)
     zeros = [s for s in sites if s.old == "0"]
     assert len(zeros) == 2, sites
-    first = mutation.equivalence_key("m.py", source, zeros[0])
-    second = mutation.equivalence_key("m.py", source, zeros[1])
+    first = mutation.mutant_key("m.py", source, zeros[0])
+    second = mutation.mutant_key("m.py", source, zeros[1])
     assert first != second, "the two `0`s on one line share a key, so an exemption would cover both"
     padded = "# a new line above\n" + source
     moved = [s for s in mutation.mutable_sites(padded) if s.old == "0"]
-    assert mutation.equivalence_key("m.py", padded, moved[0]) == first, (
+    assert mutation.mutant_key("m.py", padded, moved[0]) == first, (
         "inserting a line above the site changed its key, so every entry would go stale on an "
         "unrelated edit"
     )
 
 
-def test_the_gates_verdict_is_the_right_way_round_in_all_four_states() -> None:
-    """The decision itself, in a millisecond rather than through a 40-minute sweep.
+def test_two_identical_lines_get_two_keys_or_a_set_pin_is_blind_to_a_swap() -> None:
+    """The occurrence ordinal, which is the difference between a set and a set that lies.
+
+    Measured on the live corpus, not invented: `common/pooling.py` carries the
+    keyword-only marker `*,` at two lines and BOTH are sampled, and three of the
+    pinned survivors sit on a line form their module repeats. Without this field
+    those pairs share one descriptor, so one of them could be killed while the
+    other appeared and the SET would read identical - the same blindness as the
+    count, one level down.
+    """
+    source = "def f():\n    g(0)\n    h()\n    g(0)\n"
+    sites = [s for s in mutation.mutable_sites(source) if s.old == "0"]
+    assert [s.line for s in sites] == [2, 4], sites
+    first, second = (mutation.mutant_key("m.py", source, s) for s in sites)
+    assert first != second, "two identical lines share one key"
+    assert (first[1], first[3], first[4], first[5]) == (second[1], second[3], second[4], second[5])
+    assert (first[2], second[2]) == (0, 1), "the occurrence ordinal is the only difference"
+
+    # And it is stable under an unrelated edit: inserting a line that is NOT a copy
+    # leaves both ordinals where they were.
+    padded = source.replace("    h()\n", "    h()\n    k()\n")
+    moved = [s for s in mutation.mutable_sites(padded) if s.old == "0"]
+    assert [mutation.mutant_key("m.py", padded, s) for s in moved] == [first, second]
+
+
+def _pin_minus(n: int) -> set[tuple[object, ...]]:
+    return set(sorted(mutation.PINNED_SURVIVORS)[n:])
+
+
+_INVENTED = ("src/wildfire_nowcast/eval/nowhere.py", "x = 1", 0, 0, "1", "2")
+_INVENTED_TOO = ("src/wildfire_nowcast/common/nowhere.py", "y = 2", 0, 0, "2", "3")
+
+
+def test_the_gates_verdict_is_the_right_way_round_in_every_state() -> None:
+    """The decision itself, in a millisecond rather than through a 110-minute sweep.
 
     A gate whose comparison is only reachable by running the slow path is a gate
-    nobody ever checks the direction of.
+    nobody ever checks the direction of - and this one was replaced precisely
+    because nobody ran the slow path for weeks.
     """
-    budget = mutation.SURVIVOR_BUDGET
-    assert mutation.budget_verdict(budget, 0, 1)[0] == 0
-    assert mutation.budget_verdict(budget + 1, 0, 1)[0] == 1
-    assert mutation.budget_verdict(budget - 1, 0, 1)[0] == 1
-    assert "never rises" in mutation.budget_verdict(budget + 1, 0, 0)[1]
-    assert "Lower SURVIVOR_BUDGET" in mutation.budget_verdict(budget - 1, 0, 0)[1]
+    pin = set(mutation.PINNED_SURVIVORS)
+    assert mutation.survivor_verdict(pin, pin, 0, 2)[0] == 0
+
+    # APPEARED: a survivor that is not pinned.
+    code, message = mutation.survivor_verdict(pin | {_INVENTED}, pin | {_INVENTED}, 0, 2)
+    assert code == 1 and "APPEARED" in message and "eval/nowhere.py" in message, message
+
+    # DISAPPEARED, KILLED: the mutant is still enumerated, nothing survives it.
+    code, message = mutation.survivor_verdict(_pin_minus(1), pin, 0, 2)
+    assert code == 1 and "DISAPPEARED, KILLED" in message, message
+    assert "VANISHED" not in message, "a killed mutant was reported as vanished"
+
+    # DISAPPEARED, VANISHED: the mutant is not in the corpus at all, so nothing was
+    # measured about it in either direction. This is the direction that rots quietly.
+    code, message = mutation.survivor_verdict(_pin_minus(1), _pin_minus(1), 0, 2)
+    assert code == 1 and "VANISHED" in message and "KILLED" not in message, message
 
     # An unexecuted mutant outranks everything else: the sweep did not measure.
-    code, message = mutation.budget_verdict(budget, 1, 0)
+    code, message = mutation.survivor_verdict(pin, pin, 1, 2)
     assert code == 2 and "never executed" in message, message
-    assert mutation.budget_verdict(budget - 5, 3, 0)[0] == 2, (
+    assert mutation.survivor_verdict(_pin_minus(5), pin, 3, 0)[0] == 2, (
         "an unmeasured mutant was allowed to be reported as a debt reduction, which is the "
         "one way a broken sweep looks like progress"
+    )
+
+
+def test_the_verdict_sees_a_SWAP_that_the_count_it_replaced_could_not() -> None:
+    """ADR-154's whole ruling, as an executable assertion.
+
+    One old survivor killed and one new one appearing leaves the total EXACTLY where
+    it was. The count pin returned 0 on this input - it is the same integer - and it
+    is the one event the gate exists to catch. Both are asserted here, so the
+    property cannot be lost by a later refactor that "simplifies" the comparison.
+    """
+    pin = set(mutation.PINNED_SURVIVORS)
+    swapped = _pin_minus(1) | {_INVENTED}
+    assert len(swapped) == len(pin), "this is not a swap unless the counts agree"
+
+    code, message = mutation.survivor_verdict(swapped, pin | {_INVENTED}, 0, 2)
+    assert code == 1, "a swap passed the set pin"
+    assert "APPEARED" in message and "DISAPPEARED" in message, message
+    assert "eval/nowhere.py" in message, "the appeared survivor is not named"
+    assert sorted(pin)[0][0].split("wildfire_nowcast/")[-1] in message, (
+        "the disappeared survivor is not named"
+    )
+
+    # The count is still printed, and it is still equal on both sides: the readout
+    # that used to adjudicate would have said nothing happened.
+    assert f"{len(swapped)} survivors measured against {len(pin)} pinned" in message
+
+
+def test_the_paste_ready_pin_a_failing_sweep_prints_is_a_pin_that_parses() -> None:
+    """The remedy the DISAPPEARED direction relies on, and it was wrong once.
+
+    The whole argument for failing on good news is that accepting the change costs
+    one paste. A paste that does not round-trip turns that into a silent
+    corruption: the emitted set would LOOK right and BE a different set. The first
+    version escaped backslashes on one branch and not the other, which is invisible
+    on today's corpus and a live hazard on any pinned line holding a regex.
+    """
+    for key in mutation.PINNED_SURVIVORS:
+        for field in key:
+            assert ast.literal_eval(mutation._as_source(field)) == field, field
+
+    # Probes the corpus does not happen to contain. Written out rather than
+    # generated, so a reader can see which shapes were considered.
+    for probe in ('a = "x"', "b = 'y'", "c = \"x\" + 'y'", 'd = "back\\slash"'):
+        assert ast.literal_eval(mutation._as_source(probe)) == probe, probe
+
+    rendered = mutation.format_pin(mutation.PINNED_SURVIVORS)
+    assert rendered.startswith("PINNED_SURVIVORS: Final[frozenset[MutantKey]] = frozenset(")
+    body = rendered.split("frozenset(", 1)[1].rsplit(")", 1)[0]
+    parsed = ast.literal_eval("".join(line.strip() for line in body.splitlines()))
+    assert parsed == set(mutation.PINNED_SURVIVORS), (
+        "the printed pin is not the set it was printed from"
+    )
+
+
+def test_the_stale_half_of_the_pin_is_checkable_without_running_anything() -> None:
+    """`--check-pin` answers "does each entry still NAME a mutant" in seconds.
+
+    Control and plant, because a check that only ever sees a passing input has not
+    been seen working. The plant is the interesting direction: an entry naming a
+    mutant the sampler no longer produces has stopped checking anything, and under
+    the count pin that state was invisible until someone spent 110 minutes.
+    """
+    pin = set(mutation.PINNED_SURVIVORS)
+    code, message = mutation.pin_check_verdict(pin | {_INVENTED})
+    assert code == 0 and "still name a live mutant" in message, message
+    assert "SURVIVE" in message, "the message does not say what it CANNOT check"
+
+    code, message = mutation.pin_check_verdict(_pin_minus(2))
+    assert code == 1 and "VANISHED" in message, message
+    for gone in sorted(pin)[:2]:
+        assert gone[1] in message, f"{gone} is stale and unnamed"
+
+    code, message = mutation.pin_check_verdict(set())
+    assert code == 1 and str(len(pin)) in message
+
+
+def test_no_test_asks_the_pin_question_against_the_swept_packages() -> None:
+    """The manufactured kill, as a rule the suite enforces on itself.
+
+    `corpus_keys` reads the text of `common/` and `eval/`. During a sweep that text
+    is mutated by construction, so a test calling it against the real tree would go
+    red on every mutant of a pinned module and the sweep would record those mutants
+    as KILLED - by the pin's own bookkeeping rather than by a test about behaviour.
+    That is not a hypothesis: `equivalence_line_as_mutated` exists in that file
+    because the registry's integrity test did exactly this and made EQUIVALENT an
+    unreachable verdict. So the fast pin check lives in a make target, not here.
+    """
+    offenders = [
+        path.name
+        for path in sorted((repo_root() / "tests").rglob("test_*.py"))
+        if "corpus_keys" in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == [Path(__file__).name], (
+        f"{offenders} call corpus_keys inside the suite the sweep runs, which manufactures "
+        "a kill for every mutant of a pinned module"
+    )
+    # This file mentions it in prose and in the scan above, and never CALLS it. The
+    # needle is spelled in halves because the scan is looking at this file too - the
+    # same reason `prose_scan`'s own probes are.
+    call = "corpus_" + "keys("
+    assert call not in Path(__file__).read_text(encoding="utf-8"), (
+        "this test file calls the corpus enumerator, which is the thing it forbids"
+    )
+
+
+def test_a_partial_sweep_cannot_ask_for_the_pin_to_be_emptied() -> None:
+    """`--only` and `--max-mutants` measure a SUBSET, and a subset is not a verdict.
+
+    With a count this was a latent defect: `--max-mutants 3` skipped the `--only`
+    guard entirely, so a three-mutant run reached the budget comparison and reported
+    "lower SURVIVOR_BUDGET to 0". With a SET the same input would ask for 25 entries
+    to be deleted, which is a request to stop checking anything.
+    """
+    source = inspect.getsource(mutation.main)
+    assert "partial = args.only or args.max_mutants" in source, source[-2000:]
+    guarded = source[source.index("partial = args.only") :]
+    assert "PARTIAL SWEEP" in guarded and "NOT adjudicated" in guarded
+    assert guarded.index("PARTIAL SWEEP") < guarded.index("survivor_verdict"), (
+        "the partial-sweep refusal comes after the adjudication, so a truncated run "
+        "still moves the pin"
     )
 
 
@@ -2302,9 +2496,12 @@ def test_a_probe_that_cannot_run_is_unmeasured_and_does_not_abort_the_sweep() ->
     )
     assert [r.verdict for r in sweep.unmeasured] == ["PROBE_FAILED"]
     assert len(sweep.survivors) == 1 and len(sweep.killed) == 1
-    assert mutation.budget_verdict(len(sweep.survivors), len(sweep.unmeasured), 0)[0] == 2, (
-        "a sweep carrying an unmeasured mutant reported a verdict on the budget"
-    )
+    assert (
+        mutation.survivor_verdict(
+            sweep.survivor_keys, sweep.enumerated_keys, len(sweep.unmeasured), 0
+        )[0]
+        == 2
+    ), "a sweep carrying an unmeasured mutant reported a verdict on the pin"
 
 
 def test_the_registry_tolerates_its_own_mutant_and_nothing_else() -> None:
@@ -2321,7 +2518,7 @@ def test_the_registry_tolerates_its_own_mutant_and_nothing_else() -> None:
     that text mutated while the suite runs. So this is a property of two strings.
     """
     key = next(iter(mutation.EQUIVALENT_MUTANTS))
-    rel, line_text, index, old, new = key
+    rel, line_text, _occurrence, index, old, new = key
     mutated = mutation.equivalence_line_as_mutated(key)
     assert mutated != line_text and old in line_text and new in mutated
     assert len(mutation.mutable_sites(mutated)) == len(mutation.mutable_sites(line_text)), (
@@ -2335,9 +2532,9 @@ def test_the_registry_tolerates_its_own_mutant_and_nothing_else() -> None:
     for wrong in (index + 1, index - 1):
         if 0 <= wrong < len(mutation.mutable_sites(line_text)):
             with pytest.raises(ValueError, match="not"):
-                mutation.equivalence_line_as_mutated((rel, line_text, wrong, old, new))
+                mutation.equivalence_line_as_mutated((rel, line_text, 0, wrong, old, new))
     with pytest.raises(ValueError, match="does not exist"):
-        mutation.equivalence_line_as_mutated((rel, line_text, 99, old, new))
+        mutation.equivalence_line_as_mutated((rel, line_text, 0, 99, old, new))
 
 
 # --------------------------------------------------------------------------
@@ -2643,10 +2840,26 @@ def test_a_sweep_that_leaks_cannot_report_success() -> None:
     invocations is - so the sweep measures its own residue and exits non-zero.
     """
     assert mutation.Sweep(leaked=["x"]).to_dict()["leaked_temp_entries"] == ["x"]
+
+    # The decision itself, in every combination, rather than a match on the text
+    # of `main`. The text form broke the moment the leak check stopped PRE-EMPTING
+    # the pin verdict, which was a repair, so the assertion was pinning the defect
+    # to the line it happened to live on.
+    assert mutation.exit_code(0, 0) == 0
+    assert mutation.exit_code(0, 1) == 3, "a clean verdict with residue reported success"
+    assert mutation.exit_code(1, 1) == 3
+    assert mutation.exit_code(2, 7) == 3
+    assert mutation.exit_code(1, 0) == 1, "the pin's own verdict is lost when nothing leaked"
+
     source = inspect.getsource(mutation.main)
-    assert "if result.leaked:\n        return 3" in source, (
-        "a leaking sweep can exit 0 again, so the residue is advisory rather than a gate"
+    assert "return 3" not in source, (
+        "`main` decides an exit code on its own again, so the leak rule is spelled twice"
     )
+    assert source.count("exit_code(") == 2, source[-900:]
+    # ...and the verdict is PRINTED before any exit code is chosen. At 68ebd2f the
+    # sweep exited 3 for a leak and never printed the budget line at all, so it was
+    # red for one reason and silent about the one it exists for.
+    assert source.index("print(message)") < source.index("exit_code("), source[-900:]
     body = inspect.getsource(mutation.sweep)
     guarded = body[body.index("finally:") :]
     assert "temp_entries() - before" in guarded, (

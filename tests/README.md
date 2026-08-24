@@ -68,7 +68,7 @@ them somewhere arbitrary.
 
 `tests/test_hygiene.py` holds `_COMMON_MODULES_WITHOUT_A_MIRRORING_TEST`. It
 fails in both directions, like the mypy exemption list and the mutation survivor
-budget: a module with no mirror that is not listed turns it red, and a module that
+set: a module with no mirror that is not listed turns it red, and a module that
 gains a mirror while still listed turns it red too. So an entry cannot outlive its
 reason and the list can only shrink through a visible edit.
 

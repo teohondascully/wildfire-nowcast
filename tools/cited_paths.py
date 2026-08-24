@@ -183,6 +183,14 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
             ("tests/test_code_fingerprint.py", "eval/elasticity.py"),
             ("tests/test_code_fingerprint.py", "eval/gone.py"),
             ("tests/test_hygiene.py", "reports/figures/x.png"),
+            # I27. Two invented survivors, fed to `survivor_verdict` so that the
+            # APPEARED direction and the count-blind SWAP can be shown firing. They
+            # name no module on purpose: a specimen that resolved would make the
+            # assertion depend on a real file's contents. The third token is the
+            # same path as the tool RENDERS it, stripped of its package prefix.
+            ("tests/test_hygiene.py", "eval/nowhere.py"),
+            ("tests/test_hygiene.py", "src/wildfire_nowcast/common/nowhere.py"),
+            ("tests/test_hygiene.py", "src/wildfire_nowcast/eval/nowhere.py"),
             ("tests/test_hygiene.py", "tests/test_a.py"),
             ("tests/test_hygiene.py", "tests/test_b.py"),
             ("tests/test_hygiene.py", "tests/test_x.py"),
@@ -212,6 +220,14 @@ DECLARED: Final[dict[str, tuple[str, tuple[tuple[str, str], ...]]]] = {
         "this lead owns.",
         (
             ("Makefile", "outputs/synthetic_fire/tensor.zarr"),
+            # I27. Where a sweep puts its result. PLUMBING, not provenance: the
+            # scheduled workflow writes it and uploads it as an artifact, and the
+            # code that produces it is `tools/mutation.py --json`. It cannot be
+            # tracked - `/outputs/` is gitignored - and the reason it is named at
+            # all is that the last two 110-minute sweeps left no durable record
+            # and one of them had to be reconstructed by hand into a blocker.
+            ("Makefile", "outputs/mutation/sweep.json"),
+            (".github/workflows/mutation.yml", "outputs/mutation/sweep.json"),
             ("configs/synthetic_smoke.yaml", "outputs/synthetic_fire/tensor.zarr"),
             ("src/wildfire_nowcast/common/synthetic.py", "outputs/synthetic_fire/tensor.zarr"),
             ("tests/test_sim_coarsen.py", "reports/figures/playthrough_coarsening.json"),

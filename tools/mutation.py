@@ -1,4 +1,4 @@
-"""Mutation sweep over ``common/`` and ``eval/``, with a survivor budget that only falls.
+"""Mutation sweep over ``common/`` and ``eval/``, pinned to the SET of survivors.
 
 A green suite says the tests ran. It does not say they would have noticed. The
 external audit measured that directly: a sweep over the best-covered 22 modules
@@ -8,11 +8,13 @@ moved by one, an inverted ``not`` inside C-4.2's own clause, and a ``>`` that co
 become ``>=`` so that ties count as advantages. Every one of those left 745 tests
 passing.
 
-This is that measurement made repeatable and turned into a gate. The budget starts
-at the measured survivor count and may only decrease, which is the same
-two-directional burn-down the mypy exemption list uses: it fails when the count
-RISES, and it fails when the count FALLS without the pin being lowered in the same
-commit, so a pin cannot quietly become an over-estimate that forgives a new gap.
+This is that measurement made repeatable and turned into a gate. THE PIN IS A SET
+OF SURVIVOR DESCRIPTORS, NOT A COUNT OF SURVIVORS (ADR-154): the gate compares the
+measured set against :data:`PINNED_SURVIVORS` and reports both directions, the
+survivors that APPEARED and the survivors that DISAPPEARED. It fails on either. A
+count was tried first and drifted from 21 to 25 unseen; worse, it could not have
+seen the event it existed for, because one old survivor killed while one new one
+appears leaves the total where it was. **A count pin is blind to a swap.**
 
 **It runs in a git worktree, never in the working tree.** Two of this project's
 recorded process failures were a lead editing a file another lead was running
@@ -68,7 +70,7 @@ import sys
 import tempfile
 import time
 import tokenize
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Final
@@ -98,15 +100,16 @@ logger = logging.getLogger(__name__)
 #: workers against the 43 measured here. The real cost is not the sweep, it is
 #: the burn-down: at the survivor rate the other two packages showed before this
 #: burst, 39 mutants would put something like 15 to 25 new survivors on the
-#: budget, all of them new debt against this gate. Widening is therefore a
+#: pin, all of them new debt against this gate. Widening is therefore a
 #: one-line config change plus a package's worth of work, and it is not done here.
 TARGET_PACKAGES: Final = ("common", "eval")
 
 #: Where in each module's site list the mutants are taken. Three fractions, so a
 #: module contributes a site near its top, its middle and its end rather than one
 #: site that could be anywhere. The figure is arbitrary in the way a sample size
-#: is arbitrary: it is not derived from anything, and changing it changes the
-#: budget, so it is pinned here and moved deliberately or not at all.
+#: is arbitrary: it is not derived from anything, and changing it RE-SAMPLES every
+#: module - which now shows up as a wholesale APPEARED/DISAPPEARED diff rather than
+#: as a number moving - so it is pinned here and moved deliberately or not at all.
 SAMPLE_FRACTIONS: Final = (0.2, 0.5, 0.8)
 
 #: Single-token substitutions. A boundary becomes its neighbour, an inequality
@@ -131,11 +134,33 @@ KEYWORD_MUTATIONS: Final = {
     "not": "",
 }
 
+#: THE IDENTITY OF ONE MUTANT, and the only identity in this file. Six fields:
+#: ``(module, stripped source line, WHICH OCCURRENCE of that line in the module,
+#: index of the site on that line, old token, new token)``.
+#:
+#: Line NUMBER is deliberately absent: it moves under any edit above the site, and
+#: a descriptor that renames itself when an unrelated line is inserted is noise
+#: rather than a pin. The two counters are what make the identity INJECTIVE, and
+#: both are load-bearing on the live corpus rather than defensive:
+#:
+#: * the site index separates two sites on ONE line - ``max(a, 0) + min(b, 0)``
+#:   has two ``0`` sites and one exemption must not cover both;
+#: * the occurrence ordinal separates ONE site form on two IDENTICAL lines.
+#:   MEASURED, not supposed: ``common/pooling.py`` carries the keyword-only marker
+#:   ``*,`` at lines 86 and 147, BOTH are sampled, and without this field the two
+#:   mutants share one descriptor. Three pinned survivors need it today
+#:   (``eval/power.py``'s eighth bare ``False,``, ``eval/stage.py``'s eighth
+#:   ``*,``, and the second of two identical ``independent_floor_sd=`` lines in
+#:   ``eval/collapse_curve.py``). A SET pinned on a descriptor that is not
+#:   injective is blind to a swap between the two sites it conflates - which is
+#:   the defect ADR-154 replaced the count to close, one level down.
+MutantKey = tuple[str, str, int, int, str, str]
+
 #: A NOT-KILLED MUTANT IS ONE OF THREE THINGS, AND LUMPING THEM MANUFACTURES THE
 #: DEFECT THIS GATE EXISTS TO PREVENT.
 #:
 #: * ``SURVIVED`` - real debt. A test could kill it and none does. This is the
-#:   only state the budget counts.
+#:   only state :data:`PINNED_SURVIVORS` holds.
 #: * ``EQUIVALENT`` - provably unkillable. No input distinguishes the mutant from
 #:   the original, so demanding a test for it is demanding a test that asserts
 #:   something false. Declared below, WITH the proof, and the declaration fails if
@@ -144,18 +169,19 @@ KEYWORD_MUTATIONS: Final = {
 #:   which is not the same claim as "nothing caught it" and must never be counted
 #:   as one.
 #:
-#: A budget that lumped the second into the first would push a lead to write an
-#: untestable test to reach zero. A budget that lumped the third into the first
-#: would count a measurement that did not happen.
+#: A pin that lumped the second into the first would push a lead to write an
+#: untestable test to reach zero. A pin that lumped the third into the first would
+#: count a measurement that did not happen.
 #:
-#: Keyed by ``(module, stripped source line, index of the site on that line,
-#: old, new)``. NOT by line number, which moves under any edit above it, and not
-#: by file name, which would make this an allow-list. Reformat or edit the line
-#: and the entry stops matching, which is correct: the proof was about that line.
+#: Keyed by :data:`MutantKey`, the one identity this file uses for a mutant.
+#: NOT by line number, which moves under any edit above it, and not by file name,
+#: which would make this an allow-list. Reformat or edit the line and the entry
+#: stops matching, which is correct: the proof was about that line.
 EQUIVALENT_MUTANTS: Final = {
     (
         "src/wildfire_nowcast/common/states.py",
         "ys_dst = slice(max(dy, 0), h + min(dy, 0))",
+        0,
         2,
         "0",
         "1",
@@ -169,6 +195,7 @@ EQUIVALENT_MUTANTS: Final = {
     (
         "src/wildfire_nowcast/common/states.py",
         "prev_ever = np.zeros(masks.shape[1:], dtype=bool)",
+        0,
         0,
         "1",
         "2",
@@ -185,18 +212,280 @@ EQUIVALENT_MUTANTS: Final = {
     ),
 }
 
-#: THE BUDGET, and it counts ``SURVIVED`` ALONE. Measured, not chosen; see
-#: ``MEASURED_AT`` for the command. It may be lowered by a commit that kills a
-#: survivor; it may not be raised, and the gate fails in BOTH directions so that a
-#: stale over-estimate is as loud as a regression.
-SURVIVOR_BUDGET: Final = 21
+#: THE PIN, AND IT IS A SET OF SURVIVORS RATHER THAN A COUNT OF THEM (ADR-154).
+#:
+#: A COUNT PIN IS BLIND TO A SWAP. The integer this replaces read 21 while the
+#: sweep read 25, and the reconciliation offered - "4 of the 25 sit in three
+#: ``eval/`` modules that did not exist when the pin was taken, 21 + 4 = 25" - is
+#: CONSISTENT WITH but does not PROVE that no old survivor moved: one old survivor
+#: killed while one new one appeared gives the identical total. 25 == 25 whether
+#: the population is stable or has churned entirely, so the one event the gate
+#: exists to catch is the one arithmetic cannot see.
+#:
+#: The set is compared in BOTH directions and both are reported: survivors that
+#: APPEARED, and survivors that DISAPPEARED. Corpus growth then arrives as an
+#: explicit diff naming its modules, and a regression can no longer hide behind a
+#: coincidentally-killed mutant. A count is still printed BESIDE this set as a
+#: convenience readout; it does not adjudicate anything.
+#:
+#: WHAT AN ENTRY IS, and why it is not the obvious cheaper thing. Each entry is a
+#: :data:`MutantKey`: content-addressed, so inserting a line above a survivor does
+#: not rename it, and editing the survivor's own line DOES - which is correct,
+#: because the measurement was about that line. The obvious alternative is
+#: ``(module, fraction)``, which is what the sweep is actually indexed by and is
+#: two fields instead of six. It is REJECTED: ``select_site`` re-samples when the
+#: module's site list changes length, so ``(module, 0.5)`` is stable in NAME while
+#: silently changing WHICH mutant it names. A descriptor that cannot go stale
+#: cannot report drift either.
+#:
+#: THE SAMPLE IS NOT THE DESCRIPTOR, and this pin cannot hide that either: adding
+#: one mutable token to a swept module shifts that module's three sampled sites,
+#: so an unrelated edit inside ``common/`` or ``eval/`` can retire up to three
+#: entries and mint three others. That churn was always happening; a count could
+#: not see it, and this reports it as paired appear/disappear rows in one module.
+PINNED_SURVIVORS: Final[frozenset[MutantKey]] = frozenset(
+    {
+        (
+            "src/wildfire_nowcast/common/environment.py",
+            "out[name] = hashlib.sha256(path.read_bytes()).hexdigest()[:16]",
+            0,
+            0,
+            "16",
+            "17",
+        ),
+        (
+            "src/wildfire_nowcast/common/null_check/cli.py",
+            "Path(args.json_out).write_text(json.dumps(report.to_dict(), indent=2))",
+            0,
+            0,
+            "2",
+            "3",
+        ),
+        (
+            "src/wildfire_nowcast/common/null_check/cli.py",
+            'lines.append(f"--- mask: {mask} " + "-" * max(0, 60 - len(mask)))',
+            0,
+            2,
+            "0",
+            "1",
+        ),
+        (
+            "src/wildfire_nowcast/common/synthetic.py",
+            "spot_col = min(nx - 1 - EDGE_RESERVE_CELLS, river_hi + max(5, nx // 20))",
+            0,
+            1,
+            "1",
+            "2",
+        ),
+        (
+            "src/wildfire_nowcast/eval/baseline_run.py",
+            # Spelled in two pieces because the whole line is 102 characters and the
+            # limit is 100. The concatenation is the pinned text EXACTLY, and
+            # `--check-pin` verifies every entry against the sampler, so a typo
+            # here is not silent.
+            '"band_ece": (band.get("reliability_summary") or {})'
+            '.get(str(horizon_h), {}).get("ece"),',
+            0,
+            0,
+            "or",
+            "and",
+        ),
+        (
+            "src/wildfire_nowcast/eval/baseline_run.py",
+            "else (value < rule_value if lower_better else value > rule_value)",
+            0,
+            0,
+            "<",
+            "<=",
+        ),
+        (
+            "src/wildfire_nowcast/eval/baseline_run.py",
+            "return lines + [",
+            0,
+            0,
+            "+",
+            "-",
+        ),
+        (
+            "src/wildfire_nowcast/eval/blocktest.py",
+            "return 0.0 if t > 0 else 1.0",
+            0,
+            3,
+            "1.0",
+            "1.501",
+        ),
+        (
+            "src/wildfire_nowcast/eval/collapse_bars.py",
+            "(fine.conditional_variance * scale + fine.latent_variance * scale**2)",
+            0,
+            0,
+            "*",
+            "/",
+        ),
+        (
+            "src/wildfire_nowcast/eval/collapse_curve.py",
+            "independent_floor_sd=float(np.sqrt(np.sum(marginal * (1.0 - marginal)))),",
+            1,
+            1,
+            "1.0",
+            "1.501",
+        ),
+        (
+            "src/wildfire_nowcast/eval/collapse_curve.py",
+            'lines.append("=" * 100)',
+            0,
+            1,
+            "100",
+            "101",
+        ),
+        (
+            "src/wildfire_nowcast/eval/labelfloor.py",
+            "cache.parent.mkdir(parents=True, exist_ok=True)",
+            0,
+            0,
+            "True",
+            "False",
+        ),
+        (
+            "src/wildfire_nowcast/eval/meanfield.py",
+            "if not bins",
+            0,
+            0,
+            "not",
+            "",
+        ),
+        (
+            "src/wildfire_nowcast/eval/meanfield.py",
+            "if not mask.any():",
+            0,
+            0,
+            "not",
+            "",
+        ),
+        (
+            "src/wildfire_nowcast/eval/meanfield.py",
+            'w.fire_id, {"predicted_new_cells": 0.0, "observed_new_cells": 0.0, "n_windows": 0.0}',
+            0,
+            1,
+            "0.0",
+            "1",
+        ),
+        (
+            "src/wildfire_nowcast/eval/metrics.py",
+            "n_all_silent = sum(1 for t in defined if t.cond_outcome == FRONT_ALL_SILENT)",
+            0,
+            0,
+            "1",
+            "2",
+        ),
+        (
+            "src/wildfire_nowcast/eval/playthrough_first_moment.py",
+            "if not (_BLOB.start <= i < _BLOB.stop and _BLOB.start <= j < _BLOB.stop)",
+            0,
+            3,
+            "and",
+            "or",
+        ),
+        (
+            "src/wildfire_nowcast/eval/power.py",
+            "False,",
+            7,
+            0,
+            "False",
+            "True",
+        ),
+        (
+            "src/wildfire_nowcast/eval/regime_calibration.py",
+            '"split_fingerprint": (results.get("split_before") or {}).get("fingerprint"),',
+            0,
+            0,
+            "or",
+            "and",
+        ),
+        (
+            "src/wildfire_nowcast/eval/regime_calibration.py",
+            "if value is None or not math.isfinite(float(value)) or float(value) <= 0:",
+            0,
+            2,
+            "or",
+            "and",
+        ),
+        (
+            "src/wildfire_nowcast/eval/response.py",
+            '"insufficient": False,',
+            0,
+            0,
+            "False",
+            "True",
+        ),
+        (
+            "src/wildfire_nowcast/eval/response.py",
+            "and float(r[model_key]) > 0",
+            1,
+            2,
+            "0",
+            "1",
+        ),
+        (
+            "src/wildfire_nowcast/eval/response.py",
+            "if r.get(target) is not None",
+            0,
+            0,
+            "not",
+            "",
+        ),
+        (
+            "src/wildfire_nowcast/eval/selftest.py",
+            "for f in (0.01, 0.5, 1.0)",
+            0,
+            1,
+            "0.5",
+            "0.751",
+        ),
+        (
+            "src/wildfire_nowcast/eval/stage.py",
+            "*,",
+            7,
+            0,
+            "*",
+            "/",
+        ),
+    }
+)
 
-#: How the number above was obtained, so that a reader can reproduce it rather
-#: than believe it.
+#: How the set above was obtained, so that a reader can reproduce it rather than
+#: believe it. The two artifacts the older paragraphs were "recounted from" are
+#: not on disk or in the index, which is half of why the set is written out here
+#: site by site: a narrative cannot be diffed.
 MEASURED_AT: Final = (
+    "CURRENT, and it is the SET above: `python tools/mutation.py --pristine "
+    "--workers 6 --no-pin --json <path>` at "
+    "d7874ff20a2759bbcf336bd3b6bd688cb76cf076, carrying 0 working-tree files "
+    "(run as `--no-budget`, which is what that flag was called until this commit "
+    "renamed it). 138 rows, 9 with no mutable site, 129 mutants attempted, 102 "
+    "KILLED, 25 SURVIVED, 2 EQUIVALENT, 0 unmeasured, 93.8 min on 6 workers. "
+    "25 survivor ROWS over 25 DISTINCT SITES - no site was sampled twice today, "
+    "which is the coarseness the row-counting pin had to warn about and a set "
+    "cannot have. One test was deselected as an environment artifact and is named "
+    "in the output: `tests/test_code_fingerprint_pins.py::"
+    "test_the_transition_is_formatting_only`, which does not run in a bare "
+    "worktree. The 25 descriptors are UNCHANGED from the sweep at 68ebd2f, and "
+    "that was PRE-REGISTERED rather than observed: `common/` and `eval/` are "
+    "byte-identical across those two commits, the sampler is deterministic, and "
+    "the only suite change between them was tests being ADDED - which can kill a "
+    "mutant and cannot revive one. The prediction was written down before this "
+    "sweep reported and it held on all 25. "
+    "Each SURVIVED row is turned into a `MutantKey` by re-deriving the site from "
+    "`(module, fraction)`, which is deterministic, rather than by parsing the "
+    "printed descriptor - four of the 25 descriptors printed at 68ebd2f are "
+    "AMBIGUOUS at the line level (`eval/meanfield.py:91` alone holds three "
+    "`0.0`->`1` sites), so the human string cannot identify a site and was never "
+    "able to. "
+    "PRIOR, the last COUNT pin, kept because the burn-down it records is real: "
     "`python tools/mutation.py --pristine --workers 3 --no-budget`, suite "
     "`pytest -x -m 'not slow'`, 42 modules x 3 fractions over common/ and eval/. "
-    "CURRENT, at 1a7c480: 126 rows, 9 with no mutable site, 117 mutants attempted, "
+    "AT 1a7c480 (this paragraph said CURRENT until the set replaced the count): "
+    "126 rows, 9 with no mutable site, 117 mutants attempted, "
     "94 KILLED, 21 SURVIVED, 2 EQUIVALENT, 0 unmeasured, 43.3 min. "
     "The 21 survivors are 3 in common/ and 18 in eval/, and the drop from 58 is two "
     "packages moving at once: in common/ 20 distinct sites killed and a twenty-first "
@@ -256,6 +545,11 @@ class Result:
     exit_code: int | None = None
     seconds: float = 0.0
     detail: str = ""
+    #: The content-addressed identity of this mutant, or ``None`` for a module
+    #: with no mutable site. ``descriptor`` above is the READABLE form and cannot
+    #: do this job: `eval/meanfield.py:91 '0.0'->'1'` names three different sites,
+    #: and four of the 25 descriptors printed at 68ebd2f are ambiguous that way.
+    key: MutantKey | None = None
 
 
 @dataclass
@@ -273,7 +567,7 @@ class Sweep:
     #: The sha actually swept, read out of the WORKSPACE rather than the repo.
     #: Without it a pinned number is attributable only by comparing the process
     #: start time against commit timestamps - which this session had to do, with a
-    #: five-second margin, to find out which commit a budget of 21 was measured at.
+    #: five-second margin, to find out which commit a pin of 21 was measured at.
     head: str = ""
     carried: int = 0
     seconds: float = 0.0
@@ -291,6 +585,26 @@ class Sweep:
         return [r for r in self.results if r.verdict == "EQUIVALENT"]
 
     @property
+    def survivor_keys(self) -> set[MutantKey]:
+        """The measured survivor SET - the field the gate adjudicates on.
+
+        A set, not a list, so the same site sampled by two fractions is ONE
+        survivor. The count could not do that: ``MEASURED_AT`` records 58 rows
+        that were 54 distinct sites, and a pin over rows moves when the sampling
+        repeats itself rather than when the debt does.
+        """
+        return {r.key for r in self.survivors if r.key is not None}
+
+    @property
+    def enumerated_keys(self) -> set[MutantKey]:
+        """Every mutant this sweep gave a verdict on, whatever the verdict.
+
+        Used to split a DISAPPEARED survivor into "a test now kills it" (the key
+        is still in here) and "no such mutant exists any more" (it is not).
+        """
+        return {r.key for r in self.results if r.key is not None}
+
+    @property
     def unmeasured(self) -> list[Result]:
         """Mutants that never executed. NOT survivors, and not quietly dropped."""
         return [
@@ -301,7 +615,12 @@ class Sweep:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "budget": SURVIVOR_BUDGET,
+            # The SET first and the counts after it, in the artifact as in the
+            # verdict: a reader who takes the first number they find must land on
+            # the adjudicating field, not on the convenience readout.
+            "pinned_survivors": sorted(PINNED_SURVIVORS),
+            "survivor_keys": sorted(self.survivor_keys),
+            "n_pinned": len(PINNED_SURVIVORS),
             "measured_at": MEASURED_AT,
             "head": self.head,
             "leaked_temp_entries": self.leaked,
@@ -392,19 +711,58 @@ def select_site(sites: Sequence[Site], fraction: float) -> Site:
     return sites[int(len(sites) * fraction) % len(sites)]
 
 
-def equivalence_key(rel: str, source: str, site: Site) -> tuple[str, str, int, str, str]:
-    """The content-addressed identity of one mutant, for :data:`EQUIVALENT_MUTANTS`."""
+def line_occurrence(source: str, line_number: int) -> int:
+    """How many EARLIER lines of ``source`` carry the same stripped text.
+
+    The field that makes :data:`MutantKey` injective across identical lines. Zero
+    for a line that is unique in its file, which is most of them.
+    """
+    lines = source.splitlines()
+    text = lines[line_number - 1].strip()
+    return sum(1 for earlier in lines[: line_number - 1] if earlier.strip() == text)
+
+
+def mutant_key(
+    rel: str, source: str, site: Site, *, sites: Sequence[Site] | None = None
+) -> MutantKey:
+    """The content-addressed identity of one mutant. See :data:`MutantKey`.
+
+    Used by BOTH registries. They ask different questions - one exempts a mutant
+    from the debt, the other pins the debt - and answering them with two identity
+    schemes is how the two would come to disagree about what a mutant IS.
+
+    ``sites`` is the module's already-enumerated site list. Passing it is worth a
+    keyword because enumeration re-tokenises and re-parses the whole file: over the
+    corpus, keying every mutant without it costs minutes rather than seconds, and
+    :func:`corpus_keys` is a gate step.
+    """
     line = source.splitlines()[site.line - 1]
-    on_this_line = [s for s in mutable_sites(source) if s.line == site.line]
-    return (rel, line.strip(), on_this_line.index(site), site.old, site.new)
+    enumerated = mutable_sites(source) if sites is None else sites
+    on_this_line = [s for s in enumerated if s.line == site.line]
+    return (
+        rel,
+        line.strip(),
+        line_occurrence(source, site.line),
+        on_this_line.index(site),
+        site.old,
+        site.new,
+    )
+
+
+def render_key(key: MutantKey) -> str:
+    """One reviewable line for one mutant. For humans; never parsed back."""
+    rel, line_text, occurrence, index, old, new = key
+    where = rel.split("wildfire_nowcast/")[-1]
+    nth = f" (occurrence {occurrence})" if occurrence else ""
+    return f"{where}  {old!r}->{new!r}  site {index} of {line_text!r}{nth}"
 
 
 def equivalence_note(rel: str, source: str, site: Site) -> tuple[str, str] | None:
     """``(reason, proving test node id)`` if this mutant is declared unkillable."""
-    return EQUIVALENT_MUTANTS.get(equivalence_key(rel, source, site))
+    return EQUIVALENT_MUTANTS.get(mutant_key(rel, source, site))
 
 
-def equivalence_line_as_mutated(key: tuple[str, str, int, str, str]) -> str:
+def equivalence_line_as_mutated(key: MutantKey) -> str:
     """The pinned line WITH its own declared mutation applied.
 
     Needed because the registry's integrity check would otherwise kill the mutant
@@ -419,7 +777,7 @@ def equivalence_line_as_mutated(key: tuple[str, str, int, str, str]) -> str:
     smallest tolerance that makes EQUIVALENT reachable, and any other edit to the
     line still breaks the key.
     """
-    _rel, line_text, index, old, new = key
+    _rel, line_text, _occurrence, index, old, new = key
     on_the_line = mutable_sites(line_text)
     if index >= len(on_the_line):
         raise ValueError(f"site {index} does not exist on {line_text!r}")
@@ -442,6 +800,79 @@ def target_modules(repo: Path) -> list[str]:
     ]
     out = subprocess.run(args, check=True, capture_output=True, text=True).stdout
     return sorted(line for line in out.splitlines() if line.endswith(".py"))
+
+
+def corpus_keys(repo: Path, modules: Sequence[str] | None = None) -> set[MutantKey]:
+    """Every mutant identity the sampler WOULD produce at this tree.
+
+    No suite, no worktree, no subprocess but ``git ls-files``: this is the half of
+    the pin that is checkable in seconds. It answers "does each pinned survivor
+    still NAME a live mutant", never "does it still survive" - that needs the
+    tests, and the tests are the 110 minutes.
+
+    ``modules`` narrows the enumeration, and it is exact rather than approximate:
+    a key carries its own module path, so no other module can produce it. The
+    saving is real and SMALL, which is worth stating because the obvious guess is
+    wrong - on an idle machine, 37.0 s of CPU for all 46 modules against 33.4 s
+    for the sixteen the pin names. `eval/selftest.py` alone is 25.0 s of that:
+    `mutable_sites` parses the WHOLE file once per site to drop mutants that do
+    not compile, and that file has 2,161 sites. The cost is quadratic inside ONE
+    module rather than spread over the corpus, so dropping thirty files off the
+    list barely touches it.
+    """
+    out: set[MutantKey] = set()
+    for rel in target_modules(repo) if modules is None else modules:
+        source = (repo / rel).read_text(encoding="utf-8")
+        sites = mutable_sites(source)
+        if not sites:
+            continue
+        for fraction in SAMPLE_FRACTIONS:
+            site = select_site(sites, fraction)
+            out.add(mutant_key(rel, source, site, sites=sites))
+    return out
+
+
+def pinned_modules() -> list[str]:
+    """The modules :data:`PINNED_SURVIVORS` names, in path order."""
+    return sorted({key[0] for key in PINNED_SURVIVORS})
+
+
+def pin_check_verdict(corpus: Collection[MutantKey]) -> tuple[int, str]:
+    """``(exit code, message)`` for the STALE half of the pin. Pure.
+
+    A pinned survivor whose identity is not in the corpus is not debt any more; it
+    is a line in a registry that has stopped referring to anything, and it will sit
+    there until someone spends 110 minutes to find out. This says so in seconds.
+
+    It deliberately says NOTHING about the other direction. A survivor that appeared
+    is invisible without running the tests, and a check that reported "pin OK" while
+    blind to half of the question would be worse than no check: this project has
+    forty decisions about gates that pass because they cannot fail.
+
+    IT DOES NOT RUN UNDER PYTEST, AND THAT IS NOT AN OVERSIGHT. Its input is the
+    text of the swept packages, and during a sweep that text is MUTATED by
+    construction: a mutated token changes its own key, the check would go red, the
+    suite would exit non-zero and the mutant would read KILLED - by the pin's own
+    bookkeeping rather than by a test about behaviour. `tools/mutation.py` already
+    carries one scar of exactly this (`equivalence_line_as_mutated`, which exists so
+    the registry's integrity test does not kill the mutant it exempts). So this runs
+    as its own gate step, against the real tree, where nothing is mutated.
+    """
+    stale = sorted(key for key in PINNED_SURVIVORS if key not in corpus)
+    n_pinned, n_corpus = len(PINNED_SURVIVORS), len(corpus)
+    if not stale:
+        return 0, (
+            f"OK: all {n_pinned} pinned survivors still name a live mutant "
+            f"({n_corpus} in the corpus). This says nothing about whether they still "
+            "SURVIVE - only `make mutation` measures that."
+        )
+    lines = [
+        f"FAIL: {len(stale)} of {n_pinned} pinned survivors name no mutant in the corpus "
+        f"({n_corpus} enumerated). Their line was edited, or their module was re-sampled, so "
+        "the pin has stopped checking them and a sweep would report them as VANISHED:"
+    ]
+    lines.extend(f"  ? {render_key(key)}" for key in stale)
+    return 1, "\n".join(lines)
 
 
 # --------------------------------------------------------------------------
@@ -651,7 +1082,7 @@ def _read_back(workspace: Path, python: Path, rel: str, site: Site) -> tuple[str
     failure aborted a 42-minute sweep at the 39th minute with a traceback and no
     partial result. One unmeasurable mutant is one unmeasured verdict, not the loss
     of every measurement taken beside it; the caller turns this into
-    ``PROBE_FAILED``, which the budget counts as unmeasured and never as a pass.
+    ``PROBE_FAILED``, which the gate counts as unmeasured and never as a pass.
     """
     proc = subprocess.run(
         [str(python), "-c", _PROBE.format(name=module_name(rel), index=site.line - 1)],
@@ -695,7 +1126,14 @@ def run_one(
     site = select_site(sites, fraction)
     mutated = apply_site(original, site)
     expected = mutated.splitlines()[site.line - 1]
-    descriptor = f"{rel.split('wildfire_nowcast/')[-1]}:{site.line} {site.old!r}->{site.new!r}"
+    # `line:col`, not `line`, and the column is not decoration. The printed form
+    # used to be `module:line 'old'->'new'`, which does not identify a site: four
+    # of the 25 survivors filed at 68ebd2f are ambiguous under it, and
+    # `eval/meanfield.py:91` alone holds three `0.0`->`1` sites. `line:col` is
+    # also what an editor jumps to.
+    where = rel.split("wildfire_nowcast/")[-1]
+    descriptor = f"{where}:{site.line}:{site.col_start} {site.old!r}->{site.new!r}"
+    key = mutant_key(rel, original, site)
     started = time.monotonic()
     try:
         path.write_text(mutated, encoding="utf-8")
@@ -709,6 +1147,7 @@ def run_one(
                 "PROBE_FAILED",
                 descriptor,
                 len(sites),
+                key=key,
                 detail=f"the read-back could not run, so this mutant was not measured: {exc}",
             )
         if seen != expected:
@@ -718,6 +1157,7 @@ def run_one(
                 "NOT_APPLIED",
                 descriptor,
                 len(sites),
+                key=key,
                 detail=f"the interpreter reads {seen!r}, not the mutant",
             )
         if not bytecode_is_fresh:
@@ -727,6 +1167,7 @@ def run_one(
                 "STALE_BYTECODE",
                 descriptor,
                 len(sites),
+                key=key,
                 detail=(
                     "the source is mutated and the loader would still run the OLD bytecode. "
                     "This is a REFUSAL to measure, never a survivor: a mutant that does not "
@@ -747,6 +1188,7 @@ def run_one(
                 "EQUIVALENT",
                 descriptor,
                 len(sites),
+                key=key,
                 exit_code=code,
                 seconds=round(time.monotonic() - started, 1),
                 detail=equivalent[0],
@@ -769,6 +1211,7 @@ def run_one(
         verdict,
         descriptor,
         len(sites),
+        key=key,
         exit_code=code,
         seconds=round(time.monotonic() - started, 1),
         detail=tail[0] if tail else "",
@@ -906,30 +1349,152 @@ def _sweep_inner(
     return out
 
 
-def budget_verdict(survived: int, unmeasured: int, equivalent: int) -> tuple[int, str]:
+def format_pin(keys: Collection[MutantKey]) -> str:
+    """``keys`` as the literal that would replace :data:`PINNED_SURVIVORS`.
+
+    Printed on any diff so that accepting a change is a paste and a review rather
+    than a transcription. The 25 descriptors this pin was built from had to be
+    re-derived from `(module, fraction)` because the printed form was ambiguous;
+    nobody should have to do that twice.
+    """
+    lines = ["PINNED_SURVIVORS: Final[frozenset[MutantKey]] = frozenset(", "    {"]
+    for key in sorted(keys):
+        lines.append("        (")
+        lines.extend(f"            {_as_source(field)}," for field in key)
+        lines.append("        ),")
+    lines.extend(["    }", ")"])
+    return "\n".join(lines)
+
+
+def _as_source(field: str | int) -> str:
+    """``field`` as `ruff format` would write it, so a paste is not a lint failure.
+
+    Double quotes, except where the value contains one and no single quote - which
+    is ruff's own rule, and matters here because half of these lines are dict keys
+    out of `eval/`.
+
+    THE BACKSLASH IS ESCAPED ON BOTH BRANCHES, and it was not on the first version.
+    A pinned line holding a `"` AND a `\\` - a regex literal inside a formatted
+    string, which `eval/` has plenty of room for - came back from `literal_eval`
+    one backslash short, so the emitted pin would have been a DIFFERENT set from
+    the measured one while looking exactly right. Caught by round-tripping every
+    field rather than by reading the branch; `tests/test_hygiene.py` keeps that
+    round-trip, with adversarial probes the corpus does not happen to contain
+    today.
+    """
+    if isinstance(field, int):
+        return repr(field)
+    escaped = field.replace("\\", "\\\\")
+    if '"' in field and "'" not in field:
+        return "'" + escaped + "'"
+    return '"' + escaped.replace('"', '\\"') + '"'
+
+
+def exit_code(verdict_code: int, leaked: int) -> int:
+    """The sweep's exit status, as a pure function of the two things that decide it.
+
+    A LEAK WINS THE EXIT CODE AND NO LONGER SUPPRESSES THE MEASUREMENT. One 4.7 MB
+    temp directory per suite run is nothing; this gate runs the suite once per
+    mutant, and the same directory became 70 GB and 15,462 entries in a day. So the
+    residue is a failure of the run.
+
+    It used to be spelled as an early ``return 3`` ahead of the pin verdict, which
+    made the sweep at 68ebd2f red for a leak and SILENT about its own subject - it
+    never printed the budget line at all. Split out here for the same reason
+    :func:`survivor_verdict` is: a decision reachable only through 110 minutes is a
+    decision nobody has checked the direction of.
+    """
+    return 3 if leaked else verdict_code
+
+
+def survivor_verdict(
+    measured: Collection[MutantKey],
+    enumerated: Collection[MutantKey],
+    unmeasured: int,
+    equivalent: int,
+) -> tuple[int, str]:
     """``(exit code, message)``. Pure, so the gate's decision is testable in a millisecond.
 
-    Extracted from ``main`` deliberately: a 40-minute sweep is not a way to find out
-    whether the comparison is the right way round, and a gate whose verdict logic is
-    only reachable through the slow path is a gate nobody checks.
+    Extracted from ``main`` deliberately: a 110-minute sweep is not a way to find
+    out whether the comparison is the right way round, and a gate whose verdict
+    logic is only reachable through the slow path is a gate nobody checks.
+
+    BOTH DIRECTIONS FAIL, and the disappeared direction is the one that needed
+    arguing, because a survivor disappearing is usually GOOD news. It fails anyway,
+    for three reasons:
+
+    1. A pin left standing after its mutant died is an over-estimate of the debt,
+       and an over-estimate forgives the next regression - the same argument the
+       count pin already made in ITS falling direction, which was ratified.
+    2. "Disappeared" is TWO events and only one of them is good news. If the key is
+       still in the enumerated corpus, a test now kills the mutant: real progress.
+       If it is NOT, no mutant with that identity exists any more - the line was
+       edited or the module re-sampled - and NOTHING was measured about it in
+       either direction. Silence there is a pin quietly ceasing to check anything,
+       which is how this file's previous pin drifted four survivors unseen.
+    3. The report has nowhere loud to land. This sweep is 110 minutes and runs on a
+       SCHEDULE, so its output is a log a human reads on purpose. A non-failing
+       "note" in a scheduled log is exactly the thing that goes unread; a red
+       target with a paste-ready replacement pin is not.
+
+    THE CASE FOR A REPORT INSTEAD, because it is a real one and it lost on a
+    detail rather than on principle: failing a gate for an IMPROVEMENT puts a red
+    target on the person who wrote the killing test, and a gate that punishes good
+    work is a gate people route around. What answers it is the size of the remedy,
+    not the direction of the news - the message prints a paste-ready
+    :func:`format_pin` block, so accepting the change is one paste and a review. A
+    red that costs one line is a different object from a red that costs an
+    investigation, and only the second one gets routed around.
+
+    The remedy is stated in the message: delete the dead entries in the same commit
+    as the test that killed them.
     """
     if unmeasured:
         return 2, (
             f"FAIL: {unmeasured} mutant(s) never executed, so this sweep did not measure what "
             "it claims. A refusal to measure is not a pass and not a survivor."
         )
-    if survived > SURVIVOR_BUDGET:
-        return 1, (
-            f"FAIL: {survived} survivors against a budget of {SURVIVOR_BUDGET}. "
-            "The budget never rises."
+    measured, enumerated = set(measured), set(enumerated)
+    appeared = sorted(measured - PINNED_SURVIVORS)
+    disappeared = sorted(PINNED_SURVIVORS - measured)
+    killed = [key for key in disappeared if key in enumerated]
+    vanished = [key for key in disappeared if key not in enumerated]
+    readout = (
+        f"{len(measured)} survivors measured against {len(PINNED_SURVIVORS)} pinned "
+        f"({equivalent} proved unkillable). The COUNT is a readout; the SET decides."
+    )
+    if not appeared and not disappeared:
+        return 0, f"OK: the survivor set is exactly PINNED_SURVIVORS. {readout}"
+
+    lines = [
+        f"FAIL: the survivor SET has moved - {len(appeared)} appeared, {len(disappeared)} "
+        f"disappeared ({len(killed)} killed, {len(vanished)} vanished). {readout}"
+    ]
+    if appeared:
+        lines.append(
+            "APPEARED - a mutant survives that was not pinned. Either new debt, or a module "
+            "that grew or was re-sampled. Name the cause; do not extend the pin to make it "
+            "quiet:"
         )
-    if survived < SURVIVOR_BUDGET:
-        return 1, (
-            f"FAIL: {survived} survivors against a budget of {SURVIVOR_BUDGET}. Lower "
-            f"SURVIVOR_BUDGET to {survived} in this commit: a budget larger than the debt "
-            "forgives the next regression."
+        lines.extend(f"  + {render_key(key)}" for key in appeared)
+    if killed:
+        lines.append(
+            "DISAPPEARED, KILLED - the mutant is still in the corpus and a test now kills it. "
+            "That is the good direction, and it still fails: delete these entries in the SAME "
+            "commit as the test that killed them, or the pin becomes an over-estimate that "
+            "forgives the next regression:"
         )
-    return 0, (f"OK: {survived} survivors, exactly the budget; {equivalent} proved unkillable.")
+        lines.extend(f"  - {render_key(key)}" for key in killed)
+    if vanished:
+        lines.append(
+            "DISAPPEARED, VANISHED - no mutant with this identity exists any more, so nothing "
+            "was measured about it in either direction. The line was edited, or its module was "
+            "re-sampled. This is the entry that must never be silent:"
+        )
+        lines.extend(f"  ? {render_key(key)}" for key in vanished)
+    lines.append("The measured set, as a paste-ready pin:")
+    lines.append(format_pin(measured))
+    return 1, "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -958,13 +1523,26 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
-        "--no-budget",
+        "--check-pin",
         action="store_true",
-        help="measure and report without enforcing the budget (how a new pin is taken)",
+        help=(
+            "check PINNED_SURVIVORS against the corpus and exit. Seconds, no suite, no "
+            "worktree: it can only report entries that name no mutant any more"
+        ),
+    )
+    parser.add_argument(
+        "--no-pin",
+        action="store_true",
+        help="measure and report without adjudicating PINNED_SURVIVORS (how a new pin is taken)",
     )
     args = parser.parse_args(argv)
 
     repo = Path(args.repo).resolve()
+    if args.check_pin:
+        code, message = pin_check_verdict(corpus_keys(repo, pinned_modules()))
+        print(message)
+        return code
+
     # OUTSIDE the repository on purpose: a worktree under `repo/` would be visible
     # to `git ls-files --others`, to ruff and to the hygiene scan, and a sweep that
     # changes what the hygiene suite is looking at is measuring itself.
@@ -1016,13 +1594,36 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         Path(args.json).write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
 
-    if result.leaked:
-        return 3
-    if args.only or args.no_budget:
-        return 0
-    code, message = budget_verdict(n_survived, len(result.unmeasured), len(result.equivalent))
-    print(message)
-    return code
+    # THE PIN VERDICT IS PRINTED BEFORE ANY EXIT CODE IS CHOSEN. At 68ebd2f the
+    # leak check returned 3 first and `make mutation` never printed the budget line
+    # at all, so a sweep that was red for one reason said NOTHING about the other -
+    # and the reason it was silent about is the one it exists for. The leak still
+    # WINS the exit code; it no longer suppresses the measurement.
+    partial = args.only or args.max_mutants
+    if partial:
+        print(
+            f"PARTIAL SWEEP ({'--only ' + args.only if args.only else ''}"
+            f"{' ' if args.only and args.max_mutants else ''}"
+            f"{'--max-mutants ' + str(args.max_mutants) if args.max_mutants else ''}): "
+            "PINNED_SURVIVORS is NOT adjudicated. Every pinned survivor outside this "
+            "selection would read as DISAPPEARED, so a truncated run could ask for the "
+            "pin to be emptied. Re-run whole to move the pin."
+        )
+    elif args.no_pin:
+        print(
+            "REPORTING ONLY (--no-pin): PINNED_SURVIVORS is NOT adjudicated. The measured "
+            "set, as a paste-ready pin:\n" + format_pin(result.survivor_keys)
+        )
+    else:
+        code, message = survivor_verdict(
+            result.survivor_keys,
+            result.enumerated_keys,
+            len(result.unmeasured),
+            len(result.equivalent),
+        )
+        print(message)
+        return exit_code(code, len(result.leaked))
+    return exit_code(0, len(result.leaked))
 
 
 if __name__ == "__main__":

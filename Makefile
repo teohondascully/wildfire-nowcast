@@ -83,6 +83,7 @@ MOVIE  ?= outputs/fire.mp4
 
 .PHONY: help venv install relock hooks test test-all test-isolated purge-bytecode lint typecheck format-check format synth contract contract-reporting \
         contract-real contract-split contract-all-fires prose null-check check ci ci-status movie clean-outputs \
+        mutation mutation-pin mutation-scheduled \
         playthrough playthrough-list playthrough-dispersion playthrough-off-state \
         playthrough-separation playthrough-harness playthrough-coarsening playthrough-baseline
 
@@ -338,37 +339,79 @@ null-check: | $(PY)
 	$(PY) -m wildfire_nowcast.common.null_check \
 	  $(if $(TENSOR_NULL),--tensor $(TENSOR_NULL),) $(if $(STRICT),--strict,)
 
-## mutation: plan Task 5.6 - the SURVIVOR BUDGET over common/ and eval/. Runs the
-##         suite once per single-token mutant and fails unless the survivor count
-##         equals `SURVIVOR_BUDGET` in tools/mutation.py: it may be lowered by a
-##         commit that kills one, never raised, and a pin ABOVE the debt is as
-##         loud as a regression because an over-estimate forgives the next gap.
+## mutation: plan Task 5.6 - THE SURVIVOR SET over common/ and eval/. Runs the
+##         suite once per single-token mutant and fails unless the set of
+##         survivors equals `PINNED_SURVIVORS` in tools/mutation.py, reporting
+##         BOTH directions: survivors that APPEARED and survivors that
+##         DISAPPEARED. A count is printed beside the set and adjudicates
+##         nothing (ADR-154). The count it replaces read 21 against a measured
+##         25 for weeks, and could not have seen the event it existed for: one
+##         old survivor killed while one new one appears leaves the total where
+##         it was. A COUNT PIN IS BLIND TO A SWAP.
 ##         Mutants are applied in a git WORKTREE, never in this working copy -
 ##         the sweep edits eval/ by construction and C-4 freezes that while any
 ##         lead is running. Add `--pristine` for a number quotable against a sha,
-##         `--only common/states.py` to look at one module.
-##         DELIBERATELY NOT IN `make ci`, AND THE REASON IS NOW A MEASUREMENT
-##         RATHER THAN THE "~40 minutes" THAT STOOD HERE (I25). Measured, not
-##         estimated: `--pristine --workers 4` (this target's own default) at
-##         `68ebd2f` took **110.4 min / 6625.4 s** for 138 mutants, on a 12-core
-##         machine with two other leads working in it. The number it replaces was
-##         inherited from `MEASURED_AT`'s 43.3 min at `1a7c480`; the suite has
-##         grown by roughly 350 tests since, and every one of them runs 138 times
-##         here. Wiring that into `make ci` multiplies the gate by more than an
-##         order of magnitude and puts a git worktree per worker on the runner.
-##         A SEPARATE SCHEDULED target is the right shape; a prerequisite of `ci`
-##         is not. `make check` is the same argument.
-##         THE GAP IS NARROWER THAN "not in ci" SOUNDS, and the distinction is
-##         worth keeping straight: `budget_verdict` is a pure function and
-##         `tests/test_hygiene.py` exercises it in BOTH directions in
-##         milliseconds, inside `make ci`. The COMPARISON is gated. Only the
-##         VALUE compared against is not - and that value has already moved:
-##         the same sweep read **25 survivors against a budget of 21**, four of
-##         them in three `eval/` modules that did not exist when the pin was
-##         taken. It is NOT raised here; see BLOCKERS.md.
+##         `--only common/states.py` to look at one module. `--only` and
+##         `--max-mutants` measure a SUBSET and therefore REFUSE to adjudicate:
+##         every pinned survivor outside the selection would read DISAPPEARED.
+##         DELIBERATELY NOT IN `make ci`, AND THE REASON IS A MEASUREMENT RATHER
+##         THAN THE "~40 minutes" THAT STOOD HERE (I25). Measured, not
+##         estimated: `--pristine --workers 4` at `68ebd2f` took **110.4 min /
+##         6625.4 s** for 138 mutants on a 12-core machine; `--workers 6` at
+##         `d7874ff` took **93.8 min / 5629.9 s on 6 workers**. Against `make test-all` at ~245 s that
+##         is more than an order of magnitude, plus a git worktree per worker on
+##         the runner. A SEPARATE SCHEDULED target is the right shape; a
+##         prerequisite of `ci` is not. `make check` is the same argument.
+##         IT NOW HAS ONE: `.github/workflows/mutation.yml` runs
+##         `make mutation-scheduled` weekly and on demand. A pin nothing runs is
+##         how the last value drifted four survivors unseen.
+##         THE COMPARISON IS GATED IN `make ci` EVEN THOUGH THE SWEEP IS NOT:
+##         `survivor_verdict` is a pure function and `tests/test_hygiene.py`
+##         exercises every direction of it in milliseconds, including the SWAP
+##         the count could not see.
 MUTATION_ARGS ?= --workers 4
 mutation: | $(PY)
 	$(PY) tools/mutation.py $(MUTATION_ARGS)
+
+## mutation-pin: the STALE half of the survivor pin, without running anything.
+##         Enumerates the sampler over the sixteen modules `PINNED_SURVIVORS`
+##         names and reports any entry that no longer names a live mutant -
+##         a line that was edited, or a module that gained a mutable token and
+##         re-sampled. **31 s against the sweep's 93.8 min**, because it
+##         never runs a test.
+##         IT IS NOT IN `make ci` EITHER, AND THIS ONE IS A JUDGEMENT CALL WITH
+##         A REASON: any edit to a swept module can re-sample it, so wiring this
+##         into every push would turn `make ci` red on somebody's ordinary edit
+##         to a scored module, with a remedy that costs a 110-minute sweep. A
+##         gate whose fix is unavailable to the person who tripped it gets
+##         deleted. Measured, so the frequency is not a guess: adding ONE mutable
+##         token to a module moved 0-2 of that module's 1-3 pinned entries across
+##         a four-module probe. It runs FIRST
+##         in the scheduled workflow instead, where a stale pin is reported in
+##         minute 1 rather than minute 111.
+##         It says nothing about whether a pinned mutant still SURVIVES. Only
+##         the sweep measures that, and the message says so.
+mutation-pin: | $(PY)
+	$(PY) tools/mutation.py --check-pin
+
+## mutation-scheduled: what `.github/workflows/mutation.yml` runs. `--pristine`,
+##         so the number is quotable against a sha rather than against whatever
+##         was in someone's working copy, and `--json`, so the result outlives
+##         the log it was printed in: at 68ebd2f the only surviving record of a
+##         110-minute run was 25 descriptors pasted into BLOCKERS.md by hand.
+##         MUTATION_WORKERS and MUTATION_JSON are overridable; the JSON path
+##         defaults under the gitignored outputs/ tree.
+##         MUTATION_EXTRA passes flags through: the workflow uses it for
+##         `--max-mutants N`, which turns a two-hour measurement into a
+##         minutes-long proof that the workflow itself runs end to end. A
+##         truncated run refuses to adjudicate the pin and says so.
+MUTATION_WORKERS ?= 4
+MUTATION_JSON ?= outputs/mutation/sweep.json
+MUTATION_EXTRA ?=
+mutation-scheduled: | $(PY)
+	@mkdir -p $(dir $(MUTATION_JSON))
+	$(PY) tools/mutation.py --pristine --workers $(MUTATION_WORKERS) \
+	  --json $(MUTATION_JSON) $(MUTATION_EXTRA)
 
 ## playthrough: ADR-030 - run EVERY playthrough in the repo and require that each
 ##         one's planted defects are all detected. This is the mutation-coverage

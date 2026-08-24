@@ -35,9 +35,12 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import yaml
+
 from wildfire_nowcast.common.paths import repo_root
 
 WORKFLOW = ".github/workflows/ci.yml"
+MUTATION_WORKFLOW = ".github/workflows/mutation.yml"
 MAKEFILE = "Makefile"
 
 #: Bootstrap targets a workflow must run and a gate target cannot depend on.
@@ -48,19 +51,19 @@ BOOTSTRAP_TARGETS = frozenset({"install", "venv"})
 _MAKE_CALL_RE = re.compile(r"\bmake\s+([a-z][a-z0-9-]*)")
 
 
-def _workflow_text() -> str:
-    return (repo_root() / WORKFLOW).read_text()
+def _workflow_text(path: str = WORKFLOW) -> str:
+    return (repo_root() / path).read_text()
 
 
 def _makefile_text() -> str:
     return (repo_root() / MAKEFILE).read_text()
 
 
-def workflow_targets() -> set[str]:
+def workflow_targets(path: str = WORKFLOW) -> set[str]:
     """Every ``make <target>`` the workflow's ``run:`` steps invoke."""
     targets: set[str] = set()
     in_run = False
-    for line in _workflow_text().splitlines():
+    for line in _workflow_text(path).splitlines():
         stripped = line.strip()
         if stripped.startswith("#"):
             continue  # a target named only in a comment is documentation
@@ -274,3 +277,95 @@ def test_pipefail_is_on_SHELL_and_not_only_on_SHELLFLAGS() -> None:
         "pipefail is not POSIX: /bin/sh is dash on the ubuntu-latest runner and `-o pipefail` "
         "is an error there. The interpreter has to be pinned for the flag to be portable"
     )
+
+
+# --------------------------------------------------------------------------
+# THE SCHEDULED MUTATION SWEEP (ADR-153 (3), ADR-154 (4))
+# --------------------------------------------------------------------------
+# The sweep is 110 minutes against 245 s for the entire rest of the gate, so it
+# is not a prerequisite of `ci` - and until I27 it was not a prerequisite of
+# anything else either, which is how its pin drifted four survivors with nothing
+# red anywhere. These tests hold both halves of that ruling in place: the sweep
+# stays OUT of the push gate, and it stays IN a schedule.
+
+
+def test_every_workflow_file_parses_as_yaml_and_declares_a_job() -> None:
+    """No workflow in this repo had ever been parsed locally (carried since I25).
+
+    A syntactically broken workflow fails only on GitHub, and only after a push -
+    which is the same class of defect as a gate that runs nowhere. This is a
+    STRUCTURAL check and deliberately not a second reading of the run steps: the
+    module docstring's argument still holds, `make <target>` inside a `run:` block
+    is what actually executes, and matching it textually is closer to the truth
+    than trusting a parse of the shell string.
+
+    `on:` IS PARSED AS THE BOOLEAN `True` (YAML 1.1), which is exactly the kind of
+    thing a first parse finds; the key is looked up as `True` below rather than as
+    the string a reader of the file sees.
+    """
+    workflows = sorted((repo_root() / ".github" / "workflows").glob("*.yml"))
+    assert len(workflows) >= 2, [w.name for w in workflows]
+    for path in workflows:
+        document = yaml.safe_load(path.read_text())
+        assert isinstance(document, dict), path.name
+        assert document.get("name"), f"{path.name} has no name"
+        triggers = document.get(True) or document.get("on")
+        assert isinstance(triggers, dict) and triggers, f"{path.name} declares no trigger"
+        jobs = document.get("jobs")
+        assert isinstance(jobs, dict) and jobs, f"{path.name} declares no job"
+        for job in jobs.values():
+            assert job.get("runs-on"), f"{path.name} has a job with no runner"
+            assert job.get("steps"), f"{path.name} has a job with no steps"
+
+
+def test_the_mutation_sweep_runs_on_a_schedule_and_can_be_dispatched() -> None:
+    """A target nobody runs is not better than no target; it reads like a check.
+
+    The pin this workflow exists to keep honest sat at 21 while the sweep measured
+    25 - for weeks, with `make ci` green throughout, because nothing invoked it.
+    """
+    document = yaml.safe_load((repo_root() / MUTATION_WORKFLOW).read_text())
+    triggers = document.get(True) or document.get("on")
+    assert "schedule" in triggers, "the mutation sweep is back to running nowhere"
+    crons = [entry["cron"] for entry in triggers["schedule"]]
+    assert crons and all(len(cron.split()) == 5 for cron in crons), crons
+    assert "workflow_dispatch" in triggers, (
+        "the sweep cannot be run on demand, so nobody can re-take the pin without waiting "
+        "for the schedule"
+    )
+    job = next(iter(document["jobs"].values()))
+    assert job["timeout-minutes"] >= 120, (
+        f"the sweep is measured at 110 minutes and the timeout is {job['timeout-minutes']}"
+    )
+    assert document["concurrency"]["cancel-in-progress"] is False, (
+        "a cancelled sweep produces no measurement AND leaks its worktrees: the cleanup is a "
+        "`finally` and SIGKILL does not run one (ADR-153 (6))"
+    )
+
+
+def test_the_mutation_workflow_calls_only_make_targets_that_exist() -> None:
+    """Its steps are `make` calls, and a name that does not exist fails on GitHub only."""
+    defined = set(re.findall(r"^([a-z][a-z0-9-]*):", _makefile_text(), flags=re.MULTILINE))
+    invoked = workflow_targets(MUTATION_WORKFLOW)
+    assert invoked, "the mutation workflow invokes no make target at all"
+    assert invoked <= defined, sorted(invoked - defined)
+    assert "mutation-scheduled" in invoked, sorted(invoked)
+
+
+def test_the_sweep_is_not_a_prerequisite_of_the_push_gate() -> None:
+    """ADR-153 (3) as an executable clause rather than a comment.
+
+    27x the rest of the gate is not a defensible tax on every push. The pure
+    verdict function is what `make ci` covers, in milliseconds, through
+    `tests/test_hygiene.py`; the 110 minutes are what the schedule covers.
+    """
+    makefile = _makefile_text()
+    for target in ("ci", "check"):
+        match = re.search(rf"^{target}:(.*)$", makefile, flags=re.MULTILINE)
+        assert match, target
+        prerequisites = match.group(1).split()
+        assert not [p for p in prerequisites if p.startswith("mutation")], (
+            f"`make {target}` now depends on {prerequisites}: a 110-minute sweep is in the "
+            "push gate"
+        )
+    assert workflow_targets() == {"ci"}, "the ci workflow gained a step outside `make ci`"

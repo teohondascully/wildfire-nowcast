@@ -105,8 +105,19 @@ entry is retired. that direction is not a bug: an exemption list that only ever
 checks its ceiling turns into a permanent excuse.
 
 the same shape appears in the typographic-punctuation pins and in the mutation
-survivor budget. the message will tell you which direction moved and what to
-edit.
+survivor set. the message will tell you which direction moved and what to edit.
+
+## `make mutation` says a survivor DISAPPEARED and you did not touch that module
+
+adding one mutable token to a module in `common/` or `eval/` re-samples that
+module: the sweep takes three sites per file, at fixed fractions of its site
+list, so an insertion above a sampled site shifts the sample. up to three pinned
+entries move per edited module, and they move as a paired appear/disappear.
+
+that is the pin reporting, not the pin breaking. `make mutation-pin` tells you
+in under a minute which entries no longer name a live mutant; re-taking the pin
+needs a whole sweep, which is what the weekly workflow is for. the sweep prints
+a paste-ready replacement for `PINNED_SURVIVORS` under its verdict.
 
 ## a test result changed and nothing was edited
 

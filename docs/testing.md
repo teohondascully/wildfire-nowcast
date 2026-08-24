@@ -72,7 +72,9 @@ make synth        generate one synthetic fire
 make contract     judge any tensor.zarr against C1 to C3
 make null-check   score a do-nothing forecaster against every C6 metric
 make playthrough  the playthrough registry, including the slow arm
-make mutation     the survivor budget over common/ and eval/. NOT in `make ci`
+make mutation     the survivor SET over common/ and eval/. NOT in `make ci`;
+                  `.github/workflows/mutation.yml` runs it weekly
+make mutation-pin the stale half of that set, without running a test
 ```
 
 two of these have a trap in the name. `make lint` runs **both** halves, `check`
@@ -84,8 +86,11 @@ so it is scoped to your own directory and is never what a gate runs.
 `make mutation` is deliberately outside `make ci`. it was measured, not
 estimated: one sweep took 110.4 minutes against a full suite of about four,
 which is more than an order of magnitude on every push. the comparison it makes
-is still gated, because the pure verdict function is exercised in both
-directions inside the suite. only the value compared against is not.
+is still gated, because the pure verdict function is exercised in every
+direction inside the suite, including the swap - one survivor killed and one
+appearing - that the count it replaced could not see. only the set compared
+against is not, and that is now measured weekly by
+`.github/workflows/mutation.yml` rather than by nobody.
 
 ## git add is an input to this suite
 
@@ -139,8 +144,10 @@ they fail in both directions on purpose:
 * the typographic-punctuation counts, one for docstrings and comments and one for
   tracked prose files.
 * the tell scan's burn-down, per file.
-* the mutation survivor budget, which may be lowered by a commit that kills one
-  and never raised.
+* the mutation survivor SET, which fails when a survivor appears and when a
+  pinned one disappears, and names both. it used to be a COUNT, which could not
+  tell those two apart when they happened together: one old survivor killed and
+  one new one appearing leaves the total exactly where it was.
 * the `runs/` citation class, which fails when a citation stops being tracked and
   when a new one appears unaccounted for.
 
