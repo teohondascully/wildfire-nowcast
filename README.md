@@ -102,9 +102,21 @@ are not permitted to decide anything, and neither is the calibration error we
 compute beside them: we measured all four running backwards against forecast
 error on a degradation ladder, so a forecast that is badly wrong can outscore
 one that is nearly right. the contract marks them non-adjudicating and the code
-raises rather than warns if a gate tries to use one. everything is reported
-regime-stratified, dormant windows separately from growth windows, because they
-are opposite-difficulty problems and an aggregate over both is mostly noise.
+raises rather than warns if a gate tries to use one. the calibration error
+carries a second disqualification that is independent of the first, and both are
+worth stating because neither rests on the other. that statistic is bounded
+above by the mean forecast probability plus the base rate, which is an identity
+rather than an observation, and on this corpus the ceiling never rises above
+about 0.025 against a bar of 0.10. the bar sits outside the range its own
+statistic can attain, so the conjunct it was meant to decide could not have
+failed whatever the model did: a forecaster would have to over-forecast burned
+area by about 35 times at three hours before the number could reach its own
+threshold even in principle, and persistence, which forecasts identically zero,
+clears the bar by a factor of 21. that conjunct was reported for some time as
+the passing half of the ensemble dispersion gate. it was not a half that passed,
+it was a half that could not fail. everything is reported regime-stratified,
+dormant windows separately from growth windows, because they are
+opposite-difficulty problems and an aggregate over both is mostly noise.
 
 ## where it stands
 
@@ -126,26 +138,26 @@ claim in either direction.
 
 ## calibration
 
-calibration is not there yet. the ensemble dispersion gate has failed four
-times, and the reason is structural rather than a tuning problem. real fires
-decelerate as they age: 12 of the 14 spatial blocks decelerate, one-sided sign
-test p = 0.0065, against a permutation null that centres on 7.01 of 14 and a
-time-reversal control run through the same code that reads 2 of 14 at
-p = 0.9991. the caveat travels with that number: on published gofer labels alone
-the same read is 5 of 7 at p = 0.2266, so our reimplemented labels do not set
-the direction but they do set the significance. a contagion kernel is
-perimeter-proportional by construction, so it cannot decelerate, and the model
-accelerates on 5 of 5 held-out blocks under both of the estimators we have. we
-do not quote an elasticity for that gap: two of our own estimators agree on its
-sign and disagree on its magnitude by a factor of 2.6, so the magnitude is not a
-number we have. the wind ellipse also fails to decelerate materially, but we
-cannot say it fails by the same amount as the kernel does. its estimate is about
-four times less precise than the model's, wide enough to cover anything from
-clear deceleration to acceleration, and our two estimators do not agree on which
-of the two decelerates less. the spread of log growth rates is 1.46 in truth and
-0.64 in the model, and the model's growth is more predictable from covariates
-than reality's is, so the ensemble is too narrow because the rate is wrong, not
-because the noise is too small.
+calibration is not there yet. the ensemble dispersion gate has failed five
+times, most recently at adr-151, and the reason is structural rather than a
+tuning problem. real fires decelerate as they age: 12 of the 14 spatial blocks
+decelerate, one-sided sign test p = 0.0065, against a permutation null that
+centres on 7.01 of 14 and a time-reversal control run through the same code that
+reads 2 of 14 at p = 0.9991. the caveat travels with that number: on published
+gofer labels alone the same read is 5 of 7 at p = 0.2266, so our reimplemented
+labels do not set the direction but they do set the significance. a contagion
+kernel is perimeter-proportional by construction, so it cannot decelerate, and
+the model accelerates on 5 of 5 held-out blocks under both of the estimators we
+have. we do not quote an elasticity for that gap: two of our own estimators
+agree on its sign and disagree on its magnitude by a factor of 2.6, so the
+magnitude is not a number we have. the wind ellipse also fails to decelerate
+materially, but we cannot say it fails by the same amount as the kernel does.
+its estimate is about four times less precise than the model's, wide enough to
+cover anything from clear deceleration to acceleration, and our two estimators
+do not agree on which of the two decelerates less. the spread of log growth
+rates is 1.46 in truth and 0.64 in the model, and the model's growth is more
+predictable from covariates than reality's is, so the ensemble is too narrow
+because the rate is wrong, not because the noise is too small.
 
 ## the elmfire result
 
@@ -272,6 +284,20 @@ gates, which one adjudicates, and what a new check has to do.
 docs/troubleshooting.md is the failures this repository actually produces.
 CONTRIBUTING.md at the root covers setup, the hooks and the fact that there is no
 release process.
+
+the g6 report is the single page that assembles all of it: what was measured,
+which conjunct of which gate it decided, and the artifact path every number was
+read from. it is generated rather than checked in, because a page written to a
+fixed name overwrites the last one and a reader holding two of them cannot tell
+which run either belongs to. build it with python -m
+wildfire_nowcast.sim.g6_report, whose --out flag is required and has no default
+for that reason; the rendered page is not in the repository and the module that
+renders it, src/wildfire_nowcast/sim/g6_report.py, is. that module opens no
+tensor and imports nothing from model or eval, so every number on the page comes
+from a named artifact or from a constant imported out of common, which is what
+lets the page quote a criterion as the code enforces it rather than as prose
+remembers it. it leads with the failures, including the two places where our own
+prose and our own code disagreed about this gate.
 
 the adr-nnn citations throughout the source refer to a decision log kept outside
 this repo, one numbered entry per ruling, written before the result it governs
