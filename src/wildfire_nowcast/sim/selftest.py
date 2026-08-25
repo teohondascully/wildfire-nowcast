@@ -125,6 +125,13 @@ __all__ = [
     "test_the_c2_verdict_names_the_deriver_and_refuses_what_it_cannot_measure",
     "test_manifest_check_passes_the_derived_c2_value_and_fails_the_topology_count",
     "test_the_c2_value_follows_the_genealogy_rule_and_not_this_page_s_merge_window",
+    "test_g6_the_page_cannot_print_a_bar_the_code_has_moved_away_from",
+    "test_g6_an_absent_artifact_is_refused_not_rendered_as_an_empty_section",
+    "test_g6_the_page_cannot_quietly_depend_on_a_file_the_reader_does_not_have",
+    "test_g6_no_colour_is_defined_only_in_the_dark_block_so_one_mode_goes_blank",
+    "test_g6_the_source_cannot_drift_back_into_the_output_literal_sink",
+    "test_g6_a_number_on_the_page_cannot_silently_disagree_with_its_artifact",
+    "test_g6_the_page_cannot_send_a_reader_to_a_file_that_is_not_in_the_repository",
 ]
 
 # ADR-103: a logger, and NOTHING else at import. The PASS/FAIL lines and the
@@ -2698,6 +2705,385 @@ def test_episode_a_commitment_is_band_only_and_read_at_the_final_lead() -> None:
 
 
 # -- runner ----------------------------------------------------------------
+
+
+# -- the G6 report page (S18) ----------------------------------------------
+#
+# Adopted from `sim/g6_report.py --selftest`, which runs these same six
+# predicates against the REAL artifacts and the REAL 1 MiB page. Neither half
+# is sufficient. `--selftest` proves the SHIPPED page passes; it can only run
+# where `runs/` exists, which is this laptop and nowhere else - not a clone,
+# not a detached worktree, not CI. What follows proves each control CAN REFUSE,
+# everywhere, with no artifact on disk. **A control that has only ever been
+# handed a passing input has not been seen working**, which is the finding the
+# report itself leads its last section with, so shipping the page's controls
+# without that observation would have been the same defect one level up.
+#
+# Each is named for the way THE PAGE COULD LIE, not for the function it calls.
+
+
+def _g6_bar_refusal(fn, *args, **kwargs) -> str:  # noqa: ANN001, ANN002, ANN003
+    """Call something that must raise; return the message. Fail loudly if silent."""
+    try:
+        fn(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001 - any refusal is the observation
+        return f"{type(exc).__name__}: {exc}"
+    raise AssertionError(
+        f"the plant did NOT fire: {getattr(fn, '__name__', fn)} accepted "
+        f"{args!r} {kwargs!r}. A control observed only passing is not a control."
+    )
+
+
+def test_g6_the_page_cannot_print_a_bar_the_code_has_moved_away_from() -> None:
+    """THE LIE: the page quotes a G3 bar that `common/` no longer enforces.
+
+    Our prose has carried ``[0.8, 1.2]`` while the code carried
+    ``[0.8333, 1.2]``, and the report says so on the page - so a page that
+    retyped either number would reproduce the defect it is reporting. The
+    renderer instead compares the interval an artifact STORED for itself
+    against ``common.dispersion.BAR_INTERVAL`` read out of the code today, and
+    refuses to render on disagreement.
+
+    Planted in four directions, and the fourth is the one that matters. Moving
+    the ARTIFACT's endpoint and moving the CODE's constant must both fire - if
+    only the first did, the check would be comparing the artifact with itself.
+    And the disagreement is planted in **draw B**, through ``load_facts``:
+    until S18 the refusal read draw A's stored bar and nothing had ever looked
+    at draw B's, while ADR-142 (e) puts draw B's numbers on the page against
+    that same bar. A cross-check covering one of two sources has a blind side.
+    """
+    import dataclasses  # noqa: PLC0415
+    import json as _json  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.common.dispersion import BAR_INTERVAL  # noqa: PLC0415
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    real = (float(BAR_INTERVAL[0]), float(BAR_INTERVAL[1]))
+
+    # CONTROL: agreement is silent. If this raised, every plant below would
+    # "fire" for a reason that has nothing to do with the bar.
+    g6.assert_stored_bar_agrees(real, real, where="the control")
+
+    for moved in ((0.8, 1.2), (real[0], 1.25), (0.5, 1.25)):
+        msg = _g6_bar_refusal(g6.assert_stored_bar_agrees, moved, real, where="planted artifact")
+        assert "BAR_INTERVAL" in msg and "planted artifact" in msg, msg
+    # the same disagreement arriving from the CODE side, not the artifact
+    msg = _g6_bar_refusal(g6.assert_stored_bar_agrees, real, (0.5, 1.25), where="planted code")
+    assert "BAR_INTERVAL" in msg, msg
+
+    def _stub(path: Path, low: float, high: float) -> None:
+        path.write_text(
+            _json.dumps(
+                {
+                    "scope": {},
+                    "g3": {
+                        "bar": [
+                            {
+                                "key": "band_area_dispersion_ratio",
+                                "low": low,
+                                "high": high,
+                                "source": "a fixture, not a run",
+                            }
+                        ],
+                        "models": {},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    with tempfile.TemporaryDirectory(prefix="g6_bar_") as raw:
+        tmp = Path(raw)
+        a, b = tmp / "m30_g3_drawA.json", tmp / "m30_g3_drawB.json"
+
+        def _load(bar_b: tuple[float, float]) -> None:
+            _stub(a, *real)
+            _stub(b, *bar_b)
+            g6.load_facts(
+                dataclasses.replace(g6.ArtifactSet.default(tmp), g3_draw_a=a, g3_draw_b=b)
+            )
+
+        # CONTROL: both draws agreeing must not produce a BAR refusal. The
+        # fixture is deliberately too thin to render, so `load_facts` still
+        # fails - on a missing model, which is what we assert it fails on.
+        control = _g6_bar_refusal(_load, real)
+        assert "BAR_INTERVAL" not in control, (
+            f"the fixture itself trips the bar check, so the plant below would "
+            f"prove nothing: {control}"
+        )
+        planted = _g6_bar_refusal(_load, (0.5, 1.25))
+        assert "BAR_INTERVAL" in planted, planted
+        assert "draw B" in planted and "m30_g3_drawB" in planted, (
+            f"the refusal does not name WHICH draw disagreed, so a reader "
+            f"cannot find the file: {planted}"
+        )
+
+
+def test_g6_an_absent_artifact_is_refused_not_rendered_as_an_empty_section() -> None:
+    """THE LIE: a table quietly vanishes and the page still looks complete.
+
+    Every number on the G6 page is supposed to trace to a named file. The
+    failure mode is not a crash - it is a section that renders empty, or a
+    heading with nothing under it, on a page that otherwise looks finished. The
+    reader has no way to tell a measurement that came out empty from an input
+    that was never there. So absence raises, and the message says why.
+    """
+    import json as _json  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    with tempfile.TemporaryDirectory(prefix="g6_absent_") as raw:
+        tmp = Path(raw)
+        present = tmp / "present.json"
+        present.write_text(_json.dumps({"k": 1}), encoding="utf-8")
+        assert g6._read_json(present) == {"k": 1}  # CONTROL: a real file reads
+
+        for missing in (tmp / "gone.json", tmp / "gone.json.gz"):
+            msg = _g6_bar_refusal(g6._read_json, missing)
+            assert msg.startswith("FileNotFoundError"), msg
+            assert "traceable to a named artifact" in msg, (
+                f"the refusal does not say WHY absence is fatal, so it reads as "
+                f"an ordinary missing-file error: {msg}"
+            )
+
+
+def test_g6_the_page_cannot_quietly_depend_on_a_file_the_reader_does_not_have() -> None:
+    """THE LIE: the page renders perfectly for its author and degrades for everyone.
+
+    A ``<script>``, a ``<link>``, an ``@import`` or an ``<img>`` pointing at a
+    sibling file all resolve on the machine that wrote the page, out of the
+    working tree it was written in. Handed to anyone else - or opened after
+    ``reports/figures/`` moves - they silently produce a page with no figures
+    and no styling. **The defect is invisible to its author by construction**,
+    which is precisely why looking at the page is not a check on it.
+    """
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    page = (
+        "<!doctype html><html><head><style>"
+        + g6.CSS
+        + "</style></head><body><h1>x</h1>"
+        + '<img src="data:image/png;base64,AAAA" alt="a figure">'
+        + '<a href="#section-1">jump</a></body></html>'
+    )
+    g6.assert_page_is_self_contained(page)  # CONTROL: the real stylesheet passes
+
+    plants = {
+        "a script tag": page.replace("<body>", "<body><script>1</script>"),
+        "a stylesheet link": page.replace("<body>", '<body><link rel="stylesheet" href="a.css">'),
+        "a CSS import": page.replace("<style>", '<style>@import url("a.css");'),
+        # Both of these are ASSEMBLED at run time. Not style: `tools/cited_paths.py`
+        # resolves every path-shaped literal in TRACKED source against the git
+        # index, and a plant is a path that must NOT resolve, so spelling one
+        # here turns that reader red for being exactly what it is meant to be.
+        # The tool names this form itself, under UNSEEN_BY_CONSTRUCTION.
+        "a sibling image": page.replace(
+            "<body>", '<body><img src="' + "/".join(("figures", "x.png")) + '">'
+        ),
+        "an outward link": page.replace(
+            "<body>", '<body><a href="' + "/".join(("runs", "m30.json.gz")) + '">a</a>'
+        ),
+    }
+    for label, planted in plants.items():
+        msg = _g6_bar_refusal(g6.assert_page_is_self_contained, planted)
+        assert msg.startswith("SelfCheckFailure"), f"{label}: {msg}"
+
+
+def test_g6_no_colour_is_defined_only_in_the_dark_block_so_one_mode_goes_blank() -> None:
+    """THE LIE: the page is legible in whichever mode its author happened to use.
+
+    An undefined CSS custom property resolves to nothing, so a token defined
+    only inside ``@media (prefers-color-scheme: dark)`` or only inside
+    ``[data-theme="dark"]`` gives ink-on-nothing to a reader whose machine is
+    set the other way. This runs on the module's OWN stylesheet, not on a
+    fixture, so it is a live statement about the shipped page's palette - and
+    it stays true in a clone, where the page itself cannot be rendered.
+    """
+    import re as _re  # noqa: PLC0415
+
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    doc = f"<style>{g6.CSS}</style>"
+    g6.assert_colour_tokens_have_a_bare_root_definition(doc)  # CONTROL: the real palette
+
+    # Non-vacuity: if the stylesheet used no var() at all the control above
+    # would pass over nothing, which is the exact shape of defect it exists for.
+    used = set(_re.findall(r"var\((--[a-z0-9-]+)\)", g6.CSS))
+    assert len(used) >= 10, f"the stylesheet uses {len(used)} tokens; too few to be checking"
+
+    msg = _g6_bar_refusal(
+        g6.assert_colour_tokens_have_a_bare_root_definition,
+        doc.replace("  --ink: #1b1a17;\n", "", 1),
+    )
+    assert "--ink" in msg, msg
+    assert "no stylesheet" in _g6_bar_refusal(
+        g6.assert_colour_tokens_have_a_bare_root_definition, "<p>a page with no style block</p>"
+    )
+    assert "no bare :root block" in _g6_bar_refusal(
+        g6.assert_colour_tokens_have_a_bare_root_definition,
+        doc.replace(":root {", ':root[data-theme="light"] {', 1),
+    )
+
+
+def test_g6_the_source_cannot_drift_back_into_the_output_literal_sink() -> None:
+    """THE LIE: a hand-taken clean verdict stays quoted after it stopped being true.
+
+    ``sim/g6_report.py`` renders every glyph on the page from HTML entities and
+    matplotlib mathtext so that the SOURCE stays ASCII. That is not typography
+    pedantry: the module's prose and citation verdicts were taken BY HAND
+    against its text, because an untracked file is invisible to scanners that
+    walk the git index. One character typed directly puts it back into the
+    output-literal sink, and the hand reading that said ``0`` is still on the
+    record saying ``0``.
+    """
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    source = Path(g6.__file__).read_text(encoding="utf-8")
+    assert len(source) > 50_000, "the source read back too short to be the module"
+    g6.assert_source_is_ascii(source)  # CONTROL: the real file
+
+    for label, ch in (
+        ("an em dash", 0x2014),
+        ("a non-breaking space", 0x00A0),
+        ("a curly quote", 0x2019),
+    ):
+        msg = _g6_bar_refusal(g6.assert_source_is_ascii, source + "\n# " + chr(ch) + "\n")
+        assert "non-ASCII in source" in msg, f"{label}: {msg}"
+
+
+def test_g6_a_number_on_the_page_cannot_silently_disagree_with_its_artifact() -> None:
+    """THE LIE: the page is a second opinion about the artifact rather than a view of it.
+
+    The load-bearing one. A rendered value that drifted from the file it cites
+    is undetectable by reading either, and it is the failure the whole report
+    would be worthless under. Ten decimal places, not four: the third plant
+    below prints the value correct to 4 dp and must still be refused, because a
+    number that agrees to the printed precision is exactly what a value from
+    the wrong source looks like.
+    """
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    v = 0.24652899779252743  # the S17 headline, draw A, equal-block
+    g6.assert_page_states_value(f"our kernel reads {v:.10f} against the bar", v)  # CONTROL
+
+    for label, text, value in (
+        ("off by 1e-9", f"{v:.10f}", v + 1e-9),
+        ("rounded to 4 dp", f"{v:.10f}", round(v, 4) + 1e-9),
+        ("the page prints only 4 dp", f"our kernel reads {v:.4f}", v),
+        ("the value is absent entirely", "a page with no numbers on it", v),
+    ):
+        msg = _g6_bar_refusal(g6.assert_page_states_value, text, value)
+        assert msg.startswith("SelfCheckFailure"), f"{label}: {msg}"
+
+
+def test_g6_the_page_cannot_send_a_reader_to_a_file_that_is_not_in_the_repository() -> None:
+    """THE LIE: the page prints a path a cloner does not have.
+
+    A path in prose is an instruction. This repository is public and
+    ``coordination/`` is not in it, so a page naming a coordination document
+    tells a stranger to open something they were never given - in the voice of
+    a document whose entire argument is that a claim should rest on what can be
+    checked. **Nothing we own could see it.** The literals were joined at run
+    time so the tracked-source citation readers were blind by construction, and
+    the files are present on the machine that renders the page so a look at the
+    output finds them. **That is why this control scans the RENDERED OUTPUT and
+    resolves against the git index rather than the filesystem** - ``exists()``
+    would have called the page clean.
+
+    Everything below is constructed. No ``runs/`` directory, no git, no real
+    page: this half proves the control CAN REFUSE, anywhere; ``--selftest``
+    proves the shipped page passes it here.
+    """
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    # Assembled at run time, all of them. `tools/cited_paths.py` resolves every
+    # path-shaped literal in TRACKED source against the git index, and a plant
+    # is by definition a path that must NOT resolve, so spelling one here would
+    # turn that reader red for the plant being exactly what it is meant to be.
+    tracked = frozenset(
+        {
+            "/".join(("src", "wildfire_nowcast", "common", "dispersion.py")),
+            "/".join(("docs", "interfaces.md")),
+        }
+    )
+    evidence = ["/".join(("runs", "m30_g3_drawA.json.gz"))]
+    cited = "/".join(("common", "dispersion.py"))  # a TRAILING FRAGMENT of a tracked file
+
+    page = (
+        "<!doctype html><html><head><style>:root { --ink: #000; }</style></head>"
+        '<body><p>the bar comes from <span class="mono">' + cited + "</span>.</p>"
+        '<img src="data:image/png;base64,AAAA" alt="read from ' + evidence[0] + '">'
+        "<table><tr><td>" + evidence[0] + "</td></tr></table>"
+        "<caption>" + g6.EVIDENCE_DISCLOSURE + "</caption></body></html>"
+    )
+
+    # CONTROL. Silent - and note WHAT it is silent about: a tracked path spelled
+    # the way the page spells it, and a declared artifact beside its disclosure.
+    # A control that contained no path at all would pass a scanner that had
+    # stopped looking, so the control carries one of each.
+    g6.assert_page_cites_nothing_a_cloner_cannot_open(page, tracked=tracked, evidence=evidence)
+
+    # NEGATIVE CONTROL on the scanner itself: it must SEE things, or every
+    # verdict above is "found nothing" rather than "found nothing wrong".
+    seen = g6.path_tokens_in_rendered(page)
+    assert cited in seen, f"the scanner missed a path inside a span: {sorted(seen)}"
+    assert evidence[0] in seen, f"the scanner missed a path in a table cell: {sorted(seen)}"
+    assert g6._expand_braces("a{x,y}.md") == ["ax.md", "ay.md"], "the brace shorthand must expand"
+    assert g6._expand_braces(cited) == [cited], "a token with no brace must come back unchanged"
+    assert g6.resolves_against_the_index(cited, tracked), "a trailing fragment must resolve"
+    assert not g6.resolves_against_the_index("/".join(("dispersion.py", "x.py")), tracked), (
+        "the resolver accepted a path no tracked file ends with. A resolver that "
+        "says yes to everything makes every plant below silent, so this line is "
+        "checked before the plants rather than after them."
+    )
+
+    plants = {
+        # the real defect: a coordination document, named in prose
+        "a coordination file": page.replace(
+            "<body>", "<body><p>see " + "/".join(("coordination", "STATE.md")) + "</p>"
+        ),
+        # the same class with a line number appended, which is how it appeared
+        "a planning document with a line number": page.replace(
+            "<body>", "<body><p>see " + "/".join(("docs", "play" + "book.md")) + ":510</p>"
+        ),
+        # the bare tier: strip the directory and the token is still an instruction
+        "a BARE untracked filename": page.replace(
+            "<body>", "<body><p>see " + "play" + "book.md" + "</p>"
+        ),
+        # THE ONE THAT PROVES THE EXEMPTION CANNOT BE GROWN BY PROSE: an
+        # artifact-shaped path that is not in the DECLARED input set. If this
+        # passed, "anything under runs/" would be exempt and the control would
+        # be an open door with a directory name on it.
+        "an artifact path that is not a declared input": page.replace(
+            "<body>", "<body><p>see " + "/".join(("runs", "not_an_input.json")) + "</p>"
+        ),
+        # THE BRACE SHORTHAND. The page writes one token for two draw files, so
+        # a scanner that stopped at `{` would have made a two-file shorthand the
+        # ONE spelling nothing could catch - a fresh evasion in the shape of the
+        # one being closed. Expanded, both halves are resolved.
+        "two untracked files behind one brace": page.replace(
+            "<body>",
+            "<body><p>see " + "/".join(("coordination", "{STATE," + "BLOCKERS}.md")) + "</p>",
+        ),
+        # the disclosure deleted while the evidence row stays: an undisclosed
+        # dead link is the defect; a disclosed origin is not.
+        "the disclosure removed, the evidence row kept": page.replace(g6.EVIDENCE_DISCLOSURE, ""),
+    }
+    for label, planted in plants.items():
+        msg = _g6_bar_refusal(
+            g6.assert_page_cites_nothing_a_cloner_cannot_open,
+            planted,
+            tracked=tracked,
+            evidence=evidence,
+        )
+        assert msg.startswith("SelfCheckFailure"), f"{label}: {msg}"
+
+    # RESTORE, after the plants and not before them. Each plant built a copy, so
+    # re-running the untouched control is the only evidence none of them left
+    # state behind.
+    g6.assert_page_cites_nothing_a_cloner_cannot_open(page, tracked=tracked, evidence=evidence)
 
 
 def run_all() -> int:
