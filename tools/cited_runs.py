@@ -40,6 +40,25 @@ Whether a citation resolves is answered by ``git ls-files``, not by
 answer would differ between this machine and CI, and the check would then be
 enforcing something different in the place it actually gates. Disk presence is
 reported as extra information where it is available and is never a verdict.
+
+WHAT THIS WALK CANNOT SEE, PRINTED RATHER THAN REMEMBERED
+---------------------------------------------------------
+It reads SOURCE BYTES, not values. A path ASSEMBLED at run time is invisible to
+it, and an assembled path is not a rare shape here: it is how every run
+directory in this repository is named. There is no fix inside a regex - seeing
+these requires evaluating the program - so the honest move is to say so at the
+point of use. :func:`assembled_sites` counts them and :func:`_report` prints the
+count on every run, next to the findings and never mixed into them. That
+placement is the whole point: this blindness was found by a lead who went
+looking, and the next lead should be TOLD.
+
+Assembly degrades in two ways, and the second is worse:
+
+* the token vanishes outright, when the interruption follows the separator;
+* the token TRUNCATES, when a literal stem precedes the placeholder. A stem
+  that truncates loses its extension with its tail, so it lands in
+  ``dir_or_prefix`` and is never enforced - it is reported as a directory
+  citation, which is a category this module deliberately does not check.
 """
 
 from __future__ import annotations
@@ -51,6 +70,7 @@ import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 #: The only shape assumption in this module: the literal segment, then the
 #: maximal run of characters a POSIX path may use. No extension, no depth, no
@@ -59,11 +79,99 @@ RUNS_TOKEN = re.compile(r"runs/[A-Za-z0-9._][A-Za-z0-9._/-]*")
 
 #: The pattern this module REPLACES, kept so the control can measure both on the
 #: same corpus rather than quoting a remembered number.
+#:
+#: **FROZEN. NOT TO BE EDITED (ADR-181 (5b)).** It is a record of what the old
+#: reader did, and editing it so a test passes falsifies the very history the
+#: differential test exists to measure.
+#:
+#: **IT HAS A FOURTH FAILURE MODE AND IT IS WORSE THAN THE THREE BLIND SPOTS.**
+#: On a subdirectory or a non-``.json`` extension it emits NOTHING - it is blind,
+#: and blindness OMITS. On a gzipped record it emits a TRUNCATED name:
+#:
+#:     runs/<something>.json.gz   ->   runs/<something>.json
+#:
+#: That name has never existed. **A phantom ASSERTS**, and because it ends
+#: ``.json`` it is indistinguishable from a true finding by anything downstream.
+#: This is why the I31 invariant had to gain the clause *"every leftover resolves
+#: to NOTHING"*: without it, restating the invariant would be indistinguishable
+#: from moving a bar.
 SUPERSEDED_PATTERN = re.compile(r"runs/[A-Za-z0-9_]*\.json")
 
 #: Extensions that make a token a FILE citation, i.e. something a reader opens.
 #: A token without one names a directory or a prefix and is reported only.
-FILE_SUFFIXES = (".json", ".py", ".csv", ".md", ".png", ".pt", ".txt", ".yaml", ".zarr")
+#:
+#: ``.gz`` ADDED AT I31 (ADR-181 (5a)), AND IT IS THE SUBSTANTIVE HALF OF THAT
+#: REPAIR. Without it a gzipped token has no recognised extension, so it is
+#: classified ``dir_or_prefix`` and NEVER ENFORCED. Measured on the tree
+#: that shipped the defect: **34 gzipped records under ``runs/``, of which 0 were
+#: checked for existence** - including the four the G6 headline rests on. A
+#: cloner sent to a missing gzipped artifact was told nothing, which is precisely
+#: the failure this module exists to prevent.
+#:
+#: **IT DOES NOT, ON ITS OWN, RESTORE THE SUPERSET INVARIANT, AND THAT WAS THE
+#: RECOMMENDED FIX.** :data:`SUPERSEDED_PATTERN` truncates by construction and
+#: never reads this tuple - the suffix set governs only the filter applied
+#: afterwards. Measured before and after in a detached worktree with a real
+#: citation staged: ``superseded < replacement`` is ``False`` both times, and the
+#: leftover is unchanged. Two defects were being treated as one. See the PHANTOM
+#: note on :data:`SUPERSEDED_PATTERN`.
+FILE_SUFFIXES = (".gz", ".json", ".py", ".csv", ".md", ".png", ".pt", ".txt", ".yaml", ".zarr")
+
+#: A ``runs/`` string whose character run is INTERRUPTED by an interpolation or a
+#: concatenation, i.e. a citation this walk cannot resolve because the path does
+#: not exist until the program runs. Reported, never enforced: there is nothing
+#: to enforce, since the tool cannot know what the assembled name will be.
+#:
+#: ``stem`` is the literal part between the separator and the interruption. It
+#: decides WHICH of the two degradations applies, and it is captured rather than
+#: recomputed for a reason learned the hard way at I31: the first version of the
+#: printer classified fragments by testing them against a spelled-out marker,
+#: which made this module match ITSELF and inflated its own count by one. A
+#: detector that has to write down the thing it detects becomes its own first
+#: finding. Reading the group costs nothing and cannot do that.
+ASSEMBLED_CITATION = re.compile(r"""runs/(?P<stem>[A-Za-z0-9._/-]*)(?:\{|%\(|%[sdr]|["']\s*\+)""")
+
+
+class AssemblySite(NamedTuple):
+    """One place a ``runs/`` path is built at run time rather than written down."""
+
+    path: str
+    line: int
+    fragment: str
+    stem: str
+
+    @property
+    def truncates(self) -> bool:
+        """True when a literal stem survives the interruption.
+
+        The worse of the two degradations. A vanished token is absent from the
+        report and absent from the class; a truncated one is PRESENT, shorn of
+        its extension, and is therefore filed as a directory citation - a
+        category this module deliberately never enforces. It looks handled.
+        """
+        return bool(self.stem)
+
+
+def assembled_sites(root: Path | None = None) -> list[AssemblySite]:
+    """Every place a ``runs/`` citation is assembled at run time.
+
+    Artifacts under ``runs/`` are skipped for the same reason they are skipped
+    everywhere else here: they are evidence, not the public reading surface.
+    """
+    base = root or Path(__file__).resolve().parents[1]
+    out: list[AssemblySite] = []
+    for rel in tracked_files(base):
+        if rel.startswith("runs/"):
+            continue
+        path = base / rel
+        if not path.is_file():
+            continue
+        text = path.read_bytes().decode("utf-8", errors="replace")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for match in ASSEMBLED_CITATION.finditer(line):
+                out.append(AssemblySite(rel, lineno, match.group(0), match.group("stem")))
+    return out
+
 
 #: Citations that are cited, are files, and stay OUT of the tree, each with the
 #: reason and a measurement that makes the reason falsifiable. ``tell_count`` is
@@ -178,7 +286,7 @@ def enumerate_citations(root: Path | None = None) -> Enumeration:
     return result
 
 
-def _report(enum: Enumeration) -> str:
+def _report(enum: Enumeration, root: Path | None = None) -> str:
     lines = []
     for kind in ("tracked", "exempt", "UNRESOLVABLE", "dir_or_prefix"):
         group = enum.of_kind(kind)
@@ -190,7 +298,33 @@ def _report(enum: Enumeration) -> str:
         c for c in enum.citations if not c.from_source and c.is_file_token and not c.tracked
     ]
     lines.append(f"artifact tier (cited only by tracked runs/ artifacts): {len(artifact_tier)}")
+    lines.append(_limits_block(root))
     return "\n".join(lines)
+
+
+def _limits_block(root: Path | None = None) -> str:
+    """What the walk cannot see, printed on every run beside what it can.
+
+    Kept OUT of :attr:`Enumeration.problems` on purpose. These are not defects
+    and they never set the exit status; they are the boundary of the claim, and
+    a boundary written only in a docstring is one the next reader rediscovers.
+    """
+    sites = assembled_sites(root)
+    files = sorted({s.path for s in sites})
+    truncating = [s for s in sites if s.truncates]
+    out = [
+        "",
+        "SCAN LIMITS (not findings; they do not affect the exit status)",
+        f"    runtime-assembled citations: {len(sites)} sites in {len(files)} tracked files",
+        "    This walk reads source bytes, not values, so a path built at run time is",
+        "    INVISIBLE to it. Seeing these would need the program evaluated, not read.",
+        f"    of those, {len(truncating)} truncate rather than vanish: a literal stem",
+        "    survives, loses its extension along with the tail, and is then filed as a",
+        "    directory citation - the one category here that is never enforced:",
+    ]
+    out.extend(f"        {s.path}:{s.line}  {s.fragment}" for s in truncating)
+    out.append(f"    files with assembled citations: {', '.join(files) or 'none'}")
+    return "\n".join(out)
 
 
 def main(argv: Iterable[str] | None = None) -> int:
