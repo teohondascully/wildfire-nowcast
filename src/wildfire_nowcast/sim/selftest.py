@@ -64,6 +64,11 @@ __all__ = [
     "test_g5_a_missing_ensemble_raises_instead_of_substituting_silence",
     "test_g5_the_store_round_trips_bit_identically_and_leaves_no_partial_file",
     "test_g5_the_commensurability_control_can_fail_and_refuses_to_pass_without_a_reference",
+    "test_episode_seed_offsets_are_the_windows_position_and_differ_by_draw",
+    "test_episode_the_cross_check_can_fail_and_a_missing_window_is_not_a_pass",
+    "test_episode_the_zoom_box_is_never_empty_and_never_leaves_the_domain",
+    "test_episode_a_rank_with_no_population_behind_it_refuses_to_print_a_number",
+    "test_episode_a_commitment_is_band_only_and_read_at_the_final_lead",
     "test_g5_the_gate_columns_carry_the_criterion_and_label_the_barred_one",
     "test_a_reliability_page_keeps_the_empty_bins_the_curve_drops",
     "test_the_reliability_page_curve_control_agrees_here_and_fails_on_a_plant",
@@ -2513,6 +2518,183 @@ def test_a_commitment_is_counted_off_the_bin_lower_edge_and_never_off_a_straddle
     assert R.commitment(bins, 2, 0.7)["observed_frequency"] is None, (
         "an arm that never commits scored a frequency; 0/0 is not 0.0"
     )
+
+
+# -- the episode replay module ---------------------------------------------
+
+
+def test_episode_seed_offsets_are_the_windows_position_and_differ_by_draw() -> None:
+    """The seed index, which decides WHICH ensemble a figure is of.
+
+    Member seeds are ``base + offset``. Draw A's offset is the window's position
+    in the evaluable list, draw B's is its position within the growth / dormant
+    stratum. Get either wrong and every panel is a valid picture of a
+    neighbouring experiment: no crash, no warning, different cells.
+    """
+    from wildfire_nowcast.sim.episode import seed_offsets_for_fire, window_positions
+
+    # 8 hours, 4x4. Nothing is burned until t=2, so windows 0 and 1 do not exist.
+    state = np.zeros((8, 4, 4), dtype=np.uint8)
+    state[2:, 0, 0] = BURNING
+    # One new cell at t=4. Windows at t0=2 and t0=3 see it arrive; the window at
+    # t0=4 already has it in its own x0, so it is a DORMANT window and draw B
+    # counts it in the other stratum.
+    state[4:, 0, 1] = BURNING
+    t0s, pos = window_positions(state, 3)
+    assert t0s == [2, 3, 4], f"the evaluable windows moved: {t0s}"
+    assert pos == {2: 0, 3: 1, 4: 2}, "draw A's offset is not the position in the filtered list"
+
+    _, a = seed_offsets_for_fire(state, 3, "A")
+    _, b = seed_offsets_for_fire(state, 3, "B")
+    assert a == pos
+    # windows 2 and 3 reach t=5 and grow; window 4 reaches t=7 and does not.
+    assert b == {2: 0, 3: 1, 4: 0}, f"draw B did not count within the stratum: {b}"
+    assert a != b, "the two draws produced the same seeds; one of them is not being applied"
+
+    try:
+        seed_offsets_for_fire(state, 3, "C")
+    except ValueError:
+        pass
+    else:  # pragma: no cover - the refusal is the assertion
+        raise AssertionError("an unknown draw was accepted and silently treated as one of ours")
+
+
+def test_episode_the_cross_check_can_fail_and_a_missing_window_is_not_a_pass() -> None:
+    """PLANT. The control that licenses "my numbers match the run's".
+
+    This check is the whole reason a rendered episode is evidence rather than an
+    illustration: it asserts that the cells drawn here are the SAME CELLS the
+    run recorded, by set equality rather than by count. A control that has only
+    ever been shown agreeing is a control nobody has seen work.
+    """
+    import gzip as _gzip  # noqa: PLC0415
+
+    from wildfire_nowcast.sim.episode import cross_check  # noqa: PLC0415
+
+    page = {
+        "windows": [
+            {
+                "fire_id": "2020_creek",
+                "t0": 1234,
+                "confident_cells_drawA": [
+                    {"row": 15, "col": 46},
+                    {"row": 16, "col": 46},
+                ],
+            }
+        ]
+    }
+    tmp = Path(_tempfile.mkdtemp(prefix="simviz-selftest-episode-"))
+    _atexit.register(_shutil.rmtree, tmp, True)
+    good = tmp / "cells.json.gz"
+    with _gzip.open(good, "wt") as fh:
+        json.dump(
+            {
+                "confident_cells": [
+                    {"fire_id": "2020_creek", "t0": 1234, "row": 15, "col": 46},
+                    {"fire_id": "2020_creek", "t0": 1234, "row": 16, "col": 46},
+                ]
+            },
+            fh,
+        )
+    agreed = cross_check(page, good, "A")
+    assert agreed["identical_on_every_window"] is True
+    assert agreed["windows"][0]["n_mine"] == agreed["windows"][0]["n_artifact"] == 2
+
+    # PLANT 1: same COUNT, one cell moved by one row. Every printable summary
+    # agrees and the finding is about a different place.
+    moved = tmp / "moved.json.gz"
+    with _gzip.open(moved, "wt") as fh:
+        json.dump(
+            {
+                "confident_cells": [
+                    {"fire_id": "2020_creek", "t0": 1234, "row": 15, "col": 46},
+                    {"fire_id": "2020_creek", "t0": 1234, "row": 17, "col": 46},
+                ]
+            },
+            fh,
+        )
+    caught = cross_check(page, moved, "A")
+    assert caught["identical_on_every_window"] is False, (
+        "a moved cell was not seen; the control cannot license a rendered episode"
+    )
+    assert caught["windows"][0]["n_mine"] == caught["windows"][0]["n_artifact"] == 2, (
+        "the plant was supposed to keep the counts equal"
+    )
+    assert caught["windows"][0]["only_mine"] and caught["windows"][0]["only_artifact"]
+
+    # PLANT 2: the artifact does not carry this window at all. An empty
+    # intersection must not read as agreement.
+    empty = tmp / "empty.json.gz"
+    with _gzip.open(empty, "wt") as fh:
+        json.dump({"confident_cells": []}, fh)
+    absent = cross_check(page, empty, "A")
+    assert absent["identical_on_every_window"] is False, (
+        "an artifact with no cells at all agreed with a page that has two"
+    )
+    assert absent["windows"][0]["n_artifact"] == 0
+
+
+def test_episode_the_zoom_box_is_never_empty_and_never_leaves_the_domain() -> None:
+    """A crop is a claim about where to look, and an empty one is a crash."""
+    from wildfire_nowcast.sim.episode import zoom_box  # noqa: PLC0415
+
+    shape = (40, 30)
+    nothing = np.zeros(shape, dtype=bool)
+    assert zoom_box([nothing], shape) == (0, 40, 0, 30), (
+        "with nothing marked the box must fall back to the whole domain rather than collapse"
+    )
+
+    one = np.zeros(shape, dtype=bool)
+    one[20, 15] = True
+    r0, r1, c0, c1 = zoom_box([one], shape, minimum=18)
+    assert (r1 - r0) >= 18 and (c1 - c0) >= 18, "a single cell produced a box smaller than asked"
+    assert 0 <= r0 < r1 <= 40 and 0 <= c0 < c1 <= 30
+
+    corner = np.zeros(shape, dtype=bool)
+    corner[0, 0] = True
+    r0, r1, c0, c1 = zoom_box([corner], shape)
+    assert r0 >= 0 and c0 >= 0 and r1 <= 40 and c1 <= 30, "the box ran off the domain"
+    assert r1 > r0 and c1 > c0
+
+
+def test_episode_a_rank_with_no_population_behind_it_refuses_to_print_a_number() -> None:
+    """``rank 0 of 0`` looks like a measurement. It is the absence of one."""
+    from wildfire_nowcast.sim.episode import WindowFacts, _rank  # noqa: PLC0415
+
+    facts = WindowFacts(
+        fire_id="f",
+        t0=1,
+        position=0,
+        time_t0="t",
+        time_valid="t",
+        burned_cells=10,
+        band_cells=10,
+        truth_growth_cells=1,
+        max_wind_ms=1.0,
+        mean_wind_ms=1.0,
+        min_rh_pct=1.0,
+        mean_wind_u=1.0,
+        mean_wind_v=0.0,
+    )
+    assert "NOT COMPUTED" in _rank(0, facts)
+    facts.n_growth_windows = 816
+    assert _rank(13, facts) == "(rank 13 of 816)"
+
+
+def test_episode_a_commitment_is_band_only_and_read_at_the_final_lead() -> None:
+    """The commitment set is a statement about SCORED cells at the SCORED lead."""
+    from wildfire_nowcast.sim.episode import confident_mask  # noqa: PLC0415
+
+    prob = np.zeros((3, 4, 4))
+    prob[0, 0, 0] = 1.0  # certain at lead 1, gone by lead 3
+    prob[2, 1, 1] = 0.9  # inside the band
+    prob[2, 3, 3] = 0.9  # outside the band
+    band = np.zeros((4, 4), dtype=bool)
+    band[1, 1] = True
+    hit = confident_mask(prob, band)
+    assert hit[1, 1] and not hit[3, 3], "a cell outside the scored band was counted"
+    assert not hit[0, 0], "the mask read a lead other than the final one"
+    assert int(hit.sum()) == 1
 
 
 # -- runner ----------------------------------------------------------------
