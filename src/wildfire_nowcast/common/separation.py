@@ -85,6 +85,7 @@ C0: one implementation, model-agnostic. Nothing here imports ``model/`` or
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -96,6 +97,9 @@ from wildfire_nowcast.common.calibration import GATE_CRITERION_KEY, GATE_MASK
 __all__ = [
     "MIN_SEPARATION_SD",
     "MIN_BLOCKS_FOR_SEPARATION",
+    "max_separation_without_unanimity",
+    "unanimity_binds",
+    "unanimity_first_binds_at",
     "FITTING_SAMPLE",
     "BlockPair",
     "Separation",
@@ -113,6 +117,29 @@ __all__ = [
 #: It also reuses a precedent already in this repo - ``null_check.NOISE_FLOOR_SD``
 #: is 2 SD, for the related reason that a small-sample SD carries large relative
 #: error (at n = 4 blocks, ~41%).
+#:
+#: **THE UNANIMITY CONJUNCT IS ALGEBRAICALLY VACUOUS AT THIS BAR AND AT EVERY
+#: BLOCK COUNT THIS GATE HAS EVER RUN AT.** ``|mean|/sd`` over a block set that is
+#: NOT unanimous cannot exceed ``(n-1)/sqrt(n)``
+#: (:func:`max_separation_without_unanimity`), so whenever the bar is above that
+#: value every sample clearing ``separation`` is unanimous ALREADY and the second
+#: conjunct excludes nothing. At the 5 held-out blocks we hold the ceiling is
+#: **1.788854**, against this bar of **2.0**: vacuous. It is vacuous at
+#: :data:`MIN_BLOCKS_FOR_SEPARATION` = 4 as well (ceiling 1.5).
+#:
+#: **NO VERDICT MOVES AND NOTHING IS REPAIRED HERE**, because a conjunct that
+#: cannot exclude anything cannot change a conjunction - asserted by brute force
+#: in ``tests/test_separation_unanimity.py`` rather than argued. What changes is
+#: that :func:`conditions` now SAYS SO on every call instead of leaving a reader
+#: to infer that ``unanimity: true`` carried information.
+#:
+#: **THE ACTIONABLE NUMBER: ONE MORE HELD-OUT BLOCK MAKES IT LIVE.** At n = 6 the
+#: ceiling is 2.041241 > 2.0. We hold 5. Reproduced independently by search over
+#: 60,000 random non-unanimous samples per n, which converges to the closed form
+#: at every n from 3 to 11. ADR-133 (ii) recorded the same defect at the 2.536
+#: bar, where it first binds at n = 9; the general statement is that the bar and
+#: the block count decide it jointly, and neither was chosen with the other in
+#: view.
 MIN_SEPARATION_SD = 2.0
 
 #: C6.3 already requires >= 4 distinct held-out spatial blocks for a gate. Stated
@@ -281,6 +308,70 @@ def separation(pairs: Sequence[BlockPair], *, lower_is_better: bool = True) -> S
     ).check()
 
 
+def max_separation_without_unanimity(n_blocks: int) -> float:
+    """The largest ``|mean|/sd`` a block set that is NOT unanimous can reach.
+
+    ``(n-1)/sqrt(n)``, and it is exact rather than an estimate. The extremal
+    configuration is one block at exactly zero with the other ``n-1`` equal: the
+    mean is ``(n-1)a/n`` and the sample SD is ``a/sqrt(n)``, so the ratio is
+    ``(n-1)/sqrt(n)`` and no non-unanimous arrangement beats it. A search over
+    60,000 random non-unanimous samples converges to this value at every ``n``
+    from 3 to 11 and never exceeds it.
+
+    This is what makes the unanimity conjunct decidable in advance: compare the
+    bar with this ceiling and you know, before any data exists, whether the
+    conjunct can exclude anything at all.
+
+    **THERE IS A SECOND IMPLEMENTATION OF THIS CLOSED FORM IN THE TREE AND I AM
+    NOT PRETENDING OTHERWISE.** ``eval.attainable.unanimity_bound_sd`` landed the
+    same expression, independently and within the hour, deriving it from
+    Cauchy-Schwarz where this docstring derives it from the extremal
+    configuration - two routes to one formula, which is corroboration and is also
+    a C0 problem. They are held together by a DIFFERENTIAL TEST rather than by
+    intention: ``tests/test_separation_unanimity.py`` asserts the two agree at
+    every block count from 2 to 40 and at both bars, INCLUDING the exact boundary
+    ``min_sd == (n-1)/sqrt(n)`` where the two modules describe the tie in opposite
+    words and must still reach the same verdict.
+
+    **The duplicate should collapse toward THIS module and not the other way:**
+    ``common`` is the base layer, the bar it is compared against
+    (:data:`MIN_SEPARATION_SD`) lives here, and ``eval`` may import ``common``
+    while the reverse would invert the layering. That is a PROPOSAL and not a
+    change infra may make alone, because the second copy is in another lead's
+    package. Until it is ruled on, the differential test is what stops them
+    drifting into two different definitions of one fact.
+    """
+    if n_blocks < 2:
+        raise ValueError(f"n_blocks={n_blocks}: a spread needs at least 2 blocks")
+    return (n_blocks - 1) / math.sqrt(n_blocks)
+
+
+def unanimity_binds(n_blocks: int, min_sd: float | None = None) -> bool:
+    """Can the unanimity conjunct exclude anything the separation conjunct admits?
+
+    ``False`` means VACUOUS: every sample that clears ``min_sd`` is unanimous
+    already, so requiring unanimity on top of it removes nothing. That is not a
+    reason to drop the conjunct - it costs nothing and it becomes live the moment
+    the block count rises - but it IS a reason not to describe a passing result as
+    having cleared two independent hurdles when it cleared one.
+    """
+    min_sd = MIN_SEPARATION_SD if min_sd is None else min_sd
+    return max_separation_without_unanimity(n_blocks) >= min_sd
+
+
+def unanimity_first_binds_at(min_sd: float | None = None, *, limit: int = 512) -> int:
+    """The smallest block count at which unanimity stops being vacuous.
+
+    6 at the shipped bar of 2.0; 9 at the 2.536 bar ADR-133 (ii) examined. Derived
+    rather than tabulated, so quoting it for a bar nobody has used yet is safe.
+    """
+    min_sd = MIN_SEPARATION_SD if min_sd is None else min_sd
+    for n in range(2, limit + 1):
+        if max_separation_without_unanimity(n) >= min_sd:
+            return n
+    raise ValueError(f"no block count below {limit} makes unanimity bind at min_sd={min_sd}")
+
+
 def conditions(
     sep: Separation,
     *,
@@ -311,11 +402,33 @@ def conditions(
         "unanimity": sep.unanimous,
         "block_count": sep.n_blocks >= min_blocks,
     }
+    # A conjunct that cannot exclude anything is reported as such rather than left
+    # to read as a second hurdle cleared. This does NOT change `met` or
+    # `all_conditions_met` - it cannot, which is the whole point.
+    binds = sep.n_blocks >= 2 and unanimity_binds(sep.n_blocks, min_sd)
+    ceiling = max_separation_without_unanimity(sep.n_blocks) if sep.n_blocks >= 2 else None
     return {
         **sep.as_dict(),
         "min_separation_sd": min_sd,
         "min_blocks": min_blocks,
         "conditions": met,
+        "unanimity_binds": binds,
+        "max_separation_without_unanimity": ceiling,
+        "unanimity_note": (
+            f"the unanimity conjunct BINDS at {sep.n_blocks} blocks: a sample can clear "
+            f"{min_sd} SD and still be non-unanimous."
+            if binds
+            else (
+                f"the unanimity conjunct is VACUOUS at {sep.n_blocks} block(s): "
+                f"|mean|/sd cannot exceed {ceiling:.6f} without unanimity, which is below the "
+                f"{min_sd} bar, so every sample clearing separation is unanimous already and "
+                f"this conjunct excludes nothing. It first binds at "
+                f"{unanimity_first_binds_at(min_sd)} blocks. No verdict is affected; the "
+                "criterion is one hurdle here, not two."
+                if ceiling is not None
+                else "unanimity is undefined below 2 blocks"
+            )
+        ),
         "all_conditions_met": all(met.values()),
         "fitting_sample": FITTING_SAMPLE,
         "not_a_verdict": (

@@ -1681,9 +1681,21 @@ def test_the_maintained_surface_is_pinned_and_is_the_only_one() -> None:
 #
 # Scope is decided STRUCTURALLY, by `tools/prose_scan.py`, never by a list of
 # file names. Docstrings and comments are prose and are bounded; live string
-# literals are 467 occurrences of JSON field names, contract violation messages
-# and expected values a test compares against, where removing a character is a
-# behaviour change, and they are deliberately NOT bounded.
+# literals are counted in MEASURED_LIVE_LITERALS below and are deliberately NOT
+# bounded.
+#
+# THIS BLOCK CARRIED THE SAME TWO ERRORS AS THE DOCSTRING BELOW IT, and both are
+# corrected here rather than in one place. It said the literals were "467
+# occurrences" - stale by 211 - and it said they were "JSON field names, contract
+# violation messages and expected values a test compares against, where removing
+# a character is a behaviour change". I29 measured that second claim and it is
+# false: across every tracked test and every tracked JSON artifact, matched on the
+# literal's VALUE, NOTHING compares any of them, and exactly the handful in
+# `prose_scan.LOAD_BEARING_TYPOGRAPHY` sit where the program consumes the bytes.
+# The count now lives in exactly one constant and this prose names it instead of
+# repeating it - THREE copies of one number is how it went stale in the first
+# place, and the third copy was found only because someone went looking for the
+# second.
 # --------------------------------------------------------------------------
 
 #: MEASURED at `cc82876`, by `.venv/bin/python tools/prose_scan.py --repo .`:
@@ -1854,21 +1866,49 @@ def test_the_prose_corpus_is_a_REFUSAL_and_not_a_list_of_extensions() -> None:
     assert not [rel for rel in corpus if rel.endswith(".json")], corpus[:5]
 
 
+#: How far :data:`MEASURED_LIVE_LITERALS` may drift from the live count before it
+#: stops describing the tree. **NOT a pin and deliberately loose**: the reference
+#: exists to make the floor below readable ("we sit at N against a floor of 150"),
+#: and a lead adding a contract violation message must not turn it red - that is
+#: the failure mode the constant's own note warns about. It is bounded at all
+#: because the alternative was measured: the value read 467 against a tree of 256,
+#: **stale by 211, i.e. 45% adrift**, and was being quoted in prose as current.
+#: A band of 25% leaves room for roughly 64 characters of ordinary movement and
+#: would still have caught that by a factor of nearly two.
+LIVE_LITERAL_STALENESS_BAND = 0.25
+
+
 def test_the_pin_is_not_bounding_the_live_literals() -> None:
     """The control that proves the pin CAN pass, and is not passing by scoping to nothing.
 
-    467 typographic characters sit in live literals today. If the classifier ever
-    folded them into prose the pin could not be met at all, and if it ever folded
-    prose into literals the pin would pass vacuously. Measuring both halves on the
-    SAME corpus is what makes either number readable.
+    :data:`MEASURED_LIVE_LITERALS` typographic characters sit in live literals.
+    **That count is NAMED here and not restated**, because the sentence that used
+    to stand in its place said "467 ... today" for long enough that the constant
+    beside it was refreshed to 256 while the prose was not - inside the test whose
+    whole purpose is to keep the number honest. A number written twice is a number
+    that will disagree with itself; this docstring now has no copy to drift.
+
+    If the classifier ever folded live literals into prose the pin could not be met
+    at all, and if it ever folded prose into literals the pin would pass vacuously.
+    Measuring both halves on the SAME corpus is what makes either number readable.
     """
     scanned = _prose_scan()
     literals = [o for o in scanned if o.region == prose_scan.REGION_LITERAL]
     assert len(literals) > 10 * PINNED_PROSE_OCCURRENCES, (
-        f"live literals are down to {len(literals)} against {MEASURED_LIVE_LITERALS} measured "
-        f"at cc82876, which puts them within an order of the {PINNED_PROSE_OCCURRENCES} the pin "
-        "bounds. Either a sweep has started rewriting literals - which changes behaviour and "
-        "artifact bytes - or the classifier has begun counting them as prose."
+        f"live literals are down to {len(literals)} against the {MEASURED_LIVE_LITERALS} "
+        f"recorded in MEASURED_LIVE_LITERALS, which puts them within an order of the "
+        f"{PINNED_PROSE_OCCURRENCES} the pin bounds. Either a sweep has started rewriting "
+        "literals - which changes behaviour and artifact bytes - or the classifier has begun "
+        "counting them as prose."
+    )
+    drift = abs(len(literals) - MEASURED_LIVE_LITERALS)
+    assert drift <= LIVE_LITERAL_STALENESS_BAND * MEASURED_LIVE_LITERALS, (
+        f"MEASURED_LIVE_LITERALS reads {MEASURED_LIVE_LITERALS} and the tree holds "
+        f"{len(literals)} - {drift} adrift, past the "
+        f"{LIVE_LITERAL_STALENESS_BAND:.0%} band. It is a REFERENCE, not a pin, so the repair "
+        f"is to set it to {len(literals)} in this commit, not to sweep anything. It is bounded "
+        "at all because it once sat 211 adrift while being quoted in prose as the current "
+        "number, which is how a reference value becomes a false fact by repetition."
     )
     assert not [o for o in scanned if o.region == prose_scan.REGION_CODE], (
         "a typographic character was found outside every comment, docstring and literal. "
