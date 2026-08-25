@@ -53,6 +53,7 @@ from wildfire_nowcast.common.paths import fire_tensor_path, fires_dir, norm_stat
 from wildfire_nowcast.common.pooling import equal_block_mean
 from wildfire_nowcast.common.runs import create_run_dir
 from wildfire_nowcast.common.zarr_io import open_tensor, read_manifest, read_norm_stats
+from wildfire_nowcast.eval import attainable as att
 from wildfire_nowcast.eval.metrics import aggregate, evaluate
 from wildfire_nowcast.eval.reporting import (
     assert_model_split_matches,
@@ -702,6 +703,7 @@ def run_baselines(
                 models=list(models),
                 ablations=dict(ablation_of or {}),
                 horizon_h=horizon_h,
+                n_members=n_members,
             )
             if extra_models
             else None
@@ -880,6 +882,25 @@ def g2_per_horizon(
                 "rule_opponent_value": rule_value,
                 "envelope_value": envelope_value,
                 "envelope_from": envelope_name,
+                # [M35 / ADR-170 (7)] "Beat the ellipse" is a bar whose threshold
+                # happens to be the opponent's score, so it is placeable like any
+                # other. It matters at the ends: an IoU opponent at 1.0 makes the
+                # criterion UNSATISFIABLE and a Brier opponent at 0.0 does the
+                # same, and neither is visible from the win/loss column alone.
+                "attainable": (
+                    att.place_bar(
+                        att.beats_reference_criterion(
+                            key,
+                            float(rule_value),
+                            higher_is_better=not lower_better,
+                            source=f"G2 / ADR-015 (3): beat {rule_name} at {h} h",
+                        ),
+                        att.brier_range(key) if "brier" in key else att.iou_range(key),
+                        value=None,
+                    ).as_dict()
+                    if rule_value is not None
+                    else None
+                ),
                 "persistence": score("persistence", key, h),
                 "candidates": per_model,
             }
@@ -1070,6 +1091,111 @@ def _first_moment_row(
     }
 
 
+# --------------------------------------------------------------------------
+# [M35 / ADR-170 (7)] EVERY BAR PRINTS THE RANGE ITS STATISTIC CAN ATTAIN.
+#
+# G3's calibration conjunct sat 3.95x above the highest value its statistic can
+# reach on this data, and establishing that took ADR-151 (3), then M30, then a
+# dedicated M34 grid. It should have been one line of output the first time
+# anybody ran the gate. `eval/attainable.py` is that line; these two functions
+# feed it the per-block quantities the artifact already carries.
+#
+# NOTHING HERE ADJUDICATES. A placement says where a BAR sits relative to what
+# its STATISTIC can reach. It is not a pass, not a fail, and it proposes no
+# replacement bar - a threshold re-derived after seeing every arm clear it is
+# fitted to the result (ADR-170 (8)).
+# --------------------------------------------------------------------------
+
+#: The per-block inputs every closed-form range below is built from. All three
+#: are already emitted per fire on the growth band, so this costs no measurement:
+#: `mean(p) = band_growth_calibration * band_base_rate` is an identity of the two
+#: sums (reproduced against the shipped per-block values to 1e-12 at M35), which
+#: is what makes ADR-170 (2)'s ceiling computable without a reliability table.
+_ATTAINABLE_INPUT_KEYS = ("band_base_rate", "band_n_cells", "band_growth_calibration")
+
+
+def _per_block_inputs(
+    per_fire: Mapping[str, Any], model: str, stratum: str
+) -> dict[str, dict[str, float]]:
+    """Per-block base rate, scored cell count and growth calibration."""
+    out: dict[str, dict[str, float]] = {}
+    for key in _ATTAINABLE_INPUT_KEYS:
+        blockwise = equal_block_mean(per_fire, model, key, stratum, allow_missing_blocks=True)
+        for block, value in (blockwise["per_block"] or {}).items():
+            if value is None:
+                continue
+            out.setdefault(str(block), {})[key] = float(value)
+    return {b: v for b, v in out.items() if len(v) == len(_ATTAINABLE_INPUT_KEYS)}
+
+
+def _attainable_range_for(
+    key: str, blocks: Mapping[str, Mapping[str, float]], *, n_members: int | None
+) -> att.AttainableRange | None:
+    """The equal-block reach of one G3 criterion, or None when it is not known.
+
+    ``None`` is returned rather than a fabricated range when the criterion is one
+    this module has no derivation for, or when an input is missing. The caller
+    prints "no bound is known" in that case; it does NOT substitute an observed
+    span, which would reproduce the exact defect this instrument detects.
+    """
+    if not blocks:
+        return None
+    try:
+        if key == "band_area_dispersion_ratio":
+            if n_members is None:
+                return None
+            return att.equal_block_mean_range(
+                [
+                    att.area_dispersion_ratio_range(
+                        n_members=n_members, n_scored_cells=v["band_n_cells"]
+                    )
+                    for v in blocks.values()
+                ]
+            )
+        if key == f"band_{CALIBRATION_GATE_KEY}":
+            return att.equal_block_mean_range(
+                [
+                    att.calibration_error_range(
+                        mean_forecast=v["band_growth_calibration"] * v["band_base_rate"],
+                        base_rate=v["band_base_rate"],
+                    )
+                    for v in blocks.values()
+                ]
+            )
+        if key == FIRST_MOMENT_HEADLINE_KEY:
+            return att.equal_block_mean_range(
+                [
+                    att.growth_calibration_range(base_rate=v["band_base_rate"])
+                    for v in blocks.values()
+                ]
+            )
+    except ValueError:
+        # A degenerate block (base rate 0, no scored cells) makes the range
+        # UNKNOWN, never wider. Reported as unknown by the caller.
+        return None
+    return None
+
+
+def _no_range_known(key: str, why: str) -> dict[str, Any]:
+    """The honest output when no bound is derived. Never an observed span."""
+    return att.place_bar(
+        att.BarCriterion(key, None, 1.0, source="placeholder for an unplaced bar"),
+        att.AttainableRange(
+            statistic=key,
+            lower=att.Bound.unknown(why),
+            upper=att.Bound.unknown(why),
+            held_fixed="not established",
+            varying="not established",
+        ),
+    ).as_dict() | {
+        "note": (
+            "NO BOUND IS KNOWN for this statistic on this data, so whether this criterion "
+            "could have failed CANNOT BE CHECKED. An observed min and max over the arms we "
+            "happen to hold is not an achievable range and is deliberately not substituted."
+        )
+    }
+
+
 def g3_summary(
     pooled: Mapping[str, Any],
     per_fire: Mapping[str, Any],
@@ -1078,6 +1204,7 @@ def g3_summary(
     ablations: Mapping[str, str],
     stratum: str = "growth_windows",
     horizon_h: int = DEFAULT_HORIZON,
+    n_members: int | None = None,
 ) -> dict[str, Any]:
     """[M5] Score every model against ADR-020's PRE-FIXED G3 bar. NO VERDICT.
 
@@ -1130,6 +1257,7 @@ def g3_summary(
     }
     for model in models:
         row = (pooled.get(model) or {}).get(stratum) or {}
+        block_inputs = _per_block_inputs(per_fire, model, stratum)
         criteria: dict[str, Any] = {}
         for key, label, low, high, mask, source in G3_CRITERIA:
             # [M9] `allow_missing_blocks=True` is the DECLARED permissive path
@@ -1151,6 +1279,7 @@ def g3_summary(
             # exactly as a model gets the first moment right. A `None` must never
             # be read as a pass.
             outcome = g3.dispersion_condition(eb) if key == "band_area_dispersion_ratio" else None
+            criterion_range = _attainable_range_for(key, block_inputs, n_members=n_members)
             criteria[label] = {
                 "key": key,
                 "mask": mask,
@@ -1185,6 +1314,24 @@ def g3_summary(
                     "value is undefined on a block is DROPPED from the equal-block mean, so "
                     "this flag is the only thing that says the mean was taken over fewer "
                     "blocks than the gate requires."
+                ),
+                # [M35 / ADR-170 (7)] THE BAR BESIDE THE RANGE ITS STATISTIC CAN
+                # REACH. A `VACUOUS` verdict here means this criterion could not
+                # have failed whatever the model did - the defect that took three
+                # rulings and a dedicated experiment to notice on the calibration
+                # conjunct. It decides nothing.
+                "attainable": (
+                    att.place_bar(
+                        att.BarCriterion(key, low, high, source=source),
+                        criterion_range,
+                        value=eb,
+                    ).as_dict()
+                    if criterion_range is not None
+                    else _no_range_known(
+                        key,
+                        "no closed-form bound is implemented for this statistic in "
+                        "eval/attainable.py, or a per-block input was missing",
+                    )
                 ),
             }
         collapse = None
@@ -1246,6 +1393,28 @@ def g3_summary(
             }
         # [M9 / ADR-039 (5)] THE FIRST-MOMENT CONDITION, LIVE.
         first_moment = _first_moment_row(per_fire, model, stratum, reference=reference_model)
+        # [M35] Reference-relative is still bar-shaped: |log(x)| <= |log(ref)| is
+        # the interval [1/r, r]. Placed against growth_calibration's own reach so
+        # a reference that happens to sit outside it cannot pass unnoticed.
+        fm_range = _attainable_range_for(FIRST_MOMENT_HEADLINE_KEY, block_inputs, n_members=None)
+        fm_reference = first_moment.get("reference_equal_block")
+        first_moment["attainable"] = (
+            att.place_bar(
+                att.reference_ratio_criterion(
+                    FIRST_MOMENT_HEADLINE_KEY,
+                    float(fm_reference),
+                    source=f"ADR-039 (5), against {reference_model}",
+                ),
+                fm_range,
+                value=first_moment.get("candidate_equal_block"),
+            ).as_dict()
+            if fm_range is not None and isinstance(fm_reference, int | float) and fm_reference > 0
+            else _no_range_known(
+                FIRST_MOMENT_HEADLINE_KEY,
+                "the reference's equal-block growth_calibration is missing or non-positive, so "
+                "the criterion has no placeable interval",
+            )
+        )
         # The OTHER ellipse calibration, reported and never adjudicated. The
         # reference choice moves this condition, so hiding the alternative would
         # be picking the opponent we win against - the exact thing C6.2 [v2.8]

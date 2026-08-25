@@ -31,6 +31,7 @@ import argparse
 import atexit as _atexit
 import functools as _functools
 import json
+import math
 import shutil as _shutil
 import sys
 import tempfile as _tempfile
@@ -40,8 +41,11 @@ from typing import Any, Final
 
 import numpy as np
 
+from wildfire_nowcast.common import dispersion as g3mod
+from wildfire_nowcast.common import separation as sep_mod
 from wildfire_nowcast.common import zarr_io as zio
 from wildfire_nowcast.common.logs import add_logging_arguments, configure_from_args
+from wildfire_nowcast.eval import attainable as att
 from wildfire_nowcast.eval.metrics import (
     aggregate,
     arrival_times,
@@ -4378,6 +4382,358 @@ def check_both_exact_tests_are_floored_at_one_over_two_to_the_n() -> Check:
     )
 
 
+# --------------------------------------------------------------------------
+# M35 - the criterion checker. A check ABOUT checks needs the three-observation
+# treatment more than most: a criterion-checker that has only ever been run
+# against criteria that pass has not been observed working.
+# --------------------------------------------------------------------------
+
+
+def check_a_bar_inside_its_statistics_range_is_not_flagged() -> Check:
+    """CONTROL + RESTORATION for the vacuity instrument, on real criteria.
+
+    Two bars this project actually adjudicates, both placed against a CLOSED-FORM
+    range: G3's geometric dispersion bar against ``[0, U]``, and the first-moment
+    condition against ``growth_calibration``'s ``[0, 1/base_rate]``. Neither may
+    be flagged, and both edges of each must be BINDING - a criterion with one
+    live edge and one dead one is a half-vacuous criterion and this control would
+    miss it if it only looked at the verdict.
+
+    The RESTORATION half lives here on purpose: the plant check moves each bar
+    out of range and this one is the state it must come back to, value for value.
+    """
+    disp_range = att.area_dispersion_ratio_range(n_members=24, n_scored_cells=1.0e6)
+    disp_bar = att.BarCriterion(
+        key="band_area_dispersion_ratio",
+        low=g3mod.BAR_INTERVAL[0],
+        high=g3mod.BAR_INTERVAL[1],
+        source="ADR-039 (4) geometric bar",
+    )
+    # The upper bound is SOUND BUT LOOSE, so it may not by itself prove the edge
+    # binds; a two-point ensemble supplies the certificate. 13 members at T+1 and
+    # 11 at T-1 gives mean error 1/12 and a variance of order 1.
+    m, k = 24, 13
+    mean_err = (2.0 * k - m) / m
+    var = (k * (1 - mean_err) ** 2 + (m - k) * (-1 - mean_err) ** 2) / (m - 1)
+    adr_two_point = math.sqrt(((m + 1) / m) * var / mean_err**2)
+    disp = att.place_bar(
+        disp_bar,
+        disp_range,
+        certificates=(
+            att.Certificate(
+                0.0, att.OBSERVED, "persistence: every member has identical area (ADR-172 (3))"
+            ),
+            att.Certificate(
+                adr_two_point,
+                att.CONSTRUCTION,
+                f"{k} members at truth+1 cell and {m - k} at truth-1 on one scored unit",
+            ),
+        ),
+        value=0.2465289977925274,
+    )
+    gc_range = att.growth_calibration_range(base_rate=0.004714297556605069)
+    gc_bar = att.reference_ratio_criterion(
+        "band_growth_calibration", 0.11434688061326256, source="ADR-039 (5), ellipse_cal3h"
+    )
+    gc = att.place_bar(gc_bar, gc_range, value=0.3575704539321424)
+    ok = (
+        disp.verdict == att.DISCRIMINATING
+        and disp.dead_edges == ()
+        and disp.low_edge.status == att.BINDING
+        and disp.high_edge.status == att.BINDING
+        and adr_two_point > g3mod.BAR_INTERVAL[1]
+        and gc.verdict == att.DISCRIMINATING
+        and gc.dead_edges == ()
+        and gc.low_edge.status == att.BINDING
+        and gc.high_edge.status == att.BINDING
+        and _close(gc_range.upper.value or 0.0, 212.1207, 1e-3)
+    )
+    return Check(
+        "a_bar_inside_its_statistics_range_is_not_flagged",
+        ok,
+        "the two live G3 bars sit strictly inside their statistics' reach; neither is flagged",
+        {
+            "dispersion_verdict": disp.verdict,
+            "dispersion_dead_edges": list(disp.dead_edges),
+            "two_point_certificate_adr": adr_two_point,
+            "growth_calibration_verdict": gc.verdict,
+            "growth_calibration_ceiling": gc_range.upper.value,
+            "growth_calibration_bar": [gc_bar.low, gc_bar.high],
+        },
+    )
+
+
+def check_a_bar_outside_its_statistics_range_is_flagged_and_names_itself() -> Check:
+    """PLANT: bars that could not have failed must fire, and say which one they are.
+
+    Three plants and one of them is not a plant at all - it is G3's own
+    calibration conjunct at the numbers ADR-170 (2) measured, which is how this
+    instrument is anchored to the finding it generalises. ``mean(p) + base_rate``
+    is recomputed here from the identity ``mean(p) = growth_calibration *
+    base_rate``, so the ceiling is DERIVED in this check rather than copied.
+
+    "Names itself" is checked literally: the criterion key and the word VACUOUS
+    must both appear in the rendered lines, because this output travels one
+    pasted line at a time and a verdict nobody can attribute is not a verdict.
+    """
+    # A/3h/ellipse/2024_borel - the worst ceiling anywhere in M34's grid, and
+    # therefore the single cell where G3's calibration bar came closest to being
+    # reachable. mean(p) is REBUILT from growth_calibration x base_rate rather
+    # than copied, so the identity is exercised and not merely asserted.
+    base_rate, gc = 0.009551320201477696, 1.6498226950354609
+    ceiling = base_rate * (1.0 + gc)
+    calib = att.place_bar(
+        att.BarCriterion("band_calibration_error", 0.0, 0.10, source="ADR-020 (4b), +/-10 pts"),
+        att.calibration_error_range(mean_forecast=gc * base_rate, base_rate=base_rate),
+        value=0.014804,
+    )
+    # A planted dispersion bar wide enough to contain everything the statistic
+    # can reach on a corpus this size. Same criterion, same statistic, one moved
+    # number - the control above is the restoration.
+    wide = att.area_dispersion_ratio_range(n_members=24, n_scored_cells=1.0e6)
+    planted = att.place_bar(
+        att.BarCriterion("band_area_dispersion_ratio", 0.0, 1.0e9, source="PLANTED, not a bar"),
+        wide,
+        value=0.2465289977925274,
+    )
+    # And the mirror: a bar no attainable value can reach, which must NOT be
+    # reported as vacuous. UNSATISFIABLE and VACUOUS are opposite failures and an
+    # instrument that collapses them has one verdict, not two.
+    impossible = att.place_bar(
+        att.BarCriterion("band_growth_calibration", 500.0, 1000.0, source="PLANTED, not a bar"),
+        att.growth_calibration_range(base_rate=0.004714297556605069),
+        value=0.3575704539321424,
+    )
+    rendered = "\n".join(calib.lines())
+    ok = (
+        calib.verdict == att.VACUOUS
+        and set(calib.dead_edges) == {"low", "high"}
+        and _close(calib.range.upper.value or 0.0, ceiling, 1e-15)
+        # ADR-170 (2)'s number, to 1e-15. NOT bit-identity: M34's own correction
+        # records that these two summation orders differ in the last bits.
+        and _close(ceiling, 0.025309305037426275, 1e-15)
+        and _close(calib.high_edge.ratio or 0.0, 3.951115996749988, 1e-9)
+        and "band_calibration_error" in rendered
+        and att.VACUOUS in rendered
+        and planted.verdict == att.VACUOUS
+        and impossible.verdict == att.UNSATISFIABLE
+    )
+    return Check(
+        "a_bar_outside_its_statistics_range_is_flagged_and_names_itself",
+        ok,
+        "G3's calibration bar and a planted one are both VACUOUS and named; an unreachable "
+        "bar is UNSATISFIABLE and not confused with them",
+        {
+            "calibration_verdict": calib.verdict,
+            "calibration_ceiling": calib.range.upper.value,
+            "bar_over_ceiling": calib.high_edge.ratio,
+            "adr_170_ceiling": 0.025309305037426275,
+            "planted_wide_bar_verdict": planted.verdict,
+            "unreachable_bar_verdict": impossible.verdict,
+            "first_line": calib.lines()[0],
+        },
+    )
+
+
+def check_an_observed_range_can_never_become_a_bound() -> Check:
+    """The one property that keeps this instrument from acquiring its own defect.
+
+    An observed min and max over the arms we happen to hold is NOT an achievable
+    range. So a :class:`Certificate` may only ever WIDEN what is known to be
+    reachable: it can turn UNDETERMINED into BINDING and can never produce
+    CANNOT_FIRE. Observed here rather than asserted, three ways:
+
+    1. every arm on the held-out corpus reads ``area_dispersion_ratio`` in
+       ``[0.0, 0.5343]`` (ADR-172 (2)), which is entirely below the bar - fed in
+       as certificates, the bar must still NOT be called vacuous;
+    2. with an UNKNOWN bound and no certificate the verdict is UNDETERMINED, and
+       adding one certificate on the failing side upgrades it to DISCRIMINATING;
+    3. the planted violation - a hand-built placement claiming CANNOT_FIRE out of
+       certificates alone - must raise rather than be reported.
+    """
+    observed = (0.0, 0.10849786251852882, 0.1549553429, 0.2373865057, 0.2465289978, 0.5343383410)
+    certs = tuple(
+        att.Certificate(v, att.OBSERVED, f"held-out arm reads {v:.6g} (ADR-172 (2))")
+        for v in observed
+    )
+    bar = att.BarCriterion(
+        "band_area_dispersion_ratio",
+        g3mod.BAR_INTERVAL[0],
+        g3mod.BAR_INTERVAL[1],
+        source="ADR-039 (4)",
+    )
+    with_obs = att.place_bar(
+        bar, att.area_dispersion_ratio_range(n_members=24, n_scored_cells=1.0e6), certificates=certs
+    )
+    # (2) an UNKNOWN upper bound: nothing is established, so nothing is claimed.
+    unknown_range = att.AttainableRange(
+        statistic="made_up",
+        lower=att.Bound.closed_form(0.0, "non-negative by construction", tight=False),
+        upper=att.Bound.unknown("no closed form is known for this statistic"),
+        held_fixed="the data",
+        varying="the forecast",
+    )
+    bare = att.place_bar(att.BarCriterion("made_up", None, 5.0, source="PLANTED"), unknown_range)
+    upgraded = att.place_bar(
+        att.BarCriterion("made_up", None, 5.0, source="PLANTED"),
+        unknown_range,
+        certificates=(att.Certificate(9.0, att.OBSERVED, "one arm read 9.0"),),
+    )
+    # (3) the plant: certificates that would have to NARROW the range to matter.
+    raised = ""
+    try:
+        att.place_bar(
+            att.BarCriterion("made_up", None, 5.0, source="PLANTED"),
+            att.AttainableRange(
+                statistic="made_up",
+                lower=att.Bound.closed_form(0.0, "non-negative", tight=True),
+                upper=att.Bound.closed_form(1.0, "PLANTED bound", tight=True),
+                held_fixed="the data",
+                varying="the forecast",
+            ),
+            certificates=(att.Certificate(0.5, att.OBSERVED, "an arm read 0.5"),),
+        )
+    except AssertionError as exc:  # pragma: no cover - only if the guard breaks
+        raised = str(exc)
+    ok = (
+        with_obs.verdict == att.DISCRIMINATING
+        and "low" not in with_obs.dead_edges
+        and "high" not in with_obs.dead_edges
+        and bare.verdict == att.UNDETERMINED
+        and "UNKNOWN" in bare.high_edge.reason
+        and upgraded.verdict == att.DISCRIMINATING
+        and upgraded.high_edge.status == att.BINDING
+        and raised == ""
+    )
+    return Check(
+        "an_observed_range_can_never_become_a_bound",
+        ok,
+        "six observed arms spanning 0.0-0.5343 do not make the [0.8333,1.2] bar vacuous; an "
+        "unknown bound reports UNDETERMINED and one certificate upgrades it",
+        {
+            "observed_span": [min(observed), max(observed)],
+            "verdict_with_observations": with_obs.verdict,
+            "verdict_unknown_bound_no_certificate": bare.verdict,
+            "verdict_after_one_certificate": upgraded.verdict,
+            "guard_message_if_it_fired": raised,
+        },
+    )
+
+
+def check_the_unanimity_conjunct_is_vacuous_exactly_where_samuelson_says() -> Check:
+    """The instrument, applied to a conjunct, re-derives ADR-133 (ii) from scratch.
+
+    ``common.separation.conditions`` requires ``separation_sd >= min_sd`` AND
+    unanimity. ``max_i |x_i - mean| <= sd*(n-1)/sqrt(n)`` means the second
+    conjunct cannot exclude anything the first admits whenever
+    ``min_sd >= (n-1)/sqrt(n)``. Two numbers are checked against the ruling that
+    established this by hand: 1.7889 at n=5, and the bar 2.536 first binding at
+    n=9.
+
+    TWO BARS, TWO CROSSINGS, THREE BLOCKS APART - and they must be pinned
+    SEPARATELY. ``(n-1)/sqrt(n)`` passes the SHIPPED ``MIN_SEPARATION_SD = 2.0``
+    at **n = 6** (2.04124) and ADR-130 (4)'s 2.536 at **n = 9** (2.66667). So at
+    the bar in the code we are ONE HELD-OUT BLOCK short of the conjunct doing any
+    work, while at 2.536 we are four short. Quoting either number for the other
+    bar overstates or understates what it would take, and that is exactly the
+    mistake M35's first status entry made in prose while this check's own key
+    was correctly scoped.
+
+    The closed form is also checked AGAINST BRUTE FORCE, because a derivation
+    that only agrees with the ruling that inspired it has been confirmed by its
+    own source: standardised margin draws shifted to sit exactly on each bar must
+    produce ZERO counterexamples below that bar's crossing and a non-zero count
+    at it. Run at BOTH bars - a search run only at 2.536 is blind to the fact
+    that the shipped bar crosses three blocks earlier.
+    """
+    n5 = att.unanimity_bound_sd(5)
+
+    # EVERY BAR HAS ITS OWN CROSSING AND THEY ARE NOT INTERCHANGEABLE. Computed
+    # per bar, keyed per bar, asserted per bar. My M35 status entry attached the
+    # 2.536 crossing (n=9) to a sentence about the SHIPPED 2.0 bar, whose
+    # crossing is n=6 - a number that migrated one sentence sideways between two
+    # neighbouring constants. The code did not carry that error because the key
+    # was scoped; this check now pins BOTH so the prose cannot drift again.
+    crossings = {
+        bar: next(n for n in range(2, 60) if att.unanimity_bound_sd(n) > bar)
+        for bar in (float(sep_mod.MIN_SEPARATION_SD), 2.536)
+    }
+    shipped_bar = float(sep_mod.MIN_SEPARATION_SD)
+    live = att.place_bar(
+        att.BarCriterion("unanimity", 5.0, 5.0, source="common.separation.conditions"),
+        att.unanimity_range(n_blocks=5, min_separation_sd=shipped_bar),
+        value=5.0,
+    )
+    # ONE BLOCK PAST THE SHIPPED CROSSING THE CONJUNCT IS LIVE. We hold 5 and the
+    # crossing is 6, so this is the cheapest possible statement of what would
+    # make the second conjunct start doing work.
+    binds_shipped = att.place_bar(
+        att.BarCriterion("unanimity", 6.0, 6.0, source="common.separation.conditions"),
+        att.unanimity_range(n_blocks=6, min_separation_sd=shipped_bar),
+        value=6.0,
+    )
+    binds_2536 = att.place_bar(
+        att.BarCriterion("unanimity", 9.0, 9.0, source="ADR-130 (4)'s 2.536"),
+        att.unanimity_range(n_blocks=9, min_separation_sd=2.536),
+        value=9.0,
+    )
+    # THE SEARCH IS AIMED AT THE BOUNDARY, NOT AT A CONVENIENT NULL. Unshifted
+    # normal draws clear these bars so rarely that "0 counterexamples" would be a
+    # statement about the sampler; each draw is standardised and then shifted to
+    # sit EXACTLY ON the bar, which is the hardest case the conjunct ever sees.
+    # Run for BOTH bars, because a search run only at 2.536 cannot see that the
+    # shipped bar crosses three blocks earlier.
+    rng = np.random.default_rng(0)
+    counterexamples: dict[str, dict[int, int]] = {}
+    for bar in (shipped_bar, 2.536):
+        row: dict[int, int] = {}
+        for n in (4, 5, 6, 8, 9):
+            draws = rng.normal(size=(200_000, n))
+            draws = (draws - draws.mean(axis=1, keepdims=True)) / draws.std(
+                axis=1, ddof=1, keepdims=True
+            )
+            row[n] = int(((draws + bar).min(axis=1) <= 0).sum())
+        counterexamples[f"{bar:g}"] = row
+    shipped_row = counterexamples[f"{shipped_bar:g}"]
+    row_2536 = counterexamples["2.536"]
+    ok = (
+        _close(n5, 1.7889, 1e-4)
+        and _close(att.unanimity_bound_sd(6), 2.041241, 1e-6)
+        # the two crossings, pinned separately and three blocks apart
+        and crossings[shipped_bar] == 6
+        and crossings[2.536] == 9
+        and live.verdict == att.VACUOUS
+        and set(live.dead_edges) == {"low", "high"}
+        and binds_shipped.verdict == att.DISCRIMINATING
+        and binds_2536.verdict == att.DISCRIMINATING
+        # brute force must agree with each closed form AT ITS OWN BAR
+        and shipped_row[4] == 0
+        and shipped_row[5] == 0
+        and shipped_row[6] > 0
+        and row_2536[6] == 0
+        and row_2536[8] == 0
+        and row_2536[9] > 0
+    )
+    return Check(
+        "the_unanimity_conjunct_is_vacuous_exactly_where_samuelson_says",
+        ok,
+        f"the shipped bar {shipped_bar:g} makes unanimity VACUOUS at n=5 and LIVE at n=6; the "
+        "2.536 bar is vacuous through n=8 and live at n=9. Both crossings confirmed by a "
+        "boundary search run separately at each bar",
+        {
+            "samuelson_bound_n5": n5,
+            "samuelson_bound_n6": att.unanimity_bound_sd(6),
+            "min_separation_sd_shipped": shipped_bar,
+            "first_n_where_SHIPPED_bar_binds": crossings[shipped_bar],
+            "first_n_where_2536_binds": crossings[2.536],
+            "verdict_n5_at_shipped_bar": live.verdict,
+            "verdict_n6_at_shipped_bar": binds_shipped.verdict,
+            "verdict_n9_at_2536": binds_2536.verdict,
+            "brute_force_counterexamples_by_bar": counterexamples,
+        },
+    )
+
+
 CHECKS: tuple[Callable[[], Check], ...] = (
     # C6
     check_perfect_forecast,
@@ -4493,6 +4849,13 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_student_t_tail_is_exact_against_closed_forms_and_published_criticals,
     check_the_block_test_keeps_a_null_and_rejects_a_plant_that_names_itself,
     check_both_exact_tests_are_floored_at_one_over_two_to_the_n,
+    # M35 - the criterion checker. Control, plant that names itself, restoration,
+    # the property that keeps an observed span from becoming a bound, and the
+    # conjunct-level case that re-derives ADR-133 (ii) from the inequality.
+    check_a_bar_inside_its_statistics_range_is_not_flagged,
+    check_a_bar_outside_its_statistics_range_is_flagged_and_names_itself,
+    check_an_observed_range_can_never_become_a_bound,
+    check_the_unanimity_conjunct_is_vacuous_exactly_where_samuelson_says,
 )
 
 
