@@ -68,9 +68,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tokenize
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Final
@@ -571,6 +572,20 @@ class Sweep:
     head: str = ""
     carried: int = 0
     seconds: float = 0.0
+    #: Mutants this run never STARTED, because it ran out of its own deadline. They
+    #: are not survivors, not kills and not ``unmeasured`` (which is a mutant that
+    #: ran and could not be judged): they are work that did not happen, and the
+    #: distinction is the whole point. The first scheduled sweep on GitHub burned
+    #: 298 minutes, was cancelled by the JOB timeout, printed nothing, uploaded no
+    #: artifact and concluded `cancelled` rather than `failure` - a weekly gate in
+    #: the one state nobody reads. A run that stops on its OWN clock can say so.
+    not_run: list[tuple[str, float]] = field(default_factory=list)
+    #: The modules this run actually swept, and the whole corpus it was drawn from.
+    #: A verdict about a SET is only as wide as the selection that produced it, and
+    #: the artifact has to carry the selection or a reader cannot tell a clean
+    #: sweep from a narrow one.
+    swept_modules: list[str] = field(default_factory=list)
+    corpus_modules: list[str] = field(default_factory=list)
 
     @property
     def survivors(self) -> list[Result]:
@@ -629,6 +644,10 @@ class Sweep:
             "n_survived": len(self.survivors),
             "n_equivalent": len(self.equivalent),
             "n_unmeasured": len(self.unmeasured),
+            "n_not_run": len(self.not_run),
+            "not_run": [[module, fraction] for module, fraction in self.not_run],
+            "swept_modules": self.swept_modules,
+            "unswept_modules": sorted(set(self.corpus_modules) - set(self.swept_modules)),
             "deselected": self.deselected,
             "carried_working_tree_files": self.carried,
             "seconds": round(self.seconds, 1),
@@ -1227,6 +1246,10 @@ def sweep(
     only: str = "",
     pristine: bool = False,
     max_mutants: int = 0,
+    select: Collection[str] = (),
+    deadline_s: float = 0.0,
+    checkpoint: Callable[[Sweep], None] | None = None,
+    ignore_temp_names: Collection[str] = (),
 ) -> Sweep:
     """Build ``workers`` workspaces and run every mutant exactly once.
 
@@ -1234,13 +1257,24 @@ def sweep(
     It exists so the gate can be MEASURED cheaply before it is run in full: three
     mutants take minutes and reveal a per-run temp leak just as well as 117 do,
     and the leak is what multiplies.
+
+    ``select`` names modules exactly, where ``only`` is a substring filter. The
+    difference matters for :data:`PINNED_SURVIVORS`: a selection DERIVED from the
+    pin can be checked for covering it, and a substring cannot.
+
+    ``deadline_s`` is this run's OWN clock, and it is checked before a mutant is
+    started rather than while one runs - a mutant is either measured whole or not
+    started at all, never half-measured. ``checkpoint`` is called with the sweep
+    after every completed mutant, so a run that is killed still leaves the rows it
+    finished on disk.
     """
-    modules = [m for m in target_modules(repo) if only in m]
+    corpus = target_modules(repo)
+    modules = [m for m in corpus if (m in set(select) if select else only in m)]
     jobs = [(m, f) for m in modules for f in SAMPLE_FRACTIONS]
     if max_mutants > 0:
         jobs = jobs[:max_mutants]
     spaces = [root / f"ws{i}" for i in range(workers)]
-    out = Sweep()
+    out = Sweep(corpus_modules=corpus, swept_modules=modules)
     started = time.monotonic()
 
     cleanup_from = _remove_worktrees  # named so the finally below cannot drift from it
@@ -1250,14 +1284,30 @@ def sweep(
         for space in spaces:
             out.carried = build_workspace(repo, space, pristine=pristine)
             assert_workspace_is_self_contained(space, python)
-        return _sweep_inner(repo, python, spaces, out, jobs, workers, started)
+        return _sweep_inner(
+            repo,
+            python,
+            spaces,
+            out,
+            jobs,
+            workers,
+            started,
+            deadline_s=deadline_s,
+            checkpoint=checkpoint,
+        )
     finally:
         out.seconds = time.monotonic() - started
         cleanup_from(repo, spaces)
         shutil.rmtree(root, ignore_errors=True)
         # Measured AFTER the cleanup, so what is listed is what genuinely survived
         # this sweep rather than what it was still using.
-        out.leaked = sorted(temp_entries() - before)
+        # MINUS THIS RUN'S OWN DECLARED OUTPUT. Point `--json` at a path inside the
+        # temp directory and the sweep reports its own result file as leaked and
+        # exits 3 - measured here, `LEAKED 1 temp entr(y/ies) ['a.json']` on an
+        # otherwise clean run. A gate that goes red for producing the artifact it
+        # was asked to produce is a false positive in the one check whose whole
+        # value is that its alarms are real.
+        out.leaked = leaked_entries(before, temp_entries(), ignore_temp_names)
 
 
 #: Names the detector must NOT call a leak. Exactly one entry, and it is narrow on
@@ -1267,6 +1317,17 @@ def sweep(
 #: exists to catch. Without it the unplanted control fires on every run, and a
 #: detector that fires on everything is as useless as one that fires on nothing.
 IGNORED_TEMP_PREFIXES: Final = ("pytest-of-",)
+
+
+def leaked_entries(
+    before: Collection[str], after: Collection[str], declared_outputs: Collection[str]
+) -> list[str]:
+    """What this run left behind, minus what it was ASKED to leave behind. Pure.
+
+    Extracted so the subtraction is checkable in a millisecond rather than through
+    a 110-minute sweep, for the same reason :func:`survivor_verdict` is.
+    """
+    return sorted(set(after) - set(before) - set(declared_outputs))
 
 
 def temp_entries() -> set[str]:
@@ -1312,6 +1373,9 @@ def _sweep_inner(
     jobs: list[tuple[str, float]],
     workers: int,
     started: float,
+    *,
+    deadline_s: float = 0.0,
+    checkpoint: Callable[[Sweep], None] | None = None,
 ) -> Sweep:
     """The measurement itself. Split out so the caller's finally covers SETUP too.
 
@@ -1327,6 +1391,13 @@ def _sweep_inner(
     ).stdout.strip()
     out.deselected = baseline(spaces[0], python)
     deselect = [arg for node in out.deselected for arg in ("--deselect", node)]
+    # THE RECORD EXISTS BEFORE THE FIRST MUTANT DOES. By here the sha, the swept
+    # selection and the deselect list are all known, and those alone are worth
+    # more than the nothing a killed run used to leave. It also removes the last
+    # legitimate way for the artifact step to find no file on a run that got as
+    # far as measuring anything - which is what lets that step be `error`.
+    if checkpoint is not None:
+        checkpoint(out)
 
     def confirm(space: Path) -> None:
         """Every workspace is proven green before it judges anything, not just ws0."""
@@ -1334,17 +1405,40 @@ def _sweep_inner(
         if code != 0:
             raise RuntimeError(f"{space} is not green before any mutant:\n{output[-2000:]}")
 
-    def work(index: int) -> list[Result]:
-        return [
-            run_one(spaces[index], python, module, fraction, deselect)
-            for module, fraction in jobs[index::workers]
-        ]
+    lock = threading.Lock()
+    total = len(jobs)
+
+    def work(index: int) -> None:
+        """One worker's slice, reported as it happens rather than at the end.
+
+        It used to return its whole list, which the caller collected after
+        ``pool.map`` had drained EVERY worker - so a sweep killed in its 298th
+        minute had produced no rows, no progress and no file, and the only thing
+        anyone could say about it afterwards was how long it had run.
+        """
+        for module, fraction in jobs[index::workers]:
+            # The deadline is read BEFORE a mutant starts. A mutant is measured
+            # whole or not started; there is no half-measured verdict, because a
+            # half-measured verdict is the false survivor this file exists to
+            # prevent.
+            if deadline_s and time.monotonic() - started > deadline_s:
+                with lock:
+                    out.not_run.append((module, fraction))
+                continue
+            result = run_one(spaces[index], python, module, fraction, deselect)
+            with lock:
+                out.results.append(result)
+                done = len(out.results) + len(out.not_run)
+                print(f"  [{done}/{total}] {result.verdict:14s} {result.descriptor}", flush=True)
+                if checkpoint is not None:
+                    out.seconds = time.monotonic() - started
+                    checkpoint(out)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         list(pool.map(confirm, spaces[1:]))
-        for batch in pool.map(work, range(workers)):
-            out.results.extend(batch)
+        list(pool.map(work, range(workers)))
     out.results.sort(key=lambda r: (r.module, r.fraction))
+    out.not_run.sort()
     out.seconds = time.monotonic() - started
     return out
 
@@ -1405,6 +1499,100 @@ def exit_code(verdict_code: int, leaked: int) -> int:
     decision nobody has checked the direction of.
     """
     return 3 if leaked else verdict_code
+
+
+def write_result_json(target: Path, current: Sweep) -> None:
+    """The result file, rewritten after every mutant, and ATOMICALLY.
+
+    REWRITTEN, because a run that is killed must still leave what it measured. The
+    first scheduled sweep ran 298 minutes on the runner, was cancelled by the job
+    timeout, and uploaded nothing at all - ``No files were found with the provided
+    path`` - so the only durable fact about a five-hour measurement is its wall
+    clock. A file per mutant costs a few milliseconds against a suite run.
+
+    ATOMICALLY, because the failure this defends against is a process dying at an
+    arbitrary instant, and that instant can land inside ``write_text``. A truncated
+    JSON is worse than an absent one: it is a record that parses like evidence
+    until someone tries to read the last row. The write goes to a sibling and
+    ``replace`` renames it over the target, which is atomic within a directory - so
+    the target is always either the previous complete result or the new one.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partial = target.with_name(target.name + ".partial")
+    partial.write_text(json.dumps(current.to_dict(), indent=2), encoding="utf-8")
+    partial.replace(target)
+
+
+#: Exit status for a run that did not finish its own job list. It is NOT 1 ("the
+#: set moved") and NOT 2 ("a mutant ran and could not be judged"): those two say
+#: something happened, and this one says nothing did. The distinction has a cost
+#: attached - the first scheduled sweep produced neither a verdict nor a file and
+#: read `cancelled` in the UI, which is the one colour nobody investigates.
+NO_MEASUREMENT_EXIT: Final = 4
+
+
+def adjudication_scope(
+    swept_modules: Collection[str],
+    corpus_modules: Collection[str],
+    *,
+    max_mutants: int,
+    n_not_run: int,
+) -> tuple[str, str]:
+    """``(state, message)``: what this run is ENTITLED to say about the pin. Pure.
+
+    Four states, and the reason there are four rather than two is that "partial"
+    was hiding three different things:
+
+    * ``NO_MEASUREMENT`` - mutants were never started. Not a pass, not a subset,
+      not a survivor: work that did not happen. Exits :data:`NO_MEASUREMENT_EXIT`.
+    * ``SUBSET`` - the selection does not cover every module
+      :data:`PINNED_SURVIVORS` names, so a pinned survivor it never swept would
+      read DISAPPEARED and the run would ask for the pin to be emptied. Refuses.
+    * ``SCOPED`` - every pinned module WAS swept, but the corpus was not. The
+      DISAPPEARED direction is fully adjudicated; the APPEARED direction is
+      measured only inside the selection, and the message says which modules were
+      not looked at. This is what the weekly job runs, because a whole-corpus
+      sweep does not fit in a runner's clock.
+    * ``WHOLE`` - the corpus was swept. Both directions mean what they say.
+
+    ``SUBSET`` is decided by COVERAGE and not by which flag was passed. A
+    substring ``--only`` that happens to catch every pinned module still cannot be
+    trusted to, so the check is against the module list the sweep actually ran.
+    ``max_mutants`` truncates from the front and is blind to which modules it
+    drops, so it forces ``SUBSET`` whatever the selection was.
+    """
+    swept, corpus = set(swept_modules), set(corpus_modules)
+    if n_not_run:
+        return "NO_MEASUREMENT", (
+            f"NO MEASUREMENT: {n_not_run} mutant(s) were never started, so this run did not "
+            "measure the thing it exists to measure. PINNED_SURVIVORS is NOT adjudicated. "
+            "This is a different failure from 'the survivor set moved' and it is not a "
+            "subset either: it is work that did not happen. Give it more time, or narrow "
+            "the selection so the work fits the clock."
+        )
+    missing = sorted(set(pinned_modules()) - swept)
+    if max_mutants or missing:
+        reason = (
+            f"--max-mutants {max_mutants}"
+            if max_mutants
+            else f"{len(missing)} pinned module(s) not swept, first: {missing[:3]}"
+        )
+        return "SUBSET", (
+            f"PARTIAL SWEEP ({reason}): PINNED_SURVIVORS is NOT adjudicated. Every pinned "
+            "survivor outside this selection would read as DISAPPEARED, so a truncated run "
+            "could ask for the pin to be emptied. Re-run over at least the pinned modules "
+            "to move the pin."
+        )
+    unswept = sorted(corpus - swept)
+    if unswept:
+        return "SCOPED", (
+            f"SCOPED SWEEP: {len(swept)} of {len(corpus)} modules swept - every module "
+            "PINNED_SURVIVORS names, and no other. DISAPPEARED is adjudicated in full. "
+            f"APPEARED is measured ONLY inside the selection: {len(unswept)} module(s) were "
+            "not swept at all, so a survivor that appeared in one of them is NOT covered by "
+            f"this verdict. Not swept, first few: {unswept[:5]}"
+        )
+    return "WHOLE", f"WHOLE SWEEP: all {len(corpus)} modules swept; both directions apply."
 
 
 def survivor_verdict(
@@ -1535,6 +1723,24 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="measure and report without adjudicating PINNED_SURVIVORS (how a new pin is taken)",
     )
+    parser.add_argument(
+        "--pinned-modules",
+        action="store_true",
+        help=(
+            "sweep exactly the modules PINNED_SURVIVORS names, derived from the pin rather "
+            "than listed. Adjudicates DISAPPEARED in full and APPEARED only inside the "
+            "selection - which is what fits in a runner's clock."
+        ),
+    )
+    parser.add_argument(
+        "--deadline-minutes",
+        type=float,
+        default=0.0,
+        help=(
+            "stop starting new mutants after N minutes and REPORT that, instead of being "
+            "killed by an outer timeout with nothing to show. Set it below the job timeout."
+        ),
+    )
     args = parser.parse_args(argv)
 
     repo = Path(args.repo).resolve()
@@ -1560,6 +1766,10 @@ def main(argv: list[str] | None = None) -> int:
         else Path(tempfile.mkdtemp(prefix="wildfire-nowcast-mutation-"))
     )
     root.mkdir(parents=True, exist_ok=True)
+
+    def write_json(current: Sweep) -> None:
+        write_result_json(Path(args.json), current)
+
     result = sweep(
         repo,
         Path(sys.executable),
@@ -1568,6 +1778,10 @@ def main(argv: list[str] | None = None) -> int:
         only=args.only,
         pristine=args.pristine,
         max_mutants=args.max_mutants,
+        select=pinned_modules() if args.pinned_modules else (),
+        deadline_s=args.deadline_minutes * 60.0,
+        checkpoint=write_json if args.json else None,
+        ignore_temp_names=[Path(args.json).name] if args.json else [],
     )
 
     n_survived = len(result.survivors)
@@ -1584,6 +1798,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  EQUIVALENT  {row.descriptor}")
     for row in result.unmeasured:
         print(f"  {row.verdict}  {row.descriptor}  {row.detail}")
+    for module, fraction in result.not_run:
+        print(f"  NOT RUN     {module} @ {fraction} - the deadline passed before it started")
     print(f"{result.seconds / 60:.1f} min")
     if result.leaked:
         print(
@@ -1592,38 +1808,42 @@ def main(argv: list[str] | None = None) -> int:
             "count, so it is reported as a failure and not as a footnote."
         )
     if args.json:
-        Path(args.json).write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
+        write_json(result)
 
     # THE PIN VERDICT IS PRINTED BEFORE ANY EXIT CODE IS CHOSEN. At 68ebd2f the
     # leak check returned 3 first and `make mutation` never printed the budget line
     # at all, so a sweep that was red for one reason said NOTHING about the other -
     # and the reason it was silent about is the one it exists for. The leak still
     # WINS the exit code; it no longer suppresses the measurement.
-    partial = args.only or args.max_mutants
-    if partial:
-        print(
-            f"PARTIAL SWEEP ({'--only ' + args.only if args.only else ''}"
-            f"{' ' if args.only and args.max_mutants else ''}"
-            f"{'--max-mutants ' + str(args.max_mutants) if args.max_mutants else ''}): "
-            "PINNED_SURVIVORS is NOT adjudicated. Every pinned survivor outside this "
-            "selection would read as DISAPPEARED, so a truncated run could ask for the "
-            "pin to be emptied. Re-run whole to move the pin."
-        )
-    elif args.no_pin:
+    scope, scope_message = adjudication_scope(
+        result.swept_modules,
+        result.corpus_modules,
+        max_mutants=args.max_mutants,
+        n_not_run=len(result.not_run),
+    )
+    # THE SCOPE IS PRINTED ON EVERY PATH, INCLUDING THE ONES THAT REFUSE. A run
+    # that says nothing about what it was allowed to adjudicate leaves the reader
+    # to infer it from the flags, and the flags are in a workflow file nobody has
+    # open while reading a log.
+    print(scope_message)
+    if scope == "NO_MEASUREMENT":
+        return exit_code(NO_MEASUREMENT_EXIT, len(result.leaked))
+    if scope == "SUBSET":
+        return exit_code(0, len(result.leaked))
+    if args.no_pin:
         print(
             "REPORTING ONLY (--no-pin): PINNED_SURVIVORS is NOT adjudicated. The measured "
             "set, as a paste-ready pin:\n" + format_pin(result.survivor_keys)
         )
-    else:
-        code, message = survivor_verdict(
-            result.survivor_keys,
-            result.enumerated_keys,
-            len(result.unmeasured),
-            len(result.equivalent),
-        )
-        print(message)
-        return exit_code(code, len(result.leaked))
-    return exit_code(0, len(result.leaked))
+        return exit_code(0, len(result.leaked))
+    code, message = survivor_verdict(
+        result.survivor_keys,
+        result.enumerated_keys,
+        len(result.unmeasured),
+        len(result.equivalent),
+    )
+    print(message)
+    return exit_code(code, len(result.leaked))
 
 
 if __name__ == "__main__":

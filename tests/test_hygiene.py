@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import functools
 import inspect
+import json
 import os
 import re
 import subprocess
@@ -2426,14 +2427,101 @@ def test_a_partial_sweep_cannot_ask_for_the_pin_to_be_emptied() -> None:
     guard entirely, so a three-mutant run reached the budget comparison and reported
     "lower SURVIVOR_BUDGET to 0". With a SET the same input would ask for 25 entries
     to be deleted, which is a request to stop checking anything.
+
+    EXECUTED RATHER THAN READ. This asserted the literal source line
+    `partial = args.only or args.max_mutants` until I28, which pinned the spelling
+    of the rule instead of the rule: it would have passed unchanged had the branch
+    stopped covering `--pinned-modules`, and it would have failed on a rename that
+    changed nothing. The decision is now a pure function and every state of it is
+    run here, against the REAL corpus and the REAL pin, with a control that must
+    reach the opposite verdict.
     """
+    corpus = mutation.target_modules(repo_root())
+    pinned = mutation.pinned_modules()
+    assert set(pinned) < set(corpus), "the pin names a module the sweep would not reach"
+
+    def state(swept: list[str], *, max_mutants: int = 0, n_not_run: int = 0) -> str:
+        return mutation.adjudication_scope(
+            swept, corpus, max_mutants=max_mutants, n_not_run=n_not_run
+        )[0]
+
+    # Every way of NOT covering the pin refuses, whichever flag produced it.
+    assert state(corpus[:1]) == "SUBSET"
+    assert state(sorted(set(corpus) - {pinned[0]})) == "SUBSET", (
+        "dropping ONE pinned module is enough to make the verdict a request to delete it"
+    )
+    assert state(corpus, max_mutants=3) == "SUBSET", (
+        "truncation is blind to which modules it dropped, so it cannot adjudicate even "
+        "when the selection it truncated covered everything"
+    )
+    # The controls, which must NOT refuse - a guard that refuses everything is as
+    # useless as one that refuses nothing.
+    assert state(corpus) == "WHOLE"
+    assert state(pinned) == "SCOPED"
+
+    for swept, max_mutants in ((corpus[:1], 0), (corpus, 3)):
+        _, message = mutation.adjudication_scope(
+            swept, corpus, max_mutants=max_mutants, n_not_run=0
+        )
+        assert "PARTIAL SWEEP" in message and "NOT adjudicated" in message, message
+
+    # And the refusal is wired into `main` ahead of the comparison, not beside it.
     source = inspect.getsource(mutation.main)
-    assert "partial = args.only or args.max_mutants" in source, source[-2000:]
-    guarded = source[source.index("partial = args.only") :]
-    assert "PARTIAL SWEEP" in guarded and "NOT adjudicated" in guarded
-    assert guarded.index("PARTIAL SWEEP") < guarded.index("survivor_verdict"), (
-        "the partial-sweep refusal comes after the adjudication, so a truncated run "
-        "still moves the pin"
+    assert source.index("adjudication_scope") < source.index("survivor_verdict"), (
+        "the scope is decided after the adjudication, so a truncated run still moves the pin"
+    )
+
+
+def test_a_scoped_sweep_adjudicates_one_direction_and_says_which() -> None:
+    """SCOPED is not a softer SUBSET; it is a complete verdict on half the question.
+
+    A sweep over exactly the modules the pin names measures every pinned survivor,
+    so DISAPPEARED - both KILLED and VANISHED - is decided in full. APPEARED is not:
+    a survivor that turned up in a module the run never swept is invisible to it.
+    The weekly job runs in this state because a whole-corpus sweep does not fit in a
+    runner's clock, and a verdict that does not say which half it covers is how the
+    other half stops being checked.
+    """
+    corpus = mutation.target_modules(repo_root())
+    pinned = mutation.pinned_modules()
+    state, message = mutation.adjudication_scope(pinned, corpus, max_mutants=0, n_not_run=0)
+    assert state == "SCOPED"
+    assert "DISAPPEARED is adjudicated in full" in message, message
+    assert "APPEARED is measured ONLY inside the selection" in message, message
+    assert str(len(set(corpus) - set(pinned))) in message, (
+        "the message does not say HOW MANY modules were not looked at, so a reader "
+        "cannot tell a scoped sweep from a whole one"
+    )
+    whole = mutation.adjudication_scope(corpus, corpus, max_mutants=0, n_not_run=0)[1]
+    assert "APPEARED" not in whole, "the whole-corpus verdict carries a caveat it does not owe"
+
+
+def test_a_run_that_never_started_its_mutants_is_not_a_subset_and_not_a_pass() -> None:
+    """A run that measured nothing and a run whose set moved get different codes.
+
+    THIS IS NOT HYPOTHETICAL AND IT IS NOT ABOUT A FUTURE RUN. The first scheduled
+    sweep - Monday 2026-08-24, 08:03 UTC, run 32704383241 at `fd1ac99` - ran for
+    298 minutes on `--workers 4`, was cancelled by the job's own timeout, printed
+    nothing between the command line and the cancellation, uploaded no artifact
+    (`No files were found with the provided path`), and concluded `cancelled`
+    rather than `failure`. A weekly gate spent five hours and produced no verdict,
+    no file and no colour anybody investigates.
+    """
+    corpus = mutation.target_modules(repo_root())
+    state, message = mutation.adjudication_scope(corpus, corpus, max_mutants=0, n_not_run=7)
+    assert state == "NO_MEASUREMENT"
+    assert "NO MEASUREMENT" in message and "7 mutant(s) were never started" in message
+    assert "not adjudicated" in message.lower()
+
+    # The control: the SAME selection with nothing left unstarted is a whole verdict.
+    assert mutation.adjudication_scope(corpus, corpus, max_mutants=0, n_not_run=0)[0] == "WHOLE"
+
+    # A distinct exit code, because "did not measure" must be separable from "the
+    # set moved" by a reader who has only the status.
+    assert mutation.NO_MEASUREMENT_EXIT not in (0, 1, 2, 3), mutation.NO_MEASUREMENT_EXIT
+    assert mutation.exit_code(mutation.NO_MEASUREMENT_EXIT, 0) == mutation.NO_MEASUREMENT_EXIT
+    assert mutation.exit_code(mutation.NO_MEASUREMENT_EXIT, 1) == 3, (
+        "a leak no longer wins the exit code, which was settled at I27"
     )
 
 
@@ -2855,17 +2943,184 @@ def test_a_sweep_that_leaks_cannot_report_success() -> None:
     assert "return 3" not in source, (
         "`main` decides an exit code on its own again, so the leak rule is spelled twice"
     )
-    assert source.count("exit_code(") == 2, source[-900:]
-    # ...and the verdict is PRINTED before any exit code is chosen. At 68ebd2f the
-    # sweep exited 3 for a leak and never printed the budget line at all, so it was
-    # red for one reason and silent about the one it exists for.
-    assert source.index("print(message)") < source.index("exit_code("), source[-900:]
+    assert source.count("exit_code(") == 4, source[-900:]
+    # ...and the run SAYS SOMETHING before any exit code is chosen, on every path.
+    # At 68ebd2f the sweep exited 3 for a leak and never printed the budget line at
+    # all, so it was red for one reason and silent about the one it exists for. The
+    # first thing printed is now the SCOPE - what this run was entitled to
+    # adjudicate - which is the line a reader of a refusal needs and the one a
+    # reader of a verdict needs first.
+    assert source.index("print(scope_message)") < source.index("exit_code("), source[-900:]
+    assert source.index("print(message)") < source.rindex("exit_code("), source[-900:]
     body = inspect.getsource(mutation.sweep)
     guarded = body[body.index("finally:") :]
-    assert "temp_entries() - before" in guarded, (
+    assert "leaked_entries(before, temp_entries()" in guarded, (
         "the residue is not measured on the failure path, which is the path that repeats"
     )
     assert "shutil.rmtree(root" in guarded, "the sweep no longer removes its own workspace root"
+
+
+class _ScriptedClock:
+    """A clock the machine cannot move.
+
+    A deadline test written with `time.sleep` measures the load on whatever ran
+    it, and a plant whose value the world can change is not a plant: under a busy
+    machine every mutant reads late and the test passes for the wrong reason.
+    Here time advances only when a mutant completes, so the number of mutants that
+    fit inside the deadline is arithmetic.
+    """
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+def _fake_sweep(
+    monkeypatch: pytest.MonkeyPatch, clock: _ScriptedClock, *, per_mutant: float
+) -> None:
+    """The sweep's machinery replaced by its cheapest honest stand-in."""
+    monkeypatch.setattr(mutation, "time", clock)
+    monkeypatch.setattr(mutation, "baseline", lambda *_: [])
+    monkeypatch.setattr(mutation, "_run_pytest", lambda *_, **__: (0, ""))
+
+    def run_one(_space: Path, _py: Path, module: str, fraction: float, _des: object) -> object:
+        clock.now += per_mutant
+        return mutation.Result(module, fraction, "KILLED", f"{module} @ {fraction}", 1)
+
+    monkeypatch.setattr(mutation, "run_one", run_one)
+
+
+def test_a_sweep_that_runs_out_of_its_own_clock_records_what_it_never_started(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The deadline is the difference between a report and a `cancelled` badge.
+
+    Without one, the outer timeout kills the process: no rows, no file, no verdict
+    and a conclusion the UI paints neither green nor red. With one, the run stops
+    itself, keeps everything it measured, and NAMES the mutants it never started.
+
+    Two properties are asserted here and both are load-bearing. (1) The deadline is
+    read BEFORE a mutant starts, so a mutant is measured whole or not at all -
+    there is no half-measured verdict, which is the false survivor this file exists
+    to prevent. (2) `results + not_run` is the whole job list, so nothing is
+    dropped: an entry that is neither measured nor listed as unstarted is exactly
+    the silent gap a count pin used to hide.
+    """
+    clock = _ScriptedClock()
+    _fake_sweep(monkeypatch, clock, per_mutant=1.0)
+    jobs = [(f"m{i}.py", 0.2) for i in range(8)]
+    checkpoints: list[int] = []
+    out = mutation.Sweep()
+    mutation._sweep_inner(
+        repo_root(),
+        Path(sys.executable),
+        [repo_root()],
+        out,
+        jobs,
+        1,
+        0.0,
+        deadline_s=3.0,
+        checkpoint=lambda current: checkpoints.append(len(current.results)),
+    )
+    # Checks at t = 0, 1, 2, 3 pass; the fifth reads t = 4 > 3 and stops.
+    assert len(out.results) == 4, [r.descriptor for r in out.results]
+    assert out.not_run == [(f"m{i}.py", 0.2) for i in range(4, 8)], out.not_run
+    assert len(out.results) + len(out.not_run) == len(jobs), "a job went missing entirely"
+    assert checkpoints == [0, 1, 2, 3, 4], (
+        f"the result file is not written per mutant but {checkpoints}, so a killed run "
+        "loses what it measured"
+    )
+    assert checkpoints[0] == 0, (
+        "the first write happens only after a mutant finishes, so a run that dies in its "
+        "baseline leaves no file at all - and the upload step is then red for something "
+        "nobody can fix"
+    )
+    assert "[1/8]" in capsys.readouterr().out, (
+        "the sweep reports nothing as it goes, so a run killed at minute 298 cannot even "
+        "say how far it got - which is what the first scheduled run could not say"
+    )
+
+    # THE CONTROL. Same jobs, same clock, no deadline: everything runs, nothing is
+    # recorded as unstarted. Without this the assertions above would also pass on a
+    # sweep that had simply stopped working.
+    clock.now = 0.0
+    control = mutation.Sweep()
+    mutation._sweep_inner(
+        repo_root(), Path(sys.executable), [repo_root()], control, jobs, 1, 0.0, deadline_s=0.0
+    )
+    assert len(control.results) == len(jobs) and control.not_run == []
+
+
+def test_the_result_file_survives_a_write_that_fails_halfway(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A record is rewritten per mutant, so it is rewritten while it may be read.
+
+    THE FAILURE MUST LAND INSIDE THE WRITE, and the first version of this test did
+    not manage that: it raised out of `json.dumps`, so the file was never opened at
+    all and a deliberately NON-atomic implementation passed it. The plant caught
+    that - one of six, the only one that did not fire - and the check is now built
+    around a `write_text` that puts bytes on disk and THEN raises. Under the
+    atomic form the casualty is the scratch file; under the direct form it is the
+    last complete measurement.
+    """
+    target = tmp_path / "nested" / "sweep.json"
+    good = mutation.Sweep(head="a" * 40, results=[mutation.Result("m.py", 0.2, "KILLED", "d", 1)])
+    mutation.write_result_json(target, good)
+    before = target.read_text(encoding="utf-8")
+    assert json.loads(before)["head"] == "a" * 40
+    assert len(before) > 40, "the fixture is too small for a partial write to be partial"
+
+    def half_a_write(self: Path, data: str, encoding: str | None = None) -> int:
+        self.write_bytes(data[:32].encode())
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", half_a_write)
+    with pytest.raises(OSError, match="disk full"):
+        mutation.write_result_json(target, mutation.Sweep(head="b" * 40))
+    monkeypatch.undo()
+    assert target.read_text(encoding="utf-8") == before, (
+        "a write that died halfway destroyed the last complete result, and left something "
+        "that looks like a record"
+    )
+    assert json.loads(target.read_text(encoding="utf-8"))["head"] == "a" * 40
+
+    # And the next successful write both lands and clears the scratch file the
+    # failure left behind.
+    mutation.write_result_json(target, mutation.Sweep(head="b" * 40))
+    assert json.loads(target.read_text(encoding="utf-8"))["head"] == "b" * 40
+    assert not list(target.parent.glob("*.partial")), "the scratch file is left behind"
+
+
+def test_the_sweep_does_not_report_its_own_result_file_as_a_leak() -> None:
+    """MEASURED, on a real run, in the harness that found it (I28).
+
+    `--json $TMPDIR/a.json` on an otherwise clean sweep printed
+    `LEAKED 1 temp entr(y/ies) ['a.json']` and exited 3: the gate went red for
+    producing exactly the artifact it had been asked to produce. The leak detector
+    is the one check whose entire value is that its alarms are real, so a false
+    positive in it is worse than a missed byte.
+
+    The control is in the same call: an entry that is NOT the declared output is
+    still a leak, so this subtracts a name rather than switching the detector off.
+    """
+    before = {"pytest-of-x"}
+    after = {"pytest-of-x", "a.json", "wildfire-nowcast-mutation-abc"}
+    assert mutation.leaked_entries(before, after, ["a.json"]) == [
+        "wildfire-nowcast-mutation-abc"
+    ], "declaring the result file also silenced a genuine leak beside it"
+    assert mutation.leaked_entries(before, after, []) == [
+        "a.json",
+        "wildfire-nowcast-mutation-abc",
+    ]
+    assert mutation.leaked_entries(before, before, []) == []
+
+    # ...and `main` declares the file it was told to write, or the subtraction is
+    # a capability nothing uses.
+    source = inspect.getsource(mutation.main)
+    assert "ignore_temp_names=[Path(args.json).name] if args.json else []" in source, source[-900:]
 
 
 def test_the_sweep_can_be_measured_before_it_is_run_in_full() -> None:

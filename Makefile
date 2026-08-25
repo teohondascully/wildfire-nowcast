@@ -401,10 +401,22 @@ mutation-pin: | $(PY)
 ##         110-minute run was 25 descriptors pasted into BLOCKERS.md by hand.
 ##         MUTATION_WORKERS and MUTATION_JSON are overridable; the JSON path
 ##         defaults under the gitignored outputs/ tree.
-##         MUTATION_EXTRA passes flags through: the workflow uses it for
-##         `--max-mutants N`, which turns a two-hour measurement into a
-##         minutes-long proof that the workflow itself runs end to end. A
-##         truncated run refuses to adjudicate the pin and says so.
+##         MUTATION_EXTRA passes flags through. The workflow uses three:
+##         `--pinned-modules`, `--deadline-minutes`, and `--max-mutants N` for a
+##         minutes-long proof that the workflow itself runs end to end.
+##         WHAT THE SCHEDULE ACTUALLY SWEEPS, AND WHY IT IS NOT EVERYTHING (I28).
+##         The first scheduled run (32704383241, 2026-08-24, `fd1ac99`) took the
+##         whole corpus at 4 workers, ran **298 minutes**, was cancelled by the
+##         job timeout, and produced no verdict, no artifact and a `cancelled`
+##         badge. Measured from that run and from the 3-mutant dispatch beside
+##         it: ~2.3 min per mutant on the runner whatever the worker count, so
+##         129 mutants is ~5 h against a 6 h hard cap. The schedule now sweeps
+##         `--pinned-modules` - the 16 modules the pin names, 48 mutants,
+##         ~110 min - which adjudicates DISAPPEARED in full and says, on every
+##         run, that it cannot see a survivor APPEARING in the other 30.
+##         `--deadline-minutes` is the sweep's own clock, set below the job
+##         timeout so an overrun exits 4 (NO MEASUREMENT) with its rows on disk
+##         instead of being killed silently from outside.
 MUTATION_WORKERS ?= 4
 MUTATION_JSON ?= outputs/mutation/sweep.json
 MUTATION_EXTRA ?=

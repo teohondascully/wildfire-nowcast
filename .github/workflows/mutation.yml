@@ -24,6 +24,58 @@
 # reports a diff, that diff is a PLATFORM measurement until someone shows
 # otherwise - it is not evidence that anyone regressed, and it must not be
 # pasted into the pin without saying which machine measured it.
+#
+# THE CONFOUNDER IS NAMED IN ADVANCE, AND SO IS THE WAY TO FALSIFY IT (I28). A
+# search of the whole suite for constructs whose VALUE can differ between
+# darwin/arm64 and ubuntu/x86_64 turned up exactly one family able to move this
+# set: the three wall-clock assertions in `tests/test_synthetic.py` against
+# `MAX_SECONDS = 5.0`, which sit on `common/synthetic.py` - a swept module that
+# holds one of the 25 pinned survivors. Measured on darwin/arm64: the 24 h fire
+# takes 0.165 s (30.3x margin), the 48 h 0.208 s (24.0x), and the 96 h 1.115 s -
+# a **4.48x** margin, which a slower machine under concurrent suites can spend.
+# The direction is asymmetric: the runner is stricter, so the failure mode is a
+# pinned survivor reading DISAPPEARED-KILLED here and surviving on the laptop.
+# It is FALSIFIABLE and not an excuse, because every KILLED row records the node
+# ids that killed it. So: if a diff appears, read `detail` on that row. If it
+# names one of those three tests, the entry is a stopwatch, not a regression and
+# not a platform property either. If it names anything else, it is a real
+# finding and gets investigated by that name. A delta whose killing test cannot
+# be named is a BLOCKER, never a second pin.
+#
+# ---------------------------------------------------------------------------
+# THE FIRST SCHEDULED RUN HAPPENED, AND IT MEASURED NOTHING AT ALL.
+# Run 32704383241, Monday 2026-08-24 08:03 UTC, `fd1ac99`, `--workers 4`, whole
+# corpus. The sweep step ran **298 minutes**, was cancelled by `timeout-minutes`
+# below, printed NOTHING between the command line and the cancellation, uploaded
+# no artifact (`No files were found with the provided path`), and concluded
+# `cancelled` - which is neither the green nor the red anybody looks at. Five
+# hours of runner time bought no verdict, no file and no colour. `cancelled` is
+# the point and not an aside: this project keeps finding checks that cannot
+# FAIL, and this is the same defect in a third costume - a check that cannot
+# SPEAK. Nobody has to ignore it. It never said anything.
+#
+# THREE THINGS THAT COST US, ALL FIXED HERE AND IN `tools/mutation.py`:
+#
+# 1. THE WORK DOES NOT FIT ONE RUNNER. 129 mutants finished in more than 298
+#    minutes at 4 workers; the `--max-mutants 3` dispatch (run 32689890495, 2
+#    workers) puts one suite run at about 4.7 min. Throughput is the same at 2
+#    and 4 workers because the runner is CPU-saturated either way, so the whole
+#    corpus is ~5 h on this machine against a 6 h hard job cap. The estimate in
+#    this file's own header said "roughly two hours" and it was wrong by 2.5x.
+#    The schedule therefore sweeps `--pinned-modules`: the 16 modules
+#    `PINNED_SURVIVORS` names, 48 mutants, ~110 min. That adjudicates the
+#    DISAPPEARED direction IN FULL - every pinned survivor is measured - and it
+#    CANNOT see a survivor that appeared in one of the other 30 modules. The
+#    tool prints that limit as `SCOPED SWEEP` on every run rather than leaving
+#    it in this comment.
+# 2. A RUN KILLED FROM OUTSIDE SAYS NOTHING. `--deadline-minutes` below is the
+#    sweep's OWN clock and it is strictly less than `timeout-minutes`, so the
+#    process stops itself, keeps the rows it measured, names the mutants it
+#    never started, and exits 4: NO MEASUREMENT, which is a different failure
+#    from "the survivor set moved" and is now distinguishable from the outside.
+# 3. THE RESULT FILE ONLY EXISTED AT THE END. It is now rewritten after every
+#    mutant, atomically, so a run that IS killed still uploads what it had.
+# ---------------------------------------------------------------------------
 name: mutation
 
 on:
@@ -34,8 +86,22 @@ on:
   workflow_dispatch:
     inputs:
       workers:
-        description: "parallel workspaces (one git worktree and one suite each)"
-        default: "4"
+        description: >
+          parallel workspaces (one git worktree and one suite each). 2 is the
+          only value whose per-mutant cost has been OBSERVED on this runner;
+          4 was tried by the first scheduled run and did not improve throughput,
+          because the runner is CPU-saturated at either setting.
+        default: "2"
+      scope:
+        description: >
+          `pinned` sweeps the 16 modules PINNED_SURVIVORS names (~110 min, and it
+          adjudicates DISAPPEARED in full). `whole` sweeps all 46 and does NOT
+          fit in this job's timeout - it is here so the attempt is a choice
+          somebody makes, with a result file either way, rather than a default
+          that quietly produces nothing.
+        default: "pinned"
+        type: choice
+        options: ["pinned", "whole"]
       max_mutants:
         description: >
           truncate to the first N mutants. NON-ZERO MAKES THIS A SMOKE TEST, NOT
@@ -58,9 +124,12 @@ jobs:
   sweep:
     name: survivor set over common/ and eval/
     runs-on: ubuntu-latest
-    # The sweep is measured at ~110 min on 4 workers with a 12-core machine and
-    # this runner has fewer; 300 leaves headroom without letting a hung run burn
-    # a whole 6-hour budget.
+    # THE BACKSTOP, NOT THE MECHANISM. The sweep now stops itself at
+    # `--deadline-minutes` below and reports; this only catches a hang that the
+    # deadline cannot see, because the deadline is read between mutants and a
+    # single wedged suite run would sit inside one. Keep it strictly ABOVE the
+    # deadline: if it ever fires first, the run is `cancelled` again and says
+    # nothing, which is the state this file was rewritten to leave.
     timeout-minutes: 300
     steps:
       # `fetch-depth: 0` for the same reason `ci.yml` needs it, and for one
@@ -91,16 +160,34 @@ jobs:
         continue-on-error: true
         run: make mutation-pin
 
+      # `--deadline-minutes 240` against `timeout-minutes: 300`. The 60-minute
+      # gap is the room the process needs to write its file, print its rows and
+      # exit non-zero - a deadline equal to the timeout is a deadline that never
+      # gets to speak.
       - name: sweep
         run: |
           make mutation-scheduled \
-            MUTATION_WORKERS="${{ inputs.workers || '4' }}" \
-            MUTATION_EXTRA="${{ (inputs.max_mutants && inputs.max_mutants != '0') && format('--max-mutants {0}', inputs.max_mutants) || '' }}"
+            MUTATION_WORKERS="${{ inputs.workers || '2' }}" \
+            MUTATION_EXTRA="--deadline-minutes 240 ${{ inputs.scope == 'whole' && ' ' || '--pinned-modules' }} ${{ (inputs.max_mutants && inputs.max_mutants != '0') && format('--max-mutants {0}', inputs.max_mutants) || '' }}"
 
       # `if: always()`, because the run that FAILS is the one whose result
       # someone needs to read site by site. At `68ebd2f` the only durable record
       # of a 110-minute sweep was 25 descriptors pasted into a blocker by hand,
       # and the run before that left no record at all.
+      #
+      # `error`, NOT `warn`, AND THIS STEP IS WHY THE WORD MATTERS. On the one
+      # run in this repo's history where this step was the only thing standing
+      # between us and losing a five-hour measurement - the cancelled schedule
+      # above - it concluded SUCCESS having kept zero bytes, and said so in a
+      # warning nobody reads: `No files were found with the provided path`. A
+      # step that reports green for having preserved nothing is a check that
+      # cannot fail, sitting inside the remedy for a check that could not speak.
+      # THERE IS NO LEGITIMATE PATH THAT PRODUCES NO FILE ON A RUN WORTH KEEPING.
+      # `tools/mutation.py` writes the record once the baseline is green - before
+      # the first mutant - and rewrites it after every mutant, so the file exists
+      # from minute five of a two-hour run. The only way to reach this step with
+      # nothing is a failure before or during the baseline, and on that path the
+      # sweep step is already red and "we lost it" is the true statement.
       - name: keep the result
         if: always()
         uses: actions/upload-artifact@v4
@@ -108,4 +195,4 @@ jobs:
           name: mutation-sweep-${{ github.sha }}
           path: outputs/mutation/sweep.json
           retention-days: 90
-          if-no-files-found: warn
+          if-no-files-found: error

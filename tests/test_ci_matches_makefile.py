@@ -28,6 +28,7 @@ actually says which targets execute.
 
 from __future__ import annotations
 
+import inspect
 import os
 import re
 import shutil
@@ -37,6 +38,7 @@ from pathlib import Path
 
 import yaml
 
+import mutation  # tools/mutation.py, via `pythonpath` in pyproject.toml
 from wildfire_nowcast.common.paths import repo_root
 
 WORKFLOW = ".github/workflows/ci.yml"
@@ -340,6 +342,79 @@ def test_the_mutation_sweep_runs_on_a_schedule_and_can_be_dispatched() -> None:
     assert document["concurrency"]["cancel-in-progress"] is False, (
         "a cancelled sweep produces no measurement AND leaks its worktrees: the cleanup is a "
         "`finally` and SIGKILL does not run one (ADR-153 (6))"
+    )
+
+
+def test_the_scheduled_sweep_stops_on_its_own_clock_before_the_job_timeout() -> None:
+    """A job killed by `timeout-minutes` has nothing to say, and says it in beige.
+
+    MEASURED, not feared. The first scheduled run - 32704383241, 2026-08-24 08:03
+    UTC at `fd1ac99` - burned 298 minutes on the whole corpus, was cancelled by the
+    timeout below, printed nothing, uploaded no artifact, and concluded `cancelled`
+    rather than `failure`: a weekly gate in the one state nobody investigates. The
+    repair is that the sweep holds its OWN deadline, strictly inside the job's, so
+    it exits by its own decision with its rows on disk and a non-zero status.
+
+    The inequality is the whole content. A deadline at or above the timeout is a
+    deadline that never gets to speak, and it would look exactly like this one.
+    """
+    document = yaml.safe_load((repo_root() / MUTATION_WORKFLOW).read_text())
+    job = next(iter(document["jobs"].values()))
+    run_blocks = " ".join(step.get("run", "") for step in job["steps"])
+    match = re.search(r"--deadline-minutes\s+(\d+(?:\.\d+)?)", run_blocks)
+    assert match, (
+        "the scheduled sweep has no deadline of its own, so an overrun is a `cancelled` "
+        f"badge with no result file again: {run_blocks}"
+    )
+    deadline = float(match.group(1))
+    assert deadline < job["timeout-minutes"], (
+        f"the sweep's deadline ({deadline}) is not inside the job timeout "
+        f"({job['timeout-minutes']}), so the outer kill still wins and the run reports nothing"
+    )
+    assert job["timeout-minutes"] - deadline >= 15, (
+        "the deadline leaves under 15 minutes to write the file, print the rows and exit"
+    )
+    assert "--pinned-modules" in run_blocks, (
+        "the schedule sweeps a selection that cannot cover PINNED_SURVIVORS, so its verdict "
+        "is a refusal every week - and a weekly refusal is a weekly red nobody reads"
+    )
+
+
+def test_the_step_that_keeps_the_result_cannot_report_success_having_kept_nothing() -> None:
+    """The remedy for a check that could not speak had a check that could not fail.
+
+    On the cancelled schedule above, `keep the result` concluded SUCCESS and the
+    run holds `total_count: 0` artifacts. Its own comment says it exists for "the
+    run that FAILS", and on the one run in this repo's history where that was true
+    it preserved zero bytes and reported green, because `if-no-files-found` was
+    `warn`. There is no path that produces no file on a run worth keeping: the
+    sweep writes its record once the baseline is green and rewrites it after every
+    mutant, so an absent file means the run died before it measured anything - and
+    on that path the sweep step is already red.
+    """
+    document = yaml.safe_load((repo_root() / MUTATION_WORKFLOW).read_text())
+    job = next(iter(document["jobs"].values()))
+    keepers = [
+        step
+        for step in job["steps"]
+        if str(step.get("uses", "")).startswith("actions/upload-artifact")
+    ]
+    assert keepers, "nothing uploads the sweep result any more"
+    for step in keepers:
+        assert step.get("if") == "always()", (
+            "the result is kept only when the run succeeded, which is the run that needs it least"
+        )
+        assert step["with"]["if-no-files-found"] == "error", (
+            "the upload reports success when it finds nothing to upload, which is how a "
+            "five-hour measurement was lost under a green step"
+        )
+
+    # The other half of the claim: the sweep really does write before the mutants,
+    # so `error` is not asking for a file that only a lucky run produces.
+    inner = inspect.getsource(mutation._sweep_inner)
+    assert inner.index("checkpoint(out)") < inner.index("run_one("), (
+        "the record is first written after a mutant completes, so a run that dies during "
+        "the baseline leaves no file and the upload step is red for a reason it cannot fix"
     )
 
 
