@@ -91,7 +91,7 @@ import argparse
 import re
 import subprocess
 import sys
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -478,6 +478,25 @@ def tracked_files(root: Path) -> list[str]:
     return sorted(p for p in out.stdout.splitlines() if p)
 
 
+def untracked_files(root: Path) -> list[str]:
+    """``git ls-files --others --exclude-standard``: present, not ignored, not added.
+
+    **USED ONLY TO CHOOSE A REMEDY SENTENCE, NEVER TO RESOLVE A CITATION.** A
+    token that matches an untracked file is still unresolvable and still fails -
+    that is the whole point, since a cloner has no such file. What this buys is
+    that the failure can say `git add <path>` instead of leaving the reader to
+    find out which of three remedies applies.
+    """
+    out = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return sorted(p for p in out.stdout.splitlines() if p)
+
+
 def _is_path_shaped(token: str) -> bool:
     """A token that names a file: it has a directory part and a real extension."""
     if "/" not in token or not token.endswith(FILE_SUFFIXES):
@@ -593,6 +612,7 @@ def enumerate_references(
 
     references: list[Reference] = []
     undeclared: dict[str, int] = {}
+    unresolved_detail: dict[str, list[tuple[str, tuple[int, ...]]]] = {}
     declared_tokens = {token for _citer, token in pairs}
     for (rel, token), lines in sorted(found.items()):
         if token in tracked:
@@ -606,6 +626,7 @@ def enumerate_references(
         else:
             resolution = "unresolved"
             undeclared[rel] = undeclared.get(rel, 0) + 1
+            unresolved_detail.setdefault(rel, []).append((token, tuple(sorted(set(lines)))))
         references.append(Reference(rel, token, tuple(sorted(set(lines))), resolution))
 
     enum = Enumeration(references=tuple(references))
@@ -614,21 +635,75 @@ def enumerate_references(
     enum.artifact_tier = artifact_tier
     enum.bare_tier = bare_tier
 
-    enum.problems.extend(_audit_debt(undeclared, pinned))
+    enum.problems.extend(_audit_debt(undeclared, pinned, unresolved_detail, untracked_files(root)))
     enum.problems.extend(_audit_declarations(pairs, set(found)))
     return enum
 
 
-def _audit_debt(undeclared: dict[str, int], debt: dict[str, int] | None = None) -> list[str]:
-    """The four directions, in the order a reader needs them."""
+def _remedy_for(token: str, untracked: Sequence[str] | None) -> str:
+    """The SHORTEST true instruction for one unresolvable token.
+
+    **THE FILESYSTEM IS READ HERE AND IT MAY NOT TOUCH THE VERDICT.** This
+    module's whole premise is that resolution is decided by ``git ls-files`` and
+    never by what happens to be on this disk - otherwise the check passes for the
+    author and fails for the cloner, which is the defect it exists to catch. That
+    invariant is intact: by the time this runs the token is ALREADY unresolvable
+    and the answer cannot change. The only thing on disk being asked is which
+    SENTENCE to print, and the distinction is worth the two lines it costs,
+    because the two cases have completely different remedies.
+    """
+    # MATCHED BY SUFFIX, because that is how citations are actually written: the
+    # live case that motivated this cited a module by its PACKAGE-RELATIVE name
+    # (`sim/` + the module) while the file sits under `src/wildfire_nowcast/`. An
+    # exact-path check found nothing and printed the generic sentence, which is
+    # the failure this change exists to remove. `_suffix_index` already resolves
+    # TRACKED tokens this way, so this is the same rule on the other branch.
+    #
+    # THE EXAMPLE IS DESCRIBED RATHER THAN SPELLED. Writing either form of that
+    # path here would make this file cite an untracked module and turn the
+    # scanner into its own first offender - which it did, on the run that
+    # produced this comment.
+    hits = [rel for rel in (untracked or []) if rel == token or rel.endswith("/" + token)]
+    if len(hits) == 1:
+        return f"it EXISTS here but is UNTRACKED -> `git add {hits[0]}`"
+    if len(hits) > 1:
+        joined = ", ".join(hits[:4])
+        return f"{len(hits)} untracked files match that suffix ({joined}); `git add` the right one"
+    return "name it inline, cite something tracked, or declare the pair with its reason"
+
+
+def _audit_debt(
+    undeclared: dict[str, int],
+    debt: dict[str, int] | None = None,
+    detail: dict[str, list[tuple[str, tuple[int, ...]]]] | None = None,
+    untracked: Sequence[str] | None = None,
+) -> list[str]:
+    """The four directions, in the order a reader needs them.
+
+    ``detail`` and ``untracked`` are optional so that every existing caller and
+    test keeps working unchanged; without them the message degrades to exactly
+    what it said before rather than crashing or lying.
+    """
     pinned = DEBT if debt is None else debt
     problems: list[str] = []
     for rel, count in sorted(undeclared.items()):
         if rel not in pinned:
+            # NAME THE LINE AND THE REMEDY. This message used to say only WHICH
+            # FILE cites something unopenable, which cost two leads a
+            # `git diff | grep` on the same day to learn which token and which
+            # line - and both times the answer was one `git add`. A checker that
+            # identifies a problem it could have LOCATED is spending someone
+            # else's minutes to save its own.
+            sites = (detail or {}).get(rel, [])
+            where = "".join(
+                f"\n    {rel}:{','.join(str(n) for n in lines)} cites `{token}` "
+                f"- {_remedy_for(token, untracked)}"
+                for token, lines in sorted(sites)
+            )
             problems.append(
                 f"UNRESOLVABLE: {rel} cites {count} path(s) a cloner cannot open, "
                 "and is not declared. Name the thing inline, cite something tracked, "
-                "or declare the pair with its reason."
+                f"or declare the pair with its reason.{where}"
             )
         elif count > pinned[rel]:
             problems.append(f"RISEN: {rel} carried {pinned[rel]}, now cites {count}")

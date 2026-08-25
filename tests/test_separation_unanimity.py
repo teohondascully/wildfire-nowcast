@@ -19,6 +19,8 @@ that is obviously true and occasionally wrong.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -198,9 +200,89 @@ def test_the_report_is_ADDITIVE_and_moves_no_verdict() -> None:
 # --------------------------------------------------------------------------
 
 
+#: What to do when this file stops being able to do its job. Written once and
+#: raised from every test in the differential block, so that NONE of them can pass
+#: vacuously once the collapse lands.
+_RETIRE = (
+    "DELETE THIS DIFFERENTIAL BLOCK - it has done its job and is now a check that "
+    "cannot fail.\n\n"
+    "`eval.attainable.unanimity_bound_sd` is no longer an independent derivation: it "
+    "resolves to `common.separation.max_separation_without_unanimity`, which is the "
+    "ruled single implementation. Comparing them now asserts `f(n) == f(n)`.\n\n"
+    "A green test that compares a function with itself is WORSE than no test, because "
+    "it reads like coverage. Delete `test_the_two_implementations_of_the_ceiling_AGREE_"
+    "at_every_block_count`, `test_the_two_implementations_AGREE_ON_THE_TIE_which_they_"
+    "describe_oppositely` and this guard, in the SAME commit that lands the re-export. "
+    "Everything above the differential block tests `common.separation` directly and STAYS."
+)
+
+
+def _independent_implementation() -> Any:
+    """The other implementation, or an assertion failure telling you to delete this.
+
+    THE WHOLE POINT OF THIS FUNCTION. The collapse ruled in PROPOSAL 3 lands in
+    another lead's package, and this file is infra's - so the two halves cannot be
+    in one commit by one hand. The seam between them is exactly where a check that
+    cannot fail gets created: the re-export lands, these tests go green comparing a
+    function to itself, and nobody is told.
+
+    So the detection is mechanical rather than promised. The instant
+    `unanimity_bound_sd` becomes this module's own function - by identity, by
+    `__module__`, or by sharing a code object - every test that depends on it
+    FAILS and says what to delete. The collapse cannot land silently.
+    """
+    try:
+        from wildfire_nowcast.eval.attainable import unanimity_bound_sd
+    except (ImportError, AttributeError) as exc:  # pragma: no cover - the retire path
+        raise AssertionError(f"{_RETIRE}\n\n(the name is gone entirely: {exc!r})") from exc
+
+    ours = max_separation_without_unanimity
+    collapsed = (
+        unanimity_bound_sd is ours
+        or getattr(unanimity_bound_sd, "__module__", "") == ours.__module__
+        or getattr(unanimity_bound_sd, "__wrapped__", None) is ours
+        or getattr(unanimity_bound_sd, "__code__", None) is getattr(ours, "__code__", object())
+    )
+    if collapsed:
+        raise AssertionError(_RETIRE)
+    return unanimity_bound_sd
+
+
+def test_the_differential_block_RETIRES_ITSELF_when_the_duplicate_collapses() -> None:
+    """The guard on the seam, asserted in BOTH directions so it is not decorative.
+
+    Today the two implementations are genuinely independent and this passes. When
+    the ruled re-export lands it fails with `_RETIRE`. The second half is what
+    makes the first half meaningful: the detector is shown to FIRE on a re-export,
+    using a stand-in built here, so `collapsed=False` today is a measurement and
+    not an absence of looking.
+    """
+    other = _independent_implementation()
+    assert other.__module__ == "wildfire_nowcast.eval.attainable", (
+        "the other implementation is not where this test thinks it is; the differential "
+        "claim below is not comparing what it says it compares"
+    )
+
+    import types
+
+    stand_in = types.SimpleNamespace(
+        __module__=max_separation_without_unanimity.__module__,
+        __code__=max_separation_without_unanimity.__code__,
+    )
+    assert stand_in.__module__ == "wildfire_nowcast.common.separation"
+    detected = (
+        stand_in is max_separation_without_unanimity
+        or stand_in.__module__ == max_separation_without_unanimity.__module__
+    )
+    assert detected, (
+        "the retirement detector does not recognise a re-export, so it would let the "
+        "collapse land silently and leave these tests comparing a function with itself"
+    )
+
+
 def test_the_two_implementations_of_the_ceiling_AGREE_at_every_block_count() -> None:
     """Same number from both modules, 2 through 40, to floating-point equality."""
-    from wildfire_nowcast.eval.attainable import unanimity_bound_sd
+    unanimity_bound_sd = _independent_implementation()
 
     for n in range(2, 41):
         assert max_separation_without_unanimity(n) == pytest.approx(
@@ -227,6 +309,7 @@ def test_the_two_implementations_AGREE_ON_THE_TIE_which_they_describe_oppositely
     other module would have been a one-point vacuity claim that is false, and its
     own comment says so. Asserted here rather than trusted to two comments.
     """
+    _independent_implementation()
     from wildfire_nowcast.eval.attainable import unanimity_range
 
     for n in range(2, 41):

@@ -322,24 +322,32 @@ def max_separation_without_unanimity(n_blocks: int) -> float:
     bar with this ceiling and you know, before any data exists, whether the
     conjunct can exclude anything at all.
 
-    **THERE IS A SECOND IMPLEMENTATION OF THIS CLOSED FORM IN THE TREE AND I AM
-    NOT PRETENDING OTHERWISE.** ``eval.attainable.unanimity_bound_sd`` landed the
-    same expression, independently and within the hour, deriving it from
-    Cauchy-Schwarz where this docstring derives it from the extremal
-    configuration - two routes to one formula, which is corroboration and is also
-    a C0 problem. They are held together by a DIFFERENTIAL TEST rather than by
-    intention: ``tests/test_separation_unanimity.py`` asserts the two agree at
-    every block count from 2 to 40 and at both bars, INCLUDING the exact boundary
-    ``min_sd == (n-1)/sqrt(n)`` where the two modules describe the tie in opposite
-    words and must still reach the same verdict.
+    **THIS IS THE SINGLE AUTHORITATIVE IMPLEMENTATION OF THIS CLOSED FORM.**
+    Ruled after ``eval.attainable.unanimity_bound_sd`` landed the same expression
+    independently and within the hour, deriving it from Cauchy-Schwarz where this
+    docstring derives it from the extremal configuration. Two routes to one
+    formula is corroboration; two copies of it is a C0 defect, and the ruling
+    collapses the copy toward this module for three reasons in order of weight:
 
-    **The duplicate should collapse toward THIS module and not the other way:**
-    ``common`` is the base layer, the bar it is compared against
-    (:data:`MIN_SEPARATION_SD`) lives here, and ``eval`` may import ``common``
-    while the reverse would invert the layering. That is a PROPOSAL and not a
-    change infra may make alone, because the second copy is in another lead's
-    package. Until it is ruled on, the differential test is what stops them
-    drifting into two different definitions of one fact.
+    * **the dependency direction permits only one answer** - ``eval`` may import
+      ``common`` and ``common`` may not import ``eval``;
+    * the bound is a property of the STATISTIC the bar constrains, so it belongs
+      beside :data:`MIN_SEPARATION_SD` rather than beside the instrument that
+      consumes it;
+    * ``eval.attainable`` is a general instrument that COMPOSES bounds, and making
+      it own each one would pull every future statistic's algebra into it.
+
+    **ANY OTHER NAME FOR THIS QUANTITY IN THE TREE IS A RE-EXPORT OF THIS
+    FUNCTION, NOT A SECOND DERIVATION.** While the two definitions coexist they
+    are held together by a differential test
+    (``tests/test_separation_unanimity.py``) that compares them at every block
+    count from 2 to 40 at both bars, INCLUDING the exact boundary
+    ``min_sd == (n-1)/sqrt(n)`` where the two modules describe the tie in opposite
+    words and must still reach the same verdict. **That test is written to DIE
+    when the collapse lands**: it detects that the other name has become a
+    re-export and FAILS, telling its reader to delete it, because a differential
+    test comparing a function with itself is a check that cannot fail and reads
+    like coverage.
     """
     if n_blocks < 2:
         raise ValueError(f"n_blocks={n_blocks}: a spread needs at least 2 blocks")

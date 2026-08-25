@@ -399,3 +399,96 @@ def test_every_declared_category_states_a_reason() -> None:
     for category, (reason, pairs) in C.DECLARED.items():
         assert len(reason.split()) > 15, f"{category}: a one-line reason is not a reason"
         assert pairs, f"{category}: a category with no members is stale"
+
+
+# --------------------------------------------------------------------------
+# I30: the message names the LINE and the REMEDY
+#
+# Twice on 2026-08-25 a lead cited a module that was written but not yet
+# tracked - once in `eval/`, once in `sim/` - and both times the failure named
+# only the CITING FILE. Diagnosing which token, on which line, and that the fix
+# was one `git add`, took a `git diff | grep` on each occasion. A checker that
+# identifies a problem it could have LOCATED is spending someone else's minutes
+# to save its own.
+# --------------------------------------------------------------------------
+
+
+def test_the_failure_NAMES_THE_LINE_and_says_git_add_when_the_file_is_merely_untracked(
+    tmp_path: Path,
+) -> None:
+    """The exact live shape: a PACKAGE-RELATIVE citation of an untracked module.
+
+    The token is cited as `pkg/<module>` while the file sits at
+    `src/pkg/<module>`, which is how every citation in this repository is
+    actually written. An exact-path check reports nothing for that case - it was
+    tried first and printed the generic sentence on the very failure it was built
+    for - so the remedy is matched by SUFFIX, the same way `_suffix_index`
+    resolves tracked tokens.
+    """
+    token = _invented("pkg/latecomer", ".py")
+    root = _throwaway_repo(tmp_path, f'"""Builds ``{token}``."""\n')
+    real = root / "src" / token
+    real.parent.mkdir(parents=True, exist_ok=True)
+    real.write_text("# written, not yet added\n")
+
+    problems = "\n".join(C.enumerate_references(root, declared={}, debt={}).problems)
+
+    assert "module.py:1" in problems, (
+        f"the citing LINE is not named, so the reader still has to grep for it:\n{problems}"
+    )
+    assert f"cites `{token}`" in problems, (
+        f"the offending TOKEN is not named, only the file that carries it:\n{problems}"
+    )
+    assert f"`git add src/{token}`" in problems, (
+        "the remedy does not name the one command that fixes it, and it is the command "
+        f"that fixed this exact failure twice in one day:\n{problems}"
+    )
+
+
+def test_a_citation_of_something_that_does_NOT_exist_keeps_the_general_advice(
+    tmp_path: Path,
+) -> None:
+    """The control. `git add` is only correct when there is something to add.
+
+    Without this half the previous test would pass just as well against a message
+    that says `git add` unconditionally - which would be wrong advice on every
+    genuine typo and every reference to a thing that was never written.
+    """
+    token = _invented("pkg/never_written", ".py")
+    root = _throwaway_repo(tmp_path, f'"""Builds ``{token}``."""\n')
+
+    problems = "\n".join(C.enumerate_references(root, declared={}, debt={}).problems)
+
+    assert f"cites `{token}`" in problems, problems
+    assert "git add" not in problems, (
+        "the message offers `git add` for a path that does not exist anywhere. The remedy "
+        f"must distinguish UNTRACKED from ABSENT:\n{problems}"
+    )
+    assert "name it inline, cite something tracked" in problems, problems
+
+
+def test_the_remedy_reads_the_disk_but_the_VERDICT_still_comes_from_the_index(
+    tmp_path: Path,
+) -> None:
+    """The invariant this module is built on, re-asserted where it was put at risk.
+
+    Resolution is decided by `git ls-files` and never by what is on this disk;
+    otherwise the check passes for the author and fails for the cloner, which is
+    the whole defect it exists to catch. I30 reads the filesystem to choose a
+    remedy SENTENCE, so the risk is that an untracked file starts counting as
+    resolved. It does not: the token below is present on disk and still
+    unresolved.
+    """
+    token = _invented("pkg/present_but_unadded", ".py")
+    root = _throwaway_repo(tmp_path, f'"""Builds ``{token}``."""\n')
+    real = root / "src" / token
+    real.parent.mkdir(parents=True, exist_ok=True)
+    real.write_text("# on disk, absent from the index\n")
+
+    enum = C.enumerate_references(root, declared={}, debt={})
+    assert [r.resolution for r in enum.references] == ["unresolved"], (
+        "a file that exists on disk but not in the index was treated as resolved. The "
+        "remedy lookup has leaked into the verdict and the check now passes for whoever "
+        "has the file and fails for everyone who clones."
+    )
+    assert enum.problems, "it resolved to nothing and reported no problem either"
