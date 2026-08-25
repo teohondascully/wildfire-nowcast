@@ -395,12 +395,23 @@ def _by_region(text: str) -> dict[str, list[prose_scan.Occurrence]]:
 
 
 def test_the_classifier_separates_all_five_regions_on_one_specimen() -> None:
-    """C3.5. Five verdicts, one file, and no file name is consulted for any of them."""
+    """C3.5. Six verdicts now, one file, and no file name is consulted for any of them.
+
+    `KEY_MAP` on line 6 moved from `literal` to `load-bearing` at I29 and that is
+    the point of the region: it is a DICT KEY, so rewriting its dash changes which
+    entry the lookup finds. It sat in a bin whose legend read "rewriting one
+    changes behaviour" beside 251 characters for which that was false, which is
+    the same thing as not being classified at all.
+    """
     regions = _by_region(_SPECIMEN)
     assert len(regions.get(prose_scan.REGION_DOCSTRING, [])) == 1, regions
     assert len(regions.get(prose_scan.REGION_COMMENT, [])) == 1, regions
-    assert len(regions.get(prose_scan.REGION_LITERAL, [])) == 2, regions
+    assert len(regions.get(prose_scan.REGION_LITERAL, [])) == 1, regions
     assert prose_scan.REGION_CODE not in regions, regions
+
+    consumed = regions.get(prose_scan.REGION_LOAD_BEARING, [])
+    assert [(occ.line, occ.role) for occ in consumed] == [(6, "dict key")], regions
+    assert regions[prose_scan.REGION_LITERAL][0].line == 5, regions
 
     output_lines = sorted(occ.line for occ in regions.get(prose_scan.REGION_OUTPUT, []))
     assert output_lines == [10, 11, 12, 13], regions.get(prose_scan.REGION_OUTPUT)
@@ -441,11 +452,23 @@ def test_a_keyword_argument_is_a_sink_and_the_rule_is_a_REFUSAL_not_a_name_list(
 
 
 def test_a_literal_that_is_NOT_a_sink_stays_excluded() -> None:
-    """A module-level constant and a dict key are internal and must remain so."""
+    """A module-level constant, a dict key and a replace() needle are all NOT sinks.
+
+    The claim this test was written for is unchanged and is asserted first: none
+    of the three reaches a reader, so none of them is the FAILING category. What
+    I29 added is the second assertion - the three are not the same KIND of thing.
+    The constant is inert prose; the dict key and the needle are bytes the program
+    matches on, and sweeping either changes behaviour with nothing going red.
+    """
     specimen = 'A = "dash — one"\nB = {"dash — two": 3}\nC = A.replace("—", "-")\n'
     regions = _by_region(specimen)
-    assert len(regions[prose_scan.REGION_LITERAL]) == 3, regions
     assert prose_scan.REGION_OUTPUT not in regions, regions
+
+    assert [occ.line for occ in regions[prose_scan.REGION_LITERAL]] == [1], regions
+    assert [(occ.line, occ.role) for occ in regions[prose_scan.REGION_LOAD_BEARING]] == [
+        (2, "dict key"),
+        (3, "replace() needle"),
+    ], regions
 
 
 # --------------------------------------------------------------------------
@@ -494,3 +517,136 @@ def test_the_scanner_reads_its_own_source_and_is_not_self_exempt() -> None:
 @pytest.mark.parametrize("specimen", [_SPECIMEN])
 def test_the_specimen_parses_so_the_scan_is_never_silently_skipped(specimen: str) -> None:
     assert isinstance(ast.parse(specimen), ast.Module)
+
+
+# --------------------------------------------------------------------------
+# I29: the load-bearing region - CONSUMED bytes, pinned as a SET
+#
+# `literal` carried the legend "internal; rewriting one changes behaviour or
+# bytes" over 256 occurrences. Measured against every tracked test and every
+# tracked JSON artifact, with the probe controlled and planted first, **0 of 256
+# had their bytes compared by anything**, and only 4 sat in a syntactic position
+# that consumes them. The region was not too broad by a little; it was asserting
+# a property of 256 characters that 252 of them did not have.
+# --------------------------------------------------------------------------
+
+
+def test_the_classifier_tells_a_CONSUMED_separator_from_an_EMITTED_one() -> None:
+    """The whole region rests on this one distinction, so it is asserted directly.
+
+    Identical characters, one statement apart. `split(" - ")` MATCHES on the dash:
+    sweep it and the split silently stops splitting. `" - ".join(...)` WRITES the
+    dash: sweep it and the output reads slightly differently, which is what a
+    prose sweep is for. A rule that could not tell these apart would either
+    forbid sweeping all prose or license breaking every parse.
+    """
+    specimen = (
+        "def f(rows):\n"
+        '    head = rows.split(" — ")[0]\n'
+        '    tail = " — ".join(rows)\n'
+        "    return head, tail\n"
+    )
+    regions = _by_region(specimen)
+    assert [(o.line, o.role) for o in regions[prose_scan.REGION_LOAD_BEARING]] == [
+        (2, "split() separator")
+    ], regions
+    assert [o.line for o in regions[prose_scan.REGION_LITERAL]] == [3], regions
+
+
+def test_a_compiled_regex_SUBJECT_is_not_mistaken_for_a_PATTERN() -> None:
+    """The false positive that would have put four inert test inputs in the pin.
+
+    `re.compile(pattern)` takes the pattern first; `compiled.search(subject)`
+    takes the SUBJECT first. A rule keyed on the method NAME alone reads both as
+    patterns, and `tests/test_hygiene.py` has four `_VERSION_CLAIM_RE.search(...)`
+    calls on a dash-bearing SUBJECT whose dashes decide nothing. Four wrong in a
+    four-entry pin is not a pin, so the receiver is checked, not just the name.
+    """
+    specimen = (
+        "import re\n"
+        'PATTERN = re.compile("a — pattern")\n'
+        "def f():\n"
+        '    return PATTERN.search("a — subject")\n'
+    )
+    regions = _by_region(specimen)
+    assert [(o.line, o.role) for o in regions[prose_scan.REGION_LOAD_BEARING]] == [
+        (2, "re.compile() pattern")
+    ], regions
+    assert [o.line for o in regions[prose_scan.REGION_LITERAL]] == [4], regions
+
+
+def test_no_character_is_both_reader_facing_and_load_bearing() -> None:
+    """The cost of the precedence order, guarded instead of hidden.
+
+    A reader-facing verdict is reached FIRST and is not overturned, because the
+    failing category may not be weakened by an overlap. The price is that a
+    character which is both PRINTED and CONSUMED would be demanded swept, and
+    sweeping it would break the thing that consumes it. That set is empty today.
+    This asserts it stays empty, so the day it is not, someone reads the ruling
+    rather than discovering it from a broken split.
+    """
+    scanned = _scan()
+    reader_facing = {(o.path, o.line) for o in scanned if o.region == prose_scan.REGION_OUTPUT}
+    conflicted = []
+    for rel in sorted({path for path, _ in reader_facing}):
+        text = (repo_root() / rel).read_text(encoding="utf-8")
+        consumed = prose_scan.load_bearing_spans(ast.parse(text))
+        for path, line in reader_facing:
+            if path != rel:
+                continue
+            if any(span.start[0] <= line <= span.end[0] for span in consumed):
+                conflicted.append((path, line))
+    assert not conflicted, (
+        "a typographic character is BOTH shown to a reader AND consumed by the program at "
+        f"{conflicted}. The output region demands it be swept and the load-bearing region "
+        "says sweeping it changes behaviour. Do not resolve this by moving it to the quieter "
+        "bin: split the literal, so the printed copy and the matched copy are separate bytes."
+    )
+
+
+def test_the_load_bearing_set_is_pinned_by_FILE_CHARACTER_and_ROLE() -> None:
+    """The pin. A SET, because a count cannot see a swap (ADR-154).
+
+    It fails four ways and each is an event worth a red: an UNDECLARED entry means
+    somebody just made a character load-bearing; a VANISHED one means a coupling
+    was removed or silently swept; a MOVED role means the same count now describes
+    a different thing.
+    """
+    observed = prose_scan.observed_load_bearing(_scan())
+    diff = prose_scan.load_bearing_diff(observed)
+    assert not diff, (
+        "the load-bearing set has moved away from its pin in tools/prose_scan.py:\n  "
+        + "\n  ".join(diff)
+        + "\n\nRead the entry before editing the pin. This region is not a debt to burn "
+        "down - a `split()` separator is SUPPOSED to exist. The pin records that it does, "
+        "so a prose sweep of that file cannot turn a parse into a no-op unnoticed."
+    )
+
+
+def test_the_cross_lead_coupling_the_pin_exists_for_is_still_live() -> None:
+    """The pin's load-bearing entry is only worth having while the coupling is real.
+
+    `sim/rundash.py` splits a validity line on the em dash that `eval/validity.py`
+    formats. Two packages, two owners, no shared constant between them. If the
+    producer ever stops emitting the separator, the consumer's
+    `split()` becomes a no-op that still looks like code, and the right response
+    is to say so - not to keep an entry pinned to a coupling that has died.
+
+    Asserted on the PRODUCER'S SOURCE rather than on a stored artifact, because an
+    artifact records what the code did on the day it ran and this is a claim about
+    what the code does now.
+    """
+    src = repo_root() / "src" / "wildfire_nowcast"
+    producer = (src / "eval" / "validity.py").read_text(encoding="utf-8")
+    statements = [ln for ln in producer.splitlines() if "baseline validity" in ln and "—" in ln]
+    assert statements, (
+        "eval/validity.py no longer formats its verdict line with an em dash separator, so "
+        'sim/rundash.py:640\'s `split(" — ")` now returns the whole string and truncates at '
+        "96 characters instead of at the verdict. Either the coupling moved - repoint this - "
+        "or the dash was swept and the truncation is quietly dead."
+    )
+    consumer = (src / "sim" / "rundash.py").read_text(encoding="utf-8")
+    assert '.split(" — ")' in consumer, (
+        "sim/rundash.py no longer splits on the separator this pin declares; the "
+        "load-bearing entry for that file is stale and must be removed in this commit"
+    )

@@ -1,17 +1,27 @@
 """Classify non-ASCII punctuation in the tracked tree by its STRUCTURAL region.
 
 The sweep of 2026-08-21 removed 1,732 occurrences of typographic punctuation from
-prose and left 406 inside live string literals on purpose (JSON field names,
-contract violation messages, expected values a test compares against): rewriting a
-dash inside a literal changes program behaviour or an artifact's bytes. That sweep
-is a snapshot. An em dash planted in ``common/paths.py`` afterwards left the
-hygiene suite at 44 passed, exit 0, and the tracked count drifted 407 -> 415
-during the task that performed the sweep, so regrowth is measured behaviour rather
-than a worry.
+prose and left 406 inside live string literals on purpose. That sweep is a
+snapshot.
+
+**THE REASON GIVEN FOR LEAVING THEM WAS CHECKED AT I29 AND IS TRUE OF FOUR OF
+THEM.** This paragraph used to say the 406 were "JSON field names, contract
+violation messages, expected values a test compares against", so that "rewriting a
+dash inside a literal changes program behaviour or an artifact's bytes". Measured
+on the 256 that remained, with a probe controlled and planted before it was
+believed: **no tracked test and no tracked JSON artifact compares any of them**,
+and exactly **4** sit in a syntactic position that consumes their bytes. Those 4
+are now :data:`REGION_LOAD_BEARING` and are pinned as a set; the rest are inert
+prose and are counted, not claimed. An exclusion whose stated reason is false for
+98% of what it excludes is not a decision, it is a habit.
+
+An em dash planted in ``common/paths.py`` after that sweep left the hygiene suite
+at 44 passed, exit 0, and the tracked count drifted 407 -> 415 during the task
+that performed the sweep, so regrowth is measured behaviour rather than a worry.
 
 This module is the half that holds it: it separates PROSE (docstrings and
 comments, where a typographic character is a tell and is free to remove) from
-LIVE LITERALS (where removing one is a behaviour change), and it does so by
+LIVE LITERALS, and it does so by
 reading the parse tree, never by consulting a list of file names. An allow-list of
 files is how the previous seven instances of this class survived; a structural
 rule has nothing to go stale.
@@ -84,6 +94,22 @@ REGION_OUTPUT: Final = "output"
 #: surface infra does not own.
 REGION_ERROR: Final = "err-msg"
 
+#: **A LITERAL THE PROGRAM CONSUMES RATHER THAN EMITS** (I29): a dict key, a
+#: subscript key, an operand of a comparison, or the separator / needle / pattern
+#: of a string or regex operation. Rewriting one of these SILENTLY CHANGES
+#: BEHAVIOUR - the split stops splitting, the lookup misses, the branch flips -
+#: and no test has to notice.
+#:
+#: THIS IS THE REGION ``literal`` ALWAYS CLAIMED TO BE AND MEASURABLY WAS NOT.
+#: ``literal``'s legend read "internal; rewriting one changes behaviour or bytes"
+#: over a population of 256, of which **4** had that property. The other 252 are
+#: inert prose that happens to sit between quotes: a probe over every tracked test
+#: and every tracked JSON artifact, controlled and planted, found **0 of 256**
+#: whose bytes anything compares. Bounding the region to its own claim is what
+#: makes the number readable, and it is the reason the count fell by 98% without
+#: a single character being rewritten anywhere.
+REGION_LOAD_BEARING: Final = "load-bearing"
+
 #: What each region MEANS, printed beside its count on every run. The general
 #: rule ADR-097 (4) draws from three defects in one day: **a tool that excludes a
 #: category prints what it excluded next to its verdict, every time.** A tally
@@ -95,7 +121,11 @@ REGION_LEGEND: Final[dict[str, str]] = {
     REGION_CODE: "impossible for a punctuation category; non-zero means the classifier is wrong",
     REGION_OUTPUT: "FAILING: a live literal a READER SEES (printed, or passed by keyword)",
     REGION_ERROR: "EXCLUDED and DECLARED: reaches a reader only on a raise/assert path",
-    REGION_LITERAL: "EXCLUDED and DECLARED: internal; rewriting one changes behaviour or bytes",
+    REGION_LOAD_BEARING: "EXCLUDED and PINNED as a SET: the program CONSUMES these bytes",
+    REGION_LITERAL: (
+        "EXCLUDED and DECLARED: inert prose that sits between quotes. NOT 'internal, "
+        "rewriting changes behaviour' - that claim was measured false for 252 of 256"
+    ),
     REGION_PROSE: "tracked non-Python text, BOUNDED by its own pin",
 }
 
@@ -123,6 +153,7 @@ ALL_REGIONS: Final[tuple[str, ...]] = (
     REGION_CODE,
     REGION_OUTPUT,
     REGION_ERROR,
+    REGION_LOAD_BEARING,
     REGION_LITERAL,
     REGION_PROSE,
 )
@@ -165,11 +196,18 @@ class Occurrence:
     char: str
     category: str
     name: str
+    #: WHY the region was assigned, where the region alone does not say it. Empty
+    #: for every region whose name is its own explanation; for `load-bearing` it
+    #: is the syntactic position that consumes the bytes, and it is pinned, because
+    #: a character that stops being a `split() separator` and becomes a `dict key`
+    #: has moved even though the count has not (ADR-154).
+    role: str = ""
 
     def __str__(self) -> str:
+        suffix = f" <- {self.role}" if self.role else ""
         return (
             f"{self.path}:{self.line} [{self.region}] "
-            f"U+{ord(self.char):04X} {self.name} ({self.category})"
+            f"U+{ord(self.char):04X} {self.name} ({self.category}){suffix}"
         )
 
 
@@ -188,6 +226,7 @@ class _TokenRegion:
     start: tuple[int, int]
     end: tuple[int, int]
     region: str
+    role: str = ""
 
     def contains(self, line: int, col: int) -> bool:
         return self.start <= (line, col) < self.end
@@ -430,6 +469,99 @@ def reader_facing_spans(tree: ast.AST) -> tuple[list[_TokenRegion], list[ast.Con
     return spans, constants
 
 
+# --------------------------------------------------------------------------
+# WHICH LITERALS THE PROGRAM CONSUMES (I29)
+# --------------------------------------------------------------------------
+
+#: String methods whose FIRST argument is matched against, not printed. The
+#: distinction that decides this whole region is CONSUMED vs EMITTED: ``" - "``
+#: inside ``split(" - ")`` is a separator the program looks for, while the same
+#: characters inside ``" - ".join(parts)`` are text it writes out. Only the first
+#: changes behaviour when it is rewritten, so only the first is here. ``join`` is
+#: deliberately ABSENT for exactly that reason.
+_MATCHED_METHODS: Final = frozenset(
+    {
+        "split",
+        "rsplit",
+        "partition",
+        "rpartition",
+        "startswith",
+        "endswith",
+        "strip",
+        "lstrip",
+        "rstrip",
+        "removeprefix",
+        "removesuffix",
+        "count",
+        "index",
+        "find",
+        "rfind",
+    }
+)
+
+#: ``re`` module entry points whose FIRST argument is the PATTERN. Recognised only
+#: on a call whose receiver is literally ``re``, because ``x.search(subject)`` on a
+#: COMPILED pattern passes the SUBJECT first, and a subject is read, not matched.
+#: Getting that backwards would file four test inputs in `tests/test_hygiene.py`
+#: as load-bearing when rewriting them changes nothing.
+_REGEX_FUNCTIONS: Final = frozenset(
+    {"compile", "match", "search", "sub", "subn", "findall", "finditer", "fullmatch", "split"}
+)
+
+
+def load_bearing_spans(tree: ast.AST) -> list[_TokenRegion]:
+    """Every literal span whose BYTES the program consumes rather than emits.
+
+    Four structural positions, and each one is a place where a prose sweep is a
+    silent behaviour change rather than a tidy-up:
+
+    * a **dict key** or a **subscript key** - the lookup stops matching;
+    * an operand of a **comparison** - the branch flips;
+    * the first argument of a **matched string method** (:data:`_MATCHED_METHODS`)
+      or of ``replace`` - the separator stops separating;
+    * the first argument of an ``re`` **module** function - the pattern stops
+      matching.
+
+    This is a REFUSAL to treat position as decoration, not an allow-list of files,
+    and it is why the region can be pinned at all: it is four characters wide
+    today against the 256 that carried the same claim without the property.
+    """
+    spans: list[_TokenRegion] = []
+
+    def take(node: ast.AST, role: str) -> None:
+        for start, end in _string_spans(node):
+            spans.append(_TokenRegion(start, end, REGION_LOAD_BEARING, role))
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            for key in node.keys:
+                if key is not None:
+                    take(key, "dict key")
+        elif isinstance(node, ast.Subscript):
+            take(node.slice, "lookup key")
+        elif isinstance(node, ast.Compare):
+            take(node.left, "comparison operand")
+            for comparator in node.comparators:
+                take(comparator, "comparison operand")
+        elif isinstance(node, ast.Call) and node.args:
+            name = _call_name(node.func)
+            if name in _MATCHED_METHODS:
+                take(node.args[0], f"{name}() separator")
+            elif name == "replace":
+                # The NEEDLE, not the replacement. `replace(old, new)` matches on
+                # arg 0 and EMITS arg 1, so only arg 0 changes behaviour when it is
+                # rewritten - the same consumed/emitted line `join` sits on.
+                take(node.args[0], "replace() needle")
+            elif (
+                name in _REGEX_FUNCTIONS
+                and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "re"
+            ):
+                take(node.args[0], f"re.{name}() pattern")
+    return spans
+
+
 def prose_spans(text: str) -> list[_TokenRegion]:
     """Every COMMENT and DOCSTRING span in a Python source, as regions.
 
@@ -468,6 +600,7 @@ def scan_python_source(path: str, text: str) -> list[Occurrence]:
     doc_starts = frozenset((node.lineno, node.col_offset) for node in doc_nodes)
     regions = _token_regions(text, doc_starts)
     reader_spans, output_constants = reader_facing_spans(tree)
+    consumed_spans = load_bearing_spans(tree)
 
     for lineno, line in enumerate(text.splitlines(), start=1):
         for col, char in _offending(line):
@@ -481,8 +614,23 @@ def scan_python_source(path: str, text: str) -> list[Occurrence]:
                     if reach.contains(lineno, col):
                         region = reach.region
                         break
+            # PRECEDENCE, stated because it is a CHOICE and not an accident: a
+            # reader-facing verdict is reached first and is not overturned here,
+            # for the reason `reader_facing_spans` already gives - the FAILING
+            # category may not be weakened by an overlap. The cost of that order
+            # is real and is guarded rather than hidden: a character that is BOTH
+            # printed AND consumed would be demanded swept, and sweeping it would
+            # break the split. `test_no_character_is_both_reader_facing_and_
+            # load_bearing` asserts that set is EMPTY, so the day it stops being
+            # empty is the day someone reads this comment.
+            role = ""
+            if region == REGION_LITERAL:
+                for consumed in consumed_spans:
+                    if consumed.contains(lineno, col):
+                        region, role = consumed.region, consumed.role
+                        break
             category, name = _describe(char)
-            out.append(Occurrence(path, lineno, region, char, category, name))
+            out.append(Occurrence(path, lineno, region, char, category, name, role))
 
     for node in doc_nodes:
         out.extend(_escaped_excess(path, text, node, REGION_DOCSTRING))
@@ -682,6 +830,93 @@ def audit_output_literals(
 
 
 # --------------------------------------------------------------------------
+# the load-bearing set, pinned as a SET because a count cannot see a swap
+# --------------------------------------------------------------------------
+
+#: Every typographic character the program CONSUMES, declared by FILE, CHARACTER
+#: and SYNTACTIC ROLE. **PINNED AS A SET AND NOT AS A COUNT (ADR-154):** a pin
+#: reading "4" cannot tell a `split() separator` that became a `dict key` from one
+#: that never moved, and cannot tell one file's loss plus another's gain from
+#: nothing happening at all.
+#:
+#: LINE NUMBERS ARE DELIBERATELY ABSENT. They drift on every edit above them, and
+#: a pin that goes red when someone adds an import is a pin that gets deleted -
+#: the failure mode `MEASURED_LIVE_LITERALS` documents against itself.
+#:
+#: IT FAILS IN FOUR DIRECTIONS, and each one is a real event:
+#:
+#: * an UNDECLARED entry - somebody made a typographic character load-bearing,
+#:   which is the hazard this region exists for;
+#: * a DECLARED entry that VANISHED - the coupling was removed or, worse, swept;
+#: * a ROLE that changed under a stable count - the swap ADR-154 was written for;
+#: * a COUNT that moved within a declared file.
+#:
+#: **THE ENTRY THAT IS NOT INFRA'S AND IS DECLARED RATHER THAN SWEPT:**
+#: `sim/rundash.py` splits a validity warning on ``" <em dash> "`` to truncate it
+#: for the canvas. The producer is `eval/validity.py:326`, which formats
+#: ``f"...: {verdict} <em dash> {why}. {consequence}"`` - a DIFFERENT LEAD'S FILE.
+#: Measured on 21 run artifacts: **60 of 60** DEGENERATE/VOID interpretation lines
+#: carry that separator, so the coupling is live, not vestigial. Two packages,
+#: two owners, no shared constant, and until this region existed no gate could
+#: see it. **Nobody is being asked to change it.** It is declared so that the
+#: next prose sweep of either file trips a red instead of silently turning a
+#: truncation into a no-op.
+LOAD_BEARING_TYPOGRAPHY: Final[dict[str, tuple[tuple[str, str, int], ...]]] = {
+    "src/wildfire_nowcast/sim/rundash.py": (("EM DASH", "split() separator", 1),),
+    "tests/test_hygiene.py": (("EM DASH", "comparison operand", 2),),
+    # 3, and the pin caught the author raising it from 1. Writing tests ABOUT a
+    # character adds occurrences OF it: two of these three are `"<em dash>" in ln`
+    # and `'.split(" <em dash> ")' in consumer`, which really are consumed - the
+    # assertions match on those exact bytes. Spelling them `\u2014` would have kept
+    # the number at 1 by making them invisible to the scanner that polices them,
+    # which is the defect this repository has named eight times. Declared instead.
+    "tests/test_prose_output_literals.py": (("EM DASH", "comparison operand", 3),),
+}
+
+
+def observed_load_bearing(
+    occurrences: Sequence[Occurrence],
+) -> dict[str, tuple[tuple[str, str, int], ...]]:
+    """The live load-bearing set, in the exact shape the pin is written in."""
+    tally: dict[str, Counter[tuple[str, str]]] = {}
+    for occ in occurrences:
+        if occ.region == REGION_LOAD_BEARING:
+            tally.setdefault(occ.path, Counter())[(occ.name, occ.role)] += 1
+    return {
+        path: tuple(sorted((name, role, n) for (name, role), n in counts.items()))
+        for path, counts in sorted(tally.items())
+    }
+
+
+def load_bearing_diff(observed: Mapping[str, tuple[tuple[str, str, int], ...]]) -> list[str]:
+    """Every way the live set differs from the pin, one human sentence each.
+
+    Returns an EMPTY list when they agree. Stated as a diff rather than as a
+    boolean so that the remedy is legible from the failure: the caller prints
+    these, and a reader learns which file, which character and which role moved
+    without re-running anything.
+    """
+    out: list[str] = []
+    for path in sorted(set(observed) | set(LOAD_BEARING_TYPOGRAPHY)):
+        want = LOAD_BEARING_TYPOGRAPHY.get(path)
+        got = observed.get(path)
+        if want is None:
+            out.append(
+                f"UNDECLARED: {path} now consumes typographic bytes {got}. Something made a "
+                "character load-bearing; rewriting it later would change behaviour silently."
+            )
+        elif got is None:
+            out.append(
+                f"VANISHED: {path} carried {want} and now carries none. Either the coupling "
+                "was removed on purpose - delete the entry in this commit - or a prose sweep "
+                "just turned it into a no-op, which is the event this pin exists to catch."
+            )
+        elif got != want:
+            out.append(f"MOVED: {path} was pinned {want} and now reads {got}.")
+    return out
+
+
+# --------------------------------------------------------------------------
 # the one exemption, pinned to its reason rather than to its file name
 # --------------------------------------------------------------------------
 
@@ -751,8 +986,9 @@ def main(argv: list[str] | None = None) -> int:
     counts: dict[str, int] = {}
     for occ in occurrences:
         counts[occ.region] = counts.get(occ.region, 0) + 1
+    width = max(len(region) for region in ALL_REGIONS)
     for region in ALL_REGIONS:
-        print(f"{region:>10}  {counts.get(region, 0):>4}  {REGION_LEGEND[region]}")
+        print(f"{region:>{width}}  {counts.get(region, 0):>4}  {REGION_LEGEND[region]}")
 
     audit = audit_output_literals(occurrences)
     print(
@@ -777,6 +1013,15 @@ def main(argv: list[str] | None = None) -> int:
         f"PAGE-FRAGMENT SINK: a literal carrying one of {len(_HTML_ELEMENTS)} HTML "
         "element tags. Matched on CONTENT because the page's own sink is an alias."
     )
+    consumed_diff = load_bearing_diff(observed_load_bearing(occurrences))
+    print(
+        f"\nLOAD-BEARING SET: {sum(n for e in LOAD_BEARING_TYPOGRAPHY.values() for *_, n in e)} "
+        f"character(s) across {len(LOAD_BEARING_TYPOGRAPHY)} file(s), pinned by FILE, "
+        "CHARACTER and ROLE rather than by count (ADR-154). These are the only literals "
+        "for which `rewriting one changes behaviour` is true; it was asserted of 256."
+    )
+    for line in consumed_diff:
+        print(f"  [DIFF] {line}")
     for line in audit.lines():
         print(f"  [FAIL] {line}")
 

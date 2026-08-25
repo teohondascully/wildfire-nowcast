@@ -1717,8 +1717,20 @@ PINNED_PROSE_FILE_OCCURRENCES = 2
 #: NOT a bound, and deliberately not pinned to equality: a lead adding a contract
 #: violation message moves it, and a pin that another lead's legitimate edit turns
 #: red is a pin that gets deleted. Recorded so that the boundary of the pin above
-#: is a measurement rather than a sentence. Measured at `cc82876`.
-MEASURED_LIVE_LITERALS = 467
+#: is a measurement rather than a sentence.
+#:
+#: **RE-MEASURED AT I29, and the 467 this line carried since `cc82876` was stale
+#: by 211.** It had been quoted in prose as "467 typographic characters sit in
+#: live literals today"; the tree read 256 before this task touched anything.
+#: Three separate things move this number and only one of them is a sweep, which
+#: is why it is a reference and not a bound: sweeps remove some, I29 reclassified
+#: 4 into `load-bearing`, and writing tests ABOUT typography adds specimens (all
+#: four of this task's additions are specimen literals in
+#: `tests/test_prose_output_literals.py`). Refreshed rather than left to be read
+#: as current, because a reference value nobody re-measures is how "the literal
+#: count is 256, pinned, failing on a rise AND on a fall" became a sentence in
+#: three consecutive briefs about a number that NOTHING pins in either direction.
+MEASURED_LIVE_LITERALS = 256
 
 
 def _prose_scan() -> list[prose_scan.Occurrence]:
