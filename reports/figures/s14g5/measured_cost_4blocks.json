@@ -1,0 +1,32 @@
+{
+ "per_fire": {
+  "2020_dolan": {
+   "n_windows": 43,
+   "cpu_seconds": 6271.9,
+   "s_per_member_median": 8.74,
+   "s_per_member_max": 116.85
+  },
+  "2020_july_complex": {
+   "n_windows": 13,
+   "cpu_seconds": 636.2,
+   "s_per_member_median": 6.69,
+   "s_per_member_max": 54.16
+  },
+  "2024_borel": {
+   "n_windows": 11,
+   "cpu_seconds": 1193.1,
+   "s_per_member_median": 33.43,
+   "s_per_member_max": 48.51
+  }
+ },
+ "total_cpu_seconds": 8101.1,
+ "total_cpu_hours": 2.25,
+ "setting": {
+  "stride": 16,
+  "n_members": 4,
+  "horizon_h": 3,
+  "simulation_dt_s": 1.0,
+  "refine": 33
+ },
+ "note": "wall-clock per window with 3 concurrent workers on a machine also running another lead; CPU seconds are the sum of per-window elapsed times, so they include contention"
+}

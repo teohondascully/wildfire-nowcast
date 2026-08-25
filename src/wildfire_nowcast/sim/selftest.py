@@ -132,6 +132,7 @@ __all__ = [
     "test_g6_the_source_cannot_drift_back_into_the_output_literal_sink",
     "test_g6_a_number_on_the_page_cannot_silently_disagree_with_its_artifact",
     "test_g6_the_page_cannot_send_a_reader_to_a_file_that_is_not_in_the_repository",
+    "test_g6_the_evidence_disclosure_is_derived_from_the_index_in_every_state",
 ]
 
 # ADR-103: a logger, and NOTHING else at import. The PASS/FAIL lines and the
@@ -3016,7 +3017,7 @@ def test_g6_the_page_cannot_send_a_reader_to_a_file_that_is_not_in_the_repositor
         '<body><p>the bar comes from <span class="mono">' + cited + "</span>.</p>"
         '<img src="data:image/png;base64,AAAA" alt="read from ' + evidence[0] + '">'
         "<table><tr><td>" + evidence[0] + "</td></tr></table>"
-        "<caption>" + g6.EVIDENCE_DISCLOSURE + "</caption></body></html>"
+        "<caption>" + g6.evidence_disclosure(evidence, tracked) + "</caption></body></html>"
     )
 
     # CONTROL. Silent - and note WHAT it is silent about: a tracked path spelled
@@ -3069,7 +3070,20 @@ def test_g6_the_page_cannot_send_a_reader_to_a_file_that_is_not_in_the_repositor
         ),
         # the disclosure deleted while the evidence row stays: an undisclosed
         # dead link is the defect; a disclosed origin is not.
-        "the disclosure removed, the evidence row kept": page.replace(g6.EVIDENCE_DISCLOSURE, ""),
+        "the disclosure removed, the evidence row kept": page.replace(
+            g6.evidence_disclosure(evidence, tracked), ""
+        ),
+        # A DISCLOSURE THAT WAS TRUE OF A DIFFERENT INDEX. This is the shape the
+        # sentence would have had the day the evidence was force-added while it
+        # was still a module constant: every row present, a disclosure present,
+        # and the two describing different repositories. The planted text is a
+        # real sentence the deriver emits for the all-tracked state, so this
+        # plant is the other state's truth rather than a string invented to
+        # fail.
+        "a disclosure that is true of a different index": page.replace(
+            g6.evidence_disclosure(evidence, tracked),
+            g6.evidence_disclosure(evidence, tracked | frozenset(evidence)),
+        ),
     }
     for label, planted in plants.items():
         msg = _g6_bar_refusal(
@@ -3084,6 +3098,154 @@ def test_g6_the_page_cannot_send_a_reader_to_a_file_that_is_not_in_the_repositor
     # re-running the untouched control is the only evidence none of them left
     # state behind.
     g6.assert_page_cites_nothing_a_cloner_cannot_open(page, tracked=tracked, evidence=evidence)
+
+
+def test_g6_the_evidence_disclosure_is_derived_from_the_index_in_every_state() -> None:
+    """THE LIE: prose that describes a state, sitting next to the state, going stale.
+
+    The page's evidence disclosure used to be a module constant reading "None
+    of these files is in the repository". True the day it was typed. **False
+    the moment anyone force-added those artifacts** -- and nothing would have
+    said so, because the control that required the sentence required THAT
+    sentence, so a page asserting the opposite of its own index would have
+    passed. That is the defect this repository has now paid for repeatedly:
+    hardcoded prose beside the state it describes.
+
+    It now derives. Which means it has to be tested in EVERY state, not in
+    today's: a derived sentence proved in one state is a literal with extra
+    steps. All four are constructed here -- none tracked, all tracked, mixed,
+    and NOT MEASURED -- and the mixed case is checked for NAMING the files a
+    reader cannot open, because a count would be a generalisation and a
+    generalisation is what lets one artifact drop out of a clone with the page
+    reading exactly as it did before.
+
+    Everything below is constructed. No git, no ``runs/`` directory, no real
+    page.
+    """
+    from wildfire_nowcast.sim import g6_report as g6  # noqa: PLC0415
+
+    # Assembled at run time, all of them, for the reason the sibling control
+    # gives: a plant is a path that must NOT resolve, and spelling one as a
+    # literal in tracked source turns the citation reader red for the plant
+    # being exactly what it is meant to be.
+    alpha = "/".join(("runs", "alpha.json"))
+    beta = "/".join(("runs", "beta.json"))
+    gamma = "/".join(("reports", "figures", "gamma.png"))
+    rows = [alpha, beta, gamma]
+
+    none_tracked = g6.evidence_disclosure(rows, frozenset())
+    all_tracked = g6.evidence_disclosure(rows, frozenset(rows))
+    one_missing = g6.evidence_disclosure(rows, frozenset({alpha, beta}))
+    two_missing = g6.evidence_disclosure(rows, frozenset({beta}))
+    unmeasured = g6.evidence_disclosure(rows, None)
+    nothing_declared = g6.evidence_disclosure([], frozenset())
+
+    # A DERIVATION THAT RETURNS THE SAME STRING IN EVERY STATE IS A CONSTANT
+    # WITH EXTRA STEPS. This is checked first: every assertion below is worth
+    # nothing if the function is not actually reading its second argument.
+    produced = [none_tracked, all_tracked, one_missing, two_missing, unmeasured, nothing_declared]
+    assert len(set(produced)) == len(produced), (
+        "two index states produced the SAME sentence. The disclosure is not "
+        f"deriving from what it was handed: {produced}"
+    )
+
+    # NONE TRACKED. Says so, and names nothing -- there is no subset to name.
+    assert "None of the files named below is in this repository" in none_tracked, none_tracked
+    for row in rows:
+        assert row not in none_tracked, f"the none-tracked sentence named {row}"
+
+    # ALL TRACKED. Says so, and NAMES NOTHING MISSING, because nothing is.
+    assert "Every file named below is in this repository" in all_tracked, all_tracked
+    for row in rows:
+        assert row not in all_tracked, (
+            f"the all-tracked sentence named {row} as though a reader could not "
+            "open it. Nothing is missing in this state and naming anything is a "
+            "false negative claim."
+        )
+
+    # MIXED, ONE MISSING. NAMES IT, and names ONLY it.
+    assert gamma in one_missing, f"the mixed sentence did not name the missing file: {one_missing}"
+    assert alpha not in one_missing, f"the mixed sentence named a tracked file: {one_missing}"
+    assert beta not in one_missing, f"the mixed sentence named a tracked file: {one_missing}"
+    assert "2 of the files named below are in this repository" in one_missing, one_missing
+    assert "1 is not" in one_missing, one_missing
+
+    # MIXED, TWO MISSING, A DIFFERENT SUBSET. The naming follows the index and
+    # is not a fixed list: the file named as missing above is missing here too,
+    # and the one that was present above is now named as well.
+    assert alpha in two_missing and gamma in two_missing, two_missing
+    assert beta not in two_missing, f"the mixed sentence named a tracked file: {two_missing}"
+    assert "1 of the files named below is in this repository" in two_missing, two_missing
+    assert "2 are not" in two_missing, two_missing
+
+    # NOT MEASURED. The state where the index could not be read is its own
+    # sentence, not silently folded into "none of them are tracked" -- which
+    # would be an assertion about something nobody asked git.
+    assert "was not measured" in unmeasured, unmeasured
+    for row in rows:
+        assert row not in unmeasured, f"the unmeasured sentence named {row}"
+
+    # END TO END, THROUGH THE CONTROL. A page carrying the sentence its index
+    # derives passes; the same page carrying ANOTHER STATE'S TRUE SENTENCE is
+    # refused. The second is the whole point of S20: the page and the index
+    # disagreeing is now a refusal instead of a silence.
+    index = frozenset({alpha, beta, "/".join(("docs", "interfaces.md"))})
+    page = (
+        "<!doctype html><html><body><table>"
+        + "".join("<tr><td>" + row + "</td></tr>" for row in rows)
+        + "</table><caption>"
+        + g6.evidence_disclosure(rows, index)
+        + "</caption></body></html>"
+    )
+    g6.assert_page_cites_nothing_a_cloner_cannot_open(page, tracked=index, evidence=rows)
+
+    for label, planted in {
+        "the sentence for an index where everything is tracked": page.replace(
+            g6.evidence_disclosure(rows, index), all_tracked
+        ),
+        "the sentence for an index where nothing is tracked": page.replace(
+            g6.evidence_disclosure(rows, index), none_tracked
+        ),
+        "the sentence for a DIFFERENT missing subset": page.replace(
+            g6.evidence_disclosure(rows, index), two_missing
+        ),
+        "no sentence at all": page.replace(g6.evidence_disclosure(rows, index), ""),
+    }.items():
+        msg = _g6_bar_refusal(
+            g6.assert_page_cites_nothing_a_cloner_cannot_open,
+            planted,
+            tracked=index,
+            evidence=rows,
+        )
+        assert msg.startswith("SelfCheckFailure"), f"{label}: {msg}"
+
+    # THE ALL-TRACKED PAGE IS NOT A THEORY EITHER. When every row resolves,
+    # nothing on the page is unresolvable, and this is the state in which a
+    # stale "none of these is in the repository" would be least detectable and
+    # most misleading. The control must still require the sentence there.
+    full = frozenset(rows)
+    tracked_page = (
+        "<!doctype html><html><body><table>"
+        + "".join("<tr><td>" + row + "</td></tr>" for row in rows)
+        + "</table><caption>"
+        + all_tracked
+        + "</caption></body></html>"
+    )
+    g6.assert_page_cites_nothing_a_cloner_cannot_open(tracked_page, tracked=full, evidence=rows)
+    msg = _g6_bar_refusal(
+        g6.assert_page_cites_nothing_a_cloner_cannot_open,
+        tracked_page.replace(all_tracked, none_tracked),
+        tracked=full,
+        evidence=rows,
+    )
+    assert msg.startswith("SelfCheckFailure"), (
+        "a page whose every artifact IS tracked kept the sentence saying none "
+        f"of them is, and the control stayed silent: {msg}"
+    )
+
+    # RESTORE, after the plants and not before them. Each plant built a copy;
+    # re-running the untouched control is the only evidence none left state.
+    g6.assert_page_cites_nothing_a_cloner_cannot_open(page, tracked=index, evidence=rows)
 
 
 def run_all() -> int:

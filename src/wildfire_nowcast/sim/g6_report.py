@@ -42,6 +42,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from collections.abc import Iterable, Sequence
@@ -57,7 +58,6 @@ import numpy as np  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 
 __all__ = [
-    "EVIDENCE_DISCLOSURE",
     "ArtifactSet",
     "Facts",
     "SelfCheckFailure",
@@ -67,6 +67,7 @@ __all__ = [
     "assert_page_states_value",
     "assert_source_is_ascii",
     "assert_stored_bar_agrees",
+    "evidence_disclosure",
     "load_facts",
     "main",
     "path_tokens_in_rendered",
@@ -117,20 +118,14 @@ ARM_LABELS: Final[dict[str, str]] = {
     "elmfire": "ELMFIRE (Rothermel default)",
 }
 
-#: WHAT THE PAGE SAYS ABOUT ITS OWN INPUTS, and the exact string the seventh
-#: control looks for. Every artifact this page reads lives under ``runs/`` or
-#: ``reports/figures/``, neither of which is in the repository, so a reader who
-#: takes the traceability table for a list of files to open gets nothing. The
-#: table stays -- deleting it would remove every number's origin -- and the
-#: sentence below is what turns it from a set of dead links into a statement of
-#: where the evidence is. The control REQUIRES this text whenever any such row
-#: is rendered, so removing the sentence and keeping the table refuses.
-EVIDENCE_DISCLOSURE: Final[str] = (
-    "None of these files is in the repository. They are the evidence on the "
-    "machine that rendered this page, under runs/ and reports/figures/, both "
-    "of which are untracked. They are named so that every number here has a "
-    "stated origin, not so that a reader can open one."
-)
+# WHAT THE PAGE SAYS ABOUT ITS OWN INPUTS IS NOT WRITTEN HERE. It is DERIVED,
+# by :func:`evidence_disclosure`, from the git index at render time. It was a
+# constant until S20, reading "None of these files is in the repository" -- true
+# on the day it was typed, and false the moment anyone ran ``git add -f`` on the
+# evidence. That is the defect this repository has now paid for several times:
+# a hardcoded sentence sitting beside the state it describes, correct until the
+# state moves and silent when it does. The sentence now follows the measurement,
+# so it is right before and after a force-add with nobody editing it.
 
 #: Which ``ArtifactSet`` field each draw label names, so a bar refusal can
 #: print the FILE that disagreed rather than leaving the reader to guess
@@ -438,6 +433,75 @@ def resolves_against_the_index(token: str, tracked: Iterable[str]) -> bool:
     return False
 
 
+def evidence_disclosure(rows: Sequence[str], tracked: Iterable[str] | None) -> str:
+    """What the page says about its own inputs, DERIVED from the git index.
+
+    THIS WAS A CONSTANT AND THE CONSTANT WAS THE DEFECT. It read *"None of
+    these files is in the repository"*, which was true when it was typed and
+    would have become false the instant anyone ran ``git add -f`` on the
+    evidence -- hardcoded prose sitting beside the state it describes, right
+    until the state moves and silent about it afterwards. The sentence now
+    follows the measurement: read the index, resolve each row against it, and
+    say what is actually there.
+
+    Four states, and every one of them has to produce a sentence that is TRUE:
+
+    * **none resolve** -- the reader holds none of the evidence, and the table
+      is provenance rather than a list of links;
+    * **all resolve** -- the reader holds all of it, and the sentence names
+      nothing missing, because there is nothing to name;
+    * **mixed** -- the sentence NAMES the ones a reader cannot open. A count
+      would be a generalisation, and a generalisation is what lets one file
+      quietly fall out of a clone with the page still reading as if it had not;
+    * **not measured** (``tracked is None``) -- the index could not be read, so
+      the page says so rather than guessing. A page that prints "none of these
+      is in the repository" because it never asked git has made exactly the
+      claim this function exists to stop: an assertion about a state nobody
+      measured. This is the same COULD-NOT-TELL that ``tools/ci_status.py``
+      keeps as its own exit code, for the same reason.
+
+    Resolution is :func:`resolves_against_the_index`, the same trailing-fragment
+    rule the page's own citation control uses. One definition of the boundary,
+    so the sentence and the check cannot disagree about what "in the repository"
+    means.
+    """
+    listed = list(rows)
+    if not listed:
+        return "This page names no evidence files."
+    if tracked is None:
+        return (
+            "Whether the files named below are in this repository was not "
+            "measured when this page was rendered, so a reader should assume "
+            "they do not have them. They are named so that every number here "
+            "has a stated origin."
+        )
+    known = frozenset(tracked)
+    missing = sorted(r for r in listed if not resolves_against_the_index(r, known))
+    present = len(listed) - len(missing)
+    if not missing:
+        return (
+            "Every file named below is in this repository. A reader who clones "
+            "it receives all of them, so every number on this page can be "
+            "opened at its source instead of taken on trust."
+        )
+    if present == 0:
+        return (
+            "None of the files named below is in this repository. They are the "
+            "evidence on the machine that rendered this page, named so that "
+            "every number here has a stated origin, not so that a reader can "
+            "open one."
+        )
+    return (
+        f"{present} of the files named below "
+        f"{'is' if present == 1 else 'are'} in this repository. "
+        f"{len(missing)} {'is' if len(missing) == 1 else 'are'} not, and a "
+        f"reader cannot open {'it' if len(missing) == 1 else 'them'}: "
+        f"{', '.join(missing)}. Every number here still has a stated origin; "
+        f"the ones read from {'that file' if len(missing) == 1 else 'those files'} "
+        f"cannot be checked against anything a clone contains."
+    )
+
+
 def tracked_paths(root: Path) -> frozenset[str]:
     """``git ls-files``: what a cloner receives, asked of git and not of the disk.
 
@@ -454,8 +518,6 @@ def tracked_paths(root: Path) -> frozenset[str]:
     caught only by running the gate. Where a comment must refer to one, it
     describes it.
     """
-    import subprocess  # noqa: PLC0415
-
     out = subprocess.run(
         ["git", "ls-files"],
         cwd=root,
@@ -486,14 +548,22 @@ def assert_page_cites_nothing_a_cloner_cannot_open(
     ``evidence`` is the ONLY class allowed to be unresolvable, and it is not a
     list anyone can grow by writing prose: it is ``ArtifactSet.as_rows()`` --
     the files this page reads -- so a new exemption costs a new INPUT. Those
-    rows may be printed only while the page still carries
-    :data:`EVIDENCE_DISCLOSURE`, which says in the reader's own words that the
-    files are not in the repository. Delete the sentence and keep the table and
-    this refuses: an undisclosed dead link is the defect, a disclosed origin is
-    not.
+    rows may be printed only while the page carries the sentence
+    :func:`evidence_disclosure` DERIVES from the same index this check reads.
+    Delete the sentence and keep the table and this refuses: an undisclosed
+    dead link is the defect, a disclosed origin is not.
+
+    AND THE SENTENCE MUST BE THE ONE TODAY'S STATE DERIVES, NOT A SENTENCE THAT
+    WAS TRUE ONCE. Until S20 the required text was a module constant reading
+    "None of these files is in the repository", so the day those files were
+    force-added the page would have kept saying it and this control would have
+    kept passing -- a check whose subject had moved out from under it. Both
+    sides now come from the index, so the stale-disclosure case is a refusal
+    rather than a silence, and no edit is owed on either side of a ``git add``.
     """
     known = frozenset(tracked)
-    declared = frozenset(evidence)
+    rows = list(evidence)
+    declared = frozenset(rows)
     counts = path_tokens_in_rendered(text)
     unresolved = sorted(t for t in counts if not resolves_against_the_index(t, known))
     undeclared = [t for t in unresolved if t not in declared]
@@ -503,13 +573,23 @@ def assert_page_cites_nothing_a_cloner_cannot_open(
             f"does not declare: {undeclared}. A reader who follows one gets "
             f"nothing. Name the thing inline, or cite something in the index."
         )
-    if unresolved and EVIDENCE_DISCLOSURE not in text:
-        raise SelfCheckFailure(
-            f"the page names {len(unresolved)} artifact(s) that are not in the "
-            f"repository ({unresolved[:3]}) without the sentence that says so. "
-            f"A provenance row is honest only while the page admits the reader "
-            f"does not have the file."
-        )
+    # The trigger is a PRINTED evidence row, not an unresolvable one. When the
+    # evidence is tracked nothing is unresolvable, and that is exactly the state
+    # in which a page still carrying the old "none of these is in the
+    # repository" sentence would be at its most misleading and least detectable.
+    printed = [r for r in rows if r in counts]
+    if printed:
+        owed = evidence_disclosure(rows, known)
+        if owed not in text:
+            n_present = sum(1 for r in rows if resolves_against_the_index(r, known))
+            raise SelfCheckFailure(
+                f"the page prints {len(printed)} evidence row(s) without the "
+                f"sentence its own resolution state derives. Measured now: "
+                f"{n_present} of {len(rows)} in the index. The page owes "
+                f"exactly this text and does not carry it: {owed!r}. A "
+                f"provenance row is honest only while the page states, "
+                f"correctly, which of them the reader holds."
+            )
 
 
 @dataclass(frozen=True)
@@ -586,6 +666,14 @@ class Facts:
     #: label and the module that was shaped to fit it, so the label is quoted
     #: from the file that stored it instead of retyped from another package.
     cal_bar_source: str = ""
+    #: THE GIT INDEX AS MEASURED WHEN THE FACTS WERE LOADED, or ``None`` when it
+    #: could not be read. The page's evidence disclosure is derived from this,
+    #: so the default is ``None`` on purpose: a hand-built ``Facts`` renders the
+    #: sentence that says the state was NOT MEASURED rather than one that
+    #: asserts an answer nobody asked git for. The unsafe direction of this
+    #: default is a page that under-claims; the other default's unsafe
+    #: direction is a page that lies.
+    tracked: frozenset[str] | None = None
     dispersion: dict[str, dict[str, Any]] = field(default_factory=dict)
     calibration: dict[str, dict[str, Any]] = field(default_factory=dict)
     disp_detail: dict[str, str] = field(default_factory=dict)
@@ -711,6 +799,15 @@ def load_facts(artifacts: ArtifactSet) -> Facts:
         "B": _read_json(artifacts.reliability_draw_b),
     }
     facts.registry = _load_registry_facts()
+    # ASKED OF GIT, NOT OF THE DISK, and asked HERE rather than at render time:
+    # this is the module's I/O boundary and ``render_page`` states it does no
+    # I/O beyond the raster. A repository that cannot be interrogated is not a
+    # rendering failure -- the numbers are all still readable -- so the index
+    # stays ``None`` and the page says the state was not measured.
+    try:
+        facts.tracked = tracked_paths(artifacts.root)
+    except (OSError, subprocess.SubprocessError):
+        facts.tracked = None
     return facts
 
 
@@ -1521,7 +1618,7 @@ def _traceability_table(facts: Facts) -> str:
         "<th>what this page takes from it</th></tr></thead><tbody>"
         + rows
         + "</tbody></table><caption><b>"
-        + EVIDENCE_DISCLOSURE
+        + evidence_disclosure([rel for _, rel, _ in facts.artifacts.as_rows()], facts.tracked)
         + "</b> Every number on this page comes "
         "from one of them, or from a constant imported out of "
         '<span class="mono">wildfire_nowcast.common</span>. No tensor is '
@@ -2780,6 +2877,33 @@ def selftest(artifacts: ArtifactSet) -> list[str]:
     def _check(t: str) -> None:
         assert_page_cites_nothing_a_cloner_cannot_open(t, tracked=index, evidence=rows)
 
+    def _other_state_disclosure() -> str:
+        """A sentence this deriver really emits, for an index that is NOT this one.
+
+        WRITTEN THE OBVIOUS WAY THIS WAS A PLANT THAT COULD NOT FIRE. The first
+        version swapped in ``evidence_disclosure(rows, index | set(rows))`` --
+        the all-tracked sentence. In a tree where the evidence is NOT tracked
+        that is a different sentence and the plant fires. In a tree where it IS
+        tracked it is the SAME sentence, so the substitution left the page
+        untouched, the control passed, and ``_observe`` reported a silent plant.
+        Which is to say: the plant would have gone quiet on exactly the day the
+        artifacts were force-added, which is the day it was written for.
+
+        So the alternative is CHOSEN against the sentence actually in force, and
+        this raises rather than returning a no-op if no different one exists.
+        """
+        here = evidence_disclosure(rows, index)
+        for other in (frozenset(), index | frozenset(rows)):
+            alt = evidence_disclosure(rows, other)
+            if alt != here:
+                return alt
+        raise SelfCheckFailure(
+            "no index state produces a disclosure different from the one in "
+            "force, so this plant would be a no-op. That is only reachable "
+            "with an empty evidence set, and an empty evidence set means the "
+            "page has no traceability table to be honest about."
+        )
+
     lines.append(
         _observe(
             "no path printed on the page is missing from the git index",
@@ -2810,7 +2934,18 @@ def selftest(artifacts: ArtifactSet) -> list[str]:
                     )
                 ),
                 "an evidence row kept, its disclosure deleted": lambda: _check(
-                    page.replace(EVIDENCE_DISCLOSURE, "")
+                    page.replace(evidence_disclosure(rows, index), "")
+                ),
+                # THE PLANT S20 EXISTS FOR: a disclosure that was true of a
+                # DIFFERENT resolution state. The page keeps a sentence, keeps
+                # every row, and describes a repository that is not this one --
+                # precisely the shape the module constant would have taken the
+                # day the evidence was force-added. The planted text is a real
+                # sentence this deriver emits, and it is chosen against the one
+                # in force so that it cannot degenerate into a no-op in a tree
+                # where the evidence happens to be tracked.
+                "a disclosure true of a different index state": lambda: _check(
+                    page.replace(evidence_disclosure(rows, index), _other_state_disclosure())
                 ),
             },
         )
