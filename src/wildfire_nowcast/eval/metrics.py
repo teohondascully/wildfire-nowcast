@@ -1144,6 +1144,9 @@ def _score_mask(
     # function rather than a wider return from the one infra's mutation suite
     # replaces wholesale.
     area_var_h, area_err_h = _area_dispersion_by_horizon(member_event, truth_event, mask, n_members)
+    # [M37] ADR-187 part A. Same rule again: a new quantity, a new function, no
+    # change to any existing return arity and no change to any existing value.
+    area_mu2 = _area_mean_square(member_event, mask)
 
     # --- mode capture ------------------------------------------------------
     iou = _iou_block(member_event, truth_event, mask, x0, tolerance_cells)
@@ -1216,6 +1219,11 @@ def _score_mask(
             # decomposition come out of the same two sums.
             "sum_var_by_horizon": area_var_h,
             "sum_sq_err_by_horizon": area_err_h,
+            # [M37] ADR-187 (A). `sum(mean_m area)^2`, additive like everything
+            # else in this block. NOT part of the criterion and never divided
+            # into it - it is what makes the mean-preserving inflation CEILING a
+            # measurement instead of an estimate (see `_area_mean_square`).
+            "sum_mean_square": area_mu2,
         },
         "iou": {
             "best_member_sum": _nan_to_zero(iou["best_member_iou"]),
@@ -1436,6 +1444,44 @@ def _area_dispersion_by_horizon(
     var = areas.var(axis=0, ddof=1) if n_members > 1 else np.zeros_like(mean_area)
     err = (mean_area - truth_area) ** 2
     return [float(v) for v in var], [float(e) for e in err]
+
+
+def _area_mean_square(member_event: np.ndarray, mask: np.ndarray) -> float:
+    """[M36/M37] ``sum_{lead} (mean_m area_m)^2`` - the term the DISPERSION CEILING needs.
+
+    **WHY THIS EXISTS, and it is not a decomposition of the criterion.**
+    ``area_dispersion_ratio`` answers "how wide is the ensemble against how wrong
+    its mean is". It cannot answer "how much wider could ANY mean-preserving
+    inflation of this ensemble make it", because that counterfactual needs the
+    SCALE of the forecast as well as its spread. Multiplying every member's area
+    by an independent ``X`` with ``E[X] = 1``, ``Var(X) = v`` gives, per scored
+    (window, lead),
+
+        Var'(area) = Var(area) (1 + v) + (mean area)^2 v
+
+    so the pooled ceiling is ``adr^2 (1+v) + factor * v * sum_mean_square /
+    sum_sq_err``. Every term but the last is already a stored sufficient
+    statistic; ``sum_mean_square`` was the ONE quantity M36 had to estimate, and
+    an estimate is where a refutation goes to become unfalsifiable.
+
+    **A NEW QUANTITY GETS A NEW FUNCTION.** Same rule, same reason, as
+    :func:`_truth_area_sum` and :func:`_area_dispersion_by_horizon`:
+    ``tests/test_playthrough_dispersion.py`` plants mutations by replacing
+    :func:`_area_dispersion` wholesale, so widening its return arity would break
+    another lead's mutation coverage. Nothing here reads ``truth_event`` - this
+    is a property of the FORECAST alone, which is also why it can be compared
+    across arms scored against different truths.
+
+    **ADDITIVE**, exactly like the four sums beside it: summing it over windows
+    and over leads gives the same number as one call over the concatenation, so
+    the ceiling is computable at every level of pooling from stored records.
+    Bounded below by ``n * (mean over the pool)^2`` by Cauchy-Schwarz, which is
+    the floor M36 used and which
+    :func:`~wildfire_nowcast.eval.selftest.check_area_mean_square_is_additive_and_above_its_cauchy_schwarz_floor`
+    asserts rather than assumes.
+    """
+    areas = member_event[:, :, mask].sum(axis=2).astype(np.float64)  # [M, L]
+    return float((areas.mean(axis=0) ** 2).sum())
 
 
 def _iou_block(
@@ -1733,6 +1779,16 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
         # before M22 has no per-lead sums, and inventing them would make an
         # absent decomposition look like a flat one.
         "area_dispersion_ratio_by_horizon": _pool_area_dispersion_by_horizon(blocks, factor),
+        # [M37] NESTED under one non-numeric key, for the reason
+        # `_area_error_decomposition` states at length and for the SAME registry:
+        # `common/null_check._flatten` reads every numeric value in a `by_mask`
+        # block as a METRIC and `C6_METRICS` refuses to skip one it does not
+        # know. This is a ceiling TERM, not a criterion - it has no orientation,
+        # so "higher is better" is not a question it can answer - and registering
+        # it would be an infra edit and a maintainer ruling. I emitted it flat
+        # first and the null check refused the whole report; the instrument was
+        # right and this is the shape its own precedent already prescribes.
+        **_area_ceiling_block(blocks),
         **_area_error_decomposition(
             sum_var=_sum("area_dispersion", "sum_var") * factor,
             sum_sq_err=_sum("area_dispersion", "sum_sq_err"),
@@ -1787,6 +1843,39 @@ def _pool_mask(blocks: Sequence[Mapping[str, Any]], n_members: int) -> dict[str,
         **cal_block,
         **_pool_iou_terms(blocks, iou_n),
     }
+
+
+def _area_ceiling_block(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """[M37] The pooled ceiling TERM, nested so it cannot be read as a criterion."""
+    return {
+        "area_dispersion_ceiling_terms": {
+            "sum_mean_square": _pool_area_mean_square(blocks),
+            "note": (
+                "DIAGNOSTIC TERM, not a criterion and not rankable. With `sum_var` "
+                "and `sum_sq_err` beside it, a MEAN-PRESERVING multiplicative "
+                "inflation of every member's area by variance v gives "
+                "adr' = sqrt(adr^2 (1+v) + factor * v * sum_mean_square / "
+                "sum_sq_err). `None` means at least one pooled window predates the "
+                "statistic, never that the term is zero - a zero would SHRINK the "
+                "ceiling, which is the flattering direction."
+            ),
+        }
+    }
+
+
+def _pool_area_mean_square(blocks: Sequence[Mapping[str, Any]]) -> float | None:
+    """[M37] Pool ``sum_mean_square`` over windows, or ``None`` if any block lacks it.
+
+    ``None`` rather than a partial sum, for the reason
+    :func:`_pool_area_dispersion_by_horizon` gives one line above: a run record
+    written before this statistic existed has no such sum, and inventing a zero
+    would make an ABSENT ceiling look like an attainable one of zero width -
+    which is the flattering direction.
+    """
+    per_block = [b.get("area_dispersion", {}) for b in blocks]
+    if not per_block or any("sum_mean_square" not in b for b in per_block):
+        return None
+    return float(sum(float(b["sum_mean_square"]) for b in per_block))
 
 
 def _pool_area_dispersion_by_horizon(

@@ -31,6 +31,7 @@ import yaml
 
 import cited_paths  # tools/cited_paths.py, via `pythonpath` in pyproject.toml
 import commit_guard  # tools/commit_guard.py, same route
+import evidence  # tools/evidence.py, same route - ONE spelling, see I33
 import isolated_suite  # tools/isolated_suite.py, same route
 import mutation  # tools/mutation.py, same route
 import prose_scan  # tools/prose_scan.py, same route
@@ -454,7 +455,12 @@ def _tracked_files() -> list[str]:
 #: an exemption wearing a burn-down list's clothes: nobody could ever retire it.
 #: The exclusion is therefore explicit, narrow, and MEASURED by
 #: `test_the_artifact_exclusion_is_narrow_and_is_not_hiding_a_growing_population`.
-ARTIFACT_PREFIX = "runs/"
+#: [I33] The prefix is no longer the rule; it is one CLAUSE of the rule, and the
+#: rule now lives in `tools/evidence.py` where all three scanners read it. This
+#: name is kept only so the pin below can still say what it is pinning. Keeping a
+#: private copy of the predicate is what let the citation scanners and this scan
+#: disagree about the same file for the length of one commit.
+ARTIFACT_PREFIX = evidence.EVIDENCE_PREFIXES[0]
 
 
 def tells_in(text: str) -> list[str]:
@@ -473,7 +479,7 @@ def scan_tracked_artifacts() -> dict[str, int]:
     """``{artifact: number of tells}`` for the tracked evidence the scan excludes."""
     counts: dict[str, int] = {}
     for rel in _tracked_files():
-        if not rel.startswith(ARTIFACT_PREFIX):
+        if not evidence.is_evidence(rel):
             continue
         path = repo_root() / rel
         if not path.is_file():
@@ -489,8 +495,8 @@ def scan_tracked_tree() -> dict[str, int]:
     """``{relative path: number of tells}``, for every tracked file with at least one."""
     counts: dict[str, int] = {}
     for rel in _tracked_files():
-        if rel.startswith(ARTIFACT_PREFIX):
-            continue  # evidence, not a reading surface: see ARTIFACT_PREFIX
+        if evidence.is_evidence(rel):
+            continue  # evidence, not a reading surface: see tools/evidence.py
         path = repo_root() / rel
         if not path.is_file():  # a submodule or a broken link
             continue
@@ -697,14 +703,21 @@ def test_the_artifact_exclusion_is_narrow_and_is_not_hiding_a_growing_population
     tracked evidence fails here even though it is excluded from the gate, and a
     tell that disappears fails too, because evidence is not supposed to change.
     """
+    # [I33] The guard is now on the WHOLE tier, not just its prefix clause: the
+    # exclusion can widen by declaring a file as well as by moving a prefix, and
+    # a guard that only watched the prefix would not have seen the second.
     assert ARTIFACT_PREFIX == "ru" + "ns/", "the exclusion has moved off tracked evidence"
+    assert set(evidence.EVIDENCE_FILES) == {
+        "reports/figures/s14g5/creek_cost_projection.json",
+        "reports/figures/s16/creek_episode.json",
+    }, f"the evidence tier has changed shape: {sorted(evidence.EVIDENCE_FILES)}"
     excluded = scan_tracked_artifacts()
     assert excluded == {"runs/u0b.json": 1}, (
         "the tells inside tracked evidence have changed. This population is FROZEN: "
         f"the records may not be edited to look better. Measured {excluded}."
     )
     # ...and the exclusion really is what is keeping it out of the gate.
-    assert not any(rel.startswith(ARTIFACT_PREFIX) for rel in scan_tracked_tree())
+    assert not any(evidence.is_evidence(rel) for rel in scan_tracked_tree())
     assert new_or_grown_tells(scan_tracked_tree()) == []
 
 

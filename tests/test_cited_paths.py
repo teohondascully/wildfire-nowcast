@@ -35,8 +35,7 @@ from types import ModuleType
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tools import cited_paths as C  # noqa: E402
-
+import cited_paths as C  # noqa: E402
 from wildfire_nowcast.common.paths import repo_root  # noqa: E402
 
 
@@ -114,7 +113,7 @@ def test_the_debt_is_owned_by_other_leads_and_infra_has_none() -> None:
 def test_a_planted_citation_is_reported_by_the_real_walk(tmp_path: Path) -> None:
     """Plant one in a repository the scan has never read, and read the verdict."""
     root = _throwaway_repo(tmp_path, f'"""Reads ``{_SPECIMEN_DEEP}``."""\n')
-    enum = C.enumerate_references(root, declared={}, debt={})
+    enum = C.enumerate_references(root, declared={}, debt={}, evidence={})
     problems = "\n".join(enum.problems)
     assert "module.py" in problems, problems
     assert [r.resolution for r in enum.references] == ["unresolved"], enum.references
@@ -131,7 +130,7 @@ def test_a_citation_of_a_tracked_file_is_not_reported(tmp_path: Path) -> None:
     target.parent.mkdir(parents=True)
     target.write_text("x = 1\n")
     subprocess.run(["git", "add", _SPECIMEN_SHALLOW], cwd=root, check=True)
-    enum = C.enumerate_references(root, declared={}, debt={})
+    enum = C.enumerate_references(root, declared={}, debt={}, evidence={})
     assert enum.problems == [], "\n".join(enum.problems)
     assert [r.resolution for r in enum.references] == ["tracked"], enum.references
 
@@ -148,7 +147,7 @@ def test_a_path_relative_to_a_subtree_resolves_by_SUFFIX(tmp_path: Path) -> None
     (root / _SPECIMEN_INNER_DEEP).parent.mkdir(parents=True)
     (root / _SPECIMEN_INNER_DEEP).write_text("x = 1\n")
     subprocess.run(["git", "add", _SPECIMEN_INNER_DEEP], cwd=root, check=True)
-    enum = C.enumerate_references(root, declared={}, debt={})
+    enum = C.enumerate_references(root, declared={}, debt={}, evidence={})
     by_token = {r.token: r.resolution for r in enum.references}
     assert by_token[_SPECIMEN_INNER] == "suffix", by_token
     assert by_token[_SPECIMEN_INNER_GONE] == "unresolved", by_token
@@ -431,7 +430,7 @@ def test_the_failure_NAMES_THE_LINE_and_says_git_add_when_the_file_is_merely_unt
     real.parent.mkdir(parents=True, exist_ok=True)
     real.write_text("# written, not yet added\n")
 
-    problems = "\n".join(C.enumerate_references(root, declared={}, debt={}).problems)
+    problems = "\n".join(C.enumerate_references(root, declared={}, debt={}, evidence={}).problems)
 
     assert "module.py:1" in problems, (
         f"the citing LINE is not named, so the reader still has to grep for it:\n{problems}"
@@ -457,7 +456,7 @@ def test_a_citation_of_something_that_does_NOT_exist_keeps_the_general_advice(
     token = _invented("pkg/never_written", ".py")
     root = _throwaway_repo(tmp_path, f'"""Builds ``{token}``."""\n')
 
-    problems = "\n".join(C.enumerate_references(root, declared={}, debt={}).problems)
+    problems = "\n".join(C.enumerate_references(root, declared={}, debt={}, evidence={}).problems)
 
     assert f"cites `{token}`" in problems, problems
     assert "git add" not in problems, (
@@ -485,7 +484,7 @@ def test_the_remedy_reads_the_disk_but_the_VERDICT_still_comes_from_the_index(
     real.parent.mkdir(parents=True, exist_ok=True)
     real.write_text("# on disk, absent from the index\n")
 
-    enum = C.enumerate_references(root, declared={}, debt={})
+    enum = C.enumerate_references(root, declared={}, debt={}, evidence={})
     assert [r.resolution for r in enum.references] == ["unresolved"], (
         "a file that exists on disk but not in the index was treated as resolved. The "
         "remedy lookup has leaked into the verdict and the check now passes for whoever "

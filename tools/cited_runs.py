@@ -72,6 +72,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import NamedTuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from evidence import is_evidence  # noqa: E402
+
 #: The only shape assumption in this module: the literal segment, then the
 #: maximal run of characters a POSIX path may use. No extension, no depth, no
 #: character class narrower than "what a path is made of".
@@ -161,7 +165,7 @@ def assembled_sites(root: Path | None = None) -> list[AssemblySite]:
     base = root or Path(__file__).resolve().parents[1]
     out: list[AssemblySite] = []
     for rel in tracked_files(base):
-        if rel.startswith("runs/"):
+        if is_evidence(rel):
             continue
         path = base / rel
         if not path.is_file():
@@ -202,8 +206,14 @@ class Citation:
 
     @property
     def from_source(self) -> bool:
-        """Cited by at least one tracked file that is not itself under ``runs/``."""
-        return any(not c.startswith("runs/") for c in self.citers)
+        """Cited by at least one tracked file that is not itself EVIDENCE.
+
+        [I33] Was ``not c.startswith("runs/")``. The reasoning was right and the
+        KEY was wrong: whether a file carries citation obligations is a property
+        of the file, not of the directory it happens to sit in. See
+        :mod:`tools.evidence`.
+        """
+        return any(not is_evidence(c) for c in self.citers)
 
     @property
     def kind(self) -> str:

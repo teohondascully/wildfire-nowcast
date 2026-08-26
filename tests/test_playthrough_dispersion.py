@@ -672,7 +672,8 @@ PLAYTHROUGH = PT.Playthrough(
             "which stays inside tolerance at c=1 (|dup-cf| 0.070-0.075 vs 0.100) and at c=0.25 "
             "(0.023-0.027 vs 0.100) but NOT at c=4 (0.239-0.248 vs 0.184), where the clean "
             "case's own sampling shortfall has already spent ~60% of the budget. The practical "
-            "warning is unchanged and is now sharper: G3's bar is [0.8, 1.2], i.e. c ~ 1, which "
+            "warning is unchanged and is now sharper: G3's bar sits at c ~ 1 on either "
+            "reading of it, the superseded one or the geometric one, which "
             "is EXACTLY the regime where this metric cannot see member duplication.",
         ),
     ),

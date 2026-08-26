@@ -28,8 +28,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tools import cited_runs as C  # noqa: E402
-
+import cited_runs as C  # noqa: E402
 from wildfire_nowcast.common.paths import repo_root  # noqa: E402
 
 #: What the tree is expected to hold. Both halves are pinned: a citation that
@@ -193,7 +192,13 @@ def _source_file_tokens(pattern: re.Pattern[str]) -> set[str]:
     base = repo_root()
     out: set[str] = set()
     for rel in C.tracked_files(base):
-        if rel.startswith("runs/"):
+        if C.is_evidence(rel):
+            # [I33] Was `rel.startswith("runs/")` - a FOURTH copy of the rule,
+            # in the very file that measures it. It kept the old prefix answer
+            # while the scanners moved to `tools.evidence`, so this helper read
+            # newly-tracked EVIDENCE as source and reported 17 where the
+            # scanners read 15. A test carrying its own copy of the rule it
+            # checks does not verify the rule, it shadows it.
             continue
         path = base / rel
         if not path.is_file():

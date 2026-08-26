@@ -1,0 +1,46 @@
+{
+ "quantity": "projected ELMFIRE CPU cost of 2020_creek (block 4) at the S14/G5 pre-registered setting",
+ "setting": {
+  "stride": 16,
+  "n_members": 4,
+  "horizon_h": 3,
+  "seed": 20260807,
+  "n_creek_windows": 98,
+  "simulation_dt_s": 1.0,
+  "refine": 33,
+  "crown_fire": true
+ },
+ "anchors_measured": [
+  {
+   "t0": 36,
+   "s_per_member": 135.0,
+   "source": "E1 runs/e1_rows_2020_creek.partial.jsonl, mean over t0 in [2,70] at 2 members, uncontended"
+  },
+  {
+   "t0": 124,
+   "s_per_member": 385.0,
+   "source": "E1 declared_deviations_from_elmfire_defaults, MAX_RUNTIME entry, quoted verbatim"
+  },
+  {
+   "t0": 200,
+   "s_per_member": 480.2,
+   "source": "S14, 1 member, measured here, machine load ~20"
+  }
+ ],
+ "lower_bound_observation": {
+  "t0": 800,
+  "s_per_member_at_least": 1060.0,
+  "source": "S14, 1 member, KILLED at 17m45s wall including ~1 min domain-stack load; a LOWER BOUND, not a measurement"
+ },
+ "linear_fit_s_per_member": {
+  "slope_per_hour_of_t0": 2.1241,
+  "intercept": 78.51,
+  "at_t0_1570": 3413.4
+ },
+ "projected_mean_s_per_member": 1745.9,
+ "projected_total_cpu_seconds": 684406.0,
+ "projected_total_cpu_hours": 190.1,
+ "projected_total_cpu_days": 7.92,
+ "status": "PROJECTION, not a measurement. Three anchors, all at t0 <= 200, extrapolated to 1570. The lower-bound observation at t0=800 is CONSISTENT with the fit (fit says 1706 s, observed >1060 s) but does not confirm the slope.",
+ "for_comparison_other_four_blocks_measured_cpu_seconds": "see reports/figures/s14g5/precompute_4blocks.json"
+}

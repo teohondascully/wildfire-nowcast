@@ -1846,6 +1846,111 @@ def check_the_tracked_reference_fit_is_a_latent_bearing_c5_address() -> Check:
     )
 
 
+def check_area_mean_square_is_additive_and_above_its_cauchy_schwarz_floor() -> Check:
+    """[M37 / ADR-187 (A)] The ceiling term is a SUM, and its floor is the one M36 used.
+
+    ``sum_mean_square`` exists so that the mean-preserving inflation ceiling
+
+        adr'^2 = adr^2 (1 + v) + factor * v * sum_mean_square / sum_sq_err
+
+    is a MEASUREMENT rather than an estimate. Three properties carry that, and
+    all three are asserted here because M36's refutation named its own falsifier
+    in terms of this quantity and a falsifier that is not checkable is decoration:
+
+    * **ADDITIVE over windows** - the pooled value equals the sum of the
+      per-window values, so a ceiling read off a stored per-block record is the
+      same number as one read off the whole corpus.
+    * **ABOVE ITS CAUCHY-SCHWARZ FLOOR** ``n * mean^2``, with equality only when
+      every scored (window, lead) carries the same mean area. M36 used that floor
+      as its most conservative reading; if the shipped statistic could fall below
+      it, that reading would have been unsound rather than conservative.
+    * **ABSENT means None, never 0.0.** A record written before this statistic
+      existed must pool to ``None``. Zero is the flattering direction here: a
+      ceiling computed with ``sum_mean_square = 0`` collapses to
+      ``adr * sqrt(1+v)``, which is SMALLER, so a silent zero would manufacture a
+      kill rather than a rescue - and a check that only guards the direction
+      against you is half a check.
+    """
+    rng = np.random.default_rng(37)
+    shape = (12, 12)
+    x0 = np.zeros(shape, np.uint8)
+    x0[5:7, 5:7] = 1
+    truth = np.repeat(x0[None], 3, axis=0)
+    truth[1, 4:8, 4:8] = 1
+    truth[2, 3:9, 3:9] = 1
+    windows = []
+    for k in range(4):
+        samples = np.repeat(truth[None], 8, axis=0).copy()
+        samples[rng.random(samples.shape) < 0.04 * (k + 1)] = 1
+        samples = np.maximum.accumulate(samples, axis=1)
+        windows.append(evaluate(samples, truth, x0=x0))
+
+    pools = [w["_pool"]["by_mask"]["domain"] for w in windows]
+    hand = float(sum(float(p["area_dispersion"]["sum_mean_square"]) for p in pools))
+    pooled = aggregate(windows)["by_mask"]["domain"]["area_dispersion_ceiling_terms"][
+        "sum_mean_square"
+    ]
+    additive_error = abs(hand - float(pooled))
+
+    n = int(sum(int(p["area_dispersion"]["n"]) for p in pools))
+    mean_area = (
+        float(sum(float(p["area_dispersion"]["sum_truth"]) for p in pools))
+        + float(sum(float(p["area_dispersion"]["sum_signed"]) for p in pools))
+    ) / n
+    floor = n * mean_area**2
+    # A DEGENERATE construction where the bound is TIGHT, so "above the floor"
+    # is not passing merely because the floor is far away: one window, one lead,
+    # every mean area equal by construction.
+    one = truth[:1]
+    flat = evaluate(np.repeat(one[None], 8, axis=0), one, x0=x0, leads=(1,))
+    flat_pool = flat["_pool"]["by_mask"]["domain"]["area_dispersion"]
+    flat_n = int(flat_pool["n"])
+    flat_mean = (float(flat_pool["sum_truth"]) + float(flat_pool["sum_signed"])) / flat_n
+    flat_gap = float(flat_pool["sum_mean_square"]) - flat_n * flat_mean**2
+
+    stripped = aggregate(
+        [
+            {
+                **w,
+                "_pool": {
+                    **w["_pool"],
+                    "by_mask": {
+                        m: {
+                            **blk,
+                            "area_dispersion": {
+                                k: v
+                                for k, v in blk["area_dispersion"].items()
+                                if k != "sum_mean_square"
+                            },
+                        }
+                        for m, blk in w["_pool"]["by_mask"].items()
+                    },
+                },
+            }
+            for w in windows
+        ]
+    )["by_mask"]["domain"]["area_dispersion_ceiling_terms"]["sum_mean_square"]
+
+    ok = additive_error < 1e-9 and hand > floor and abs(flat_gap) < 1e-9 and stripped is None
+    return Check(
+        "area_mean_square_is_additive_and_above_its_cauchy_schwarz_floor",
+        ok,
+        "sum_mean_square pools by addition, sits strictly above n*mean^2 on a "
+        "heterogeneous pool and exactly ON it when every mean area is equal, and a "
+        "record written before the statistic existed pools to None rather than to a "
+        "zero that would shrink the ceiling",
+        {
+            "hand_summed": hand,
+            "pooled_by_aggregate": pooled,
+            "additive_error": additive_error,
+            "cauchy_schwarz_floor": floor,
+            "margin_above_floor": hand - floor,
+            "tight_case_gap": flat_gap,
+            "pooled_when_absent": stripped,
+        },
+    )
+
+
 def check_area_dispersion_by_horizon_recombines_to_the_pooled_criterion() -> Check:
     """[M22] G3's dispersion half now HAS a per-lead form, and it is exact.
 
@@ -4783,6 +4888,7 @@ CHECKS: tuple[Callable[[], Check], ...] = (
     check_the_ablation_arm_is_loadable_by_name,
     check_a_look_alike_ablation_is_refused_and_a_vacuous_one_cannot_be_scored,
     check_the_tracked_reference_fit_is_a_latent_bearing_c5_address,
+    check_area_mean_square_is_additive_and_above_its_cauchy_schwarz_floor,
     check_area_dispersion_by_horizon_recombines_to_the_pooled_criterion,
     check_elbo_kl_is_scaled_like_its_reconstruction_term,
     check_latent_spec_round_trips_and_absence_means_absence,

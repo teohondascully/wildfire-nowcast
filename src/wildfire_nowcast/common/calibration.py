@@ -109,8 +109,12 @@ on its own family: a model predicting ``p = observed rate of ring r`` inside rin
 bug to be patched, it is the limit of what "calibrated" can mean, and it is the
 same shape as A7's "a range clause cannot catch a units error inside the range".
 It is why G3 is a CONJUNCTION: the dispersion half
-(``area_dispersion_ratio`` ∈ [0.8, 1.2]) and the collapse ablation reject exactly
-the forecasts this term cannot see. Do not read this number alone as capability.
+(``area_dispersion_ratio`` inside :data:`~wildfire_nowcast.common.dispersion.BAR_INTERVAL`)
+and the collapse ablation reject exactly the forecasts this term cannot see. That
+bar is NAMED rather than spelled, and the reason is this very sentence: it read
+``[0.8, 1.2]`` from before ADR-039 replaced the bar until I33 found it, in the
+one package whose whole purpose is to be the single implementation of what the
+contract adjudicates. Do not read this number alone as capability.
 
 MODEL-AGNOSTIC BY CONSTRUCTION
 ------------------------------

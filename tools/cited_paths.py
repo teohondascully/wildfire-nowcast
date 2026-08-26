@@ -96,9 +96,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
+# [I33] ONE SPELLING FOR EACH TOOLING MODULE, PROJECT-WIDE, and it is the bare
+# one because `pythonpath` in pyproject.toml already publishes it and mypy
+# refuses a file reachable under two module names. Before I33 the tools imported
+# each other bare while the tests imported them as `tools.x`, so one file was
+# TWO module objects: `cited_paths.RUNS_EXEMPT is cited_runs.EXEMPT` was False.
+# Two objects for one file is the duplication C0 forbids, and it is invisible
+# until something compares identity or patches one of them - which is exactly
+# what the evidence tier needs to do.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cited_runs import EXEMPT as RUNS_EXEMPT  # noqa: E402
+from evidence import (  # noqa: E402
+    EVIDENCE_FILES,
+    EVIDENCE_PREFIXES,
+    evidence_problems,
+    is_evidence,
+)
 
 #: The only shape assumption: a run of characters a POSIX path may use, holding
 #: at least one ``/``. Deliberately wider than any directory this repository
@@ -575,6 +589,7 @@ def enumerate_references(
     *,
     declared: dict[tuple[str, str], str] | None = None,
     debt: dict[str, int] | None = None,
+    evidence: dict[str, str] | None = None,
 ) -> Enumeration:
     """Walk the tracked tree, resolve every path-like token against the git index.
 
@@ -585,6 +600,7 @@ def enumerate_references(
     """
     pairs = _declared_pairs() if declared is None else declared
     pinned = DEBT if debt is None else debt
+    ev = dict(EVIDENCE_FILES) if evidence is None else evidence
     files = tracked_files(root)
     tracked = set(files)
     suffixes = _suffix_index(files)
@@ -596,13 +612,18 @@ def enumerate_references(
         path = root / rel
         if not path.is_file():
             continue
-        if rel.startswith("runs/"):
+        if is_evidence(rel, ev):
             # ARTIFACT TIER, excluded and counted. A tracked run record is
             # EVIDENCE: the paths inside it are what that run read and wrote,
             # written by the code, and they may not be edited to look better.
             # `tools/cited_runs.py` draws the same line for the same reason. It
             # is the public READING surface that carries citation obligations,
             # and a machine-written record is not one.
+            # [I33] The reasoning above is unchanged and the KEY is not: this
+            # was `rel.startswith("runs/")`, which answers a question about a
+            # file by asking where it lives. `tools.evidence.is_evidence` is now
+            # the single answer, and the tier charges rent - see
+            # `evidence_problems`, appended to `problems` below.
             artifact_tier += sum(1 for _ in tokens_in(path.read_bytes().decode("utf-8", "replace")))
             continue
         text = path.read_bytes().decode("utf-8", errors="replace")
@@ -637,6 +658,14 @@ def enumerate_references(
 
     enum.problems.extend(_audit_debt(undeclared, pinned, unresolved_detail, untracked_files(root)))
     enum.problems.extend(_audit_declarations(pairs, set(found)))
+    # [I33] The evidence tier charges rent. Excluding a file from the citer walk
+    # is a CLASSIFICATION, not a dispensation, so the three obligations are
+    # checked on the same walk that grants the exclusion - never separately,
+    # where one could be run and the other forgotten.
+    citers_of: dict[str, list[str]] = {}
+    for citer, token in found:
+        citers_of.setdefault(token, []).append(citer)
+    enum.problems.extend(evidence_problems(tracked, citers_of, ev))
     return enum
 
 
@@ -749,9 +778,17 @@ def report(enum: Enumeration) -> str:
     )
     lines.append(
         f"EXCLUDED, ARTIFACT TIER: {enum.artifact_tier} path token(s) inside tracked "
-        "runs/ records. Machine-written evidence of what a run read and wrote, not a "
+        "EVIDENCE. Machine-written records of what a run read and wrote, not a "
         "reading surface, and not editable to look better."
     )
+    lines.append(
+        f"    the tier is {len(EVIDENCE_PREFIXES)} prefix(es) {list(EVIDENCE_PREFIXES)} plus "
+        f"{len(EVIDENCE_FILES)} individually declared file(s). Each declared file must be "
+        "TRACKED, must not be source, and must be CITED by a non-evidence file; all three "
+        "are enforced above, not described here."
+    )
+    for rel in sorted(EVIDENCE_FILES):
+        lines.append(f"        {rel}")
     lines.append(
         f"EXCLUDED, BARE FILENAME TIER: {enum.bare_tier} token(s) with no directory "
         "component, MEASURED here rather than described. Two subclasses of it are "
